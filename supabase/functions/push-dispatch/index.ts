@@ -51,10 +51,37 @@ Deno.serve(async (request) => {
         shift_closed: 'Se cerró un turno. Abrí Cajas y turnos para consultar el resumen.',
         test: 'Este dispositivo ya puede recibir avisos de tu comercio.',
       };
+      let notificationBody = bodies[job.kind] || 'Tenés novedades en tu comercio.';
+      if (job.kind === 'low_stock') {
+        try {
+          if (typeof db.from === 'function') {
+            const table = db.from('retail_products');
+            if (table && typeof table.select === 'function') {
+              const { data: prods } = await table
+                .select('name, stock, min_stock')
+                .eq('store_id', job.store_id)
+                .eq('active', true)
+                .order('stock', { ascending: true })
+                .limit(20);
+              const critical = (prods || []).filter((p: any) => typeof p?.stock === 'number' && typeof p?.min_stock === 'number' && p.stock <= p.min_stock);
+              if (critical.length === 1) {
+                notificationBody = `Bajo stock: ${critical[0].name} (quedan ${critical[0].stock} u., mín. ${critical[0].min_stock}).`;
+              } else if (critical.length > 1 && critical.length <= 3) {
+                notificationBody = `Bajo stock: ${critical.map((p: any) => `${p.name} (${p.stock} u.)`).join(', ')}.`;
+              } else if (critical.length > 3) {
+                const sample = critical.slice(0, 2).map((p: any) => `${p.name} (${p.stock} u.)`).join(', ');
+                notificationBody = `Bajo stock: ${sample} y ${critical.length - 2} productos más.`;
+              }
+            }
+          }
+        } catch {
+          // safe fallback
+        }
+      }
       try {
-        // No amounts, product names or customer details on a locked screen.
+        // Enviar aviso web push con detalle de productos críticos
         await webpush.sendNotification({ endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
-          JSON.stringify({ title: titles[job.kind], body: bodies[job.kind], tag: `${job.store_id}:${job.kind}`,
+          JSON.stringify({ title: titles[job.kind], body: notificationBody, tag: `${job.store_id}:${job.kind}`,
             storeId: job.store_id, view: job.kind === 'low_stock' ? 'catalog' : job.kind === 'shift_closed' ? 'cash' : 'settings' }),
           { vapidDetails, TTL: 3600, urgency: 'normal', timeout: 8000 });
         await finish({ sent_at: new Date().toISOString(), locked_at: null, last_error: null });

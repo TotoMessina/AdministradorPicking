@@ -21,6 +21,13 @@ body { overflow-y: auto; user-select: text; }
 .push-preferences small { color: var(--tone-muted); margin-top: 4px; }
 .push-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
 .push-settings .push-note { font-size: 12px; margin-top: 18px; }
+.push-welcome-backdrop { position: fixed; inset: 0; z-index: 1100; display: grid; place-items: center; padding: 20px; background: color-mix(in srgb, var(--tone-ink) 38%, transparent); }
+.push-welcome { width: min(100%, 440px); max-height: calc(100dvh - 40px); overflow-y: auto; padding: 28px; border-radius: 20px; border: 1px solid var(--tone-border); background: var(--tone-surface); box-shadow: var(--shadow-lg); }
+.push-welcome-icon { display: grid; place-items: center; width: 56px; height: 56px; border-radius: 16px; background: var(--tone-soft); color: var(--tone-accent); margin-bottom: 18px; }
+.push-welcome h2 { font-size: 23px; line-height: 1.25; color: var(--tone-ink); margin-bottom: 12px; }
+.push-welcome p { color: var(--tone-text); line-height: 1.65; }
+.push-welcome .push-welcome-note { color: var(--tone-muted); font-size: 12px; margin-top: 12px; }
+.push-welcome-actions { display: flex; flex-direction: column; gap: 10px; margin-top: 22px; }
 button, summary { user-select: none; }
 [hidden] { display: none !important; }
 .retail-app { background: var(--bg-app); font-size: 14px; line-height: 1.5; }

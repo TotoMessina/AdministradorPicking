@@ -32,6 +32,25 @@ export async function savePush(storeId: string, subscription: PushSubscription, 
   if (error) throw error;
 }
 
+// Call from a click handler: permission is requested before the first await.
+export async function activatePush(storeId: string, lowStock = true, shiftClosed = true) {
+  const permission = Notification.permission === 'granted'
+    ? 'granted' : await Notification.requestPermission();
+  if (permission !== 'granted') return null;
+  const registration = await pushRegistration();
+  let current = await registration.pushManager.getSubscription();
+  const key = applicationServerKey(vapidPublicKey);
+  if (current?.options.applicationServerKey &&
+    Array.from(new Uint8Array(current.options.applicationServerKey)).join() !== Array.from(key).join()) {
+    await removePush(current); current = null;
+  }
+  const created = !current;
+  current ||= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
+  try { await savePush(storeId, current, lowStock, shiftClosed); }
+  catch (error) { if (created) await current.unsubscribe(); throw error; }
+  return current;
+}
+
 export async function removePush(subscription: PushSubscription) {
   const { error } = await supabase.rpc('retail_remove_push', { p_endpoint: subscription.endpoint });
   if (error) throw error;

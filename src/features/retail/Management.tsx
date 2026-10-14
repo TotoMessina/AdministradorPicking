@@ -1200,6 +1200,15 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             <div className="stock-ai-actions">
               <button
                 type="button"
+                className={`secondary-button ${stockFilter ? "active" : ""}`}
+                onClick={() => setStockFilter((prev) => !prev)}
+                title={stockFilter ? "Mostrar todos los productos" : "Filtrar tabla para ver solo los productos críticos"}
+              >
+                <Filter size={15} />
+                <span>{stockFilter ? "Ver todos" : `Ver solo bajo stock (${criticalProducts.length})`}</span>
+              </button>
+              <button
+                type="button"
                 className="primary-button stock-ai-analyze-btn"
                 disabled={busy || isAnalyzingStock}
                 onClick={handleAnalyzeCriticalStock}

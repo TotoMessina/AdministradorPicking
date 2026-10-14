@@ -3,7 +3,7 @@ import { Bell, BellOff, Send } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { PwaStatus } from '../../components/PwaStatus';
 import { errorMessage } from './api';
-import { applicationServerKey, isInstalled, isIosDevice, pushRegistration, pushSupported, removePush, savePush, vapidPublicKey } from './push';
+import { activatePush, isInstalled, isIosDevice, pushRegistration, pushSupported, removePush, savePush, vapidPublicKey } from './push';
 
 export function PushSettings({ storeId, userId }: { storeId: string; userId: string }) {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
@@ -59,22 +59,10 @@ export function PushSettings({ storeId, userId }: { storeId: string; userId: str
   function enable() {
     // Request directly from the button gesture, before any network call (iOS).
     if (running.current) return;
-    const permissionRequest = Notification.requestPermission();
     void perform(async () => {
-      const result = await permissionRequest;
-      setPermission(result);
-      if (result !== 'granted') { setMessage('Los avisos siguen desactivados. Podés habilitarlos desde los permisos del navegador.'); return; }
-      const registration = await pushRegistration();
-      let current = await registration.pushManager.getSubscription();
-      const key = applicationServerKey(vapidPublicKey);
-      if (current?.options.applicationServerKey &&
-        Array.from(new Uint8Array(current.options.applicationServerKey)).join() !== Array.from(key).join()) {
-        await removePush(current); current = null;
-      }
-      const created = !current;
-      current ||= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-      try { await savePush(storeId, current, lowStock, shiftClosed); }
-      catch (e) { if (created) await current.unsubscribe(); throw e; }
+      const current = await activatePush(storeId, lowStock, shiftClosed);
+      setPermission(Notification.permission);
+      if (!current) { setMessage('Los avisos siguen desactivados. Podés habilitarlos desde los permisos del navegador.'); return; }
       setSubscription(current); setEnabled(true); setMessage('Avisos activados para este comercio y este dispositivo.');
     });
   }

@@ -41,6 +41,7 @@ import { SalesOverview } from './SalesOverview';
 import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
 import { disconnectPushOnLogout, initialPushIntent, readPushIntent } from './push';
+import { PushWelcome } from './PushWelcome';
 type Tab = "pos" | "cash" | "catalog" | "settings" | "ai";
 export function RetailApp({ session }: { session: Session }) {
   const [stores, setStores] = useState<Store[]>([]);
@@ -49,6 +50,8 @@ export function RetailApp({ session }: { session: Session }) {
   const [error, setError] = useState("");
   const [creating, setCreating] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [pushWelcomeDone, setPushWelcomeDone] = useState(false);
+  const finishPushWelcome = useCallback(() => setPushWelcomeDone(true), []);
   const load = useCallback(async () => {
     setLoading(true);
     setError("");
@@ -100,6 +103,8 @@ export function RetailApp({ session }: { session: Session }) {
           setStores(rows);
         }}
         onSignOut={signOut}
+        pushWelcomeDone={pushWelcomeDone}
+        onPushWelcomeDone={finishPushWelcome}
       />
     );
   return (
@@ -189,6 +194,8 @@ function Workspace({
   onCreate,
   onStores,
   onSignOut,
+  pushWelcomeDone,
+  onPushWelcomeDone,
 }: {
   session: Session;
   store: Store;
@@ -197,6 +204,8 @@ function Workspace({
   onCreate: () => void;
   onStores: () => Promise<void>;
   onSignOut: () => Promise<void>;
+  pushWelcomeDone: boolean;
+  onPushWelcomeDone: () => void;
 }) {
   const { notify } = useToast();
   const [role, setRole] = useState<Role>("cashier");
@@ -302,6 +311,49 @@ function Workspace({
       generation.current++;
     };
   }, [refresh]);
+
+  // Detección en tiempo real de productos que caen en bajo stock tras ventas o ajustes
+  const prevLowStockIdsRef = useRef<Set<string> | null>(null);
+  useEffect(() => {
+    if (!products.length) return;
+    const currentLowStock = products.filter((p) => p.active && p.stock <= p.minStock);
+
+    if (prevLowStockIdsRef.current === null) {
+      // Inicialización silenciosa al cargar el comercio
+      prevLowStockIdsRef.current = new Set(currentLowStock.map((p) => p.id));
+      return;
+    }
+
+    // Identificar productos que entraron a bajo stock en esta actualización
+    const newlyEntered = currentLowStock.filter(
+      (p) => !prevLowStockIdsRef.current!.has(p.id),
+    );
+
+    if (newlyEntered.length > 0) {
+      if (newlyEntered.length === 1) {
+        notify(
+          "warning",
+          `⚠️ Revisá el stock: "${newlyEntered[0].name}" llegó al nivel mínimo (quedan ${newlyEntered[0].stock} u., mín. ${newlyEntered[0].minStock}).`,
+        );
+      } else if (newlyEntered.length <= 3) {
+        const list = newlyEntered
+          .map((p) => `"${p.name}" (${p.stock} u.)`)
+          .join(", ");
+        notify("warning", `⚠️ Entraron a bajo stock: ${list}.`);
+      } else {
+        const sample = newlyEntered
+          .slice(0, 2)
+          .map((p) => `"${p.name}" (${p.stock} u.)`)
+          .join(", ");
+        notify(
+          "warning",
+          `⚠️ ${newlyEntered.length} nuevos productos entraron a bajo stock: ${sample} y más.`,
+        );
+      }
+    }
+
+    prevLowStockIdsRef.current = new Set(currentLowStock.map((p) => p.id));
+  }, [products, notify]);
   const activeShiftId = shift?.id;
   const refreshLedger = useCallback(async () => {
     if (!activeShiftId) {
@@ -443,12 +495,25 @@ function Workspace({
         return;
       }
       if (intent.view === 'cash') setCashView('overview');
-      if (intent.view === 'catalog') setCatalogView('products');
+      if (intent.view === 'catalog') {
+        setCatalogView('products');
+        const low = products.filter((p) => p.active && p.stock <= p.minStock);
+        if (low.length > 0) {
+          const list = low
+            .slice(0, 3)
+            .map((p) => `"${p.name}" (${p.stock} u.)`)
+            .join(', ');
+          notify(
+            'warning',
+            `⚠️ Revisá el stock (${low.length} en nivel crítico): ${list}${low.length > 3 ? '…' : ''}`,
+          );
+        }
+      }
       setTab(intent.view);
     };
     navigator.serviceWorker.addEventListener('message', openNotice);
     return () => navigator.serviceWorker.removeEventListener('message', openNotice);
-  }, [store.id, manager, busy, cart.length, notify]);
+  }, [store.id, manager, busy, cart.length, notify, products]);
   return (
     <div
       className={`app-shell retail-app mobile-tab-${tab}${cart.length ? " has-mobile-cart" : ""}`}
@@ -457,6 +522,8 @@ function Workspace({
       <a className="skip-link" href="#main-content">
         Ir al contenido
       </a>
+      {manager && !loading && !pushWelcomeDone && <PushWelcome
+        storeId={store.id} storeName={store.name} userId={session.user.id} onDone={onPushWelcomeDone} />}
       <header className={`app-sidebar${mobileAccountOpen ? " mobile-account-open" : ""}`}>
         <div className="brand">
           <span className="brand-mark">
