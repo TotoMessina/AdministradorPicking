@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b"/>
+      <stop offset="100%" stop-color="#ea580c"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="24" fill="url(#grad)"/>
+  <!-- Kiosk store awning & counter icon -->
+  <path d="M22 36 L78 36 L82 48 L18 48 Z" fill="#ffffff" opacity="0.95"/>
+  <path d="M22 36 L34 48 L22 48 Z" fill="#f97316"/>
+  <path d="M46 36 L58 48 L46 48 Z" fill="#f97316"/>
+  <path d="M70 36 L82 48 L70 48 Z" fill="#f97316"/>
+  <rect x="25" y="48" width="50" height="32" rx="4" fill="#ffffff"/>
+  <path d="M38 58 L62 58 M50 54 L50 68" stroke="#f59e0b" stroke-width="4" stroke-linecap="round"/>
+  <!-- Bolt icon on corner -->
+  <polygon points="68,18 78,18 74,27 82,27 66,42 70,30 64,30" fill="#ffffff"/>
+</svg>

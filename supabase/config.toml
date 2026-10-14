@@ -1,0 +1,3 @@
+[functions.push-dispatch]
+# The function verifies user JWTs or the dedicated scheduler secret itself.
+verify_jwt = false

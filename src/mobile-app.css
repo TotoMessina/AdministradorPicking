@@ -1,0 +1,118 @@
+/* Phone presentation. Desktop and tablet retain the workspace layout. */
+.mobile-account-toggle, .mobile-nav-label, .mobile-page-title { display: none; }
+
+@media screen and (max-width: 760px) {
+  .retail-app {
+    --mobile-nav-height: 66px;
+    --mobile-bottom: calc(var(--mobile-nav-height) + env(safe-area-inset-bottom));
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background: var(--tone-canvas);
+    overflow-x: clip;
+  }
+  .retail-app .app-sidebar {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 44px;
+    align-items: center;
+    gap: 0 12px;
+    position: relative;
+    height: auto;
+    width: 100%;
+    overflow: visible;
+    padding: max(12px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left));
+    background: var(--tone-surface);
+    border: 0;
+  }
+  .retail-app .brand { gap: 10px; min-width: 0; }
+  .retail-app .brand-mark { width: 36px; height: 36px; border-radius: 12px; }
+  .retail-app .store-brand-name { font-size: 16px; font-weight: 700; line-height: 1.25; }
+  .retail-app .brand-sub { margin-top: 4px; font-size: 9px; letter-spacing: 1.5px; color: var(--tone-muted); }
+  .retail-app .mobile-account-toggle { display: inline-flex; background: var(--tone-soft); border-radius: 50%; color: var(--tone-text); }
+  .retail-app .store-switch, .retail-app .sidebar-bottom { display: none; }
+  .retail-app .mobile-account-open .store-switch { display: flex; grid-column: 1 / -1; margin: 18px 0 0; }
+  .retail-app .mobile-account-open .sidebar-bottom {
+    display: flex; grid-column: 1 / -1; flex-direction: column;
+    align-items: stretch; gap: 0; padding: 12px 0 0; margin-top: 12px;
+  }
+  .retail-app .mobile-account-open .account-info { padding: 12px 4px; flex: auto; }
+  .retail-app .mobile-account-open .account-info small { display: block; }
+  .retail-app .mobile-account-open .sidebar-bottom .text-button {
+    font-size: 14px; padding: 12px 4px; border-top: 1px solid var(--tone-soft); border-radius: 0; margin: 0;
+  }
+  .retail-app .app-sidebar nav {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 100;
+    display: flex;
+    justify-content: space-around;
+    align-items: stretch;
+    gap: 0;
+    height: var(--mobile-bottom);
+    padding: 6px max(8px, env(safe-area-inset-right)) env(safe-area-inset-bottom) max(8px, env(safe-area-inset-left));
+    overflow: visible;
+    background: var(--tone-surface);
+    border-top: 1px solid var(--tone-soft);
+    box-shadow: 0 -4px 24px color-mix(in srgb, var(--tone-ink) 2.35%, transparent);
+  }
+  .retail-app .app-sidebar .nav-item {
+    flex: 1 1 0; min-width: 0; min-height: 54px;
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+    padding: 5px 1px; margin: 0; border: 0; border-radius: 14px;
+    background: transparent; color: var(--tone-muted); font-size: 10px; font-weight: 600;
+  }
+  .retail-app .app-sidebar .nav-item svg { width: 22px; height: 22px; stroke-width: 1.8; }
+  .retail-app .app-sidebar .nav-item.active { color: var(--tone-accent); background: color-mix(in srgb, var(--tone-accent) 8%, white); }
+  .retail-app .desktop-nav-label, .retail-app .desktop-page-title { display: none; }
+  .retail-app .mobile-nav-label, .retail-app .mobile-page-title { display: inline; }
+  .retail-app .main-content { padding: 20px max(16px, env(safe-area-inset-right)) calc(var(--mobile-bottom) + 32px) max(16px, env(safe-area-inset-left)); }
+  .retail-app.has-mobile-cart.mobile-tab-pos .main-content { padding-bottom: calc(var(--mobile-bottom) + 108px); }
+  .retail-app .page-heading { gap: 16px; margin-bottom: 20px; }
+  .retail-app .page-heading .eyebrow, .retail-app .page-heading > div > p { display: none; }
+  .retail-app .page-heading h1 { margin: 0; font-size: 28px; font-weight: 750; letter-spacing: -1px; line-height: 1.2; }
+  .retail-app .register-picker { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) 44px; align-items: end; gap: 8px; }
+  .retail-app .register-picker label { flex-direction: column; align-items: stretch; min-width: 0; gap: 6px; font-size: 12px; white-space: normal; }
+  .retail-app .register-picker select { width: 100%; min-width: 0; border: 0; background: var(--tone-soft); border-radius: 12px; font-size: 14px; font-weight: 600; }
+  .retail-app .register-picker .icon-button { background: var(--tone-surface); border: 1px solid var(--tone-soft); border-radius: 12px; }
+  .retail-app .catalog { gap: 14px; }
+  .retail-app .search-box { height: 52px; border: 0; border-radius: 16px; box-shadow: 0 2px 10px color-mix(in srgb, var(--tone-ink) 1.57%, transparent); }
+  .retail-app .search-box input { font-size: 16px; }
+  .retail-app .category-list { gap: 8px; padding-block: 2px 6px; scrollbar-width: none; }
+  .retail-app .category-list button { min-height: 40px; padding: 10px 16px; border-radius: 24px; border: 0; font-size: 13px; }
+  .retail-app .product-grid { gap: 12px; }
+  .retail-app .product-card { padding: 0; border: 1px solid var(--tone-soft); border-radius: 18px; box-shadow: 0 3px 12px color-mix(in srgb, var(--tone-ink) 1.18%, transparent); }
+  .retail-app .product-card:active { transform: scale(.97); }
+  .retail-app .product-card.in-cart { border-color: var(--tone-accent); }
+  .retail-app .product-art { height: 96px !important; }
+  .retail-app .product-info { padding: 12px; }
+  .retail-app .product-info h3 { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 1.4; min-height: 37px; }
+  .retail-app .product-price { gap: 4px; }
+  .retail-app .product-price strong { font-size: 17px; overflow-wrap: anywhere; }
+  .retail-app .add-product { width: 30px; height: 30px; flex-shrink: 0; border-radius: 10px; }
+  .retail-app .retail-panel, .retail-app .sale-panel { border: 1px solid var(--tone-soft); border-radius: 20px; box-shadow: 0 3px 12px color-mix(in srgb, var(--tone-ink) 1.18%, transparent); }
+  .retail-app .sale-panel { scroll-margin-top: 16px; }
+  .retail-app .retail-form input, .retail-app .retail-form select, .retail-app .inline-form input { background: var(--tone-canvas); border-color: var(--tone-soft); border-radius: 12px; min-height: 48px; }
+  .retail-app .primary-button, .retail-app .secondary-button { border-radius: 12px; min-height: 46px; }
+  .retail-app .checkout-button { min-height: 54px; font-size: 16px; }
+  .retail-app .cash-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)) !important; }
+  .retail-app .cash-metrics > div { border-radius: 16px; border-color: var(--tone-soft); padding: 16px 12px; }
+  .retail-app .cash-metrics small { line-height: 1.4; }
+  .retail-app .mobile-cart-bar {
+    bottom: calc(var(--mobile-bottom) + 10px); left: 12px; right: 12px;
+    border: 1px solid var(--tone-hover); border-radius: 18px; padding: 10px 14px;
+    background: var(--tone-surface); box-shadow: 0 6px 24px color-mix(in srgb, var(--tone-accent) 9.41%, transparent);
+  }
+  .retail-app .mobile-cart-bar-qty { font-size: 10px; }
+  .retail-app .mobile-cart-bar-total { font-size: 20px; }
+  .retail-app .mobile-cart-bar-btn { min-height: 44px; padding-inline: 20px; }
+  .retail-app .ai-omni-fab, .retail-app .ai-omni-fab.tab-pos { bottom: calc(var(--mobile-bottom) + 16px) !important; }
+  /* POS already exposes the assistant beside its product filters. */
+  .retail-app.mobile-tab-pos .ai-omni-fab { display: none; }
+  .toast-container { bottom: calc(164px + env(safe-area-inset-bottom)); }
+  .receipt-modal-backdrop { align-items: flex-end !important; padding: 0 !important; }
+  .receipt-modal-backdrop > div { max-width: 100% !important; border-radius: 24px 24px 0 0 !important; padding-bottom: env(safe-area-inset-bottom); }
+  .pwa-status { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 12px; padding-block: 8px; gap: 8px; }
+  .auth-page { background: var(--tone-canvas); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+  .auth-card { border-radius: 24px; border-color: var(--tone-soft); box-shadow: 0 8px 32px color-mix(in srgb, var(--tone-ink) 2.35%, transparent); }
+}
+@media screen and (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .retail-app .product-card:active { transform: none; }
+}

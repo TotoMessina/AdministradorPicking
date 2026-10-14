@@ -1,0 +1,40 @@
+{
+  "name": "administradorkiosco",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "test:db": "node supabase/tests/retail.test.mjs",
+    "test:ui": "node tests/pos.test.mjs && node tests/business.test.mjs && node tests/experience.test.mjs",
+    "test": "npm run test:db && npm run test:ui && npm run test:groq && npm run test:push",
+    "test:groq": "node --test tests/groq.test.mjs",
+    "test:push": "node --test tests/push.test.mjs && node tests/push-settings.test.mjs",
+    "push:setup": "node scripts/setup-push.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
+    "canvas-confetti": "^1.9.4",
+    "lucide-react": "^1.49.0",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "tesseract.js": "^7.0.0"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@testing-library/react": "^16.3.3",
+    "@types/canvas-confetti": "^1.9.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^6.1.1",
+    "jsdom": "^29.1.1",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^8.3.0"
+  }
+}

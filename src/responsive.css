@@ -1,0 +1,81 @@
+/* Shared last-layer layout rules for the active retail application. */
+html { scroll-padding-block: 20px; }
+body { min-width: 320px; }
+button, a, input, select, textarea { touch-action: manipulation; }
+:focus-visible { outline: 3px solid var(--tone-accent); outline-offset: 3px; }
+.app-sidebar { overflow-y: auto; }
+.main-content, .retail-form label, .store-switch, .page-heading > div,
+.cash-metrics > div, .catalog-meta-actions { min-width: 0; }
+.page-heading h1, .cash-metrics strong, .cart-item-top strong { overflow-wrap: anywhere; }
+.table-scroll { max-width: 100%; overscroll-behavior-x: contain; }
+.pwa-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px 20px;
+  padding: max(10px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 10px max(16px, env(safe-area-inset-left));
+  background: var(--tone-soft);
+  color: var(--tone-accent);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.pwa-status p, .pwa-status button { display: flex; align-items: center; gap: 8px; }
+.pwa-status svg { flex-shrink: 0; }
+
+@media (min-width: 1600px) {
+  .retail-app .main-content { max-width: 1800px; margin-inline: auto; }
+}
+@media (max-width: 1000px) {
+  .retail-app .app-sidebar { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .app-sidebar nav { scrollbar-width: thin; }
+  .app-sidebar nav .nav-item { min-height: 44px; }
+  .retail-app .sidebar-bottom { align-items: center; }
+  .retail-app .sidebar-bottom .text-button { min-height: 44px; }
+  .catalog-meta { flex-wrap: wrap; gap: 10px; }
+  .catalog-meta-actions { flex-wrap: wrap; }
+}
+@media (max-width: 760px) {
+  .retail-app .pos-layout { grid-template-columns: minmax(0, 1fr); }
+  .sale-panel { position: static; scroll-margin-top: 16px; }
+  .retail-app .main-content {
+    padding: 20px max(16px, env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  }
+  .retail-app .app-sidebar { padding-inline: max(16px, env(safe-area-inset-left)) max(16px, env(safe-area-inset-right)); }
+  .auth-page { padding: 20px 16px; }
+  .auth-card { padding: 24px 20px; }
+  .register-picker select { min-width: 0; }
+  .retail-app input:not([type="checkbox"]):not([type="radio"]),
+  .retail-app select, .retail-app textarea, .auth-page input, .auth-page select { font-size: 16px; }
+  .retail-app button, .auth-page button { min-height: 44px; }
+  .quantity-control button { width: 44px; height: 44px; }
+  .product-info { padding: 12px; }
+  .cart-items, .checkout, .sale-header { padding-inline: 16px; }
+  .cart-item-bottom { flex-wrap: wrap; }
+  .team-row { flex-wrap: wrap; }
+  .register-row .inline-form { min-width: 0; flex-basis: 100%; }
+  .cash-metrics { gap: 10px; }
+  .cash-metrics > div { padding: 14px; }
+  .cash-metrics strong { font-size: clamp(17px, 4vw, 23px); }
+  .ai-omni-drawer { height: 86dvh; max-height: 86dvh; padding-bottom: env(safe-area-inset-bottom); }
+  .ai-omni-fab, .ai-omni-fab.tab-pos { bottom: calc(84px + env(safe-area-inset-bottom)) !important; }
+  .toast-container { bottom: calc(82px + env(safe-area-inset-bottom)); }
+}
+@media (max-width: 400px) {
+  .retail-app .app-sidebar { grid-template-columns: minmax(0, 1fr); }
+  .retail-app .sidebar-bottom { gap: 8px 16px; }
+  .retail-app .account-info { flex-basis: 100%; }
+  .payment-methods { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .product-price strong { font-size: 15px; }
+  .total-line > strong { font-size: 26px; }
+}
+@media screen and (max-width: 600px) {
+  .receipt-modal-backdrop { padding: 12px !important; }
+  .receipt-modal-backdrop > div { max-height: 94dvh !important; }
+  .receipt-modal-backdrop .receipt-paper { max-width: 100%; }
+}
+@media (max-width: 959px) {
+  .mobile-cart-bar { padding-bottom: calc(12px + env(safe-area-inset-bottom)); }
+  .retail-app .main-content { padding-bottom: calc(100px + env(safe-area-inset-bottom)); }
+}
+@media print { .pwa-status, .mobile-cart-bar { display: none !important; } }

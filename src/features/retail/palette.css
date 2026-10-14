@@ -1,0 +1,102 @@
+/* One palette for the entire application, derived from the commerce color.
+   Redeclare at the workspace boundary so local accent changes also reach tokens. */
+:root,
+.retail-app {
+  --tone-seed: var(--store-accent, #5a50df);
+  --tone-surface: #fff;
+  --tone-canvas: color-mix(in srgb, var(--tone-seed) 3%, white);
+  --tone-soft: color-mix(in srgb, var(--tone-seed) 7%, white);
+  --tone-hover: color-mix(in srgb, var(--tone-seed) 11%, white);
+  --tone-border: color-mix(in srgb, var(--tone-seed) 17%, white);
+  --tone-border-strong: color-mix(in srgb, var(--tone-seed) 32%, white);
+  --tone-ink: color-mix(in srgb, var(--tone-seed) 12%, #272330);
+  --tone-text: color-mix(in srgb, var(--tone-seed) 12%, #50495f);
+  --tone-muted: color-mix(in srgb, var(--tone-seed) 10%, #6b6576);
+  /* The dark base keeps white button labels readable even with a pale seed. */
+  --tone-accent: color-mix(in srgb, var(--tone-seed) 35%, #30283c);
+  --tone-accent-hover: color-mix(in srgb, var(--tone-accent) 88%, black);
+  --tone-danger: #a33343;
+  --tone-danger-soft: #fff2f4;
+  --tone-danger-border: #edc4cb;
+
+  --bg-app: var(--tone-canvas);
+  --bg-surface: var(--tone-surface);
+  --bg-surface-elevated: var(--tone-soft);
+  --text-main: var(--tone-ink);
+  --text-muted: var(--tone-muted);
+  --border-light: var(--tone-border);
+  --border-focus: var(--tone-accent);
+  --brand-blue: var(--tone-accent);
+  --brand-blue-hover: var(--tone-accent-hover);
+  --brand-accent: var(--tone-accent);
+  --brand-light-bg: var(--tone-soft);
+  --ui-ink: var(--tone-ink);
+  --ui-soft: var(--tone-soft);
+  --theme-emerald: var(--tone-accent);
+  --theme-amber: var(--tone-accent);
+  --theme-sky: var(--tone-accent);
+  --theme-rose: var(--tone-danger);
+}
+
+/* Navigation and summaries use the same light surfaces as the workspace. */
+.retail-app .app-sidebar {
+  background: var(--tone-soft);
+  border-right: 1px solid var(--tone-border);
+}
+.retail-app .app-sidebar .brand,
+.retail-app .account-info strong { color: var(--tone-ink); }
+.retail-app .brand-sub,
+.retail-app .app-sidebar .store-switch,
+.retail-app .account-info small,
+.retail-app .sidebar-bottom > .text-button { color: var(--tone-muted); }
+.retail-app .app-sidebar .store-switch select {
+  background: var(--tone-surface);
+  border-color: var(--tone-border);
+  color: var(--tone-ink);
+}
+.retail-app .app-sidebar .nav-item { color: var(--tone-text); }
+.retail-app .app-sidebar .nav-item:hover:not(:disabled) { background: var(--tone-hover); }
+.retail-app .app-sidebar .nav-item.active {
+  color: var(--tone-accent);
+  background: var(--tone-hover);
+  box-shadow: inset 3px 0 0 var(--tone-accent);
+}
+.retail-app .account-info { border-color: var(--tone-border); }
+.retail-app .cash-workspace .cash-metrics > div:last-child,
+.retail-app .sales-overview .cash-metrics > div:first-child {
+  background: var(--tone-soft);
+  border-color: var(--tone-border);
+}
+.retail-app :is(.cash-workspace .cash-metrics > div:last-child, .sales-overview .cash-metrics > div:first-child) strong {
+  color: var(--tone-accent);
+}
+.retail-app :is(.cash-workspace .cash-metrics > div:last-child, .sales-overview .cash-metrics > div:first-child) small {
+  color: var(--tone-muted);
+}
+
+.auth-page { background: var(--tone-canvas); }
+.auth-intro { background: var(--tone-soft); color: var(--tone-ink); border: 1px solid var(--tone-border); }
+.auth-intro::after { border-color: var(--tone-border); box-shadow: 0 0 0 55px var(--tone-canvas), 0 0 0 110px var(--tone-hover); }
+.auth-brand > svg { background: var(--tone-hover); color: var(--tone-accent); }
+.auth-brand span span,
+.auth-intro p,
+.auth-features small,
+.auth-intro-footer { color: var(--tone-muted); }
+.auth-intro-kicker,
+.auth-features svg { color: var(--tone-accent); }
+
+.retail-app .primary-button:hover:not(:disabled),
+.auth-card .primary-button:hover:not(:disabled) { background: var(--tone-accent-hover); }
+.status-open { background: var(--tone-hover); color: var(--tone-accent); }
+.status-closed { background: var(--tone-soft); color: var(--tone-muted); }
+.status-closed > span { background: transparent; border: 1px solid currentColor; }
+.retail-app .stock-low { color: var(--tone-accent); font-weight: 700; }
+.retail-app .stock-ok { color: var(--tone-muted); }
+
+@media screen and (max-width: 1000px) {
+  .retail-app .app-sidebar { border-right: 0; }
+}
+@media screen and (max-width: 760px) {
+  .retail-app .app-sidebar nav { background: var(--tone-soft); }
+  .retail-app .app-sidebar .nav-item.active { box-shadow: none; }
+}

@@ -1,0 +1,279 @@
+/* Shared visual language for the active application. Keep these rules after legacy styles. */
+:root {
+  --font-main: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --bg-app: var(--tone-canvas);
+  --text-main: var(--tone-accent);
+  --text-muted: var(--tone-muted);
+  --border-light: var(--tone-hover);
+  --ui-ink: var(--tone-accent);
+  --ui-soft: var(--tone-soft);
+  --ui-radius: 16px;
+}
+body { overflow-y: auto; user-select: text; }
+.push-settings { display: grid; gap: 20px; max-width: 900px; }
+.push-settings h2 { display: flex; align-items: center; gap: 10px; }
+.push-settings .pwa-status { margin-top: 16px; border-radius: 12px; justify-content: flex-start; }
+.push-preferences { border: 0; margin: 22px 0; padding: 0; display: grid; gap: 16px; }
+.push-preferences legend { margin-bottom: 12px; font-weight: 600; color: var(--tone-text); }
+.push-preferences label { display: flex; align-items: start; gap: 12px; cursor: pointer; }
+.push-preferences input { width: 20px; height: 20px; margin-top: 3px; flex-shrink: 0; }
+.push-preferences strong, .push-preferences small { display: block; }
+.push-preferences small { color: var(--tone-muted); margin-top: 4px; }
+.push-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-bottom: 16px; }
+.push-settings .push-note { font-size: 12px; margin-top: 18px; }
+button, summary { user-select: none; }
+[hidden] { display: none !important; }
+.retail-app { background: var(--bg-app); font-size: 14px; line-height: 1.5; }
+.retail-app .main-content { padding: 32px; max-width: 1760px; }
+.retail-app .page-heading { margin-bottom: 22px; align-items: center; }
+.retail-app .page-heading h1 { font-size: clamp(25px, 2.4vw, 34px); letter-spacing: -1.1px; line-height: 1.2; margin: 8px 0; color: var(--ui-ink); }
+.retail-app .page-heading p { font-size: 13px; line-height: 1.6; }
+.retail-app .eyebrow { color: var(--tone-muted); font-size: 10px; letter-spacing: 1.4px; }
+.retail-app .context-picker-hidden { display: none; }
+.retail-app .register-picker { padding: 12px; background: white; border: 1px solid var(--border-light); border-radius: 14px; gap: 10px; }
+.retail-app .register-picker label { color: var(--tone-text); font-size: 11px; }
+.retail-app .register-picker select { min-width: 130px; background: var(--tone-canvas); border-color: transparent; border-radius: 8px; }
+.workspace-context { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; font-size: 12px; color: var(--text-muted); padding-bottom: 20px; }
+.workspace-context > .text-button { margin-left: auto; }
+.status-pill { display: inline-flex; align-items: center; gap: 7px; border-radius: 30px; padding: 5px 10px; font-weight: 600; font-size: 11px; }
+.status-pill > span { width: 6px; height: 6px; background: currentColor; border-radius: 50%; }
+.status-open { color: var(--tone-accent); background: var(--tone-soft); }
+.status-closed { color: var(--tone-accent); background: var(--tone-soft); }
+.retail-app .retail-panel { border: 1px solid var(--border-light); border-radius: var(--ui-radius); padding: 26px; box-shadow: 0 2px 4px color-mix(in srgb, var(--tone-accent) 1.18%, transparent); }
+.retail-app .retail-panel h2, .retail-app .section-heading h2 { font-size: 19px; color: var(--ui-ink); font-weight: 650; letter-spacing: -.45px; }
+.retail-app .retail-panel p, .retail-app .section-heading p { color: var(--text-muted); font-size: 13px; line-height: 1.7; }
+.retail-app .section-heading { flex-wrap: wrap; align-items: start; gap: 16px; }
+.retail-app .primary-button, .retail-app .secondary-button, .auth-card .primary-button, .auth-card .secondary-button {
+  min-height: 44px; border-radius: 10px; padding: 11px 17px; font-size: 13px; font-weight: 600; gap: 8px; justify-content: center;
+}
+.retail-app .primary-button { box-shadow: 0 3px 5px color-mix(in srgb, var(--tone-accent) 5.1%, transparent); }
+.retail-app .primary-button:hover:not(:disabled) { box-shadow: 0 5px 12px color-mix(in srgb, var(--tone-accent) 10.98%, transparent); }
+.retail-app .secondary-button { border: 1px solid var(--tone-hover); background: white; color: var(--tone-text); }
+.retail-app .secondary-button[aria-pressed="true"] { background: var(--tone-soft); color: var(--tone-accent); border-color: var(--tone-border-strong); }
+.retail-app .text-button { font-size: 12px; color: var(--tone-accent); min-height: 32px; }
+.retail-app .danger-text { color: var(--tone-danger); }
+.retail-app .icon-button { min-width: 36px; min-height: 36px; border-radius: 9px; }
+.retail-app input, .retail-app select, .retail-app textarea { accent-color: var(--tone-accent); }
+.retail-app :is(.retail-form, .inline-form, .business-controls, .filter-label) :is(input:not([type="checkbox"]):not([type="color"]), select, textarea) {
+  min-height: 44px; background: var(--tone-canvas); border: 1px solid var(--tone-hover); color: var(--text-main); border-radius: 9px; padding: 10px 12px; font-size: 14px;
+}
+.retail-app :is(input, textarea)::placeholder, .auth-card input::placeholder { color: var(--tone-muted); opacity: 1; }
+.retail-app :is(.retail-form, .business-controls, .filter-label) label, .retail-app .retail-form > label { color: var(--tone-text); font-size: 12px; font-weight: 600; }
+.section-nav { display: flex; gap: 6px; border-bottom: 1px solid var(--tone-hover); margin: 0 0 24px; padding: 0 0 1px; overflow-x: auto; scrollbar-width: thin; }
+.section-nav > button { background: transparent; border: 0; border-bottom: 3px solid transparent; color: var(--tone-muted); min-height: 48px; padding: 12px 18px; font-size: 13px; font-weight: 600; white-space: nowrap; }
+.section-nav > button[aria-selected="true"] { color: var(--tone-accent); border-bottom-color: var(--tone-accent); }
+.section-nav > button:hover:not(:disabled) { background: var(--tone-soft); border-radius: 8px 8px 0 0; }
+.retail-app .sale-options { padding: 0; margin: 0 0 22px; background: var(--tone-surface); border: 1px solid var(--border-light); border-radius: 12px; }
+.sale-options > summary { padding: 13px 16px; cursor: pointer; color: var(--tone-muted); font-size: 12px; }
+.sale-options > summary strong { font-weight: 600; color: var(--tone-text); margin-left: 16px; }
+.sale-options .business-controls { padding: 0 16px 16px; margin: 4px 0 0; border-top: 1px solid var(--tone-soft); padding-top: 16px; }
+.catalog-step { display: flex; align-items: center; gap: 9px; color: var(--text-muted); font-size: 11px; }
+.catalog-step h2 { color: var(--tone-text); font-weight: 600; font-size: 14px; }
+.catalog-step > span:last-child { margin-left: auto; }
+.step-number { width: 25px; height: 25px; border: 1px solid var(--tone-hover); border-radius: 8px; display: grid; place-items: center; font-weight: 600; font-size: 12px; background: white; }
+.retail-app .pos-layout { gap: 24px; grid-template-columns: minmax(0, 1fr) 350px; }
+.retail-app .catalog { gap: 16px; }
+.retail-app .search-box { min-height: 56px; border: 1px solid var(--tone-hover); border-radius: 12px; box-shadow: 0 3px 8px color-mix(in srgb, var(--tone-accent) 1.57%, transparent); }
+.retail-app .search-box:focus-within { border-color: var(--tone-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-accent) 7.84%, transparent); }
+.retail-app .search-box input { font-size: 14px; background: transparent; }
+.retail-app .category-list { gap: 8px; padding-bottom: 5px; }
+.retail-app .category-list button { border-radius: 9px; min-height: 38px; font-size: 12px; color: var(--tone-text); padding: 8px 13px; }
+.retail-app .category-list button.selected { color: white; }
+.retail-app .catalog-meta { color: var(--tone-muted); font-size: 12px; }
+.retail-app .product-grid { grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 12px; min-height: 200px; }
+.retail-app .product-card { border-radius: 13px; border-color: var(--tone-hover); box-shadow: 0 2px 3px color-mix(in srgb, var(--tone-accent) 1.18%, transparent); transition: border-color .15s, box-shadow .15s; }
+.retail-app .product-card:hover:not(:disabled) { border-color: var(--tone-border-strong); box-shadow: 0 5px 16px color-mix(in srgb, var(--tone-accent) 5.1%, transparent); }
+.retail-app .product-card.in-cart { box-shadow: 0 0 0 1px var(--tone-accent); }
+.retail-app .product-art { height: 84px !important; background: var(--tone-soft); }
+.retail-app .product-art > span:first-child { border: 0; background: transparent; font-size: 33px; }
+.retail-app .product-info { padding: 13px; }
+.retail-app .product-info h3 { font-size: 13px; line-height: 1.45; white-space: normal; min-height: 38px; color: var(--tone-ink); }
+.retail-app .product-info small { font-size: 10px; color: var(--tone-muted); }
+.retail-app .product-price { margin-top: 12px; }
+.retail-app .product-price strong { font-size: 18px; letter-spacing: -.5px; font-variant-numeric: tabular-nums; }
+.retail-app .add-product { border-radius: 8px; background: var(--tone-soft); color: var(--tone-accent); width: 29px; height: 29px; }
+.retail-app .stock-low { color: var(--tone-accent); }
+.retail-app .stock-ok { color: var(--tone-text); }
+.retail-app .product-quantity { border-radius: 6px; font-size: 10px; padding: 4px 7px; background: var(--tone-surface); color: var(--tone-accent); box-shadow: 0 2px 6px color-mix(in srgb, var(--tone-accent) 6.27%, transparent); }
+.retail-app .sale-panel { top: 20px; border-radius: 16px; border: 1px solid var(--tone-hover); box-shadow: 0 8px 26px color-mix(in srgb, var(--tone-accent) 3.14%, transparent); }
+.retail-app .sale-header { padding: 20px; background: var(--tone-canvas); border-bottom-color: var(--tone-soft); }
+.retail-app .sale-header h2 { font-size: 19px; }
+.retail-app .cart-items { padding-inline: 20px; min-height: 130px; max-height: 300px; }
+.retail-app .cart-empty { min-height: 200px; gap: 12px; }
+.retail-app .cart-empty h3 { font-size: 14px; color: var(--tone-text); }
+.retail-app .cart-empty p { font-size: 12px; color: var(--tone-muted); }
+.retail-app .cart-item-top strong { font-size: 13px; }
+.retail-app .quantity-control { border-radius: 8px; }
+.retail-app .quantity-control button { min-width: 32px; min-height: 32px; }
+.retail-app .checkout { padding: 20px; background: var(--tone-surface); border-top: 1px solid var(--tone-soft); }
+.retail-app .total-line { padding-bottom: 18px; margin-bottom: 18px; border-bottom: 1px dashed var(--tone-hover); }
+.retail-app .total-line > strong { font-size: 29px; font-variant-numeric: tabular-nums; letter-spacing: -1px; color: var(--ui-ink); }
+.retail-app .checkout fieldset legend { font-size: 12px; font-weight: 600; color: var(--tone-text); }
+.retail-app .payment-methods button { border-radius: 9px; padding: 10px 4px; font-size: 11px; color: var(--tone-text); min-height: 61px; }
+.retail-app .payment-methods button.selected { color: var(--tone-accent); border-color: var(--tone-accent); background: var(--tone-soft); box-shadow: 0 0 0 1px color-mix(in srgb, var(--tone-accent) 20%, transparent); }
+.retail-app .cash-input { border-color: var(--tone-hover); border-radius: 10px; }
+.retail-app .quick-bills button { border-radius: 7px; font-size: 11px; min-height: 34px; }
+.retail-app .change-line.ready { background: var(--tone-soft); color: var(--tone-accent); border-radius: 8px; padding: 10px; }
+.retail-app .checkout-button { min-height: 50px; font-size: 15px; }
+.retail-app .checkout-hint { color: var(--tone-muted); line-height: 1.6; font-size: 11px; }
+.checkout-error { display: flex; gap: 8px; align-items: start; margin-top: 14px; }
+.checkout-error svg { flex-shrink: 0; margin-top: 2px; }
+.retail-app .manual-panel { border: 1px dashed var(--tone-border); border-radius: 12px; background: transparent; }
+.retail-app .manual-toggle { padding: 16px; }
+.retail-app .empty-state h2 { font-size: 20px; color: var(--tone-text); }
+.retail-app .empty-state p { color: var(--tone-muted); }
+.start-selling { min-height: 300px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 12px; }
+.start-selling .empty-icon { display: grid; place-items: center; width: 60px; height: 60px; background: var(--tone-soft); color: var(--tone-accent); border-radius: 18px; margin-bottom: 5px; }
+.start-selling p { max-width: 460px; }
+.workspace-loading { min-height: 280px; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 18px; color: var(--tone-muted); }
+.loading-spin { animation: ui-spin 1.2s linear infinite; }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+.retail-app .catalog-actions-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.catalog-tools { position: relative; }
+.catalog-tools > summary { padding: 11px 14px; font-size: 13px; font-weight: 500; border: 1px solid var(--tone-hover); border-radius: 10px; cursor: pointer; color: var(--tone-text); background: white; }
+.catalog-tools-menu { position: absolute; right: 0; top: calc(100% + 8px); width: 270px; z-index: 30; padding: 8px; border: 1px solid var(--tone-hover); box-shadow: 0 12px 32px color-mix(in srgb, var(--tone-accent) 10.2%, transparent); background: white; border-radius: 12px; }
+.catalog-tools-menu > .secondary-button { width: 100%; border: 0; justify-content: flex-start; text-align: left; background: white; }
+.catalog-tools-menu > .secondary-button:hover:not(:disabled) { background: var(--tone-soft); }
+.catalog-search-toolbar { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; margin-bottom: 22px; }
+.catalog-search-toolbar .filter-label { margin: 0; flex: 1; min-width: 200px; max-width: none; }
+.result-count { color: var(--tone-muted); font-size: 12px; align-self: center; }
+.load-more { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 16px; padding: 20px 0 0; font-size: 12px; color: var(--tone-muted); }
+.retail-app .table-scroll { border: 1px solid var(--tone-hover); border-radius: 11px; }
+.retail-app th { background: var(--tone-canvas); color: var(--tone-text); padding: 13px 15px; font-size: 11px; font-weight: 600; }
+.retail-app td { padding: 15px; font-size: 13px; border-bottom-color: var(--tone-soft); }
+.retail-app tbody tr:last-child td { border-bottom: 0; }
+.retail-app tbody tr:hover { background: var(--tone-canvas); }
+.retail-app td small, .retail-app .team-row small { color: var(--tone-muted); }
+.retail-app .cash-metrics { gap: 14px; }
+.retail-app .cash-metrics > div { border: 1px solid var(--tone-hover); border-radius: 14px; background: white; padding: 20px; }
+.retail-app .cash-metrics strong { color: var(--ui-ink); font-size: 26px; letter-spacing: -.7px; font-variant-numeric: tabular-nums; }
+.retail-app .cash-metrics small { color: var(--tone-muted); font-size: 12px; }
+.retail-app .cash-workspace .cash-metrics > div:last-child, .retail-app .sales-overview .cash-metrics > div:first-child { background: var(--ui-ink); border-color: var(--ui-ink); }
+.retail-app :is(.cash-workspace .cash-metrics > div:last-child, .sales-overview .cash-metrics > div:first-child) strong { color: var(--tone-surface); }
+.retail-app :is(.cash-workspace .cash-metrics > div:last-child, .sales-overview .cash-metrics > div:first-child) small { color: var(--tone-border); }
+.retail-app .stock-ai-card { background: var(--tone-canvas); border: 1px solid var(--tone-border); border-radius: 12px; box-shadow: none; }
+.retail-app .stock-ai-bell { display: none; }
+.retail-app .stock-ai-analyze-btn { background: white; border: 1px solid var(--tone-border-strong); color: var(--tone-accent); box-shadow: none; }
+.retail-app .product-editor { background: var(--tone-canvas); border: 1px solid var(--tone-hover); border-radius: 12px; scroll-margin-top: 24px; }
+.retail-app .business-edit-row { border-bottom-color: var(--tone-soft); padding: 20px 0; gap: 12px; }
+.retail-app .price-list-settings summary { font-size: 16px; font-weight: 600; color: var(--ui-ink); }
+.retail-app .price-list-settings h3 { border-top: 1px solid var(--tone-soft); padding-top: 18px; }
+.retail-app .ai-assistant-container { height: calc(100dvh - 195px); min-height: 460px; border-radius: 16px; box-shadow: none; }
+.retail-app .ai-chip-btn { box-shadow: none; border-radius: 12px; }
+.retail-app .ai-bubble { font-size: 14px; line-height: 1.7; }
+.retail-app .ai-omni-fab { box-shadow: 0 5px 18px color-mix(in srgb, var(--tone-accent) 12.55%, transparent); }
+.retail-app :is(.ai-modal-content, .invoice-analyzer-modal) { border: 1px solid var(--tone-hover); box-shadow: 0 24px 80px color-mix(in srgb, var(--tone-accent) 16.86%, transparent); }
+.retail-app .error-banner { border-radius: 10px; background: var(--tone-canvas); color: var(--tone-danger); }
+.retail-app .info-banner { border-radius: 10px; background: var(--tone-soft); color: var(--tone-text); }
+.auth-page { background: var(--tone-canvas); }
+.auth-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); padding: 24px; gap: 7vw; min-height: 100dvh; }
+.auth-intro { align-self: stretch; display: flex; flex-direction: column; justify-content: space-between; gap: 36px; padding: clamp(32px, 4.5vw, 76px); background: var(--tone-accent); color: var(--tone-canvas); border-radius: 24px; position: relative; overflow: hidden; }
+.auth-intro::after { content: ''; position: absolute; width: 260px; height: 260px; border: 1px solid color-mix(in srgb, var(--tone-surface) 5.1%, transparent); border-radius: 50%; right: -150px; bottom: 100px; box-shadow: 0 0 0 55px color-mix(in srgb, var(--tone-surface) 1.18%, transparent), 0 0 0 110px color-mix(in srgb, var(--tone-surface) 0.78%, transparent); pointer-events: none; }
+.auth-brand { display: flex; align-items: center; gap: 13px; font-size: 24px; font-weight: 700; letter-spacing: -1px; }
+.auth-brand > svg { padding: 10px; width: 46px; height: 46px; border-radius: 13px; background: color-mix(in srgb, var(--tone-surface) 7.84%, transparent); }
+.auth-brand span span { display: block; font-size: 9px; letter-spacing: 2.5px; color: var(--tone-border-strong); margin-top: 5px; }
+.auth-intro-kicker { font-size: 10px; letter-spacing: 2px; color: var(--tone-border); font-weight: 600; }
+.auth-intro h2 { font-size: clamp(36px, 4vw, 60px); line-height: 1.13; letter-spacing: -2px; margin: 22px 0; font-weight: 600; }
+.auth-intro p { font-size: 15px; line-height: 1.8; color: var(--tone-border); max-width: 350px; }
+.auth-features { display: grid; gap: 22px; }
+.auth-features > div { display: flex; gap: 14px; align-items: center; }
+.auth-features svg { color: var(--tone-border); flex-shrink: 0; }
+.auth-features strong { display: block; font-size: 13px; font-weight: 600; }
+.auth-features small { display: block; margin-top: 4px; font-size: 12px; color: var(--tone-border-strong); }
+.auth-intro-footer { font-size: 11px; color: var(--tone-border-strong); line-height: 1.6; }
+.auth-layout .auth-card { justify-self: start; width: min(100%, 420px); background: transparent; border: 0; border-radius: 0; box-shadow: none; padding: 26px 16px 26px 0; gap: 22px; }
+.auth-card h1 { color: var(--ui-ink); font-size: 30px; line-height: 1.25; letter-spacing: -.9px; }
+.auth-card p { color: var(--tone-muted); font-size: 14px; line-height: 1.7; }
+.auth-card .eyebrow { color: var(--tone-muted); font-size: 10px; }
+.auth-card input { min-height: 48px; background: var(--tone-surface); border: 1px solid var(--tone-hover); border-radius: 10px; padding: 12px; font-size: 15px; }
+.auth-card .primary-button { min-height: 49px; background: var(--tone-accent); }
+.auth-card .auth-links { justify-content: space-between; gap: 20px; }
+.auth-card .auth-links button { font-size: 12px; color: var(--tone-accent); min-height: 40px; }
+.password-field { display: flex; flex-direction: column; gap: 7px; }
+.password-field > label { font-size: 12px; font-weight: 600; color: var(--tone-text); }
+.password-field small { font-size: 12px; color: var(--tone-muted); }
+.password-input { display: flex; position: relative; }
+.password-input input { width: 100%; padding-right: 48px; }
+.password-input button { position: absolute; right: 5px; top: 5px; height: 38px; width: 38px; }
+@media screen and (min-width: 1001px) {
+  .retail-app .app-sidebar { background: var(--tone-accent); width: 232px; padding: 28px 18px 22px; border: 0; }
+  .retail-app .app-sidebar .brand { color: white; padding: 0 5px; }
+  .retail-app .brand-sub { color: var(--tone-border-strong); font-size: 9px; letter-spacing: 2px; margin-top: 7px; }
+  .retail-app .store-brand-name { font-size: 17px; }
+  .retail-app .app-sidebar .brand-mark { width: 40px; height: 42px; flex-shrink: 0; box-shadow: none; }
+  .retail-app .app-sidebar .store-switch { color: var(--tone-border-strong); margin: 32px 0 26px; font-size: 11px; }
+  .retail-app .app-sidebar .store-switch select { background: color-mix(in srgb, var(--tone-surface) 3.53%, transparent); border-color: color-mix(in srgb, var(--tone-surface) 12.55%, transparent); color: var(--tone-soft); border-radius: 9px; min-height: 42px; }
+  .retail-app .store-switch option { color: var(--tone-accent); background: white; }
+  .retail-app .app-sidebar .nav-item { color: var(--tone-border-strong); padding: 13px 12px; font-size: 12px; border-radius: 10px; min-height: 46px; }
+  .retail-app .app-sidebar .nav-item.active { color: white; background: color-mix(in srgb, var(--tone-surface) 7.84%, transparent); box-shadow: inset 3px 0 0 var(--tone-border); }
+  .retail-app .app-sidebar .nav-item:hover:not(:disabled) { background: color-mix(in srgb, var(--tone-surface) 5.1%, transparent); }
+  .retail-app .sidebar-bottom { margin-top: auto; padding-top: 30px; }
+  .retail-app .account-info { border-top: 1px solid color-mix(in srgb, var(--tone-surface) 9.8%, transparent); }
+  .retail-app .account-info strong { color: var(--tone-soft); }
+  .retail-app .account-info small { color: var(--tone-border-strong); }
+  .retail-app .sidebar-bottom > .text-button { color: var(--tone-border-strong); font-size: 11px; margin-top: 6px; }
+}
+@media screen and (min-width: 761px) and (max-width: 1000px) {
+  .retail-app .app-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; padding: 18px 24px 0; }
+  .retail-app .mobile-account-toggle { display: inline-flex; }
+  .retail-app .app-sidebar nav { grid-column: 1 / -1; }
+  .retail-app .store-switch, .retail-app .sidebar-bottom { display: none; }
+  .retail-app .mobile-account-open .store-switch { display: flex; grid-column: 1 / -1; margin: 8px 0; }
+  .retail-app .mobile-account-open .sidebar-bottom { display: flex; flex-wrap: wrap; grid-column: 1 / -1; gap: 12px; padding-bottom: 15px; }
+  .retail-app .pos-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; }
+}
+@media screen and (max-width: 1100px) {
+  .auth-layout { gap: 4vw; }
+  .auth-intro { padding: 36px; }
+  .retail-app .main-content { padding: 24px; }
+}
+@media screen and (max-width: 760px) {
+  .retail-app { font-family: var(--font-main); }
+  .retail-app .main-content { padding: 22px 16px calc(var(--mobile-bottom) + 32px); }
+  .retail-app.has-mobile-cart.mobile-tab-pos .main-content { padding-bottom: calc(var(--mobile-bottom) + 116px); }
+  .retail-app .page-heading { gap: 18px; margin-bottom: 15px; }
+  .retail-app .page-heading h1 { font-size: 27px; }
+  .retail-app .register-picker { padding: 10px; width: 100%; gap: 8px; border-radius: 12px; }
+  .retail-app .register-picker select { min-width: 0; font-size: 13px; padding: 9px; }
+  .workspace-context { gap: 8px; font-size: 11px; padding-bottom: 16px; }
+  .workspace-context > .text-button { font-size: 11px; }
+  .retail-app .retail-panel { padding: 18px; border-radius: 14px; }
+  .retail-app .pos-layout { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .retail-app .product-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .retail-app .product-art { height: 74px !important; }
+  .retail-app .product-info { padding: 12px; }
+  .retail-app .sale-panel { position: static; scroll-margin-top: 16px; }
+  .retail-app .sale-options { margin-bottom: 20px; }
+  .sale-options > summary { line-height: 1.8; }
+  .sale-options > summary strong { display: block; margin-left: 15px; font-size: 11px; }
+  .catalog-step > span:last-child { display: none; }
+  .retail-app .search-box input { font-size: 14px; }
+  .retail-app .catalog-meta-actions { gap: 8px; }
+  .retail-app .catalog-ai-btn { font-size: 11px; }
+  .retail-app .category-list button { min-height: 40px; }
+  .retail-app .quantity-control button { min-width: 40px; min-height: 40px; }
+  .retail-app .cash-metrics > div { padding: 16px 12px; }
+  .retail-app .cash-metrics strong { font-size: 22px; }
+  .retail-app .cash-metrics small { font-size: 11px; }
+  .section-nav { margin-bottom: 20px; gap: 0; }
+  .section-nav > button { padding-inline: 13px; font-size: 12px; }
+  .retail-app .catalog-actions-row { width: 100%; }
+  .retail-app .catalog-actions-row > .primary-button { flex: 1; }
+  .catalog-tools-menu { left: 0; right: auto; max-width: calc(100vw - 68px); }
+  .retail-app .catalog-search-toolbar { align-items: stretch; }
+  .catalog-search-toolbar .filter-label { flex-basis: 100%; }
+  .retail-app .ai-assistant-container { height: 72dvh; min-height: 400px; }
+  .auth-layout { display: flex; flex-direction: column; justify-content: center; padding: 28px 22px; gap: 24px; }
+  .auth-intro { display: none; }
+  .auth-layout .auth-card { width: 100%; max-width: 430px; padding: 20px 0; margin: auto; }
+  .auth-card h1 { font-size: 28px; }
+  .auth-card input { font-size: 16px; }
+  .retail-app input:not([type="checkbox"]):not([type="radio"]), .retail-app select, .retail-app textarea { font-size: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .retail-app .product-card:active { transform: none; }
+}
+@media print {
+  .workspace-context, .section-nav, .sale-options { display: none !important; }
+}

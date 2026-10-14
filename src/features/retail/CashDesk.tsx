@@ -1,0 +1,611 @@
+import { useEffect, useRef, useState } from "react";
+import { AlertCircle, Bot, Loader2, Sparkles } from "lucide-react";
+import type { KioscoSale } from "../../types/kiosco";
+import { groqChat } from "../../services/groqService";
+import {
+  retail,
+  errorMessage,
+  type Movement,
+  type Register,
+  type Shift,
+} from "./api";
+import type { Run } from "./Management";
+const money = (v: number) =>
+  "$" + Number(v).toLocaleString("es-AR", { maximumFractionDigits: 2 });
+export function CashDesk({
+  storeId,
+  register,
+  shift,
+  shifts,
+  sales,
+  movements,
+  canOperate,
+  run,
+  busy,
+  onTicket,
+  onRefresh,
+}: {
+  storeId: string;
+  register: Register | undefined;
+  shift: Shift | undefined;
+  shifts: Shift[];
+  sales: KioscoSale[];
+  movements: Movement[];
+  canOperate: boolean;
+  run: Run;
+  busy: boolean;
+  onTicket: (sale: KioscoSale) => void;
+  onRefresh: () => void;
+}) {
+  const [counted, setCounted] = useState("");
+  const [historyShift, setHistoryShift] = useState("");
+  const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
+  const [isAiLoading, setIsAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  const movementRequest = useRef({ signature: "", id: "" });
+
+  // Reset analysis when shift changes
+  useEffect(() => {
+    setAiAnalysis(null);
+    setAiError(null);
+  }, [shift?.id]);
+
+  const cash = sales
+    .filter((s) => s.paymentMethod === "Efectivo")
+    .reduce((n, s) => n + s.total, 0);
+  const electronic = sales
+    .filter((s) => s.paymentMethod !== "Efectivo")
+    .reduce((n, s) => n + s.total, 0);
+  const expected =
+    Number(shift?.opening_cash || 0) +
+    cash +
+    movements.reduce(
+      (n, m) => n + (m.type === "INGRESO" ? 1 : -1) * Number(m.amount),
+      0,
+    );
+
+  const handleAnalyzeShift = async () => {
+    setIsAiLoading(true);
+    setAiError(null);
+
+    try {
+      // 1. Calculate top selling product(s) from sales[].items
+      const productMap = new Map<string, { name: string; qty: number; subtotal: number }>();
+      for (const sale of sales) {
+        for (const item of sale.items || []) {
+          const key = item.productId || item.name;
+          const curr = productMap.get(key) || { name: item.name, qty: 0, subtotal: 0 };
+          curr.qty += item.qty;
+          curr.subtotal += item.subtotal;
+          productMap.set(key, curr);
+        }
+      }
+      const sortedProducts = Array.from(productMap.values()).sort((a, b) => b.qty - a.qty);
+      const topProduct = sortedProducts[0]
+        ? `${sortedProducts[0].name} (${sortedProducts[0].qty} u., ${money(sortedProducts[0].subtotal)})`
+        : "Sin productos vendidos en este turno";
+
+      // 2. Dominant payment method
+      const methodTotals: Record<string, { count: number; total: number }> = {};
+      let grandTotal = 0;
+      for (const sale of sales) {
+        const m = sale.paymentMethod || "Efectivo";
+        if (!methodTotals[m]) methodTotals[m] = { count: 0, total: 0 };
+        methodTotals[m].count += 1;
+        methodTotals[m].total += sale.total;
+        grandTotal += sale.total;
+      }
+      const sortedMethods = Object.entries(methodTotals).sort((a, b) => b[1].total - a[1].total);
+      const dominantMethod = sortedMethods[0]
+        ? `${sortedMethods[0][0]} (${money(sortedMethods[0][1].total)}, ${Math.round((sortedMethods[0][1].total / (grandTotal || 1)) * 100)}% del total)`
+        : "Sin ventas registradas";
+
+      // 3. Difference evaluation
+      const countedValue = counted !== "" ? Number(counted) : null;
+      let diffEval = "Conteo físico aún no ingresado";
+      if (countedValue !== null) {
+        const diff = countedValue - expected;
+        if (diff === 0) {
+          diffEval = "Caja exacta ($0 de diferencia)";
+        } else if (diff > 0) {
+          diffEval = `Diferencia positiva / sobrante de ${money(diff)}`;
+        } else {
+          diffEval = `Diferencia negativa / faltante de ${money(Math.abs(diff))}`;
+        }
+      }
+
+      // 4. Movements summary
+      const movementsSummary = movements.length
+        ? movements.map((m) => `${m.type}: ${money(Number(m.amount))} (${m.reason})`).join("; ")
+        : "Sin movimientos manuales";
+
+      const systemPrompt =
+        "Sos un analista de negocio para kioscos argentinos. Analizás el " +
+        "cierre de turno y brindás insights accionables. Sé conciso, práctico " +
+        "y usá formato simple (sin markdown complejo). Hablá en primera persona " +
+        "del plural (nosotros/nuestro negocio).";
+
+      const userPrompt = `Analizá los siguientes datos de nuestro cierre de turno:
+- Fondo inicial de caja: ${money(shift?.opening_cash || 0)}
+- Ventas en efectivo: ${money(cash)}
+- Ventas electrónicas (QR / tarjetas): ${money(electronic)}
+- Facturación total del turno: ${money(grandTotal)} (${sales.length} ventas)
+- Movimientos manuales: ${movementsSummary}
+- Efectivo esperado en caja: ${money(expected)}
+- Efectivo contado físicamente: ${countedValue !== null ? money(countedValue) : "No ingresado aún"}
+- Evaluación de diferencia: ${diffEval}
+- Producto más vendido: ${topProduct}
+- Método dominante: ${dominantMethod}
+- Otros productos destacados: ${sortedProducts.slice(1, 5).map((p) => `${p.name} (${p.qty}u)`).join(", ") || "Ninguno"}
+
+Respondé obligatoriamente respetando exactamente este formato:
+RESUMEN: [2 oraciones]
+PRODUCTO ESTRELLA: [nombre y cantidad]
+MÉTODO DOMINANTE: [método y porcentaje]
+DIFERENCIA DE CAJA: [evaluación]
+SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
+
+      const response = await groqChat([
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ]);
+
+      setAiAnalysis(response);
+    } catch (err) {
+      setAiError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo completar el análisis del turno."
+      );
+    } finally {
+      setIsAiLoading(false);
+    }
+  };
+
+  return (
+    <div className="cash-workspace">
+      <div className="section-heading">
+        <div>
+          <h2>{register?.name || "Seleccioná una caja"}</h2>
+          <p>
+            {shift
+              ? `Turno abierto · ${new Date(shift.opened_at).toLocaleString("es-AR")}`
+              : "Abrí un turno para registrar ventas y movimientos."}
+          </p>
+        </div>
+        <button
+          className="secondary-button"
+          onClick={onRefresh}
+          disabled={busy}
+        >
+          Actualizar
+        </button>
+      </div>
+      {!shift ? (
+        <section className="retail-panel">
+          <h2>Abrir turno</h2>
+          <form
+            className="retail-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              const opening = Number(
+                new FormData(e.currentTarget).get("opening"),
+              );
+              if (register)
+                void run(
+                  () => retail.openShift(storeId, register.id, opening),
+                  "Turno abierto",
+                );
+            }}
+          >
+            <label>
+              Efectivo inicial ($)
+              <input
+                name="opening"
+                type="number"
+                min="0"
+                step="0.01"
+                required
+                defaultValue="0"
+              />
+            </label>
+            <button className="primary-button" disabled={busy || !register}>
+              Abrir {register?.name || "caja"}
+            </button>
+          </form>
+        </section>
+      ) : (
+        <>
+          {!canOperate && (
+            <div className="info-banner">
+              Esta caja fue abierta por otro cajero. Podés consultar sus
+              movimientos. Para operar, seleccioná otra caja o pedí ayuda a un
+              administrador.
+            </div>
+          )}
+          <div className="cash-metrics">
+            <div>
+              <small>Fondo inicial</small>
+              <strong>{money(shift.opening_cash)}</strong>
+            </div>
+            <div>
+              <small>Ventas en efectivo</small>
+              <strong>{money(cash)}</strong>
+            </div>
+            <div>
+              <small>QR y tarjetas</small>
+              <strong>{money(electronic)}</strong>
+            </div>
+            <div>
+              <small>Efectivo esperado</small>
+              <strong>{money(expected)}</strong>
+            </div>
+          </div>
+          {canOperate && (
+            <div className="settings-grid">
+              <section className="retail-panel">
+                <h2>Registrar movimiento</h2>
+                <form
+                  className="retail-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const form = e.currentTarget,
+                      f = new FormData(form);
+                    const type = String(f.get("type")),
+                      amount = Number(f.get("amount")),
+                      reason = String(f.get("reason"));
+                    const signature = JSON.stringify([
+                      shift.id,
+                      type,
+                      amount,
+                      reason,
+                    ]);
+                    if (movementRequest.current.signature !== signature)
+                      movementRequest.current = {
+                        signature,
+                        id: crypto.randomUUID(),
+                      };
+                    if (
+                      await run(
+                        () =>
+                          retail.addMovement(
+                            shift.id,
+                            type,
+                            amount,
+                            reason,
+                            movementRequest.current.id,
+                          ),
+                        "Movimiento registrado",
+                      )
+                    ) {
+                      form.reset();
+                      movementRequest.current = { signature: "", id: "" };
+                    }
+                  }}
+                >
+                  <label>
+                    Tipo
+                    <select name="type">
+                      <option value="INGRESO">Ingreso de efectivo</option>
+                      <option value="RETIRO">Retiro de efectivo</option>
+                    </select>
+                  </label>
+                  <label>
+                    Importe ($)
+                    <input
+                      name="amount"
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Motivo
+                    <input
+                      name="reason"
+                      required
+                      maxLength={300}
+                      placeholder="Ej. Pago a proveedor"
+                    />
+                  </label>
+                  <button className="primary-button" disabled={busy}>
+                    Guardar movimiento
+                  </button>
+                </form>
+              </section>
+              <section className="retail-panel">
+                <h2>Cerrar turno</h2>
+                <p>
+                  Contá el dinero físico. El cierre guarda el arqueo y conserva
+                  todas las ventas.
+                </p>
+                <form
+                  className="retail-form"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    if (
+                      window.confirm(
+                        `¿Cerrar el turno de ${register?.name} con ${money(Number(counted))} contados?`,
+                      )
+                    ) {
+                      if (
+                        await run(
+                          () => retail.closeShift(shift.id, Number(counted)),
+                          "Turno cerrado",
+                        )
+                      ) {
+                        setCounted("");
+                        setAiAnalysis(null);
+                        setAiError(null);
+                      }
+                    }
+                  }}
+                >
+                  <label>
+                    Efectivo contado ($)
+                    <input
+                      required
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={counted}
+                      onChange={(e) => setCounted(e.target.value)}
+                    />
+                  </label>
+                  <div className="info-banner">
+                    Diferencia:{" "}
+                    {counted === ""
+                      ? "Ingresá el conteo"
+                      : money(Number(counted) - expected)}
+                  </div>
+
+                  <button
+                    type="button"
+                    className="secondary-button shift-ai-analyze-btn"
+                    onClick={handleAnalyzeShift}
+                    disabled={busy || isAiLoading}
+                  >
+                    {isAiLoading ? (
+                      <>
+                        <Loader2 size={16} className="ai-spin-icon" />
+                        <span>Analizando turno con IA…</span>
+                      </>
+                    ) : (
+                      <span>🤖 Analizar turno con IA</span>
+                    )}
+                  </button>
+
+                  {aiError && (
+                    <div className="shift-ai-error-banner" role="alert">
+                      <AlertCircle size={16} />
+                      <div>
+                        <strong>No se pudo completar el análisis IA</strong>
+                        <p>{aiError}</p>
+                      </div>
+                    </div>
+                  )}
+
+                  {aiAnalysis && (
+                    <div
+                      className="shift-ai-analysis-card"
+                      role="region"
+                      aria-label="Análisis IA del turno"
+                    >
+                      <div className="shift-ai-card-header">
+                        <Sparkles size={16} className="shift-ai-header-icon" />
+                        <h4>Análisis Inteligente del Turno</h4>
+                      </div>
+                      <div className="shift-ai-card-content">
+                        {aiAnalysis
+                          .split("\n")
+                          .filter(Boolean)
+                          .map((line, idx) => {
+                            const separatorIndex = line.indexOf(":");
+                            if (separatorIndex !== -1) {
+                              const label = line.slice(0, separatorIndex).trim();
+                              const val = line.slice(separatorIndex + 1).trim();
+                              return (
+                                <div key={idx} className="shift-ai-metric-row">
+                                  <span className="shift-ai-label">
+                                    {label}:
+                                  </span>
+                                  <span className="shift-ai-value">{val}</span>
+                                </div>
+                              );
+                            }
+                            return (
+                              <p key={idx} className="shift-ai-text-line">
+                                {line}
+                              </p>
+                            );
+                          })}
+                      </div>
+                    </div>
+                  )}
+
+                  <button disabled={busy} className="primary-button">
+                    Confirmar cierre
+                  </button>
+                </form>
+              </section>
+            </div>
+          )}
+          <section className="retail-panel">
+            <h2>Ventas del turno ({sales.length})</h2>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Ticket</th>
+                    <th>Hora</th>
+                    <th>Medio</th>
+                    <th>Total</th>
+                    <th>Comprobante</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {sales.map((s) => (
+                    <tr key={s.id}>
+                      <td>{s.ticketNumber}<small>{s.priceListName} · {s.ledgerName}</small></td>
+                      <td>{s.timestamp}</td>
+                      <td>{s.paymentMethod}</td>
+                      <td>{money(s.total)}</td>
+                      <td>
+                        <button
+                          className="text-button"
+                          onClick={() => onTicket(s)}
+                        >
+                          Ver ticket
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {!sales.length && (
+                    <tr>
+                      <td colSpan={5} className="table-empty">
+                        Todavía no hay ventas en este turno.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <section className="retail-panel">
+            <h2>Movimientos del turno</h2>
+            {movements.map((m) => (
+              <div key={m.id} className="team-row">
+                <span>
+                  {m.reason}
+                  <small>
+                    {m.type} ·{" "}
+                    {new Date(m.created_at).toLocaleTimeString("es-AR")}
+                  </small>
+                </span>
+                <strong>
+                  {m.type === "RETIRO" ? "−" : "+"}
+                  {money(m.amount)}
+                </strong>
+              </div>
+            ))}
+            {!movements.length && <p>No se registraron ingresos ni retiros.</p>}
+          </section>
+        </>
+      )}
+      <section className="retail-panel">
+        {historyShift && (
+          <ShiftHistory
+            key={historyShift}
+            storeId={storeId}
+            shiftId={historyShift}
+            onTicket={onTicket}
+            onClose={() => setHistoryShift("")}
+          />
+        )}
+        <h2>Últimos cierres de esta caja</h2>
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Cierre</th>
+                <th>Esperado</th>
+                <th>Contado</th>
+                <th>Diferencia</th>
+                <th>Historial</th>
+              </tr>
+            </thead>
+            <tbody>
+              {shifts
+                .filter((s) => s.register_id === register?.id && s.closed_at)
+                .map((s) => (
+                  <tr key={s.id}>
+                    <td>{new Date(s.closed_at!).toLocaleString("es-AR")}</td>
+                    <td>{money(s.expected_cash || 0)}</td>
+                    <td>{money(s.counted_cash || 0)}</td>
+                    <td>
+                      {money(Number(s.counted_cash) - Number(s.expected_cash))}
+                    </td>
+                    <td>
+                      <button
+                        className="text-button"
+                        onClick={() => setHistoryShift(s.id)}
+                      >
+                        Ver ventas
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function ShiftHistory({
+  storeId,
+  shiftId,
+  onTicket,
+  onClose,
+}: {
+  storeId: string;
+  shiftId: string;
+  onTicket: (sale: KioscoSale) => void;
+  onClose: () => void;
+}) {
+  const [sales, setSales] = useState<KioscoSale[]>([]);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let active = true;
+    retail
+      .sales(storeId, shiftId)
+      .then((rows) => {
+        if (active) setSales(rows);
+      })
+      .catch((e) => {
+        if (active) setError(errorMessage(e));
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, [storeId, shiftId]);
+  return (
+    <section className="history-detail">
+      <div className="section-heading">
+        <h3>Ventas del turno cerrado</h3>
+        <button className="text-button" onClick={onClose}>
+          Cerrar detalle
+        </button>
+      </div>
+      {loading ? (
+        <p role="status">Cargando historial…</p>
+      ) : error ? (
+        <p role="alert" className="error-banner">
+          {error}
+        </p>
+      ) : sales.length ? (
+        sales.map((s) => (
+          <div className="team-row" key={s.id}>
+            <span>
+              {s.ticketNumber} · {s.date} {s.timestamp}
+              <small>
+                {s.paymentMethod} · {money(s.total)}
+              </small>
+            </span>
+            <button className="text-button" onClick={() => onTicket(s)}>
+              Ver ticket
+            </button>
+          </div>
+        ))
+      ) : (
+        <p>No hubo ventas en este turno.</p>
+      )}
+    </section>
+  );
+}
