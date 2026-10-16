@@ -42,8 +42,12 @@ import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
 import { disconnectPushOnLogout, initialPushIntent, readPushIntent } from './push';
 import { PushWelcome } from './PushWelcome';
+import { useMobileScreenMotion } from './useMobileExperience';
+import { configureOffline, stopOffline, backgroundAuth } from './offline';
+import { OfflineStatus } from './OfflineStatus';
 type Tab = "pos" | "cash" | "catalog" | "settings" | "ai";
 export function RetailApp({ session }: { session: Session }) {
+  useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
   const [stores, setStores] = useState<Store[]>([]);
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(true);
@@ -53,6 +57,7 @@ export function RetailApp({ session }: { session: Session }) {
   const [pushWelcomeDone, setPushWelcomeDone] = useState(false);
   const finishPushWelcome = useCallback(() => setPushWelcomeDone(true), []);
   const load = useCallback(async () => {
+    configureOffline(session.user.id);
     setLoading(true);
     setError("");
     try {
@@ -67,7 +72,7 @@ export function RetailApp({ session }: { session: Session }) {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [session.user.id]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -76,6 +81,7 @@ export function RetailApp({ session }: { session: Session }) {
     try { await disconnectPushOnLogout(); } catch { /* Logout must remain available. */ }
     const { error } = await supabase.auth.signOut();
     if (error) throw error;
+    await stopOffline();
   };
   const store = stores.find((s) => s.id === selected);
   const accentColor = store?.accent_color;
@@ -214,12 +220,15 @@ function Workspace({
     return intent?.storeId === store.id ? intent : null;
   });
   const [tab, setTab] = useState<Tab>(pushEntry?.view || 'pos');
+  const mainRef = useRef<HTMLElement>(null);
+  useMobileScreenMotion(mainRef, tab);
   const [cashView, setCashView] = useState(pushEntry?.view === 'cash' ? 'overview' : 'shift');
   const [catalogView, setCatalogView] = useState('products');
   const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [registers, setRegisters] = useState<Register[]>([]);
+  const [availability, setAvailability] = useState<{ register_id: string; occupied: boolean }[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
   const branchSelection = useRef('');
@@ -232,11 +241,13 @@ function Workspace({
   const [registerId, setRegisterId] = useState("");
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [sales, setSales] = useState<KioscoSale[]>([]);
+  const [lastSale, setLastSale] = useState<KioscoSale | null>(null);
   const [allStoreSales, setAllStoreSales] = useState<KioscoSale[]>([]);
   const [movements, setMovements] = useState<Movement[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [cart, setCart] = useState<KioscoCartItem[]>([]);
+  const [posMobileView, setPosMobileView] = useState<"catalog" | "checkout">("catalog");
   const [ticket, setTicket] = useState<KioscoSale | null>(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -251,12 +262,14 @@ function Workspace({
     (s) => s.register_id === registerId && !s.closed_at,
   );
   const register = registers.find((r) => r.id === registerId);
+  const occupiedByOther = !shift && availability.some(r => r.register_id === registerId && r.occupied);
   const manager = role === "owner" || role === "admin";
+  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings'] : []), ...(role === 'owner' ? ['ai'] : [])];
   const canOperate =
     !!shift && !!register?.active && (manager || shift.opened_by === session.user.id);
   const refresh = useCallback(async () => {
     const turn = ++generation.current;
-    const [nextRole, cats, regs, nextShifts, nextBranches, lists, overrides, nextLedgers] = await Promise.all([
+    const [nextRole, cats, regs, nextShifts, nextBranches, lists, overrides, nextLedgers, nextAvailability] = await Promise.all([
       retail.role(store.id, session.user.id),
       retail.categories(store.id),
       retail.registers(store.id),
@@ -265,23 +278,26 @@ function Workspace({
       retail.priceLists(store.id),
       retail.priceOverrides(store.id),
       retail.ledgers(store.id),
+      retail.registerAvailability(store.id),
     ]);
     const [prods, team, pending, storeSales] = await Promise.all([
       retail.products(store.id, cats),
-      nextRole === "owner" ? retail.members(store.id) : Promise.resolve([]),
-      nextRole === "owner" ? retail.invitations(store.id) : Promise.resolve([]),
-      retail.allSales(store.id).catch(() => []),
+      nextRole !== "cashier" ? retail.members(store.id) : Promise.resolve([]),
+      nextRole !== "cashier" ? retail.invitations(store.id) : Promise.resolve([]),
+      nextRole !== "cashier" ? retail.allSales(store.id).catch(() => []) : Promise.resolve([]),
     ]);
     if (!alive.current || turn !== generation.current) return;
     setRole(nextRole);
     setCategories(cats);
     setRegisters(regs);
+    setAvailability(nextAvailability);
     setBranches(nextBranches);
     setPriceLists(lists);
     setPriceOverrides(overrides);
     setLedgers(nextLedgers);
     setLedgerId(prev => prev || nextLedgers.find(l => l.is_default)?.id || '');
-    const nextBranch = nextBranches.some(b => b.id === branchSelection.current) ? branchSelection.current : nextBranches[0]?.id || '';
+    const ownOpenRegister = regs.find(r => r.active && nextShifts.some(s => s.register_id === r.id && !s.closed_at && s.opened_by === session.user.id));
+    const nextBranch = nextBranches.some(b => b.id === branchSelection.current) ? branchSelection.current : ownOpenRegister?.branch_id || nextBranches[0]?.id || '';
     setBranchId(nextBranch);
     branchSelection.current = nextBranch;
     setRevision(n => n + 1);
@@ -293,7 +309,9 @@ function Workspace({
     setRegisterId((prev) =>
       regs.some((r) => r.id === prev && r.active && r.branch_id === nextBranch)
         ? prev
-        : regs.find((r) => r.active && r.branch_id === nextBranch)?.id || "",
+        : (ownOpenRegister?.branch_id === nextBranch ? ownOpenRegister.id : '')
+          || regs.find(r => r.active && r.branch_id === nextBranch && !nextAvailability.some(a => a.register_id === r.id && a.occupied))?.id
+          || regs.find((r) => r.active && r.branch_id === nextBranch)?.id || "",
     );
     setError("");
   }, [store.id, session.user.id]);
@@ -364,12 +382,19 @@ function Workspace({
     const [nextSales, nextMovements] = await Promise.all([
       retail.sales(store.id, activeShiftId!),
       retail.movements(store.id, activeShiftId!),
+      retail.shiftBalance(activeShiftId!),
     ]);
     if (alive.current) {
       setSales(nextSales);
       setMovements(nextMovements);
     }
   }, [store.id, activeShiftId]);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout>;
+    const update = () => { clearTimeout(timer); timer = setTimeout(() => { void Promise.all([refresh(), refreshLedger()]).catch(() => {}); }, 200); };
+    window.addEventListener('retail-local-change', update);
+    return () => { clearTimeout(timer); window.removeEventListener('retail-local-change', update); };
+  }, [refresh, refreshLedger]);
   useEffect(() => {
     let active = true;
     setSales([]);
@@ -382,6 +407,7 @@ function Workspace({
     Promise.all([
       retail.sales(store.id, activeShiftId!),
       retail.movements(store.id, activeShiftId!),
+      retail.shiftBalance(activeShiftId!),
     ])
       .then(([ss, mm]) => {
         if (active) {
@@ -448,6 +474,7 @@ function Workspace({
         sale.items,
         sale.paymentMethod,
         sale.amountPaid,
+        sale.payments,
         priceListId,
         ledgerId,
       ]);
@@ -460,15 +487,13 @@ function Workspace({
         id: checkoutRequest.current.id,
       });
       checkoutRequest.current = { signature: "", id: "" };
-      showTicket(saved);
-      try {
-        await Promise.all([refresh(), refreshLedger()]);
-      } catch (err) {
+      setLastSale(saved);
+      void Promise.all([refresh(), refreshLedger()]).catch(err => {
         setError(
           "La venta se guardó. Actualizá los datos antes de seguir: " +
             errorMessage(err),
         );
-      }
+      });
     } catch (err) {
       throw new Error(errorMessage(err));
     } finally {
@@ -514,9 +539,111 @@ function Workspace({
     navigator.serviceWorker.addEventListener('message', openNotice);
     return () => navigator.serviceWorker.removeEventListener('message', openNotice);
   }, [store.id, manager, busy, cart.length, notify, products]);
+  const posStationControls = canOperate ? (
+    <div className="pos-station-bar">
+      <div className="pos-station-pickers">
+        <label>
+          Sucursal
+          <select
+            disabled={busy || loading || branches.length === 1}
+            value={branchId}
+            onChange={(e) => {
+              if (confirmLeave()) {
+                setCart([]);
+                branchSelection.current = e.target.value;
+                setBranchId(e.target.value);
+                setRegisterId(
+                  registers.find((r) => r.active && r.branch_id === e.target.value)?.id || ""
+                );
+              }
+            }}
+          >
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label>
+          Caja de atención
+          <select
+            disabled={busy || loading || registers.filter(r => r.active && r.branch_id === branchId).length === 1}
+            value={registerId}
+            onChange={(e) => {
+              if (confirmLeave()) {
+                setCart([]);
+                setRegisterId(e.target.value);
+              }
+            }}
+          >
+            {registers
+              .filter((r) => r.active && r.branch_id === branchId)
+              .map((r) => (
+                <option value={r.id} key={r.id}>
+                  {r.name}{availability.some(a => a.register_id === r.id && a.occupied) && !shifts.some(s => s.register_id === r.id && !s.closed_at && s.opened_by === session.user.id) ? ' · Ocupada' : ''}
+                </option>
+              ))}
+          </select>
+        </label>
+      </div>
+      <details className="sale-options station-sale-options">
+        <summary>
+          <span>Opciones de venta</span>
+          <strong>
+            {priceLists.find((l) => l.id === priceListId)?.name || "Lista madre"}{" "}
+            <span aria-hidden="true">·</span>{" "}
+            {ledgers.find((l) => l.id === ledgerId)?.name || "General"}
+          </strong>
+        </summary>
+        <div className="business-controls">
+          <label>
+            Lista de precios
+            <select
+              disabled={busy || cart.length > 0}
+              value={priceListId}
+              onChange={(e) => setPriceListId(e.target.value)}
+            >
+              <option value="">Lista madre</option>
+              {priceLists
+                .filter((l) => l.active || l.id === priceListId)
+                .map((l) => (
+                  <option key={l.id} value={l.id} disabled={!l.active}>
+                    {l.name}
+                    {!l.active && " (inactiva)"}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label>
+            Registro de ventas
+            <select
+              disabled={busy || cart.length > 0}
+              value={ledgerId}
+              onChange={(e) => setLedgerId(e.target.value)}
+            >
+              {ledgers
+                .filter((l) => l.active || l.id === ledgerId)
+                .map((l) => (
+                  <option key={l.id} value={l.id} disabled={!l.active}>
+                    {l.name}
+                    {!l.active && " (inactivo)"}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <small>
+            {cart.length
+              ? "La lista y el registro se mantienen hasta terminar o vaciar la venta."
+              : "Elegí la lista y el registro antes de agregar productos."}
+          </small>
+        </div>
+      </details>
+    </div>
+  ) : undefined;
   return (
     <div
-      className={`app-shell retail-app mobile-tab-${tab}${cart.length ? " has-mobile-cart" : ""}`}
+      className={`app-shell retail-app mobile-tab-${tab}${cart.length ? " has-mobile-cart" : ""}${tab === "pos" && canOperate ? " pos-shift-open" : ""}${tab === "pos" && posMobileView === "checkout" ? " pos-mobile-checkout-active" : ""}`}
       style={{ "--store-accent": store.accent_color } as React.CSSProperties}
     >
       <a className="skip-link" href="#main-content">
@@ -560,7 +687,7 @@ function Workspace({
             ))}
           </select>
         </label>
-        <nav aria-label="Navegación principal">
+        <nav aria-label="Navegación principal" style={{ '--nav-count': mobileTabs.length, '--nav-index': Math.max(0, mobileTabs.indexOf(tab)) } as React.CSSProperties}>
           {(
             [
               { id: "pos", label: "Nueva venta", icon: ShoppingBag },
@@ -593,6 +720,7 @@ function Workspace({
               aria-current={tab === id ? "page" : undefined}
               onClick={() => {
                 setTab(id as Tab);
+                setPosMobileView("catalog");
                 setMobileAccountOpen(false);
                 if (window.matchMedia("(max-width: 760px)").matches) window.scrollTo(0, 0);
               }}
@@ -648,7 +776,9 @@ function Workspace({
           </button>
         </div>
       </header>
-      <main id="main-content" className="main-content">
+      <main id="main-content" className="main-content" ref={mainRef}>
+        <OfflineStatus />
+        {lastSale && tab === 'pos' && <div className="last-sale"><span>Última venta: ${lastSale.total.toLocaleString('es-AR')}</span><button type="button" className="text-button" onClick={() => showTicket(sales.find(s => s.id === lastSale.id) || lastSale)}>Ver último ticket</button></div>}
         <div className="page-heading">
           <div>
             <span className="eyebrow">
@@ -679,31 +809,35 @@ function Workspace({
             </h1>
             <p>{{ pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí tu turno, revisá los movimientos y consultá tus ventas.', catalog: 'Mantené tus productos, existencias y precios al día.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.' }[tab]}</p>
           </div>
-          <div className={`register-picker ${tab !== 'pos' && tab !== 'cash' ? 'context-picker-hidden' : ''}`}>
-            <label>Sucursal<select disabled={busy || loading} value={branchId} onChange={e => {
-              if (confirmLeave()) { setCart([]); branchSelection.current = e.target.value; setBranchId(e.target.value); setRegisterId(registers.find(r => r.active && r.branch_id === e.target.value)?.id || ''); }
-            }}>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
-            <label>
-              Caja de atención
-              <select
-                disabled={busy || loading}
-                value={registerId}
-                onChange={(e) => {
-                  if (confirmLeave()) {
-                    setCart([]);
-                    setRegisterId(e.target.value);
-                  }
-                }}
-              >
-                {registers
-                  .filter((r) => r.active && r.branch_id === branchId)
-                  .map((r) => (
-                    <option value={r.id} key={r.id}>
-                      {r.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
+          <div className={`register-picker ${tab === 'pos' && canOperate ? 'pos-compact-refresh' : tab !== 'pos' && tab !== 'cash' ? 'context-picker-hidden' : ''}`}>
+            {!(tab === 'pos' && canOperate) && (
+              <>
+                <label>Sucursal<select disabled={busy || loading || branches.length === 1} value={branchId} onChange={e => {
+                  if (confirmLeave()) { setCart([]); branchSelection.current = e.target.value; setBranchId(e.target.value); setRegisterId(registers.find(r => r.active && r.branch_id === e.target.value)?.id || ''); }
+                }}>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
+                <label>
+                  Caja de atención
+                  <select
+                    disabled={busy || loading || registers.filter(r => r.active && r.branch_id === branchId).length === 1}
+                    value={registerId}
+                    onChange={(e) => {
+                      if (confirmLeave()) {
+                        setCart([]);
+                        setRegisterId(e.target.value);
+                      }
+                    }}
+                  >
+                    {registers
+                      .filter((r) => r.active && r.branch_id === branchId)
+                      .map((r) => (
+                        <option value={r.id} key={r.id}>
+                          {r.name}{availability.some(a => a.register_id === r.id && a.occupied) && !shifts.some(s => s.register_id === r.id && !s.closed_at && s.opened_by === session.user.id) ? ' · Ocupada' : ''}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </>
+            )}
             <button
               className="icon-button"
               disabled={busy || loading}
@@ -738,11 +872,6 @@ function Workspace({
           </div>
         ) : (
           <>
-            {tab === 'pos' && canOperate && <details className="sale-options"><summary><span>Opciones de venta</span><strong>{priceLists.find(l => l.id === priceListId)?.name || 'Lista madre'} <span aria-hidden="true">·</span> {ledgers.find(l => l.id === ledgerId)?.name || 'General'}</strong></summary><div className="business-controls">
-              <label>Lista de precios<select disabled={busy || cart.length > 0} value={priceListId} onChange={e => setPriceListId(e.target.value)}><option value="">Lista madre</option>{priceLists.filter(l => l.active || l.id === priceListId).map(l => <option key={l.id} value={l.id} disabled={!l.active}>{l.name}{!l.active && ' (inactiva)'}</option>)}</select></label>
-              <label>Registro de ventas<select disabled={busy || cart.length > 0} value={ledgerId} onChange={e => setLedgerId(e.target.value)}>{ledgers.filter(l => l.active || l.id === ledgerId).map(l => <option key={l.id} value={l.id} disabled={!l.active}>{l.name}{!l.active && ' (inactivo)'}</option>)}</select></label>
-              <small>{cart.length ? 'La lista y el registro se mantienen hasta terminar o vaciar la venta.' : 'Elegí la lista y el registro antes de agregar productos.'}</small>
-            </div></details>}
             {tab === "pos" &&
               (!canOperate || error ? (
                 <section className="retail-panel start-selling">
@@ -752,15 +881,15 @@ function Workspace({
                       ? "Actualizá los datos antes de vender"
                       : !register
                         ? "Esta sucursal todavía no tiene cajas"
-                      : shift
+                      : shift || occupiedByOther
                         ? "Esta caja está en uso"
                         : "Primero, abrí tu caja"}
                   </h2>
                   <p>
                     {!register
                       ? 'Agregá una caja en Mi comercio, dentro de Cajas por sucursal. Si sos cajero, pedíselo al administrador.'
-                      : shift && !canOperate
-                      ? "Elegí otra caja o pedí a un administrador que revise el turno."
+                      : occupiedByOther || (shift && !canOperate)
+                      ? "Elegí otra caja disponible o esperá a que termine el turno actual. Usá Actualizar para comprobar si ya se liberó."
                       : "Ingresá el efectivo inicial para comenzar a registrar las ventas de este turno."}
                   </p>
                   <button
@@ -772,6 +901,9 @@ function Workspace({
                 </section>
               ) : (
                 <PosTab
+                  storeId={store.id}
+                  branchId={branchId}
+                  canCustomizeQuick={manager}
                   key={shift?.id}
                   storeName={store.name}
                   products={productsForList(products, priceLists.find(l => l.id === priceListId), priceOverrides)}
@@ -783,6 +915,9 @@ function Workspace({
                     manager ? () => { setCatalogView('products'); setTab("catalog"); } : undefined
                   }
                   onOpenAi={() => setIsAiOpen(true)}
+                  stationControls={posStationControls}
+                  mobilePosView={posMobileView}
+                  onMobilePosViewChange={setPosMobileView}
                 />
               ))}
             {tab === "cash" && (
@@ -796,6 +931,9 @@ function Workspace({
                   <div role="status">Cargando movimientos…</div>
                 ) : (
                   <CashDesk
+                    cashierMode={!manager}
+                    occupiedByOther={occupiedByOther}
+                    onSell={() => setTab('pos')}
                     key={registerId + shift?.id}
                     storeId={store.id}
                     register={register}

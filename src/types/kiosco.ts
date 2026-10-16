@@ -21,7 +21,8 @@ export interface KioscoCartItem {
   subtotal: number;
 }
 
-export type PaymentMethod = "Efectivo" | "QR" | "Debito" | "Credito";
+export type PaymentMethod = "Efectivo" | "QR" | "Transferencia" | "Mixto" | "Debito" | "Credito";
+export interface PaymentPart { method: Exclude<PaymentMethod, 'Mixto'>; amount: number }
 
 export interface CashMovement {
   id: string;
@@ -55,6 +56,8 @@ export interface KioscoSale {
   }[];
   total: number;
   paymentMethod: PaymentMethod;
+  payments?: PaymentPart[];
+  syncStatus?: 'pending' | 'synced';
   amountPaid: number; // Con cuánto pagó el cliente
   change: number; // Vuelto entregado
   timestamp: string; // Hora de emisión (HH:mm:ss)

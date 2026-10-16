@@ -6,6 +6,10 @@ export const supabase = createClient(
   SUPABASE_URL || "https://unconfigured.supabase.co",
   SUPABASE_ANON_KEY || "unconfigured",
 );
+// Staff registration must never replace the owner's current session.
+export const createSignupClient = () => createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false, storageKey: `staff-registration-${crypto.randomUUID()}` },
+});
 // Compatibility for the retired single-store diagnostics screen; never used for queries.
 export const DEFAULT_STORE_ID = "";
 export const isValidUUID = (id?: string | null) =>

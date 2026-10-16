@@ -19,7 +19,6 @@ import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import type { Store, Product, Shift, Movement, Role } from "../features/retail/api";
 import type { KioscoSale } from "../types/kiosco";
-import "./AIAssistant.css";
 
 export interface AIAssistantProps {
   store: Store;
@@ -322,11 +321,10 @@ ${JSON.stringify(contextPayload, null, 2)}`;
           </div>
           <div className="ai-header-title-box">
             <div className="ai-header-title">
-              <span>Asistente IA · Socio de Negocio</span>
-              <span className="ai-header-badge">Online</span>
+              <span>Asistente del comercio</span>
             </div>
             <span className="ai-header-subtitle">
-              {store.name} · Memoria en sesión con datos en tiempo real
+              {store.name}
             </span>
           </div>
         </div>
@@ -352,12 +350,10 @@ ${JSON.stringify(contextPayload, null, 2)}`;
               <Sparkles size={28} />
             </div>
             <h2 className="ai-welcome-title">
-              ¡Hola! Soy tu asistente de negocio para {store.name}
+              ¿En qué te ayudo?
             </h2>
             <p className="ai-welcome-description">
-              Tengo acceso a tu catálogo, últimas ventas y movimientos de caja
-              para brindarte análisis estratégico, sugerencias de compras y
-              respuestas inmediatas sobre tu comercio.
+              Consultá tu stock, revisá ventas o prepará una reposición.
             </p>
 
             {/* Quick Metrics Row */}
@@ -499,7 +495,8 @@ ${JSON.stringify(contextPayload, null, 2)}`;
             value={input}
             onChange={handleTextareaChange}
             onKeyDown={handleKeyDown}
-            placeholder="Preguntale a tu socio IA sobre ventas, stock, compras, turnos..."
+            placeholder="Escribí tu consulta…"
+            aria-label="Consulta para el asistente"
             disabled={isStreaming}
           />
 
@@ -524,8 +521,7 @@ ${JSON.stringify(contextPayload, null, 2)}`;
           )}
         </form>
         <span className="ai-input-hints">
-          Presioná Enter para enviar · Shift+Enter para nueva línea · Conectado en
-          tiempo real a tus datos
+          Enter para enviar · Shift+Enter para una nueva línea
         </span>
       </div>
     </div>

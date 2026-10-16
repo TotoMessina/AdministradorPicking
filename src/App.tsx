@@ -1,13 +1,11 @@
 ﻿import { ToastProvider } from "./context/ToastContext";
 import { AuthGate } from "./features/retail/AuthGate";
 import { RetailApp } from "./features/retail/RetailApp";
-import "./features/retail/retail.css";
 import { PwaStatus } from "./components/PwaStatus";
-import "./responsive.css";
-import "./mobile-app.css";
-import "./features/retail/experience.css";
-import "./features/retail/palette.css";
+import { useMobileViewport } from './features/retail/useMobileExperience';
+import "./styles/app";
 export function App() {
+  useMobileViewport();
   return (
     <ToastProvider>
       <PwaStatus />

@@ -1,0 +1,115 @@
+/* Neutral surfaces and a single brand accent. Tokens are also used by inline UI. */
+:root, .retail-app {
+  --font-main: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+  --tone-surface: #fff;
+  --tone-canvas: #f5f6f8;
+  --tone-soft: #f1f3f5;
+  --tone-hover: #eaeef2;
+  --tone-border: #dfe3e8;
+  --tone-border-strong: #bac2cd;
+  --tone-ink: #1c2430;
+  --tone-text: #404b5b;
+  --tone-muted: #677385;
+  --tone-accent: color-mix(in srgb, var(--store-accent, #5a50df) 35%, #252936);
+  --tone-accent-hover: color-mix(in srgb, var(--tone-accent) 85%, black);
+  --tone-accent-soft: color-mix(in srgb, var(--tone-accent) 7%, white);
+  --tone-danger: #a93242;
+  --tone-danger-soft: #fff2f3;
+  --tone-danger-border: #edc7cd;
+  --bg-app: var(--tone-canvas);
+  --bg-surface: var(--tone-surface);
+  --bg-surface-elevated: var(--tone-soft);
+  --text-main: var(--tone-ink);
+  --text-muted: var(--tone-muted);
+  --border-light: var(--tone-border);
+  --border-focus: var(--tone-accent);
+  --brand-blue: var(--tone-accent);
+  --brand-blue-hover: var(--tone-accent-hover);
+  --brand-accent: var(--tone-accent);
+  --brand-light-bg: var(--tone-accent-soft);
+  --theme-emerald: var(--tone-accent);
+  --theme-amber: var(--tone-accent);
+  --theme-sky: var(--tone-accent);
+  --theme-rose: var(--tone-danger);
+  --ui-ink: var(--tone-ink);
+  --ui-soft: var(--tone-soft);
+  --ui-radius: 12px;
+  --shadow-sm: 0 1px 3px #1c243008;
+  --shadow-md: 0 8px 24px #1c24300d;
+  --shadow-lg: 0 20px 70px #1c243026;
+}
+* { box-sizing: border-box; }
+html { min-width: 320px; scroll-padding-top: 24px; }
+body { margin: 0; font: 14px/1.5 var(--font-main); color: var(--tone-ink); background: var(--tone-canvas); -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button, summary, a { -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+button { cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 38px; padding: 8px 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); font-weight: 600; line-height: 1.3; transition: background .15s, border-color .15s; }
+button:hover:not(:disabled) { background: var(--tone-soft); border-color: var(--tone-border-strong); }
+button:disabled { opacity: .48; cursor: not-allowed; }
+button svg { flex-shrink: 0; }
+:focus-visible { outline: 3px solid var(--tone-accent); outline-offset: 3px; }
+input, select, textarea { min-width: 0; max-width: 100%; min-height: 42px; border: 1px solid var(--tone-border-strong); border-radius: 8px; padding: 10px 12px; background: var(--tone-surface); }
+input::placeholder, textarea::placeholder { color: var(--tone-muted); opacity: .85; }
+input:focus, select:focus, textarea:focus { border-color: var(--tone-accent); }
+input[type='checkbox'], input[type='radio'] { width: 18px; height: 18px; min-height: 0; margin: 0; padding: 0; accent-color: var(--tone-accent); flex-shrink: 0; }
+input[type='color'] { width: 64px; padding: 4px; }
+input:disabled, select:disabled, textarea:disabled { background: var(--tone-soft); color: var(--tone-muted); }
+textarea { resize: vertical; line-height: 1.6; }
+label { font-size: 13px; font-weight: 500; }
+h1, h2, h3, h4, p { margin: 0; }
+h1, h2, h3, h4 { line-height: 1.3; font-weight: 650; }
+h1 { font-size: 28px; letter-spacing: -.8px; }
+h2 { font-size: 19px; letter-spacing: -.35px; }
+h3 { font-size: 15px; }
+h4 { font-size: 14px; }
+p { color: var(--tone-text); }
+small { font-size: 12px; }
+a { color: var(--tone-accent); text-underline-offset: 3px; }
+img { max-width: 100%; }
+svg { vertical-align: middle; }
+[hidden] { display: none !important; }
+fieldset { min-width: 0; border: 0; margin: 0; padding: 0; }
+legend { font-size: 13px; font-weight: 600; padding: 0; margin-bottom: 10px; }
+summary { cursor: pointer; }
+kbd { font: 10px var(--font-mono); border: 1px solid var(--tone-border); border-radius: 4px; padding: 4px; color: var(--tone-muted); white-space: nowrap; }
+.primary-button, .checkout-button, .ai-modal-confirm-btn, .bulk-confirm-btn, .ai-report-generate-btn { color: #fff; background: var(--tone-accent); border-color: var(--tone-accent); min-height: 42px; }
+.primary-button:hover:not(:disabled), .checkout-button:hover:not(:disabled), .ai-modal-confirm-btn:hover:not(:disabled), .bulk-confirm-btn:hover:not(:disabled), .ai-report-generate-btn:hover:not(:disabled) { background: var(--tone-accent-hover); border-color: var(--tone-accent-hover); }
+.secondary-button { background: var(--tone-surface); min-height: 42px; }
+.text-button, .auth-links button { border-color: transparent; background: transparent; color: var(--tone-text); font-size: 13px; padding: 6px 8px; }
+.text-button.selected, .text-button[aria-pressed='true'] { color: var(--tone-accent); background: var(--tone-accent-soft); }
+.icon-button, .ai-modal-close, .invoice-close-btn, .ai-omni-icon-btn { padding: 8px; min-width: 36px; min-height: 36px; background: transparent; border-color: transparent; color: var(--tone-muted); }
+.danger-button { color: #fff; background: var(--tone-danger); border-color: var(--tone-danger); }
+.danger-button-outline { color: var(--tone-danger); border-color: var(--tone-danger-border); }
+.danger-text, .text-error { color: var(--tone-danger); }
+.accent-text, .text-success, .accent-green { color: var(--tone-accent); }
+.eyebrow { display: block; font-size: 10px; font-weight: 650; letter-spacing: 1.1px; color: var(--tone-muted); text-transform: uppercase; }
+.error-banner, .info-banner, .invoice-error, .ai-omni-error { display: flex; align-items: start; gap: 10px; padding: 12px 14px; border: 1px solid var(--tone-border); border-radius: 8px; font-size: 13px; line-height: 1.6; }
+.info-banner { background: var(--tone-soft); color: var(--tone-text); }
+.error-banner, .invoice-error, .ai-omni-error { background: var(--tone-danger-soft); border-color: var(--tone-danger-border); color: var(--tone-danger); }
+.error-banner svg { flex-shrink: 0; margin-top: 2px; }
+.skip-link { position: fixed; left: 16px; top: -100px; z-index: 3000; padding: 12px; background: white; border-radius: 8px; }
+.skip-link:focus { top: 12px; }
+.loading-spin, .ai-spin-icon, .animate-spin, .spin-slow, .ai-report-loading-spinner { animation: spin 1.2s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes ui-spin { to { transform: rotate(360deg); } }
+@keyframes slideInRight { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: translateY(0); } }
+.pwa-status { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 18px; padding: 10px 20px; background: var(--tone-accent-soft); color: var(--tone-accent); font-size: 13px; border-bottom: 1px solid var(--tone-border); }
+.pwa-status p { display: flex; align-items: center; gap: 8px; }
+.pwa-dismiss { margin-left: auto; flex-shrink: 0; }
+.auth-page { min-height: 100dvh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 40px 20px; }
+.auth-brand { display: flex; align-items: center; gap: 10px; color: var(--tone-ink); font-size: 20px; font-weight: 700; letter-spacing: -.5px; }
+.auth-brand svg { color: var(--tone-accent); }
+.auth-card { width: min(100%, 440px); background: white; border: 1px solid var(--tone-border); border-radius: 16px; padding: 32px; box-shadow: var(--shadow-sm); display: flex; flex-direction: column; gap: 16px; }
+.auth-layout .auth-card > .brand-mark, .auth-card > .eyebrow { display: none; }
+.auth-card h1 { font-size: 26px; }
+.auth-card > p { color: var(--tone-muted); }
+.auth-card .retail-form { margin-top: 6px; }
+.auth-card .primary-button { width: 100%; }
+.auth-links { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 12px; border-top: 1px solid var(--tone-border); }
+.auth-links button { font-size: 12px; padding-inline: 0; }
+.password-field { display: flex; flex-direction: column; gap: 7px; }
+.password-field small { color: var(--tone-muted); }
+.password-input { position: relative; display: flex; }
+.password-input input { width: 100%; padding-right: 48px; }
+.password-input button { position: absolute; right: 4px; top: 3px; height: 36px; }

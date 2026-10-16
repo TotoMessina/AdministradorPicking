@@ -36,13 +36,25 @@ try {
     shifts: [{ id: 'shift1', register_id: 'r1', opened_by: 'user', opened_at: '2026-10-13T12:00:00Z', opening_cash: 0, closed_at: null }, { id: 'shift2', register_id: 'r2', opened_by: 'user', opened_at: '2026-10-13T12:00:00Z', opening_cash: 0, closed_at: null }],
     priceLists: [{ id: 'wholesale', name: 'Mayorista', adjustment: -10, active: true }], priceOverrides: [],
     ledgers: [{ id: 'general', name: 'General', is_default: true, active: true }, { id: 'other', name: 'Especial', active: true }],
-    members: [], invitations: [], allSales: [], sales: [], movements: [], reportSales: [],
+    members: [], invitations: [], allSales: [], sales: [], movements: [], reportSales: [], registerAvailability: [], shiftBalance: 0, quickProducts: [], popularProducts: [],
   };
   for (const [method, value] of Object.entries(fixtures)) retail[method] = async () => value;
   retail.acceptInvitations = async () => 0;
   render(React.createElement(ToastProvider, null, React.createElement(RetailApp, { session: { user: { id: 'user', email: 'test@example.test' } } })));
   await waitFor(() => assert.ok(screen.getByLabelText('Buscar producto o escanear código')));
+  let quickSaved;
+  retail.saveQuickProducts = async (...args) => { quickSaved = args; };
+  fireEvent.click(screen.getByRole('button', { name: 'Personalizar', exact: true }));
+  fireEvent.change(screen.getByLabelText('Buscar para la botonera'), { target: { value: 'Agua 1' } });
+  fireEvent.click(screen.getByRole('checkbox', { name: /Agua 1$/ }));
+  await React.act(async () => fireEvent.click(screen.getByRole('button', { name: 'Guardar botonera (1/20)' })));
+  assert.deepEqual(quickSaved, ['store', 'b1', ['p1']]);
+  assert.ok(screen.getByRole('button', { name: 'Venta rápida: Agua 1' }));
+  console.log('PASS branch quick-product customization, save and touch-accessible product button');
   assert.equal(document.querySelectorAll('.product-card').length, 60);
+  const manualPanel = document.querySelector('.manual-panel');
+  assert.ok(manualPanel.parentElement.classList.contains('catalog'));
+  assert.ok(manualPanel.compareDocumentPosition(document.querySelector('.product-grid')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
   fireEvent.click(screen.getByText('Opciones de venta'));
   fireEvent.change(screen.getByLabelText('Lista de precios'), { target: { value: 'wholesale' } });
   fireEvent.click(screen.getByRole('button', { name: 'Agregar Agua 0, $90. 10 disponibles' }));
@@ -55,6 +67,7 @@ try {
   window.confirm = () => true;
   await React.act(async () => fireEvent.change(screen.getByLabelText('Sucursal', { exact: true }), { target: { value: 'b2' } }));
   assert.equal(screen.getByLabelText('Caja de atención').value, 'r2');
+  await waitFor(() => assert.equal(screen.queryByRole('button', { name: 'Venta rápida: Agua 1' }), null));
   assert.equal(screen.queryByRole('button', { name: 'Quitar Agua 0' }), null);
   console.log('PASS progressive sale options, product paging, branch selection and cart protection');
 
@@ -96,6 +109,58 @@ try {
   assert.equal(screen.getByLabelText('Efectivo contado ($)').value, '125');
   console.log('PASS switching to reports preserves the current cash count');
   cleanup();
+
+  // Administrators can identify and assign cashiers without gaining owner-only actions.
+  retail.role = async () => 'admin';
+  retail.members = async () => [{ user_id: 'cashier-private-id', email: 'caja@example.test', role: 'cashier', branch_id: null, register_id: null }];
+  let assignment;
+  retail.setCashierAccess = async (...args) => { assignment = args; };
+  const mountWorkspace = () => render(React.createElement(ToastProvider, null, React.createElement(RetailApp, { session: { user: { id: 'user', email: 'test@example.test' } } })));
+  mountWorkspace();
+  await screen.findByLabelText('Buscar producto o escanear código');
+  fireEvent.click(screen.getByRole('button', { name: /Mi comercio/ }));
+  fireEvent.click(screen.getByRole('tab', { name: 'Equipo y permisos' }));
+  assert.ok(screen.getByText('caja@example.test'));
+  assert.equal(screen.queryByText('cashier-private-id'), null);
+  assert.equal(screen.queryByRole('button', { name: 'Quitar', exact: true }), null);
+  assert.equal(screen.queryByRole('button', { name: 'Crear cuenta y dar acceso' }), null);
+  fireEvent.change(screen.getByLabelText('Caja de caja@example.test'), { target: { value: 'r2' } });
+  assert.equal(screen.getByLabelText('Sucursal de caja@example.test').value, 'b2');
+  fireEvent.click(screen.getByRole('button', { name: 'Guardar asignación' }));
+  await waitFor(() => assert.deepEqual(assignment, ['store', 'cashier-private-id', 'b2', 'r2', false]));
+  await waitFor(() => assert.equal(screen.getByLabelText('Sucursal de caja@example.test').disabled, false));
+  fireEvent.change(screen.getByLabelText('Sucursal de caja@example.test'), { target: { value: 'b1' } });
+  assert.equal(screen.getByLabelText('Caja de caja@example.test').value, '');
+  assert.equal(within(screen.getByLabelText('Caja de caja@example.test')).queryByRole('option', { name: 'Caja Norte' }), null);
+  cleanup();
+  console.log('PASS admin team emails, automatic register branch, branch reset and owner-only account controls');
+
+  retail.role = async () => 'cashier';
+  retail.branches = async () => [fixtures.branches[1]];
+  retail.registers = async () => [fixtures.registers[1]];
+  retail.shifts = async () => [];
+  retail.registerAvailability = async () => [{ register_id: 'r2', occupied: true }];
+  for (const method of ['members', 'invitations', 'allSales']) retail[method] = async () => assert.fail(`Cashier must not request ${method}`);
+  mountWorkspace();
+  await screen.findByText('Esta caja está en uso');
+  assert.equal(screen.getByLabelText('Sucursal', { exact: true }).value, 'b2');
+  assert.equal(screen.getByLabelText('Sucursal', { exact: true }).disabled, true);
+  assert.equal(screen.getByLabelText('Caja de atención').value, 'r2');
+  assert.equal(screen.queryByRole('button', { name: /Mi comercio/ }), null);
+  fireEvent.click(screen.getByRole('button', { name: /Cajas y turnos/ }));
+  await screen.findByText('Tu jornada en tres pasos');
+  assert.equal(screen.getByRole('button', { name: 'Abrir Caja Norte' }).disabled, true);
+  assert.equal(screen.queryByRole('tab', { name: 'Resumen y ventas' }), null);
+  retail.registerAvailability = async () => [{ register_id: 'r2', occupied: false }];
+  await React.act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar', exact: true })));
+  await waitFor(() => assert.equal(screen.getByRole('button', { name: 'Abrir Caja Norte' }).disabled, false));
+  retail.openShift = async () => { retail.shifts = async () => [fixtures.shifts[1]]; };
+  retail.shiftBalance = async () => 0;
+  await React.act(async () => fireEvent.click(screen.getByRole('button', { name: 'Abrir Caja Norte' })));
+  fireEvent.click(await screen.findByRole('button', { name: 'Ir a vender' }));
+  await screen.findByLabelText('Buscar producto o escanear código');
+  cleanup();
+  console.log('PASS assigned cashier defaults, private navigation, occupied register protection and guided opening-to-selling');
 
   const { ThermalReceiptModal } = await server.ssrLoadModule('/src/components/ThermalReceiptModal.tsx');
   const sale = { id: 's', ticketNumber: 'T-1', items: [], total: 100, amountPaid: 100, change: 0, paymentMethod: 'Efectivo', date: '13/10/2026', timestamp: '12:00' };

@@ -1,0 +1,144 @@
+/* Mobile app presentation. Shared colors remain in foundation.css. */
+@media (max-width: 760px) {
+  :root { --mobile-ease: cubic-bezier(.2,.8,.2,1); }
+  html { scroll-padding-top: calc(88px + env(safe-area-inset-top)); }
+  body { background: var(--tone-canvas); }
+  body:has(.ai-modal-backdrop, .invoice-overlay, .push-welcome-backdrop, .receipt-modal-backdrop, .ai-omni-backdrop) { overflow: hidden; }
+  .app-sidebar {
+    position: sticky; top: 0; z-index: 110;
+    padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+    background: var(--tone-canvas); border-bottom-color: transparent;
+  }
+  .brand-mark { width: 36px; height: 36px; border-radius: 12px; }
+  .brand-sub { letter-spacing: 1.1px; }
+  .mobile-account-toggle { width: 42px; height: 42px; border-radius: 50%; background: var(--tone-surface); border: 1px solid var(--tone-border); }
+  .mobile-account-open { border-bottom-color: var(--tone-border); box-shadow: var(--shadow-md); }
+  .mobile-account-open .store-switch, .mobile-account-open .sidebar-bottom { animation: mobile-reveal 180ms var(--mobile-ease); }
+  .app-sidebar nav {
+    gap: 0; padding: 6px calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+    background: color-mix(in srgb, var(--tone-surface) 94%, transparent);
+    -webkit-backdrop-filter: blur(18px); backdrop-filter: blur(18px);
+    box-shadow: 0 -4px 24px #1c243005;
+  }
+  .app-sidebar nav::before {
+    content: ''; position: absolute; pointer-events: none;
+    left: calc(8px + env(safe-area-inset-left)); top: 6px; height: 52px;
+    width: calc((100% - 16px - env(safe-area-inset-left) - env(safe-area-inset-right)) / var(--nav-count, 5));
+    border-radius: 15px; background: var(--tone-accent-soft);
+    transform: translateX(calc(var(--nav-index, 0) * 100%));
+    transition: transform 280ms var(--mobile-ease), width 200ms var(--mobile-ease);
+  }
+  .nav-item { position: relative; border-radius: 15px; min-height: 52px; font-size: 10px; user-select: none; }
+  .nav-item.active, .nav-item.active:hover:not(:disabled) { background: transparent; }
+  .nav-item svg { transition: transform 220ms var(--mobile-ease); }
+  .nav-item.active svg { transform: translateY(-1px) scale(1.08); }
+  .main-content { padding-top: 12px; padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+  .page-heading h1 { font-size: 28px; letter-spacing: -.9px; }
+  .page-heading .eyebrow { display: none; }
+  .page-heading p { font-size: 12px; line-height: 1.6; }
+  .retail-panel, .sale-panel, .ai-report-panel-container { border-radius: 18px; border-color: color-mix(in srgb, var(--tone-border) 75%, white); }
+  .retail-panel { box-shadow: 0 2px 6px #1c243003; }
+  .cash-metrics > div { border-radius: 16px; }
+  .search-box { border-radius: 15px; border-color: transparent; box-shadow: 0 1px 3px #1c24300a; }
+  .search-box:focus-within { border-color: var(--tone-accent); }
+  .product-card { border-radius: 17px; box-shadow: 0 2px 5px #1c243004; }
+  .product-art > span:first-child { border-radius: 12px; }
+  .add-product { border-radius: 50%; width: 30px; height: 30px; }
+  .product-quantity { border-radius: 20px; animation: mobile-count-in 220ms var(--mobile-ease); }
+  .category-list { scrollbar-width: none; }
+  .category-list button { border-radius: 20px; padding-inline: 16px; }
+  .section-nav { border: 0; background: var(--tone-hover); border-radius: 13px; padding: 4px; gap: 3px; scrollbar-width: none; }
+  .section-nav > button { border: 0; min-height: 40px; border-radius: 10px; padding-inline: 13px; }
+  .section-nav > button[aria-selected='true'] { background: white; box-shadow: var(--shadow-sm); }
+  .pos-mobile-view-tabs { border-radius: 14px; }
+  .pos-mobile-tab-btn { border-radius: 11px; }
+  .pos-mobile-tab-badge { display: inline-grid; place-items: center; min-width: 19px; min-height: 19px; border-radius: 50%; background: var(--tone-accent); color: white; }
+  .pos-mobile-checkout-active > .sale-panel { animation: mobile-forward 260ms var(--mobile-ease); }
+  .pos-mobile-catalog-active > .catalog { animation: mobile-back 240ms var(--mobile-ease); }
+  .pos-mobile-checkout-header { border-radius: 18px 18px 0 0; }
+  .pos-mobile-back-btn { border: 0; color: var(--tone-accent); background: var(--tone-accent-soft); border-radius: 12px; }
+  .payment-methods button { border-radius: 13px; min-height: 66px; }
+  .primary-button, .secondary-button { border-radius: 12px; min-height: 44px; }
+  .checkout-button { min-height: 52px; border-radius: 15px; }
+  .mobile-cart-bar {
+    border-radius: 20px; padding: 12px 16px; background: var(--tone-accent); color: white;
+    border-color: transparent; box-shadow: 0 8px 24px #1c243026;
+    left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right));
+    animation: mobile-cart-in 280ms var(--mobile-ease);
+  }
+  .mobile-cart-bar-qty { color: #ffffffbd; }
+  .mobile-cart-bar-btn { background: white; color: var(--tone-accent); border-color: white; border-radius: 12px; }
+  .mobile-cart-bar-btn:hover:not(:disabled) { background: var(--tone-soft); color: var(--tone-accent); border-color: white; }
+  .mobile-cart-bar-total { animation: mobile-count-in 200ms var(--mobile-ease); }
+  button, summary { transition: transform 140ms var(--mobile-ease), background 160ms ease, border-color 160ms ease; }
+  button:not(:disabled):active { transform: scale(.97); }
+  .icon-button:not(:disabled):active, .quantity-control button:not(:disabled):active { transform: scale(.9); }
+  .product-card:not(:disabled):active { transform: scale(.96); background: var(--tone-accent-soft); }
+  .nav-item:not(:disabled):active { transform: scale(.94); }
+  .icon-button, .ai-modal-close, .invoice-close-btn { min-width: 40px; min-height: 40px; }
+  input, select, textarea { border-radius: 12px; }
+
+  /* Bottom sheets use the same content and close controls as desktop dialogs. */
+  .ai-modal-backdrop, .invoice-overlay, .push-welcome-backdrop {
+    align-items: end; justify-items: stretch;
+    overflow: hidden;
+    padding: calc(12px + env(safe-area-inset-top)) env(safe-area-inset-right) 0 env(safe-area-inset-left);
+    animation: mobile-overlay-in 180ms ease-out;
+  }
+  .ai-modal-card, .invoice-modal, .push-welcome {
+    width: 100%; max-height: calc(100dvh - 12px - env(safe-area-inset-top));
+    border-radius: 24px 24px 0 0; border-bottom: 0;
+    padding-bottom: env(safe-area-inset-bottom);
+    animation: mobile-sheet-in 300ms var(--mobile-ease);
+  }
+  .ai-modal-header, .invoice-header { padding-top: 22px; }
+  .push-welcome { padding: 28px 24px calc(24px + env(safe-area-inset-bottom)); }
+  .receipt-modal-backdrop {
+    align-items: flex-end !important;
+    padding: calc(12px + env(safe-area-inset-top)) env(safe-area-inset-right) 0 env(safe-area-inset-left) !important;
+    animation: mobile-overlay-in 180ms ease-out;
+  }
+  .receipt-modal-backdrop > [role='dialog'] {
+    max-width: none !important; max-height: calc(100dvh - 12px - env(safe-area-inset-top)) !important;
+    border-radius: 24px 24px 0 0 !important; padding-bottom: env(safe-area-inset-bottom);
+    animation: mobile-sheet-in 300ms var(--mobile-ease);
+  }
+  .ai-omni-drawer { inset: auto env(safe-area-inset-right) 0 env(safe-area-inset-left); height: calc(100dvh - 48px - env(safe-area-inset-top)); border-radius: 24px 24px 0 0; padding-bottom: env(safe-area-inset-bottom); animation: mobile-sheet-in 300ms var(--mobile-ease); }
+  .ai-assistant-container { border-radius: 18px; }
+  .toast-container { top: calc(12px + env(safe-area-inset-top)) !important; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)) !important; width: auto !important; max-width: none !important; }
+  .toast-container > div { border-radius: 18px !important; animation: mobile-notice-in 260ms var(--mobile-ease) !important; }
+  .auth-page { padding-top: calc(24px + env(safe-area-inset-top)); padding-bottom: calc(24px + env(safe-area-inset-bottom)); }
+  .auth-card { border-radius: 24px; animation: mobile-reveal 240ms var(--mobile-ease); }
+
+  /* Keep navigation out of the keyboard's way; retain normal scrolling and zoom. */
+  html[data-mobile-keyboard] .app-sidebar nav, html[data-mobile-keyboard] .mobile-cart-bar { visibility: hidden; pointer-events: none; }
+  html[data-mobile-keyboard] .main-content { padding-bottom: 24px; }
+  html[data-mobile-keyboard] .ai-modal-backdrop,
+  html[data-mobile-keyboard] .invoice-overlay,
+  html[data-mobile-keyboard] .push-welcome-backdrop,
+  html[data-mobile-keyboard] .receipt-modal-backdrop { top: var(--visual-top); bottom: auto; height: var(--visual-height); }
+  html[data-mobile-keyboard] .ai-modal-card,
+  html[data-mobile-keyboard] .invoice-modal,
+  html[data-mobile-keyboard] .push-welcome,
+  html[data-mobile-keyboard] .receipt-modal-backdrop > [role='dialog'] { max-height: calc(var(--visual-height) - 12px) !important; }
+  html[data-mobile-keyboard] .ai-omni-drawer { top: calc(var(--visual-top) + 8px); bottom: auto; height: calc(var(--visual-height) - 8px); }
+  html[data-mobile-keyboard] .ai-assistant-container { height: calc(var(--visual-height) - 100px); min-height: 260px; }
+}
+
+@media (max-width: 760px) and (display-mode: standalone) {
+  html, body { overscroll-behavior-y: none; }
+}
+
+@keyframes mobile-reveal { from { opacity: 0; } to { opacity: 1; } }
+@keyframes mobile-overlay-in { from { background-color: transparent; } to { background-color: #18202c66; } }
+@keyframes mobile-sheet-in { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes mobile-cart-in { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mobile-forward { from { opacity: .4; transform: translateX(14px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes mobile-back { from { opacity: .4; transform: translateX(-10px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes mobile-count-in { from { transform: scale(.88); opacity: .6; } to { transform: scale(1); opacity: 1; } }
+@keyframes mobile-notice-in { from { opacity: 0; transform: translateY(-16px); } to { opacity: 1; transform: translateY(0); } }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+  button:not(:disabled):active { transform: none !important; }
+}

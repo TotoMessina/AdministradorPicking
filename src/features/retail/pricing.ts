@@ -12,7 +12,7 @@ export function salesCsv(rows: import('../../types/kiosco').KioscoSale[]): strin
     return '"' + (/^[\s]*[=+@-]/.test(text) ? "'" + text : text).replaceAll('"', '""') + '"';
   };
   return '\uFEFF' + [
-    ['ID', 'Ticket', 'Fecha', 'Sucursal', 'Caja', 'Lista', 'Registro', 'Estado de comprobante', 'Referencia externa', 'Medio', 'Total'],
-    ...rows.map(s => [s.id, s.ticketNumber, s.createdAt, s.branchName, s.registerName, s.priceListName, s.ledgerName, s.invoiceReference ? 'Con comprobante asociado' : 'Sin comprobante asociado', s.invoiceReference, s.paymentMethod, s.total.toFixed(2).replace('.', ',')]),
+    ['ID', 'Ticket', 'Fecha', 'Sucursal', 'Caja', 'Lista', 'Registro', 'Estado de comprobante', 'Referencia externa', 'Medio', 'Total', 'Desglose de pagos'],
+    ...rows.map(s => [s.id, s.ticketNumber, s.createdAt, s.branchName, s.registerName, s.priceListName, s.ledgerName, s.invoiceReference ? 'Con comprobante asociado' : 'Sin comprobante asociado', s.invoiceReference, s.paymentMethod, s.total.toFixed(2).replace('.', ','), (s.payments || [{ method: s.paymentMethod, amount: s.total }]).map(p => `${p.method}: ${p.amount.toFixed(2).replace('.', ',')}`).join(' / ')]),
   ].map(row => row.map(cell).join(';')).join('\r\n');
 }

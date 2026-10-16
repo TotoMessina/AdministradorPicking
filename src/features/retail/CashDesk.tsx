@@ -10,6 +10,7 @@ import {
   type Shift,
 } from "./api";
 import type { Run } from "./Management";
+import { cashInSale } from './payments';
 const money = (v: number) =>
   "$" + Number(v).toLocaleString("es-AR", { maximumFractionDigits: 2 });
 export function CashDesk({
@@ -24,6 +25,9 @@ export function CashDesk({
   busy,
   onTicket,
   onRefresh,
+  occupiedByOther = false,
+  cashierMode = false,
+  onSell,
 }: {
   storeId: string;
   register: Register | undefined;
@@ -36,6 +40,9 @@ export function CashDesk({
   busy: boolean;
   onTicket: (sale: KioscoSale) => void;
   onRefresh: () => void;
+  occupiedByOther?: boolean;
+  cashierMode?: boolean;
+  onSell?: () => void;
 }) {
   const [counted, setCounted] = useState("");
   const [historyShift, setHistoryShift] = useState("");
@@ -43,6 +50,16 @@ export function CashDesk({
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const movementRequest = useRef({ signature: "", id: "" });
+  const [serverBalance, setServerBalance] = useState<number | null>(null);
+  const [balanceError, setBalanceError] = useState('');
+  useEffect(() => {
+    let active = true;
+    setServerBalance(null); setBalanceError('');
+    if (cashierMode && shift) void retail.shiftBalance(shift.id)
+      .then(value => { if (active) setServerBalance(value); })
+      .catch(error => { if (active) setBalanceError(errorMessage(error)); });
+    return () => { active = false; };
+  }, [cashierMode, shift?.id, sales, movements]);
 
   // Reset analysis when shift changes
   useEffect(() => {
@@ -51,18 +68,16 @@ export function CashDesk({
   }, [shift?.id]);
 
   const cash = sales
-    .filter((s) => s.paymentMethod === "Efectivo")
-    .reduce((n, s) => n + s.total, 0);
+    .reduce((n, s) => n + cashInSale(s), 0);
   const electronic = sales
-    .filter((s) => s.paymentMethod !== "Efectivo")
-    .reduce((n, s) => n + s.total, 0);
-  const expected =
+    .reduce((n, s) => n + s.total - cashInSale(s), 0);
+  const expected = serverBalance ?? (
     Number(shift?.opening_cash || 0) +
     cash +
     movements.reduce(
       (n, m) => n + (m.type === "INGRESO" ? 1 : -1) * Number(m.amount),
       0,
-    );
+    ));
 
   const handleAnalyzeShift = async () => {
     setIsAiLoading(true);
@@ -164,6 +179,13 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
 
   return (
     <div className="cash-workspace">
+      {cashierMode && <div className="info-banner cashier-guide">
+        <strong>Tu jornada en tres pasos</strong>
+        <span>1. Abrí tu turno con el efectivo inicial. 2. Registrá las ventas en Vender. 3. Contá el efectivo y confirmá el cierre.</span>
+        <small>Acá ves tus turnos, ventas, ingresos y retiros. Los movimientos de otros usuarios son privados.</small>
+        {canOperate && onSell && <button type="button" className="primary-button" onClick={onSell}>Ir a vender</button>}
+      </div>}
+      {balanceError && <p className="error-banner" role="alert">No se pudo consultar el saldo del turno. Tocá Actualizar antes de cerrar. {balanceError}</p>}
       <div className="section-heading">
         <div>
           <h2>{register?.name || "Seleccioná una caja"}</h2>
@@ -184,6 +206,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
       {!shift ? (
         <section className="retail-panel">
           <h2>Abrir turno</h2>
+          {occupiedByOther && <p className="info-banner" role="status">Esta caja está ocupada. Elegí otra caja disponible o esperá a que cierre el turno actual y tocá Actualizar.</p>}
           <form
             className="retail-form"
             onSubmit={(e) => {
@@ -191,7 +214,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               const opening = Number(
                 new FormData(e.currentTarget).get("opening"),
               );
-              if (register)
+              if (register && !occupiedByOther)
                 void run(
                   () => retail.openShift(storeId, register.id, opening),
                   "Turno abierto",
@@ -209,7 +232,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 defaultValue="0"
               />
             </label>
-            <button className="primary-button" disabled={busy || !register}>
+            <button className="primary-button" disabled={busy || !register || occupiedByOther || !register.active}>
               Abrir {register?.name || "caja"}
             </button>
           </form>
@@ -218,9 +241,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
         <>
           {!canOperate && (
             <div className="info-banner">
-              Esta caja fue abierta por otro cajero. Podés consultar sus
-              movimientos. Para operar, seleccioná otra caja o pedí ayuda a un
-              administrador.
+              Esta caja no está disponible para operar. Actualizá los datos y seleccioná una caja habilitada.
             </div>
           )}
           <div className="cash-metrics">
@@ -233,7 +254,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               <strong>{money(cash)}</strong>
             </div>
             <div>
-              <small>QR y tarjetas</small>
+              <small>QR, transferencias y tarjetas</small>
               <strong>{money(electronic)}</strong>
             </div>
             <div>
@@ -316,6 +337,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               </section>
               <section className="retail-panel">
                 <h2>Cerrar turno</h2>
+                {cashierMode && <small>El saldo esperado incluye todos los ajustes de tu turno, incluso los realizados por un administrador.</small>}
                 <p>
                   Contá el dinero físico. El cierre guarda el arqueo y conserva
                   todas las ventas.
@@ -324,6 +346,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   className="retail-form"
                   onSubmit={async (e) => {
                     e.preventDefault();
+                    if (cashierMode && serverBalance === null) return;
                     if (
                       window.confirm(
                         `¿Cerrar el turno de ${register?.name} con ${money(Number(counted))} contados?`,
@@ -424,7 +447,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     </div>
                   )}
 
-                  <button disabled={busy} className="primary-button">
+                  <button disabled={busy || (cashierMode && serverBalance === null)} className="primary-button">
                     Confirmar cierre
                   </button>
                 </form>
@@ -503,7 +526,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             onClose={() => setHistoryShift("")}
           />
         )}
-        <h2>Últimos cierres de esta caja</h2>
+        <h2>{cashierMode ? 'Tus últimos cierres en esta caja' : 'Últimos cierres de esta caja'}</h2>
         <div className="table-scroll">
           <table>
             <thead>

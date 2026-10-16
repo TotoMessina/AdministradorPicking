@@ -41,7 +41,7 @@ Publicar el frontend bajo **HTTPS** y configurar allí la misma `VITE_VAPID_PUBL
 
 En Chrome/Edge se ofrece **Instalar app** cuando el navegador lo permite; también puede usarse su menú. En iPhone/iPad se agrega desde Safari a la pantalla de inicio y se abre desde ese ícono antes de activar los avisos. `localhost` sirve para probar en esta computadora; una dirección HTTP de la red local no sirve para instalar/probar push en otro dispositivo.
 
-La versión publicada conserva una pantalla de recuperación sin conexión. **Las ventas necesitan internet**; la PWA no registra ventas offline. Las actualizaciones esperan a que se cierren las ventanas abiertas, para preservar las operaciones pendientes.
+La PWA conserva el shell de la aplicación y las cajas preparadas guardan operaciones en IndexedDB para sincronizarlas al reconectar. Background Sync depende del navegador y de una sesión vigente; de lo contrario se reanuda al abrir la app. Las actualizaciones esperan a que se cierren las ventanas abiertas. Ver preparación y pruebas en [OFFLINE_POS.md](OFFLINE_POS.md).
 
 ## Comportamiento
 
@@ -54,6 +54,12 @@ La versión publicada conserva una pantalla de recuperación sin conexión. **La
 - Las suscripciones vencidas (404/410) se eliminan. Los fallos temporales se reintentan con espera creciente, hasta cinco intentos y durante 24 horas. La cola se limpia a los siete días. El proveedor puede demorar o rechazar la entrega; una respuesta aceptada no confirma que el usuario vio el aviso.
 - Los tags agrupan avisos del mismo tipo/comercio en el dispositivo. No reemplazan el historial de ventas, movimientos ni cierres.
 
+## Aviso al iniciar sesión en la PWA
+
+Al entrar con una cuenta propietaria o administradora desde la app instalada, se ofrece activar **Stock bajo** y **Cierres de caja**. El botón **Activar notificaciones** solicita el permiso del sistema y registra el dispositivo. Se necesita ese toque para respetar las restricciones de los navegadores, especialmente iOS.
+
+**Ahora no** permite seguir trabajando; se puede activar después en **Mi comercio → App y avisos**. La invitación no se repite durante esa sesión de la app ni al cambiar de comercio. Se omite si ya existe una suscripción de la cuenta en el dispositivo, si el permiso está bloqueado, si el navegador no es compatible o si el servidor aún no está configurado. Las preferencias existentes se conservan.
+
 ## Cómo probar
 
 1. `npx tsc --noEmit -p tsconfig.app.json` y `npx tsc --noEmit -p tsconfig.node.json`: tipado sin generar una compilación ni tocar el servidor de desarrollo.
@@ -63,5 +69,6 @@ La versión publicada conserva una pantalla de recuperación sin conexión. **La
 5. Desmarcar un tipo de aviso, guardar preferencias y repetir su evento: no debe enviarse. Desactivar los avisos y repetir: no debe enviarse ninguno. Denegar permisos no debe impedir usar el resto de la app.
 6. Mantener una venta sin cobrar y tocar un aviso: el carrito debe conservarse. Cerrar sesión, repetir un evento desde otro dispositivo y comprobar que este dispositivo ya no recibe nuevos envíos.
 7. Revisar **Supabase Cron → retail-web-push** y la tabla `retail_push_deliveries` con una cuenta administrativa. `sent_at` indica aceptación por el servicio push; `attempts` y `last_error` muestran reintentos. No copiar endpoints o claves de suscripción en registros públicos.
+8. Con la app instalada y el servidor configurado, iniciar sesión sin una suscripción activa: debe aparecer la invitación. Elegir **Ahora no** no debe solicitar permiso. Volver a entrar, elegir **Activar notificaciones** y aceptar: ambos tipos de aviso deben quedar habilitados. Reabrir con una suscripción existente no debe sobrescribir sus preferencias.
 
 Referencias: [Web Push y permisos](https://web.dev/articles/push-notifications-overview), [Web Push en iOS/iPadOS](https://webkit.org/blog/13878/), [programación de funciones en Supabase](https://supabase.com/docs/guides/functions/schedule-functions), [biblioteca Web Push](https://github.com/web-push-libs/web-push).

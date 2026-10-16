@@ -1,0 +1,12 @@
+@media print {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  @page { margin: 0; }
+  body:has(.receipt-paper) { background: white; overflow: visible !important; height: auto !important; }
+  body:has(.receipt-paper) * { visibility: hidden; }
+  body:has(.receipt-paper) .receipt-modal-backdrop { position: absolute !important; inset: 0 auto auto 0 !important; display: block !important; height: auto !important; overflow: visible !important; padding: 0 !important; background: white !important; backdrop-filter: none !important; }
+  .receipt-modal-backdrop > [role='dialog'] { max-height: none !important; overflow: visible !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; }
+  .receipt-modal-backdrop div:has(> .receipt-paper) { padding: 0 !important; overflow: visible !important; }
+  .receipt-paper, .receipt-paper * { visibility: visible !important; color: black !important; }
+  .receipt-paper { position: absolute; top: 0; left: 0; width: var(--receipt-width, 58mm) !important; padding: 3mm !important; margin: 0 !important; box-shadow: none !important; border: 0 !important; border-radius: 0 !important; }
+  .receipt-paper tr { break-inside: avoid; }
+}

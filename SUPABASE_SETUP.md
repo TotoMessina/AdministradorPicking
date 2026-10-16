@@ -5,7 +5,7 @@ El frontend está configurado en `.env.local` para el proyecto `lkahqqsduatkhxru
 ## 1. Instalar la base de datos
 
 1. Abrí https://supabase.com/dashboard/project/lkahqqsduatkhxruiolo/sql/new
-2. Ejecutá las migraciones de `supabase/migrations` en orden: `202610010001`, `202610020001`, `202610070001` y `202610130001`. Copiá el contenido completo de cada archivo.
+2. Ejecutá las migraciones de `supabase/migrations` en orden: `202610010001`, `202610020001`, `202610070001`, `202610130001`, `202610140001` y `202610150001`. Copiá el contenido completo de cada archivo.
 3. En un proyecto existente, ejecutá solamente las migraciones pendientes. La nueva migración `202610130001_branches_prices_ledgers.sql` es transaccional: asigna las cajas y ventas existentes a la sucursal **Principal**, la **Lista madre** y el registro **General**, sin cambiar importes, stock ni cierres. Instalá esta migración antes de publicar el frontend actualizado.
 4. Si aparece un error, compartí el texto del error, sin claves ni contraseñas. No vuelvas a ejecutar una migración que ya terminó correctamente.
 
@@ -30,7 +30,11 @@ No pongas una clave `service_role`, una contraseña de base de datos ni un token
 
 ## Equipo
 
-El propietario autoriza emails como administrador o cajero. Esta autorización **no envía un correo**. El colaborador crea/confirma su cuenta con ese email y usa **Actualizar accesos**. El propietario puede revocar autorizaciones pendientes y quitar miembros. El rol propietario no se puede quitar ni cambiar desde la app.
+En **Mi comercio → Equipo y permisos**, el propietario puede crear una cuenta de cajero o administrador indicando email, contraseña inicial y su confirmación. Primero se autoriza ese email mediante las políticas existentes; después se registra la cuenta con un cliente de autenticación aislado, sin reemplazar la sesión del propietario ni guardar la contraseña en la base del comercio. No requiere una función Edge ni una migración nueva.
+
+La confirmación de email sigue la configuración de Supabase Auth. Con confirmación activada, el colaborador debe abrir su correo antes de ingresar con la contraseña inicial; el comercio se vincula al iniciar sesión mediante `retail_accept_invitations`. Si la cuenta ya existía, su contraseña no se reemplaza: debe usar su acceso habitual o recuperar la contraseña. El registro usa el flujo estándar de [signUp de Supabase](https://supabase.com/docs/reference/javascript/auth-signup).
+
+Para una persona que ya tiene cuenta, marcar **Ya tiene una cuenta en el sistema**: solo se autoriza el acceso y no se envía un correo. Si esa persona estaba conectada, puede usar **Actualizar accesos**. Las autorizaciones anteriores también sirven para completar el alta con contraseña; se reutilizan cuando coinciden los permisos. Si el registro falla, la autorización queda pendiente y se informa el error para poder reintentar. El propietario puede revocar autorizaciones pendientes y quitar miembros; su propio rol no se modifica desde la app.
 
 - Propietario: ventas, cajas, catálogo, configuración y equipo.
 - Administrador: ventas, cajas, catálogo y configuración; sin gestionar equipo.
@@ -63,8 +67,24 @@ Estas pruebas locales no reemplazan verificar Auth, RLS y correos en tu proyecto
 
 ## Alcance y operación
 
-Se requiere conexión para guardar; no hay ventas offline ni éxitos simulados en almacenamiento local. No se importan automáticamente los datos de la versión anterior porque no tienen propietario/comercio confiable. El historial muestra hasta 200 turnos recientes; los anteriores siguen en la base. El stock y los precios se vuelven a validar en el servidor al cobrar. Una venta se guarda junto con el descuento de stock o se rechaza completa.
+Las cajas preparadas guardan primero las operaciones en IndexedDB y las sincronizan con Supabase. Los permisos, precios y stock se vuelven a validar en el servidor; si hay conflictos, los pendientes permanecen guardados para revisión. No se importan automáticamente datos sin propietario/comercio confiable. El historial muestra hasta 200 turnos recientes; los anteriores siguen en la base. Ver [OFFLINE_POS.md](OFFLINE_POS.md).
 
 La moneda implementada es ARS. No incluye facturación fiscal, integración automática con medios de pago, transferencias entre sucursales ni pagos de suscripción. Los tickets son comprobantes no fiscales.
 
 Referencias: https://supabase.com/docs/guides/database/postgres/row-level-security y https://supabase.com/docs/guides/database/functions
+
+## Emails, asignaciones y privacidad del cajero
+
+Antes de publicar este frontend, ejecutá completa la migración pendiente [202610150001_cashier_access.sql](supabase/migrations/202610150001_cashier_access.sql) en el SQL Editor del proyecto. Requiere las migraciones anteriores. No borra ventas ni usuarios: los cajeros existentes conservan acceso a todas las ubicaciones hasta que se los asigne, pero pasan a consultar únicamente sus propias ventas, ingresos/retiros y turnos. El propietario y los administradores conservan la vista completa.
+
+En **Mi comercio → Equipo y permisos**, propietarios y administradores ven el email actual de cada cuenta y pueden guardar una asignación para cajeros activos o accesos pendientes. Elegir una caja selecciona también su sucursal; **Todas las sucursales / Todas las cajas** quita la restricción. Estas son cajas de atención, independientes de los registros de ventas. Solo el propietario sigue dando altas, quitando miembros o revocando invitaciones. La asignación no permite cambiar roles ni permisos de otros administradores.
+
+Si el cajero tiene un turno abierto fuera de la nueva asignación, debe cerrarlo primero. Al ingresar o tocar **Actualizar datos**, recibe solo las ubicaciones habilitadas y se selecciona su turno abierto, si lo tiene. Una única sucursal/caja queda seleccionada automáticamente. Si una caja está ocupada, ve ese estado sin conocer al operador, importes ni movimientos. En **Cajas y turnos** tiene una guía para abrir, ir a vender y cerrar; el historial muestra sus propios cierres. El saldo esperado de su propio turno incluye posibles ajustes del administrador, sin mostrar los movimientos ajenos, para mantener correcto el arqueo.
+
+La base valida la asignación al abrir y operar turnos. RLS limita las consultas aunque se hagan directamente a Supabase. Los emails se consultan por una función autorizada, sin exponer la tabla de autenticación ni usar claves privadas en el navegador. Una asignación nueva se refleja en la interfaz al actualizar; el servidor la exige de inmediato.
+
+Prueba manual: abrir http://localhost:3001/ como administrador, ir a **Mi comercio → Equipo y permisos**, asignar un cajero a una caja y guardar. Entrar como ese cajero en otro navegador, comprobar su selección automática, abrir turno y registrar una venta y un movimiento. Hacer otra operación con otro usuario: el cajero no debe verla y el administrador sí. Cerrar el turno del cajero; luego quitar la restricción y actualizar para comprobar que vuelve a poder elegir ubicaciones.
+
+## Caja rápida y offline
+
+Ejecutar también `202610160001_offline_pos.sql` y `202610160002_offline_queue.sql`, en ese orden, antes de publicar esta versión. Agregan transferencia/pago mixto, arqueo por componente en efectivo, botonera por sucursal, registro de reposiciones y sincronización idempotente. Ver preparación de dispositivos, límites, conflictos y pruebas en [OFFLINE_POS.md](OFFLINE_POS.md). No hace falta una nueva función Edge.

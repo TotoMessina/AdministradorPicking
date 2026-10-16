@@ -20,7 +20,6 @@ import { groqStream } from "../services/groqService";
 import { retail, type Shift, type Product, type Role } from "../features/retail/api";
 import type { KioscoSale } from "../types/kiosco";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
-import "./AIReportPanel.css";
 
 export type PeriodType = "today" | "7days" | "month";
 export type AIReportStatus = "idle" | "loading" | "streaming" | "done" | "error";

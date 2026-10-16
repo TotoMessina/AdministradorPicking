@@ -1,5 +1,6 @@
 import { supabase, isValidUUID } from "../../lib/supabase";
 import type { KioscoProduct, KioscoSale } from "../../types/kiosco";
+import { withOffline } from './offline';
 export type Role = "owner" | "admin" | "cashier";
 export interface Store {
   id: string;
@@ -58,13 +59,19 @@ export interface Movement {
 export interface Member {
   user_id: string;
   role: Role;
+  email: string;
+  branch_id: string | null;
+  register_id: string | null;
 }
 export interface Invitation {
   id: string;
   email: string;
   role: Role;
+  branch_id: string | null;
+  register_id: string | null;
 }
 export interface SaleRow {
+  payments?: KioscoSale['payments'];
   branch_id: string;
   branch_name: string;
   register_name: string;
@@ -144,6 +151,7 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   items: row.items,
   total: Number(row.total),
   paymentMethod: row.payment_method,
+  payments: row.payments,
   amountPaid: Number(row.amount_paid),
   change: Number(row.change),
   timestamp: new Date(row.created_at).toLocaleTimeString("es-AR"),
@@ -151,7 +159,16 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   created_at: row.created_at,
   createdAt: row.created_at,
 });
-export const retail = {
+const remoteRetail = {
+  async quickProducts(store: string, branch: string) {
+    return result<{ product_id: string; position: number }[]>(supabase.from('retail_quick_products').select('product_id,position').eq('store_id', store).eq('branch_id', branch).order('position'));
+  },
+  async popularProducts(store: string, branch: string) {
+    return result<{ product_id: string; units: number }[]>(supabase.rpc('retail_popular_products', { p_store: store, p_branch: branch }));
+  },
+  async saveQuickProducts(store: string, branch: string, products: string[]) {
+    return result(supabase.rpc('retail_save_quick_products', { p_store: store, p_branch: branch, p_products: products }));
+  },
   async branches(store: string) {
     return result<Branch[]>(supabase.from('retail_branches').select('*').eq('store_id', store).order('is_default', { ascending: false }).order('name'));
   },
@@ -391,6 +408,7 @@ export const retail = {
     productId: string,
     newStock: number,
     newCost?: number,
+    _quantityAdded?: number,
   ) {
     const values: Record<string, unknown> = { stock: newStock };
     if (typeof newCost === "number" && newCost >= 0) {
@@ -408,7 +426,7 @@ export const retail = {
   },
   async replenishStockBatch(
     store: string,
-    items: { id: string; newStock: number; newCost?: number }[],
+    items: { id: string; newStock: number; newCost?: number; quantityAdded?: number }[],
   ) {
     const results = [];
     for (const item of items) {
@@ -494,18 +512,22 @@ export const retail = {
     );
   },
   async members(store: string) {
-    return result<Member[]>(
-      supabase
-        .from("retail_members")
-        .select("user_id,role")
-        .eq("store_id", store),
-    );
+    return result<Member[]>(supabase.rpc('retail_team', { p_store: store }));
+  },
+  async setCashierAccess(store: string, target: string, branch: string, register: string, pending = false) {
+    return result(supabase.rpc('retail_set_cashier_access', { p_store: store, p_target: target, p_branch: branch || null, p_register: register || null, p_pending: pending }));
+  },
+  async registerAvailability(store: string) {
+    return result<{ register_id: string; occupied: boolean }[]>(supabase.rpc('retail_register_availability', { p_store: store }));
+  },
+  async shiftBalance(shift: string) {
+    return Number(await result<number>(supabase.rpc('retail_shift_balance', { p_shift: shift })));
   },
   async invitations(store: string) {
     return result<Invitation[]>(
       supabase
         .from("retail_invitations")
-        .select("id,email,role")
+        .select("id,email,role,branch_id,register_id")
         .eq("store_id", store),
     );
   },
@@ -576,6 +598,7 @@ export const retail = {
         p_shift: shift,
         p_request: sale.id,
         p_method: sale.paymentMethod,
+        p_payments: sale.payments || null,
         p_paid: sale.amountPaid,
         p_items: sale.items.map((i) => ({
           product_id: i.productId || null,
@@ -723,6 +746,8 @@ export const retail = {
     }
   },
 };
+
+export const retail = withOffline(remoteRetail);
 
 if (typeof window !== "undefined") {
   (window as unknown as { retail?: typeof retail }).retail = retail;

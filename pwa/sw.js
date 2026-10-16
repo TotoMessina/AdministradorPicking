@@ -32,7 +32,7 @@ self.addEventListener('fetch', (event) => {
   if (request.mode === 'navigate') {
     event.respondWith(fetch(request).catch(async () => {
       const cache = await caches.open(CACHE);
-      return (await cache.match(offlineURL)) || Response.error();
+      return (await cache.match(new URL('index.html', scope).href)) || (await cache.match(offlineURL)) || Response.error();
     }));
     return;
   }
@@ -79,4 +79,64 @@ self.addEventListener('notificationclick', (event) => {
       await self.clients.openWindow(url.href);
     }
   })());
+});
+
+// Background Sync is progressive enhancement. The foreground app uses the same
+// durable queue on browsers that do not provide it. No refresh token is copied here.
+function openRetailDatabase() {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open('retail-offline-v1', 2);
+    request.onupgradeneeded = () => { for (const name of ['accounts', 'meta']) if (!request.result.objectStoreNames.contains(name)) request.result.createObjectStore(name); };
+    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+  });
+}
+function readRetailRecord(db, table, key) {
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(table).objectStore(table).get(key);
+    request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error);
+  });
+}
+async function syncRetailOutbox() {
+  const db = await openRetailDatabase();
+  try {
+    for (let i = 0; i < 100; i++) {
+      const auth = await readRetailRecord(db, 'meta', 'auth');
+      if (!auth?.token || !auth.expires || auth.expires * 1000 <= Date.now() + 30000) return;
+      const state = await readRetailRecord(db, 'accounts', auth.user);
+      const entry = state?.queue?.[0];
+      if (!entry || entry.error) return;
+      const response = await fetch(`${auth.url}/rest/v1/rpc/retail_sync_operation`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', apikey: auth.key, Authorization: `Bearer ${auth.token}` },
+        body: JSON.stringify({ p_operation: entry.operation }),
+      });
+      if (response.status === 401) return; // Resume after the app refreshes the authenticated session.
+      if (response.status >= 500 || response.status === 429) throw new Error('Sync temporarily unavailable');
+      const result = await response.json();
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction('accounts', 'readwrite'); const store = tx.objectStore('accounts');
+        const get = store.get(auth.user);
+        get.onsuccess = () => {
+          const current = get.result; if (!current) return;
+          const queued = current.queue.find(q => q.operation.id === entry.operation.id);
+          if (!queued) return;
+          if (response.ok) {
+            current.queue = current.queue.filter(q => q.operation.id !== entry.operation.id);
+            current.revision = (Number.isInteger(current.revision) ? current.revision : 0) + 1;
+            if (entry.operation.kind === 'sale') for (const [key, value] of Object.entries(current.cache)) {
+              if (Array.isArray(value) && JSON.parse(key)[0] === 'sales') current.cache[key] = value.map(sale => sale.id === entry.operation.id ? { ...sale, ticketNumber: result.ticketNumber, syncStatus: 'synced' } : sale);
+            }
+          } else queued.error = result.message || 'Revisá la operación en la app';
+          store.put(current, auth.user);
+        };
+        tx.oncomplete = resolve; tx.onerror = tx.onabort = () => reject(tx.error);
+      });
+      for (const client of await self.clients.matchAll({ type: 'window', includeUncontrolled: true })) client.postMessage({ type: 'retail-sync-updated' });
+      if (!response.ok) return;
+    }
+    // A bounded batch avoids monopolizing the worker. The browser can continue later.
+    if (self.registration.sync) await self.registration.sync.register('retail-outbox');
+  } finally { db.close(); }
+}
+self.addEventListener('sync', event => {
+  if (event.tag === 'retail-outbox') event.waitUntil(syncRetailOutbox());
 });

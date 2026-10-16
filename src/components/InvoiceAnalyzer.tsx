@@ -883,7 +883,7 @@ export function InvoiceAnalyzer({
     try {
       // 1. Actualización de productos existentes
       if (toUpdate.length > 0) {
-        const batchItems: { id: string; newStock: number; newCost?: number }[] = [];
+        const batchItems: { id: string; newStock: number; newCost?: number; quantityAdded?: number }[] = [];
         for (const it of toUpdate) {
           const prod = it.matchedProduct!;
           const newStock =
@@ -894,7 +894,7 @@ export function InvoiceAnalyzer({
             it.action === "update_cost" || it.action === "both"
               ? it.unitCost
               : undefined;
-          batchItems.push({ id: prod.id, newStock, newCost });
+          batchItems.push({ id: prod.id, newStock, newCost, quantityAdded: newStock - prod.stock });
         }
         await retail.replenishStockBatch(storeId, batchItems);
       }

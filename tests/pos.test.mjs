@@ -147,11 +147,43 @@ try {
     "PASS external-payment confirmation, confirmation invalidation and stock cap",
   );
   cleanup();
+  const instant = [];
+  function KeyboardHarness() {
+    const [cart, setCart] = React.useState([]);
+    return React.createElement(ToastProvider, null, React.createElement(PosTab, { products, cart, setCart, onTriggerChecklist() {}, onCompleteSale: async sale => { instant.push(sale); } }));
+  }
+  render(React.createElement(KeyboardHarness));
+  const add = () => fireEvent.click(screen.getByRole('button', { name: /Agregar Agua/ }));
+  for (const [key, method] of [['F1', 'Efectivo'], ['F2', 'QR'], ['F3', 'Transferencia']]) {
+    add();
+    await React.act(async () => { fireEvent.keyDown(window, { key }); fireEvent.keyDown(window, { key, repeat: true }); });
+    assert.equal(instant.at(-1).paymentMethod, method);
+    assert.equal(instant.at(-1).total, 1500);
+    assert.equal(instant.at(-1).payments[0].amount, 1500);
+    assert.equal(document.activeElement.getAttribute('aria-label'), 'Buscar producto o escanear código');
+  }
+  assert.equal(instant.length, 3);
+  add();
+  fireEvent.keyDown(window, { key: 'F4' });
+  assert.equal(instant.length, 3, 'F4 opens allocation before charging');
+  fireEvent.change(document.getElementById('mixed-amount'), { target: { value: '500' } });
+  await React.act(async () => fireEvent.keyDown(document.getElementById('mixed-amount'), { key: 'Enter' }));
+  assert.equal(instant.length, 4);
+  assert.deepEqual(instant[3].payments, [{ method: 'Efectivo', amount: 500 }, { method: 'QR', amount: 1000 }]);
+  await React.act(async () => {
+    for (const key of 'AGUA') fireEvent.keyDown(document.body, { key });
+    fireEvent.keyDown(document.body, { key: 'Enter' });
+  });
+  assert.ok(screen.getByRole('button', { name: 'Quitar Agua' }));
+  console.log('PASS F1/F2/F3 direct payment, repeat guard, F4 split payment, Enter confirmation, focus restoration and global barcode scan');
+  cleanup();
 } catch (error) {
   console.error(error.message);
   process.exitCode = 1;
 } finally {
   cleanup();
+  const { supabase } = await server.ssrLoadModule('/src/lib/supabase.ts');
+  await supabase.auth.dispose();
   await server.close();
   dom.window.close();
 }

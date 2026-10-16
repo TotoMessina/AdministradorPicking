@@ -44,6 +44,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       "--------------------------------",
       `TOTAL:          $${sale.total.toLocaleString("es-AR")}`,
       `Forma de Pago:  ${sale.paymentMethod}`,
+      ...(sale.payments || []).map(p => `${p.method}: $${p.amount.toLocaleString('es-AR')}`),
+      ...(sale.syncStatus === 'pending' ? ['GUARDADO LOCAL · PENDIENTE DE SINCRONIZAR'] : []),
       `Paga Con:       $${sale.amountPaid.toLocaleString("es-AR")}`,
       `Vuelto:         $${sale.change.toLocaleString("es-AR")}`,
       "================================",
@@ -70,8 +72,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       style={{
         position: "fixed",
         inset: 0,
-        background: "rgba(11, 15, 25, 0.78)",
-        backdropFilter: "blur(8px)",
+        background: "#18202c66",
         zIndex: 5000,
         display: "flex",
         alignItems: "center",
@@ -89,13 +90,13 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         tabIndex={-1}
         style={{
           background: "var(--bg-surface, #ffffff)",
-          borderRadius: "1.25rem",
+          borderRadius: "14px",
           maxWidth: "480px",
           width: "100%",
           maxHeight: "92vh",
           display: "flex",
           flexDirection: "column",
-          boxShadow: "0 25px 50px -12px rgba(0, 0, 0, 0.35)",
+          boxShadow: "var(--shadow-lg)",
           overflow: "hidden",
         }}
         onClick={(e) => e.stopPropagation()}
@@ -221,6 +222,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
             id="printable-ticket"
             className="receipt-paper"
             style={{
+              "--receipt-width": paperWidth,
               width: paperWidth === "58mm" ? "300px" : "360px",
               background: "#ffffff",
               color: "#0f172a",
@@ -230,7 +232,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
               fontFamily: "var(--font-mono, monospace)",
               fontSize: "0.78125rem",
               lineHeight: 1.35,
-            }}
+            } as React.CSSProperties}
           >
             {/* Header */}
             <div style={{ textAlign: "center", marginBottom: "0.75rem" }}>
@@ -384,6 +386,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <span>Método de Pago:</span>
                 <span style={{ fontWeight: 700 }}>{sale.paymentMethod}</span>
               </div>
+              {sale.payments && sale.payments.length > 1 && sale.payments.map(p => <div key={p.method} className="receipt-payment-part">{p.method}: ${p.amount.toLocaleString('es-AR')}</div>)}
+              {sale.syncStatus === 'pending' && <p>Guardado local · pendiente de sincronizar</p>}
               {sale.paymentMethod === "Efectivo" && (
                 <>
                   <div

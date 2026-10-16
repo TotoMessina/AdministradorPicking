@@ -1,8 +1,9 @@
 ﻿import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Session } from "@supabase/supabase-js";
-import { Store, LogIn, Eye, EyeOff, ShoppingBag, Package, Wallet } from "lucide-react";
+import { Store, LogIn, Eye, EyeOff } from "lucide-react";
 import { isSupabaseConfigured, supabase } from "../../lib/supabase";
 import { errorMessage } from "./api";
+import { stopOffline } from './offline';
 export function AuthGate({
   children,
 }: {
@@ -22,13 +23,25 @@ export function AuthGate({
   const [message, setMessage] = useState("");
   const running = useRef(false);
   useEffect(() => {
+    if (navigator.onLine === false) {
+      try {
+        const user = JSON.parse(localStorage.getItem('retail.offline-user') || 'null');
+        if (user?.id && user?.email) { setSession({ user, access_token: '', refresh_token: '', token_type: 'bearer', expires_in: 0 }); setLoading(false); }
+      } catch { /* A new account must sign in online before using offline data. */ }
+    }
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((event, next) => {
+      if (!next && navigator.onLine === false && event !== 'SIGNED_OUT') return;
+      try {
+        if (next?.user) localStorage.setItem('retail.offline-user', JSON.stringify({ id: next.user.id, email: next.user.email }));
+        if (event === 'SIGNED_OUT') localStorage.removeItem('retail.offline-user');
+      } catch { /* Storage failure is handled by the operational database. */ }
       setSession(next);
       setLoading(false);
       if (event === "PASSWORD_RECOVERY") setRecovery(true);
       if (event === "SIGNED_OUT") setRecovery(false);
+      if (event === 'SIGNED_OUT') void stopOffline();
     });
     return () => subscription.unsubscribe();
   }, []);
@@ -100,16 +113,7 @@ export function AuthGate({
   if (session && !recovery) return <>{children(session)}</>;
   return (
     <div className="auth-page auth-layout">
-      <aside className="auth-intro" aria-label="Mi negocio">
-        <div className="auth-brand"><Store size={25} /><span>mi negocio<span>GESTIÓN SIMPLE</span></span></div>
-        <div><span className="auth-intro-kicker">DEL MOSTRADOR A CADA SUCURSAL</span><h2>Tu comercio,<br />en orden.</h2><p>Lo que necesitás para vender y administrar, en un mismo lugar.</p></div>
-        <div className="auth-features">
-          <div><ShoppingBag size={20} /><span><strong>Ventas sin vueltas</strong><small>Productos, cobros y tickets.</small></span></div>
-          <div><Package size={20} /><span><strong>Precios y stock claros</strong><small>Un catálogo para todo tu comercio.</small></span></div>
-          <div><Wallet size={20} /><span><strong>Cada caja, bajo control</strong><small>Turnos, sucursales y ventas reunidas.</small></span></div>
-        </div>
-        <span className="auth-intro-footer">Para el kiosco de todos los días y el comercio que crece.</span>
-      </aside>
+      <div className="auth-brand"><Store size={24} aria-hidden="true" /><span>Mi negocio</span></div>
       <section className="auth-card">
         <span className="brand-mark">
           <Store />
@@ -122,7 +126,7 @@ export function AuthGate({
               ? "Creá tu cuenta"
               : mode === "reset"
                 ? "Recuperá tu acceso"
-                : "Qué bueno verte"}
+              : "Ingresá a tu comercio"}
         </h1>
         <p>{recovery ? 'Guardá una contraseña nueva para volver a ingresar.' : mode === 'reset' ? 'Ingresá tu email para recibir un enlace de recuperación.' : mode === 'signup' ? 'Creá tu acceso. Después podés configurar tu comercio.' : 'Ingresá a tu cuenta para empezar a trabajar.'}</p>
         <form onSubmit={submit} className="retail-form">

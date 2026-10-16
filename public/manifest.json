@@ -6,8 +6,8 @@
   "scope": "./",
   "lang": "es-AR",
   "display": "standalone",
-  "background_color": "#fafaff",
-  "theme_color": "#3f3675",
+  "background_color": "#f5f6f8",
+  "theme_color": "#f5f6f8",
   "description": "Ventas, stock, sucursales y cajas para tu comercio.",
   "categories": ["business", "productivity"],
   "icons": [

@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useRef } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
 import { SectionNav } from './SectionNav';
 import { PushSettings } from './PushSettings';
+import { StaffAccessForm } from './StaffAccessForm';
+import { CashierAccess } from './CashierAccess';
 import {
   AlertCircle,
   AlertTriangle,
@@ -446,6 +448,7 @@ export function CatalogEditor({
           replenishTarget.id,
           newStock,
           validCost,
+          replenishQty,
         ),
       `Reposición registrada: +${replenishQty} u. de ${replenishTarget.name}`,
     );
@@ -510,6 +513,7 @@ export function CatalogEditor({
     const batch = csvParseResult.validRows.map((r) => ({
       id: r.product!.id,
       newStock: r.product!.stock + r.quantityAdded,
+      quantityAdded: r.quantityAdded,
       newCost: r.newCost,
     }));
 
@@ -3045,7 +3049,7 @@ export function StoreSettings({
   const [view, setView] = useState(initialView);
   return (
     <div className="settings-workspace">
-      <SectionNav name="settings" label="Secciones de configuración" value={view} onChange={setView} disabled={busy} sections={[{ id: 'general', label: 'General' }, { id: 'locations', label: 'Sucursales y cajas' }, { id: 'ledgers', label: 'Registros de ventas' }, { id: 'app', label: 'App y avisos' }, ...(role === 'owner' ? [{ id: 'team', label: 'Equipo y permisos' }] : [])]} />
+      <SectionNav name="settings" label="Secciones de configuración" value={view} onChange={setView} disabled={busy} sections={[{ id: 'general', label: 'General' }, { id: 'locations', label: 'Sucursales y cajas' }, { id: 'ledgers', label: 'Registros de ventas' }, { id: 'app', label: 'App y avisos' }, ...(role === 'owner' || role === 'admin' ? [{ id: 'team', label: 'Equipo y permisos' }] : [])]} />
       <div hidden={view !== 'app'} role="tabpanel" id="settings-panel-app" aria-labelledby="settings-tab-app">
         {view === 'app' && <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />}
       </div>
@@ -3215,62 +3219,23 @@ export function StoreSettings({
       </section>
       </div>
       <div hidden={view !== 'ledgers'} role="tabpanel" id="settings-panel-ledgers" aria-labelledby="settings-tab-ledgers"><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>
-      {role === "owner" && (
+      {(role === "owner" || role === "admin") && (
         <section className="retail-panel" hidden={view !== 'team'} role="tabpanel" id="settings-panel-team" aria-labelledby="settings-tab-team">
           <h2>Equipo y permisos</h2>
-          <p>
-            Autorizá un email. Esa persona debe crear y confirmar su cuenta con
-            el mismo email, y luego actualizar sus comercios. No se envía un
-            email de invitación.
-          </p>
-          <form
-            className="retail-form"
-            onSubmit={async (e) => {
-              e.preventDefault();
-              const form = e.currentTarget,
-                f = new FormData(form);
-              if (
-                await run(
-                  () =>
-                    retail.invite(
-                      store.id,
-                      String(f.get("email")),
-                      f.get("role") as "admin" | "cashier",
-                    ),
-                  "Acceso pendiente creado",
-                )
-              )
-                form.reset();
-            }}
-          >
-            <label>
-              Email del colaborador
-              <input name="email" type="email" required />
-            </label>
-            <label>
-              Permisos
-              <select name="role">
-                <option value="cashier">Cajero: ventas y caja</option>
-                <option value="admin">
-                  Administrador: catálogo y configuración
-                </option>
-              </select>
-            </label>
-            <button className="primary-button" disabled={busy}>
-              Autorizar acceso
-            </button>
-          </form>
+          <p>Asigná a cada cajero dónde puede trabajar. Las cajas de atención son los puntos de venta, no los registros de facturación.</p>
+          {role === 'owner' && <StaffAccessForm storeId={store.id} run={run} busy={busy} />}
           <h3>Accesos pendientes</h3>
           {invitations.length ? (
             invitations.map((i) => (
-              <div className="team-row" key={i.id}>
+              <div className="staff-member" key={i.id}>
+              <div className="team-row">
                 <span>
                   {i.email}
                   <small>
                     {i.role === "admin" ? "Administrador" : "Cajero"}
                   </small>
                 </span>
-                <button
+                {role === 'owner' && <button
                   disabled={busy}
                   className="text-button danger-text"
                   onClick={() =>
@@ -3281,7 +3246,9 @@ export function StoreSettings({
                   }
                 >
                   Revocar
-                </button>
+                </button>}
+              </div>
+              {i.role === 'cashier' && <CashierAccess key={`${i.id}:${i.branch_id}:${i.register_id}`} storeId={store.id} targetId={i.id} email={i.email} branchId={i.branch_id} registerId={i.register_id} branches={branches} registers={registers} pending busy={busy} run={run} />}
               </div>
             ))
           ) : (
@@ -3289,9 +3256,10 @@ export function StoreSettings({
           )}
           <h3>Miembros</h3>
           {members.map((m) => (
-            <div className="team-row" key={m.user_id}>
+            <div className="staff-member" key={m.user_id}>
+            <div className="team-row">
               <span>
-                {m.user_id === userId ? "Vos" : m.user_id}
+                {m.email || 'Email no disponible'}{m.user_id === userId ? ' · Vos' : ''}
                 <small>
                   {
                     {
@@ -3302,7 +3270,7 @@ export function StoreSettings({
                   }
                 </small>
               </span>
-              {m.role !== "owner" && (
+              {role === 'owner' && m.role !== "owner" && (
                 <button
                   disabled={busy}
                   className="text-button danger-text"
@@ -3321,6 +3289,8 @@ export function StoreSettings({
                   Quitar
                 </button>
               )}
+            </div>
+            {m.role === 'cashier' && <CashierAccess key={`${m.user_id}:${m.branch_id}:${m.register_id}`} storeId={store.id} targetId={m.user_id} email={m.email} branchId={m.branch_id} registerId={m.register_id} branches={branches} registers={registers} busy={busy} run={run} />}
             </div>
           ))}
         </section>

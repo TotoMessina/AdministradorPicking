@@ -11,6 +11,7 @@ import {
   CreditCard,
   ShoppingBag,
   ArrowRight,
+  ArrowLeft,
   Package,
   Check,
   SlidersHorizontal,
@@ -26,6 +27,8 @@ import type {
 import { playScannerBeep, playCashChime } from "../utils/audio";
 import { useToast } from "../context/ToastContext";
 import { AiAssistantWidget } from "./AiAssistantWidget";
+import { QuickProducts } from '../features/retail/QuickProducts';
+import { cents } from '../features/retail/payments';
 interface Props {
   products: KioscoProduct[];
   cart: KioscoCartItem[];
@@ -36,6 +39,12 @@ interface Props {
   isLoading?: boolean;
   storeName?: string;
   onOpenAi?: () => void;
+  stationControls?: React.ReactNode;
+  storeId?: string;
+  branchId?: string;
+  canCustomizeQuick?: boolean;
+  mobilePosView?: "catalog" | "checkout";
+  onMobilePosViewChange?: (view: "catalog" | "checkout") => void;
 }
 const money = (n: number) =>
   "$" + n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
@@ -48,6 +57,8 @@ const normalize = (s: string) =>
 const methods: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { id: "Efectivo", label: "Efectivo", icon: Banknote },
   { id: "QR", label: "QR", icon: QrCode },
+  { id: "Transferencia", label: "Transferencia", icon: Banknote },
+  { id: "Mixto", label: "Mixto", icon: CreditCard },
   { id: "Debito", label: "Débito", icon: CreditCard },
   { id: "Credito", label: "Crédito", icon: CreditCard },
 ];
@@ -61,6 +72,12 @@ export function PosTab({
   isLoading,
   storeName,
   onOpenAi,
+  stationControls,
+  storeId,
+  branchId,
+  canCustomizeQuick = false,
+  mobilePosView: controlledMobileView,
+  onMobilePosViewChange,
 }: Props) {
   const { notify } = useToast();
   const categories = ["", ...new Set(products.map((p) => p.category))];
@@ -68,6 +85,9 @@ export function PosTab({
   const [query, setQuery] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("Efectivo");
   const [cash, setCash] = useState("");
+  const [splitAmount, setSplitAmount] = useState('');
+  const [splitFirst, setSplitFirst] = useState<Exclude<PaymentMethod, 'Mixto'>>('Efectivo');
+  const [splitSecond, setSplitSecond] = useState<Exclude<PaymentMethod, 'Mixto'>>('QR');
   const [confirmedPayment, setConfirmedPayment] = useState("");
   const [busy, setBusy] = useState(false);
   const [manual, setManual] = useState(false);
@@ -77,15 +97,23 @@ export function PosTab({
   const [checkoutError, setCheckoutError] = useState('');
   const [visibleCount, setVisibleCount] = useState(60);
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [internalMobileView, setInternalMobileView] = useState<"catalog" | "checkout">("catalog");
+  const mobilePosView = controlledMobileView ?? internalMobileView;
+  const setMobilePosView = (view: "catalog" | "checkout") => {
+    setInternalMobileView(view);
+    onMobilePosViewChange?.(view);
+  };
   const [internalAiOpen, setInternalAiOpen] = useState(false);
   const handleOpenAi = onOpenAi || (() => setInternalAiOpen(true));
   const searchRef = useRef<HTMLInputElement>(null);
   const submitting = useRef(false);
   const request = useRef({ signature: "", id: "" });
-  const total = cart.reduce((sum, i) => sum + i.subtotal, 0);
+  const total = cents(cart.reduce((sum, i) => sum + i.subtotal, 0)) / 100;
   const count = cart.reduce((sum, i) => sum + i.qty, 0);
   const received = Number(cash);
-  const paymentSignature = JSON.stringify([method, cart]);
+  const paymentSignature = JSON.stringify([method, cart, splitAmount, splitFirst, splitSecond]);
+  const splitValue = cents(Number(splitAmount)) / 100;
+  const splitValid = Number.isFinite(splitValue) && splitValue > 0 && cents(splitValue) < cents(total) && splitFirst !== splitSecond;
   const confirmed = confirmedPayment === paymentSignature;
   useEffect(() => {
     const focus = (e: KeyboardEvent) => {
@@ -104,15 +132,16 @@ export function PosTab({
       notify("warning", "No quedan más unidades disponibles de este producto.");
       return;
     }
-    setCart((prev) =>
-      existing
+    setCart((prev) => {
+      if (p.code !== 'MANUAL' && (prev.find(i => i.product.id === p.id)?.qty || 0) >= p.stock) return prev;
+      return prev.some(i => i.product.id === p.id)
         ? prev.map((i) =>
             i.product.id === p.id
               ? { ...i, qty: i.qty + 1, subtotal: (i.qty + 1) * p.price }
               : i,
           )
-        : [...prev, { product: p, qty: 1, subtotal: p.price }],
-    );
+        : [...prev, { product: p, qty: 1, subtotal: p.price }];
+    });
     setClearPending(false);
     playScannerBeep();
     onTriggerChecklist("scanner");
@@ -134,20 +163,23 @@ export function PosTab({
     } else if (query.trim())
       notify("info", "Elegí un producto de los resultados para agregarlo.");
   };
-  const checkout = async () => {
+  const checkout = async (chosen: PaymentMethod = method, shortcut = false) => {
+    const tendered = shortcut && chosen === 'Efectivo' && !cash ? total : received;
     if (
       submitting.current ||
       !cart.length ||
       total <= 0 ||
-      (method === "Efectivo"
-        ? !Number.isFinite(received) || received < total
-        : !confirmed)
+      (chosen === "Efectivo"
+        ? !Number.isFinite(tendered) || tendered < total
+        : (!shortcut && !confirmed) || (chosen === 'Mixto' && !splitValid))
     )
       return;
     submitting.current = true;
     setBusy(true);
     setCheckoutError('');
-    const signature = JSON.stringify([cart, method, received]);
+    setMethod(chosen);
+    const payments = chosen === 'Mixto' ? [{ method: splitFirst, amount: splitValue }, { method: splitSecond, amount: (cents(total) - cents(splitValue)) / 100 }] : [{ method: chosen, amount: cents(total) / 100 }];
+    const signature = JSON.stringify([cart, chosen, tendered, payments]);
     if (request.current.signature !== signature)
       request.current = { signature, id: crypto.randomUUID() };
     const sale: KioscoSale = {
@@ -161,9 +193,10 @@ export function PosTab({
         subtotal: i.subtotal,
       })),
       total,
-      paymentMethod: method,
-      amountPaid: method === "Efectivo" ? received : total,
-      change: method === "Efectivo" ? received - total : 0,
+      paymentMethod: chosen,
+      payments,
+      amountPaid: chosen === "Efectivo" ? tendered : total,
+      change: chosen === "Efectivo" ? (cents(tendered) - cents(total)) / 100 : 0,
       timestamp: new Date().toLocaleTimeString("es-AR"),
       date: new Date().toLocaleDateString("es-AR"),
     };
@@ -172,8 +205,10 @@ export function PosTab({
       setCart([]);
       request.current = { signature: "", id: "" };
       setCash("");
+      setSplitAmount('');
       setConfirmedPayment("");
       setClearPending(false);
+      setMobilePosView("catalog");
       playCashChime();
       onTriggerChecklist("ticket");
       onTriggerChecklist("stock");
@@ -193,9 +228,69 @@ export function PosTab({
       setBusy(false);
     }
   };
+  const keyboard = useRef<(event: KeyboardEvent) => void>(() => {});
+  keyboard.current = e => {
+    if (e.defaultPrevented || e.isComposing || e.repeat || e.ctrlKey || e.metaKey || e.altKey || submitting.current || busy || isLoading || document.querySelector('[role="dialog"]')) return;
+    if (['F1', 'F2', 'F3', 'F4'].includes(e.key)) {
+      e.preventDefault();
+      if (!cart.length) { searchRef.current?.focus(); return; }
+      if (e.key === 'F4') {
+        if (method === 'Mixto' && splitValid) void checkout('Mixto', true);
+        else { setMethod('Mixto'); setMobilePosView('checkout'); setTimeout(() => document.getElementById('mixed-amount')?.focus(), 0); }
+      } else {
+        const chosen = e.key === 'F1' ? 'Efectivo' : e.key === 'F2' ? 'QR' : 'Transferencia';
+        if (chosen === 'Efectivo' && cash && received < total) { setMethod(chosen); setMobilePosView('checkout'); document.getElementById('cash-received')?.focus(); }
+        void checkout(chosen, true);
+      }
+    } else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManual(false); setMobilePosView('catalog'); searchRef.current?.focus(); }
+    else if (e.key === 'Enter' && ['cash-received', 'mixed-amount'].includes((e.target as HTMLElement)?.id)) { e.preventDefault(); void checkout(method, true); }
+  };
+  const scanner = useRef({ text: '', at: 0 });
+  const scanHandler = useRef<(code: string) => void>(() => {});
+  scanHandler.current = code => { const product = products.find(p => p.code === code); if (product) { add(product); setQuery(''); searchRef.current?.focus(); } else notify('warning', `Código no encontrado: ${code}`); };
+  useEffect(() => {
+    searchRef.current?.focus();
+    const keydown = (e: KeyboardEvent) => {
+      keyboard.current(e);
+      if (e.defaultPrevented || e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.isComposing || document.querySelector('[role="dialog"]')) return;
+      const target = e.target as HTMLElement;
+      if (target?.closest?.('input,textarea,select,[contenteditable="true"]')) return;
+      const elapsed = performance.now() - scanner.current.at;
+      if (e.key === 'Enter' && scanner.current.text.length >= 3 && elapsed < 100) { e.preventDefault(); scanHandler.current(scanner.current.text); scanner.current.text = ''; }
+      else if (e.key.length === 1) { scanner.current.text = (elapsed < 100 ? scanner.current.text : '') + e.key; scanner.current.at = performance.now(); }
+    };
+    window.addEventListener('keydown', keydown);
+    return () => window.removeEventListener('keydown', keydown);
+  }, []);
   return (
-    <div className="pos-layout">
+    <div
+      className={`pos-layout ${mobilePosView === "checkout" ? "pos-mobile-checkout-active" : "pos-mobile-catalog-active"}`}
+      data-mobile-view={mobilePosView}
+    >
+      <div className="pos-mobile-view-tabs" role="tablist" aria-label="Modo de venta">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePosView === "catalog"}
+          className={`pos-mobile-tab-btn ${mobilePosView === "catalog" ? "active" : ""}`}
+          onClick={() => setMobilePosView("catalog")}
+        >
+          <Package size={15} />
+          <span>Catálogo</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mobilePosView === "checkout"}
+          className={`pos-mobile-tab-btn ${mobilePosView === "checkout" ? "active" : ""}`}
+          onClick={() => setMobilePosView("checkout")}
+        >
+          <ShoppingBag size={15} />
+          <span>Cobro {count > 0 && <span className="pos-mobile-tab-badge">{count}</span>}</span>
+        </button>
+      </div>
       <section className="catalog" aria-label="Catálogo de productos">
+        <p className="keyboard-shortcuts">F1 Efectivo · F2 QR / Mercado Pago · F3 Transferencia · F4 Mixto · Ctrl+K Buscar · Esc Volver. Los atajos confirman el pago recibido; F1 usa el monto exacto si no ingresaste otro.</p>
         <div className="catalog-step"><span className="step-number">1</span><h2>Agregá productos</h2><span>Buscá o escaneá un código</span></div>
         <form className="search-box" onSubmit={search}>
           <Search size={21} />
@@ -223,137 +318,6 @@ export function PosTab({
           )}
           <Barcode size={22} />
         </form>
-        <div className="category-list" aria-label="Categorías">
-          {categories.map((c) => (
-            <button
-              key={c}
-              aria-pressed={category === c}
-              className={category === c ? "selected" : ""}
-              onClick={() => { setCategory(c); setVisibleCount(60); }}
-            >
-              {c || "Todos"}
-            </button>
-          ))}
-        </div>
-        <div className="catalog-meta">
-          <span>
-            <strong>{filtered.length}</strong> productos{" "}
-            {category !== "" && `en ${category.toLowerCase()}`}
-          </span>
-          <div className="catalog-meta-actions">
-            <button
-              type="button"
-              className="catalog-ai-btn"
-              onClick={handleOpenAi}
-              title="Abrir Asistente IA"
-              aria-label="Abrir Asistente IA"
-            >
-              <Sparkles size={14} />
-              <span>Asistente IA</span>
-            </button>
-            <button
-              className={`text-button ${availableOnly ? "selected" : ""}`}
-              aria-pressed={availableOnly}
-              onClick={() => { setAvailableOnly(!availableOnly); setVisibleCount(60); }}
-            >
-              <SlidersHorizontal size={15} />
-              {availableOnly ? "Solo disponibles" : "Filtrar disponibles"}
-            </button>
-          </div>
-        </div>
-        <div className="product-grid" aria-busy={isLoading}>
-          {isLoading ? (
-            <div className="empty-state">
-              <Package size={32} />
-              <h2>Cargando tu catálogo…</h2>
-              <p>Estamos preparando los productos.</p>
-            </div>
-          ) : !products.length ? (
-            <div className="empty-state welcome-empty">
-              <span className="empty-icon">
-                <Package size={34} />
-              </span>
-              <span className="eyebrow">TODO LISTO PARA EMPEZAR</span>
-              <h2>Tu primera venta empieza acá</h2>
-              <p>
-                Agregá tus productos para encontrarlos rápido, controlar el
-                stock y vender con tranquilidad.
-              </p>
-              {onGoToCreateProduct ? (
-                <button
-                  className="primary-button"
-                  onClick={onGoToCreateProduct}
-                >
-                  <Plus size={18} /> Agregar mi primer producto
-                </button>
-              ) : (
-                <p>
-                  Pedile a un administrador que agregue los productos del
-                  comercio.
-                </p>
-              )}
-              <span className="empty-hint">
-                También podés agregar un importe manual abajo.
-              </span>
-            </div>
-          ) : !filtered.length ? (
-            <div className="empty-state">
-              <Search size={32} />
-              <h2>No encontramos productos</h2>
-              <p>Probá con otro nombre, código o categoría.</p>
-              <button
-                className="secondary-button"
-                onClick={() => {
-                  setQuery("");
-                  setCategory("");
-                  setAvailableOnly(false);
-                }}
-              >
-                Limpiar filtros
-              </button>
-            </div>
-          ) : (
-            filtered.slice(0, visibleCount).map((p) => {
-              const qty = cart.find((i) => i.product.id === p.id)?.qty || 0;
-              return (
-                <button
-                  key={p.id}
-                  disabled={busy || p.stock <= qty}
-                  className={`product-card ${qty ? "in-cart" : ""}`}
-                  onClick={() => add(p)}
-                  aria-label={`Agregar ${p.name}, ${money(p.price)}. ${p.stock} disponibles`}
-                >
-                  <div
-                    className={`product-art category-${p.category.toLowerCase()}`}
-                  >
-                    <span aria-hidden="true">{p.emoji || "📦"}</span>
-                    {qty > 0 && (
-                      <span className="product-quantity">{qty} en venta</span>
-                    )}
-                  </div>
-                  <div className="product-info">
-                    <small>{p.category}</small>
-                    <h3>{p.name}</h3>
-                    <span
-                      className={
-                        p.stock <= p.minStock ? "stock-low" : "stock-ok"
-                      }
-                    >
-                      {p.stock === 0 ? "Sin stock" : `${p.stock} disponibles`}
-                    </span>
-                    <div className="product-price">
-                      <strong>{money(p.price)}</strong>
-                      <span className="add-product">
-                        <Plus size={18} />
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-        {filtered.length > visibleCount && <div className="load-more"><span>{visibleCount} de {filtered.length} productos</span><button className="secondary-button" onClick={() => setVisibleCount(n => n + 60)}>Ver más productos</button></div>}
         <div className="manual-panel">
           <button
             className="manual-toggle"
@@ -416,8 +380,174 @@ export function PosTab({
             </form>
           )}
         </div>
+        {storeId && branchId && <QuickProducts storeId={storeId} branchId={branchId} products={products} manager={canCustomizeQuick} onAdd={add} disabled={busy || !!isLoading} />}
+        <div className="category-list" aria-label="Categorías">
+          {categories.map((c) => (
+            <button
+              key={c}
+              aria-pressed={category === c}
+              className={category === c ? "selected" : ""}
+              onClick={() => { setCategory(c); setVisibleCount(60); }}
+            >
+              {c || "Todos"}
+            </button>
+          ))}
+        </div>
+        <div className="catalog-meta">
+          <span>
+            <strong>{filtered.length}</strong> productos{" "}
+            {category !== "" && `en ${category.toLowerCase()}`}
+          </span>
+          <div className="catalog-meta-actions">
+            <button
+              type="button"
+              className="catalog-ai-btn"
+              onClick={handleOpenAi}
+              title="Abrir Asistente IA"
+              aria-label="Abrir Asistente IA"
+            >
+              <Sparkles size={14} />
+              <span>Asistente IA</span>
+            </button>
+            <button
+              className={`text-button ${availableOnly ? "selected" : ""}`}
+              aria-pressed={availableOnly}
+              onClick={() => { setAvailableOnly(!availableOnly); setVisibleCount(60); }}
+            >
+              <SlidersHorizontal size={15} />
+              {availableOnly ? "Solo disponibles" : "Filtrar disponibles"}
+            </button>
+          </div>
+        </div>
+        <div className="product-grid-scroll-wrap" tabIndex={0} aria-label="Catálogo de productos disponibles">
+        <div className="product-grid" aria-busy={isLoading}>
+          {isLoading ? (
+            <div className="empty-state">
+              <Package size={32} />
+              <h2>Cargando tu catálogo…</h2>
+              <p>Estamos preparando los productos.</p>
+            </div>
+          ) : !products.length ? (
+            <div className="empty-state welcome-empty">
+              <span className="empty-icon">
+                <Package size={34} />
+              </span>
+              <span className="eyebrow">TODO LISTO PARA EMPEZAR</span>
+              <h2>Tu primera venta empieza acá</h2>
+              <p>
+                Agregá tus productos para encontrarlos rápido, controlar el
+                stock y vender con tranquilidad.
+              </p>
+              {onGoToCreateProduct ? (
+                <button
+                  className="primary-button"
+                  onClick={onGoToCreateProduct}
+                >
+                  <Plus size={18} /> Agregar mi primer producto
+                </button>
+              ) : (
+                <p>
+                  Pedile a un administrador que agregue los productos del
+                  comercio.
+                </p>
+              )}
+              <span className="empty-hint">
+                También podés usar “Agregar un importe manual”, junto al buscador.
+              </span>
+            </div>
+          ) : !filtered.length ? (
+            <div className="empty-state">
+              <Search size={32} />
+              <h2>No encontramos productos</h2>
+              <p>Probá con otro nombre, código o categoría.</p>
+              <button
+                className="secondary-button"
+                onClick={() => {
+                  setQuery("");
+                  setCategory("");
+                  setAvailableOnly(false);
+                }}
+              >
+                Limpiar filtros
+              </button>
+            </div>
+          ) : (
+            filtered.slice(0, visibleCount).map((p) => {
+              const qty = cart.find((i) => i.product.id === p.id)?.qty || 0;
+              return (
+                <button
+                  key={p.id}
+                  disabled={busy || p.stock <= qty}
+                  className={`product-card ${qty ? "in-cart" : ""}`}
+                  onClick={() => add(p)}
+                  aria-label={`Agregar ${p.name}, ${money(p.price)}. ${p.stock} disponibles`}
+                >
+                  <div
+                    className={`product-art category-${p.category.toLowerCase()}`}
+                  >
+                    <span aria-hidden="true">{p.emoji || "📦"}</span>
+                    {qty > 0 && (
+                      <span className="product-quantity" key={qty}>{qty} en venta</span>
+                    )}
+                  </div>
+                  <div className="product-info">
+                    <small>{p.category}</small>
+                    <h3>{p.name}</h3>
+                    <span
+                      className={
+                        p.stock <= p.minStock ? "stock-low" : "stock-ok"
+                      }
+                    >
+                      {p.stock === 0 ? "Sin stock" : `${p.stock} disponibles`}
+                    </span>
+                    <div className="product-price">
+                      <strong>{money(p.price)}</strong>
+                      <span className="add-product">
+                        <Plus size={18} />
+                      </span>
+                    </div>
+                  </div>
+                </button>
+              );
+            })
+          )}
+        </div>
+        {filtered.length > visibleCount && <div className="load-more"><span>{visibleCount} de {filtered.length} productos</span><button className="secondary-button" onClick={() => setVisibleCount(n => n + 60)}>Ver más productos</button></div>}
+
+        </div>
       </section>
       <aside id="pos-sale-panel" className="sale-panel" aria-label="Venta actual">
+        <div className="pos-mobile-checkout-header">
+          <button
+            type="button"
+            className="pos-mobile-back-btn"
+            onClick={() => setMobilePosView("catalog")}
+            aria-label="Volver al catálogo"
+          >
+            <ArrowLeft size={16} />
+            <span>Catálogo</span>
+          </button>
+          <div className="pos-mobile-checkout-title">
+            <h2>Cobro</h2>
+            <span className="pos-mobile-item-badge">
+              {count} {count === 1 ? "ítem" : "ítems"}
+            </span>
+          </div>
+          <button
+            className="icon-button pos-mobile-clear-btn"
+            aria-label="Vaciar venta"
+            title="Vaciar venta"
+            disabled={!cart.length || busy}
+            onClick={() => setClearPending(!clearPending)}
+          >
+            <Trash2 size={17} />
+          </button>
+        </div>
+        {stationControls && (
+          <div className="pos-station-controls">
+            {stationControls}
+          </div>
+        )}
         <div className="sale-header">
           <div>
             <span className="eyebrow">2 · REVISÁ Y COBRÁ</span>
@@ -443,6 +573,7 @@ export function PosTab({
                 setCart([]);
                 setCash("");
                 setClearPending(false);
+                setMobilePosView("catalog");
               }}
             >
               Sí, vaciar
@@ -456,12 +587,18 @@ export function PosTab({
               <span className="empty-icon">
                 <ShoppingBag size={30} />
               </span>
-              <h3>Armemos tu próxima venta</h3>
+              <h3>Tu carrito está vacío</h3>
               <p>
-                Elegí un producto o escaneá su código.
-                <br />
-                Lo vas a ver acá.
+                Elegí un producto o escaneá su código para armar la venta.
               </p>
+              <button
+                type="button"
+                className="secondary-button pos-empty-back-btn"
+                onClick={() => setMobilePosView("catalog")}
+              >
+                <ArrowLeft size={15} />
+                <span>Ir al catálogo</span>
+              </button>
             </div>
           ) : (
             cart.map((item) => (
@@ -552,6 +689,13 @@ export function PosTab({
                 </button>
               ))}
             </div>
+            {method === 'Mixto' && <div className="mixed-payment">
+              <label>Primer medio<select value={splitFirst} onChange={e => { const next = e.target.value as typeof splitFirst; if (next === splitSecond) setSplitSecond(splitFirst); setSplitFirst(next); }}>{methods.filter(m => m.id !== 'Mixto').map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
+              <label>Importe del primer medio<input id="mixed-amount" type="number" min="0.01" step="0.01" value={splitAmount} onChange={e => setSplitAmount(e.target.value)} /></label>
+              <label>Resto del pago<select value={splitSecond} onChange={e => setSplitSecond(e.target.value as typeof splitSecond)}>{methods.filter(m => m.id !== 'Mixto' && m.id !== splitFirst).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
+              <strong>Restante: {money(Math.max(0, (cents(total) - cents(splitValue || 0)) / 100))}</strong>
+              <small>Ingresá lo recibido por el primer medio. Enter o F4 confirma ambos pagos. El importe debe ser menor al total.</small>
+            </div>}
             {method === "Efectivo" ? (
               <>
                 <label className="cash-label" htmlFor="cash-received">
@@ -622,7 +766,7 @@ export function PosTab({
                   Confirmé el pago de {money(total)} en{" "}
                   {method === "QR"
                     ? "la billetera virtual"
-                    : "la terminal de tarjetas"}
+                    : method === 'Transferencia' ? 'la cuenta bancaria' : method === 'Mixto' ? 'ambos medios' : "la terminal de tarjetas"}
                   .<small>Esta web registra el pago; no lo procesa.</small>
                 </span>
               </label>
@@ -637,7 +781,7 @@ export function PosTab({
               total <= 0 ||
               (method === "Efectivo"
                 ? !Number.isFinite(received) || received < total
-                : !confirmed)
+                : !confirmed || (method === 'Mixto' && !splitValid))
             }
             onClick={() => void checkout()}
           >
@@ -667,12 +811,13 @@ export function PosTab({
             <span className="mobile-cart-bar-qty">
               {count} {count === 1 ? "ítem" : "ítems"}
             </span>
-            <strong className="mobile-cart-bar-total">{money(total)}</strong>
+            <strong className="mobile-cart-bar-total" key={total}>{money(total)}</strong>
           </div>
           <button
             type="button"
             className="primary-button mobile-cart-bar-btn"
             onClick={() => {
+              setMobilePosView("checkout");
               document
                 .getElementById("pos-sale-panel")
                 ?.scrollIntoView({ behavior: "smooth" });
