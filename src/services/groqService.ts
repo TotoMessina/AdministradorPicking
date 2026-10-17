@@ -39,6 +39,16 @@ function apiError(payload: unknown, status: number, headers?: Headers): GroqErro
     if (!isNaN(parsed) && parsed > 0) retryAfter = parsed;
   }
   if (!retryAfter) {
+    const resetTokens = headers?.get('x-ratelimit-reset-tokens');
+    if (resetTokens) {
+      const match = resetTokens.match(/([\d\.]+)(m?s)/i);
+      if (match) {
+        const val = parseFloat(match[1]);
+        retryAfter = match[2].toLowerCase() === 'ms' ? val / 1000 : val;
+      }
+    }
+  }
+  if (!retryAfter) {
     const match = message.match(/try again in ([\d\.]+)s/i);
     if (match?.[1]) {
       const parsed = parseFloat(match[1]);
@@ -52,6 +62,43 @@ function apiError(payload: unknown, status: number, headers?: Headers): GroqErro
     code,
     retryAfter,
   );
+}
+
+export const FALLBACK_FAST_MODEL = 'llama-3.1-8b-instant';
+
+export function isRateLimitError(err: unknown): boolean {
+  if (err instanceof GroqError) {
+    if (err.status === 429 || err.code === 'rate_limit_exceeded') return true;
+  }
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('rate_limit') ||
+      msg.includes('tokens per minute') ||
+      msg.includes('tpm') ||
+      msg.includes('otpm') ||
+      msg.includes('itpm') ||
+      msg.includes('request too large') ||
+      msg.includes('rate limit') ||
+      msg.includes('try again in') ||
+      msg.includes('429')
+    );
+  }
+  return false;
+}
+
+export function getRetryDelay(err: unknown, defaultSecs = 3): number {
+  if (err instanceof GroqError && err.retryAfter && err.retryAfter > 0) {
+    return Math.max(1, Math.ceil(err.retryAfter));
+  }
+  if (err instanceof Error) {
+    const match = err.message.match(/try again in ([\d\.]+)s/i);
+    if (match?.[1]) {
+      const val = parseFloat(match[1]);
+      if (!isNaN(val) && val > 0) return Math.max(1, Math.ceil(val));
+    }
+  }
+  return defaultSecs;
 }
 
 function parseJSON(text: string, status: number): unknown {

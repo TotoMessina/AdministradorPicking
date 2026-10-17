@@ -4453,6 +4453,107 @@
   }
 }
 
+/* Arqueo de caja a ciegas */
+.blind-audit-indicator {
+  background: var(--tone-soft, #f8fafc);
+  border: 1px solid var(--tone-border, #e2e8f0);
+  border-left: 4px solid var(--tone-accent, #6366f1);
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
 
+.blind-audit-indicator-header {
+  margin-bottom: 6px;
+}
 
+.blind-audit-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #e0e7ff;
+  color: #3730a3;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
 
+.blind-audit-text {
+  margin: 6px 0 0 0;
+  font-size: 13px;
+  color: var(--tone-muted, #475569);
+  line-height: 1.45;
+}
+
+.blind-audit-banner {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #166534 !important;
+  font-weight: 500;
+}
+
+.blind-audit-metric-card {
+  border-left: 3px solid var(--tone-accent, #6366f1) !important;
+}
+
+.blind-audit-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px !important;
+  color: var(--tone-accent, #4f46e5);
+}
+
+.blind-audit-dot {
+  width: 8px;
+  height: 8px;
+  background: #10b981;
+  border-radius: 50%;
+  display: inline-block;
+  box-shadow: 0 0 0 2px #d1fae5;
+}
+
+.blind-audit-badge-closed {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  background: var(--tone-soft, #f1f5f9);
+  color: var(--tone-muted, #475569);
+  border: 1px solid var(--tone-border, #e2e8f0);
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.diff-badge-exact {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #dcfce7;
+  color: #15803d;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.diff-badge-surplus {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+.diff-badge-deficit {
+  display: inline-block;
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 600;
+  font-size: 12px;
+}

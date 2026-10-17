@@ -1,10 +1,11 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Sparkles, X, Send, Trash2, AlertCircle, ShoppingBag, Wallet, Package, Settings2 } from "lucide-react";
-import { groqStream } from "../services/groqService";
+import { groqStream, isRateLimitError, getRetryDelay, FALLBACK_FAST_MODEL } from "../services/groqService";
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import type { KioscoCartItem, KioscoProduct, KioscoSale, PaymentMethod } from "../types/kiosco";
 import type { Movement, Shift } from "../features/retail/api";
+import { summarizeMargins, marginPrompt } from '../features/retail/marginAnalytics';
 
 interface Props {
   storeName?: string;
@@ -120,7 +121,12 @@ export function AiAssistantWidget({
     const controller = new AbortController();
     abortControllerRef.current = controller;
 
-    const baseSystemPrompt = `Sos el asistente de kiosco de ${storeName}. Ayudás al cajero en tiempo real. Tenés acceso al catálogo y al carrito actual.
+    const isManager = role === "owner" || role === "admin";
+    const baseSystemPrompt = isManager
+      ? `Sos el asistente inteligente de gestión de ${storeName}. Asesorás al ${role === "owner" ? "dueño" : "administrador"} en tiempo real sobre ventas, costos, rentabilidad, stock y caja.
+Respondé en español rioplatense, de forma concisa, analítica y útil.
+Tenés acceso a los datos actuales del negocio.`
+      : `Sos el asistente de kiosco de ${storeName}. Ayudás al cajero en tiempo real. Tenés acceso al catálogo y al carrito actual.
 Respondé en español rioplatense, de forma concisa y útil.
 Nunca inventes precios ni datos que no estén en el contexto.`;
 
@@ -133,6 +139,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
         categoria: p.category,
         precio: p.price,
         costo: p.cost,
+        grupoMargen: p.margin_group ?? 'standard',
         stock: p.stock,
         stockMinimo: p.minStock,
       })),
@@ -141,12 +148,29 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
         cantidad: i.qty,
         precioUnitario: i.product.price,
         costoUnitario: i.product.cost,
+        grupoMargen: i.product.margin_group ?? 'standard',
         stockDisponible: i.product.stock,
         subtotal: i.subtotal,
       })),
       totalActual: total,
       metodoPagoSeleccionado: paymentMethod,
     };
+
+    if (sales.length > 0) {
+      const separation = summarizeMargins(sales, products);
+      contextPayload.resumenVentas = {
+        totalVentasRegistradas: sales.length,
+        facturacionPrincipal: separation.standard.revenue,
+        facturacionTotalRegistrada: separation.totalRevenue,
+        separacionDeMargen: separation,
+        ultimosTickets: sales.slice(0, 10).map((s) => ({
+          ticket: s.ticketNumber,
+          total: s.total,
+          medio: s.paymentMethod,
+          fecha: s.date || (s.created_at ? new Date(s.created_at).toLocaleDateString("es-AR") : undefined),
+        })),
+      };
+    }
 
     if (currentTab === "cash") {
       const activeShift = shifts.find((s) => !s.closed_at);
@@ -162,28 +186,77 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
       };
     }
 
-    const systemMessageContent = `${baseSystemPrompt}\n\nDATOS ACTUALES DEL NEGOCIO (JSON):\n${JSON.stringify(contextPayload)}`;
+    const systemMessageContent = `${baseSystemPrompt}\n\n${marginPrompt(summarizeMargins(sales, products))}\n\nDATOS ACTUALES DEL NEGOCIO (JSON):\n${JSON.stringify(contextPayload)}`;
 
     const messages: GroqMessage[] = [
       { role: "system", content: systemMessageContent },
       { role: "user", content: q },
     ];
 
+    const MAX_RETRIES = 3;
+    let attempt = 0;
+    let chosenModel: string | undefined = undefined;
+
     try {
-      await groqStream(
-        messages,
-        (chunk) => {
-          setAiResponse((prev) => prev + chunk);
-        },
-        { signal: controller.signal }
-      );
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      const msg =
-        err instanceof Error
-          ? err.message
-          : "No se pudo consultar al asistente de Groq.";
-      setAiError(msg);
+      while (attempt <= MAX_RETRIES) {
+        if (controller.signal.aborted) return;
+
+        try {
+          await groqStream(
+            messages,
+            (chunk) => {
+              setAiResponse((prev) => prev + chunk);
+            },
+            { signal: controller.signal, maxTokens: 1000, model: chosenModel }
+          );
+          // Succeeded
+          break;
+        } catch (err) {
+          if (controller.signal.aborted) return;
+
+          const isRateLimit = isRateLimitError(err);
+          if (!isRateLimit || attempt >= MAX_RETRIES) {
+            const msg =
+              isRateLimit
+                ? "Se alcanzó temporalmente el límite por minuto de Groq en todos los intentos. Aguardá unos segundos y volvé a consultar."
+                : err instanceof Error
+                ? err.message
+                : "No se pudo consultar al asistente de Groq.";
+            setAiError(msg);
+            break;
+          }
+
+          attempt++;
+          const waitSecs = getRetryDelay(err, attempt === 1 ? 3 : attempt === 2 ? 5 : 7);
+
+          if (attempt >= 2 && !chosenModel) {
+            chosenModel = FALLBACK_FAST_MODEL;
+          }
+
+          const modelNote = chosenModel === FALLBACK_FAST_MODEL ? " (probando modelo alternativo)" : "";
+
+          for (let s = waitSecs; s > 0; s--) {
+            if (controller.signal.aborted) return;
+            setAiResponse(
+              `⏳ Aguardando disponibilidad de tokens gratuitos (${s}s)... intento ${attempt} de ${MAX_RETRIES}${modelNote}`
+            );
+            await new Promise<void>((resolve) => {
+              const timer = setTimeout(() => {
+                controller.signal.removeEventListener("abort", onAbort);
+                resolve();
+              }, 1000);
+              function onAbort() {
+                clearTimeout(timer);
+                resolve();
+              }
+              controller.signal.addEventListener("abort", onAbort);
+            });
+          }
+
+          if (controller.signal.aborted) return;
+          setAiResponse("🔄 Reintentando con tokens disponibles...");
+        }
+      }
     } finally {
       if (!controller.signal.aborted) {
         setIsAiLoading(false);

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { KioscoProduct } from '../../types/kiosco';
 import { retail, errorMessage } from './api';
+import { formatPackStock, unitsPerPack } from '../../services/inventoryUnits';
 export function QuickProducts({ storeId, branchId, products, manager, onAdd, disabled }: {
   storeId: string; branchId: string; products: KioscoProduct[]; manager: boolean; onAdd: (p: KioscoProduct) => void; disabled: boolean;
 }) {
@@ -40,6 +41,7 @@ export function QuickProducts({ storeId, branchId, products, manager, onAdd, dis
       const p = products.find(p => p.id === id)!;
       return <button type="button" key={id} disabled={disabled || p.stock <= 0} onClick={() => onAdd(p)} aria-label={`Venta rápida: ${p.name}`}>
         <span aria-hidden="true">{p.emoji || '📦'}</span><strong>{p.name}</strong><small>${p.price.toLocaleString('es-AR')}{p.stock <= 0 ? ' · Sin stock' : ''}</small>
+        {unitsPerPack(p.pack_size) > 1 && <small>{formatPackStock(p.stock, p.pack_size)}</small>}
       </button>;
     })}</div> : <p>{manager ? 'Personalizá la botonera con café, panchos y otros productos del catálogo. También se completará con los más vendidos.' : 'Los favoritos de la sucursal y sus productos más vendidos aparecerán acá.'}</p>}
   </section>;

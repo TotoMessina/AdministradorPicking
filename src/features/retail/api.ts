@@ -25,7 +25,7 @@ export interface Register {
   branch_id: string;
 }
 export interface Branch { id: string; store_id: string; name: string; address: string; is_default: boolean }
-export interface PriceList { id: string; store_id: string; name: string; adjustment: number; active: boolean }
+export interface PriceList { id: string; store_id: string; name: string; adjustment: number; active: boolean; branch_id?: string | null }
 export interface PriceOverride { list_id: string; product_id: string; price: number }
 export interface SalesLedger { id: string; store_id: string; name: string; is_default: boolean; active: boolean }
 export interface Shift {
@@ -48,6 +48,8 @@ export interface Product extends KioscoProduct {
   supplierCode?: string;
   tags?: string[];
   unitType?: string;
+  pack_size?: number | null;
+  margin_group?: 'standard' | 'low_margin' | null;
 }
 export interface Movement {
   id: string;
@@ -100,6 +102,8 @@ export interface EanLookupResult {
 }
 export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
+  if (e?.code === '23505' && e.message?.includes('retail_one_active_price_list_per_branch'))
+    return 'Esta sucursal ya tiene una lista activa. Desactivala o cambiala a global antes de asignar otra.';
   if (e?.code === "PGRST205" || e?.code === "PGRST202" || e?.code === "42P01")
     return "Falta instalar la base de datos. Ejecutá la migración SQL indicada en SUPABASE_SETUP.md y volvé a intentar.";
   if (e?.code === "PGRST116")
@@ -175,6 +179,9 @@ const remoteRetail = {
   async priceLists(store: string) {
     return result<PriceList[]>(supabase.from('retail_price_lists').select('*').eq('store_id', store).order('name'));
   },
+  async branchPriceRule(store: string, branch: string): Promise<string | null> {
+    return result<string | null>(supabase.rpc('retail_active_price_list_for_branch', { p_store: store, p_branch: branch }));
+  },
   async priceOverrides(store: string) {
     return allRows<PriceOverride>((from, to) => supabase.from('retail_price_overrides').select('*').eq('store_id', store).order('list_id').order('product_id').range(from, to));
   },
@@ -185,9 +192,10 @@ const remoteRetail = {
     const query = supabase.from('retail_branches');
     return result(id ? query.update({ name: name.trim(), address }).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, name: name.trim(), address }));
   },
-  async savePriceList(store: string, name: string, adjustment: number, id?: string, active = true) {
+  async savePriceList(store: string, name: string, adjustment: number, id?: string, active = true, branchId?: string | null) {
     const query = supabase.from('retail_price_lists');
-    return result(id ? query.update({ name: name.trim(), adjustment, active }).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, name: name.trim(), adjustment }));
+    const values = { name: name.trim(), adjustment, active, ...(branchId !== undefined ? { branch_id: branchId || null } : {}) };
+    return result(id ? query.update(values).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, ...values, branch_id: branchId || null }));
   },
   async savePriceOverride(store: string, list: string, product: string, price: number | null) {
     const query = supabase.from('retail_price_overrides');
@@ -263,6 +271,8 @@ const remoteRetail = {
       supplier_code?: string | null;
       tags?: string[] | null;
       unit_type?: string | null;
+      pack_size?: number | null;
+      margin_group?: 'standard' | 'low_margin' | null;
     }>((from, to) =>
       supabase
         .from("retail_products")
@@ -291,6 +301,8 @@ const remoteRetail = {
       supplierCode: p.supplier_code || undefined,
       tags: Array.isArray(p.tags) ? p.tags : [],
       unitType: p.unit_type || "unit",
+      pack_size: p.pack_size ?? null,
+      margin_group: p.margin_group ?? 'standard',
     }));
   },
   async shifts(store: string) {
@@ -357,6 +369,7 @@ const remoteRetail = {
     edit: boolean,
     expectedStock?: number,
   ) {
+    if (p.pack_size != null && (!Number.isInteger(p.pack_size) || p.pack_size < 1 || p.pack_size > 2147483647)) throw new Error('Las unidades por bulto deben ser un número entero mayor o igual a 1.');
     const values: Record<string, unknown> = {
       category_id: p.categoryId,
       code: p.code.trim(),
@@ -372,6 +385,8 @@ const remoteRetail = {
       supplier_code: p.supplierCode?.trim() || null,
       tags: p.tags || [],
       unit_type: p.unitType || "unit",
+      pack_size: p.pack_size ?? null,
+      margin_group: p.margin_group ?? 'standard',
     };
     if (edit)
       return result(

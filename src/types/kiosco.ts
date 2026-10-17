@@ -1,6 +1,7 @@
 // Tipos y Modelos de Datos para Kiosco Express Standalone
 
 export type KioscoCategory = string;
+export type MarginGroup = 'standard' | 'low_margin';
 
 export interface KioscoProduct {
   id: string;
@@ -10,6 +11,8 @@ export interface KioscoProduct {
   price: number; // Precio de venta final al público
   cost?: number; // Costo de compra mayorista
   stock: number; // Unidades actuales en mostrador
+  pack_size?: number | null; // Unidades individuales por bulto de compra.
+  margin_group?: MarginGroup | null;
   minStock: number; // Umbral de reposición urgente (ej: 4 o 6)
   color?: string; // Color temático para la tarjeta táctil
   emoji?: string; // Ícono visual (🍫, 🥤, 🚬, 🍪, ⚡)
@@ -53,6 +56,8 @@ export interface KioscoSale {
     qty: number;
     unitPrice: number;
     subtotal: number;
+    marginGroup?: MarginGroup | null;
+    unitCost?: number | null;
   }[];
   total: number;
   paymentMethod: PaymentMethod;

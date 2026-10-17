@@ -1,4 +1,5 @@
 import type { Product } from "../features/retail/api";
+import { unitsPerPack } from './inventoryUnits';
 
 export interface StockReplenishmentItem {
   productId: string;
@@ -30,6 +31,9 @@ export interface CsvParsedRow {
   product?: Product;
   status: "matched" | "not_found" | "invalid_qty";
   errorMessage?: string;
+  rawQuantity?: number;
+  interpretedAsPacks?: boolean;
+  warning?: string;
 }
 
 export interface CsvParseResult {
@@ -176,6 +180,7 @@ export const replenishmentService = {
       [
         "cantidada_sumar",
         "cantidadasumar",
+        "cantidad_a_sumar",
         "cantidad",
         "cant",
         "qty",
@@ -230,7 +235,7 @@ export const replenishmentService = {
       const rawCost = costIndex !== -1 && cols[costIndex] ? cols[costIndex] : "";
 
       // Limpiar cantidad y costo de símbolos de moneda o espacios
-      const cleanedQty = parseInt(rawQty.replace(/[^0-9-]/g, ""), 10);
+      const cleanedQty = /^\+?\d+$/.test(rawQty.trim()) ? Number(rawQty) : NaN;
       const cleanedCost = rawCost ? parseFloat(rawCost.replace(/[^0-9.]/g, "")) : undefined;
 
       // Buscar producto por código o por nombre
@@ -242,7 +247,7 @@ export const replenishmentService = {
         matchedProduct = productByName.get(rawName.trim().toLowerCase());
       }
 
-      if (isNaN(cleanedQty) || cleanedQty <= 0) {
+      if (!Number.isSafeInteger(cleanedQty) || cleanedQty <= 0) {
         invalidRows.push({
           rawCode,
           rawName,
@@ -250,7 +255,7 @@ export const replenishmentService = {
           newCost: cleanedCost,
           product: matchedProduct,
           status: "invalid_qty",
-          errorMessage: "Cantidad a sumar debe ser mayor a 0",
+          errorMessage: "La cantidad debe ser un número entero mayor a 0, sin separadores de miles",
         });
         continue;
       }
@@ -267,11 +272,21 @@ export const replenishmentService = {
         continue;
       }
 
-      totalUnitsToAdd += cleanedQty;
+      const packSize = unitsPerPack(matchedProduct.pack_size);
+      const interpretedAsPacks = packSize > 1 && cleanedQty < packSize * 0.8;
+      const quantityAdded = cleanedQty * (interpretedAsPacks ? packSize : 1);
+      if (!Number.isSafeInteger(quantityAdded) || quantityAdded > 1000000) {
+        invalidRows.push({ rawCode, rawName, quantityAdded, product: matchedProduct, status: 'invalid_qty', errorMessage: 'La reposición supera el máximo de 1.000.000 de unidades por producto' });
+        continue;
+      }
+      totalUnitsToAdd += quantityAdded;
       validRows.push({
         rawCode,
         rawName: matchedProduct.name,
-        quantityAdded: cleanedQty,
+        quantityAdded,
+        rawQuantity: cleanedQty,
+        interpretedAsPacks,
+        warning: interpretedAsPacks ? `Se interpretó como bultos y se multiplicó por pack_size (${packSize}): ${cleanedQty} × ${packSize} = ${quantityAdded} unidades.` : undefined,
         newCost: cleanedCost && cleanedCost > 0 ? cleanedCost : undefined,
         product: matchedProduct,
         status: "matched",

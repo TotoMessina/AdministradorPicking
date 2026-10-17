@@ -58,7 +58,7 @@ async function transaction<T>(user: string, mutate: (state: State) => T, write =
     tx.onabort = tx.onerror = () => reject(failure || new Error('No se pudo guardar en este dispositivo. Revisá el espacio disponible; la venta no se confirmó.'));
   });
 }
-const reads = new Set(['stores', 'role', 'categories', 'registers', 'shifts', 'branches', 'priceLists', 'priceOverrides', 'ledgers', 'products', 'sales', 'movements', 'shiftBalance', 'registerAvailability', 'quickProducts', 'popularProducts', 'members', 'invitations', 'allSales', 'reportSales']);
+const reads = new Set(['stores', 'role', 'categories', 'registers', 'shifts', 'branches', 'priceLists', 'branchPriceRule', 'priceOverrides', 'ledgers', 'products', 'sales', 'movements', 'shiftBalance', 'registerAvailability', 'quickProducts', 'popularProducts', 'members', 'invitations', 'allSales', 'reportSales']);
 const operational = new Set(['openShift', 'closeShift', 'addMovement', 'checkout', 'replenishProductStock', 'replenishStockBatch']);
 const fetching = new Set<string>();
 const fetchedAt = new Map<string, number>();
@@ -205,12 +205,19 @@ async function localWrite(user: string, method: string, args: unknown[]) {
           if (item.productId) {
             const product = products.find(p => p.id === item.productId);
             if (!product || product.stock < item.qty) throw new Error(`Stock local insuficiente: ${item.name}`);
+            item.marginGroup = product.margin_group ?? 'standard';
+            item.unitCost = product.cost > 0 ? product.cost : null;
             product.stock -= item.qty;
+          } else {
+            item.marginGroup = 'standard'; item.unitCost = null;
           }
         }
         const register = regs.find(r => r.id === shift!.register_id)!;
         const branch = need(findCached<Branch[]>(s, 'branches', store)).find(b => b.id === register.branch_id);
         const list = findCached<PriceList[]>(s, 'priceLists', store)?.find(l => l.id === sale.priceListId);
+        if (sale.priceListId && (!list || !list.active || (list.branch_id && list.branch_id !== register.branch_id))) throw new Error('La lista de precios no está disponible para esta sucursal');
+        const defaultList = findCached<PriceList[]>(s, 'priceLists', store)?.find(l => l.active && l.branch_id === register.branch_id)?.id || null;
+        if (role === 'cashier' && (sale.priceListId || null) !== defaultList) throw new Error('Usá la lista de precios asignada a esta sucursal. Actualizá los datos antes de cobrar');
         const ledger = need(findCached<SalesLedger[]>(s, 'ledgers', store)).find(l => l.id === sale.ledgerId || (!sale.ledgerId && l.is_default));
         Object.assign(sale, { ticketNumber: `L-${sale.id.slice(0, 8).toUpperCase()}`, syncStatus: 'pending', createdAt: at, created_at: at, branchId: branch?.id, branchName: branch?.name, registerName: register.name, priceListName: list?.name || 'Lista madre', ledgerId: ledger?.id, ledgerName: ledger?.name });
         sales.unshift(sale); put(s, 'shiftBalance', [shiftId], Math.round((balance + cashInSale(sale)) * 100) / 100);
@@ -252,6 +259,13 @@ export function withOffline<T extends Remote>(source: T): T {
         if (cached) { void original(...args as never[]).catch(() => {}); return 0; }
       }
       if (reads.has(property)) {
+        if (property === 'branchPriceRule' && navigator.onLine === false) {
+          return transaction(user, state => {
+            const branches = need(findCached<Branch[]>(state, 'branches', String(args[0])));
+            if (!branches.some(branch => branch.id === args[1])) throw new Error('Sucursal no disponible');
+            return need(findCached<PriceList[]>(state, 'priceLists', String(args[0]))).find(list => list.active && list.branch_id === args[1])?.id || null;
+          });
+        }
         const cached = await transaction(user, s => ({ value: s.cache[key(property, args)], pending: s.queue.length > 0 }));
         if (cached.value !== undefined) { if (!cached.pending) backgroundRead(user, property, args); return cached.value; }
         if (navigator.onLine === false) throw new Error('Estos datos todavía no están disponibles en este dispositivo. Conectate para prepararlos.');

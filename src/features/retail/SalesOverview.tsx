@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import type { KioscoSale } from '../../types/kiosco';
-import { retail, errorMessage, type Branch, type Register, type Shift, type SalesLedger } from './api';
+import { retail, errorMessage, type Branch, type Register, type Shift, type SalesLedger, type Product } from './api';
 import type { Run } from './Management';
 import { salesCsv } from './pricing';
+import { summarizeMargins } from './marginAnalytics';
+import { MarginSummary } from './MarginSummary';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-export function SalesOverview({ storeId, branches, registers, shifts, ledgers, revision, run, busy, onTicket }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void }) {
+export function SalesOverview({ storeId, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void }) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [period, setPeriod] = useState({ from: today(), to: today() });
@@ -44,7 +46,71 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, r
     <p>Período consultado: {period.from} al {period.to} · Hora de Argentina.</p>
     {loading ? <p role="status">Cargando todas las ventas del período…</p> : error ? <p role="alert">{error}</p> : <>
       <div className="cash-metrics"><div><small>Total del comercio</small><strong>{money(rows.reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div></div>
-      <div className="table-scroll"><table><thead><tr><th>Sucursal</th><th>Cajas activas</th><th>Turnos abiertos</th><th>Ventas del período</th></tr></thead><tbody>{branches.map(b => <tr key={b.id}><td>{b.name}</td><td>{registers.filter(r => r.branch_id === b.id && r.active).length}</td><td>{shifts.filter(s => !s.closed_at && registers.some(r => r.id === s.register_id && r.branch_id === b.id)).length}</td><td>{money(rows.filter(s => s.branchId === b.id).reduce((n, s) => n + s.total, 0))}</td></tr>)}</tbody></table></div>
+      <MarginSummary summary={summarizeMargins(rows, products)} />
+      <div className="table-scroll"><table><thead><tr><th>Sucursal</th><th>Cajas activas</th><th>Turnos abiertos</th><th>Ventas del período</th></tr></thead><tbody>{branches.map(b => <Fragment key={b.id}><tr><td>{b.name}</td><td>{registers.filter(r => r.branch_id === b.id && r.active).length}</td><td>{shifts.filter(s => !s.closed_at && registers.some(r => r.id === s.register_id && r.branch_id === b.id)).length}</td><td>{money(rows.filter(s => s.branchId === b.id).reduce((n, s) => n + s.total, 0))}</td></tr><tr><td colSpan={3}>Ventas excluyendo bajo margen · {b.name}</td><td>{money(summarizeMargins(rows.filter(s => s.branchId === b.id), products).standard.revenue)}</td></tr></Fragment>)}</tbody></table></div>
+      {shifts.some(s => s.closed_at) && (
+        <details className="retail-details" style={{ marginTop: '20px', marginBottom: '20px' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, padding: '10px 0', fontSize: '15px' }}>
+            🔒 Auditoría de arqueos y diferencias de turno ({shifts.filter(s => s.closed_at).length} cierres)
+          </summary>
+          <div style={{ marginTop: '12px' }}>
+            <p style={{ fontSize: '13px', color: 'var(--tone-muted)' }}>
+              Registro exclusivo de administración: Comparativa de arqueos a ciegas declarados por cajeros contra el efectivo teórico esperado por el sistema.
+            </p>
+            <div className="table-scroll">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Fecha de cierre</th>
+                    <th>Sucursal / Caja</th>
+                    <th>Efectivo esperado</th>
+                    <th>Efectivo declarado</th>
+                    <th>Diferencia</th>
+                    <th>Resultado</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {shifts
+                    .filter(s => s.closed_at)
+                    .map(s => {
+                      const reg = registers.find(r => r.id === s.register_id);
+                      const br = branches.find(b => b.id === reg?.branch_id);
+                      const diff = Number(s.counted_cash ?? 0) - Number(s.expected_cash ?? 0);
+                      return (
+                        <tr key={s.id}>
+                          <td>{new Date(s.closed_at!).toLocaleString('es-AR')}</td>
+                          <td>
+                            {br?.name || 'Sucursal'} <small>{reg?.name || 'Caja'}</small>
+                          </td>
+                          <td>{money(s.expected_cash || 0)}</td>
+                          <td>{money(s.counted_cash || 0)}</td>
+                          <td>
+                            {diff === 0 ? (
+                              <span className="diff-badge-exact">$0</span>
+                            ) : diff > 0 ? (
+                              <span className="diff-badge-surplus">+{money(diff)}</span>
+                            ) : (
+                              <span className="diff-badge-deficit">{money(diff)}</span>
+                            )}
+                          </td>
+                          <td>
+                            {diff === 0 ? (
+                              <strong style={{ color: '#15803d', fontSize: '12px' }}>Exacto</strong>
+                            ) : diff > 0 ? (
+                              <strong style={{ color: '#1d4ed8', fontSize: '12px' }}>Sobrante</strong>
+                            ) : (
+                              <strong style={{ color: '#b91c1c', fontSize: '12px' }}>Faltante</strong>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </details>
+      )}
       <div className="business-controls">
         <label>Sucursal del informe<select value={branch} onChange={e => { setBranch(e.target.value); setLimit(50); }}><option value="">Todas las sucursales</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
         <label>Registro del informe<select value={ledger} onChange={e => { setLedger(e.target.value); setLimit(50); }}><option value="">Todos los registros</option>{ledgers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>

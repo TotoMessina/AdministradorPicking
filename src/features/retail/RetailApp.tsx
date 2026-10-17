@@ -45,6 +45,7 @@ import { PushWelcome } from './PushWelcome';
 import { useMobileScreenMotion } from './useMobileExperience';
 import { configureOffline, stopOffline, backgroundAuth } from './offline';
 import { OfflineStatus } from './OfflineStatus';
+import { useBranchPriceList } from './useBranchPriceList';
 type Tab = "pos" | "cash" | "catalog" | "settings" | "ai";
 export function RetailApp({ session }: { session: Session }) {
   useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
@@ -235,7 +236,6 @@ function Workspace({
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [priceOverrides, setPriceOverrides] = useState<PriceOverride[]>([]);
   const [ledgers, setLedgers] = useState<SalesLedger[]>([]);
-  const [priceListId, setPriceListId] = useState('');
   const [ledgerId, setLedgerId] = useState('');
   const [revision, setRevision] = useState(0);
   const [registerId, setRegisterId] = useState("");
@@ -264,7 +264,9 @@ function Workspace({
   const register = registers.find((r) => r.id === registerId);
   const occupiedByOther = !shift && availability.some(r => r.register_id === registerId && r.occupied);
   const manager = role === "owner" || role === "admin";
-  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings'] : []), ...(role === 'owner' ? ['ai'] : [])];
+  const branchPricing = useBranchPriceList(store.id, branchId, priceLists, manager);
+  const priceListId = branchPricing.priceListId;
+  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings', 'ai'] : [])];
   const canOperate =
     !!shift && !!register?.active && (manager || shift.opened_by === session.user.id);
   const refresh = useCallback(async () => {
@@ -464,6 +466,7 @@ function Workspace({
       receiptMessage: store.receipt_message,
     });
   const completeSale = async (sale: KioscoSale) => {
+    if (branchPricing.loading || branchPricing.error) throw new Error(branchPricing.error || 'Esperá a que se apliquen los precios de la sucursal.');
     if (!shift || !canOperate || running.current)
       throw new Error("Abrí tu turno antes de vender.");
     running.current = true;
@@ -501,7 +504,7 @@ function Workspace({
       setBusy(false);
     }
   };
-  const refreshAll = () => void run(async () => {}, "Datos actualizados");
+  const refreshAll = () => { branchPricing.reload(); void run(async () => {}, "Datos actualizados"); };
   useEffect(() => {
     if (pushEntry) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, [pushEntry]);
@@ -600,13 +603,13 @@ function Workspace({
           <label>
             Lista de precios
             <select
-              disabled={busy || cart.length > 0}
+              disabled={busy || cart.length > 0 || !manager || branchPricing.loading}
               value={priceListId}
-              onChange={(e) => setPriceListId(e.target.value)}
+              onChange={(e) => branchPricing.select(e.target.value)}
             >
               <option value="">Lista madre</option>
               {priceLists
-                .filter((l) => l.active || l.id === priceListId)
+                .filter((l) => (!l.branch_id || l.branch_id === branchId) && (l.active || l.id === priceListId))
                 .map((l) => (
                   <option key={l.id} value={l.id} disabled={!l.active}>
                     {l.name}
@@ -702,7 +705,7 @@ function Workspace({
                     { id: "settings", label: "Mi comercio", icon: Settings2 },
                   ]
                 : []),
-              ...(role === "owner"
+              ...(manager
                 ? [
                     {
                       id: "ai",
@@ -810,7 +813,7 @@ function Workspace({
             <p>{{ pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí tu turno, revisá los movimientos y consultá tus ventas.', catalog: 'Mantené tus productos, existencias y precios al día.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.' }[tab]}</p>
           </div>
           <div className={`register-picker ${tab === 'pos' && canOperate ? 'pos-compact-refresh' : tab !== 'pos' && tab !== 'cash' ? 'context-picker-hidden' : ''}`}>
-            {!(tab === 'pos' && canOperate) && (
+            {!(tab === 'pos' && canOperate && !branchPricing.loading && !branchPricing.error && !error) && (
               <>
                 <label>Sucursal<select disabled={busy || loading || branches.length === 1} value={branchId} onChange={e => {
                   if (confirmLeave()) { setCart([]); branchSelection.current = e.target.value; setBranchId(e.target.value); setRegisterId(registers.find(r => r.active && r.branch_id === e.target.value)?.id || ''); }
@@ -853,9 +856,9 @@ function Workspace({
           <span>{branches.find(b => b.id === branchId)?.name} <span aria-hidden="true">/</span> {register?.name || 'Sin caja seleccionada'}</span>
           {tab === 'pos' && canOperate && <button className="text-button" disabled={busy} onClick={() => { setCashView('shift'); setTab('cash'); }}>Ver mi turno</button>}
         </div>}
-        {error && (
+        {(error || branchPricing.error) && (
           <div className="error-banner" role="alert">
-            {error}
+            {error || branchPricing.error}
             <button
               className="text-button"
               disabled={busy}
@@ -865,7 +868,7 @@ function Workspace({
             </button>
           </div>
         )}
-        {loading ? (
+        {loading || (tab === 'pos' && branchPricing.loading) ? (
           <div className="retail-panel workspace-loading" role="status">
             <RefreshCw size={24} className="loading-spin" aria-hidden="true" />
             Cargando los datos del comercio…
@@ -873,11 +876,11 @@ function Workspace({
         ) : (
           <>
             {tab === "pos" &&
-              (!canOperate || error ? (
+              (!canOperate || error || branchPricing.error ? (
                 <section className="retail-panel start-selling">
                   <span className="empty-icon"><Wallet size={28} /></span>
                   <h2>
-                    {error
+                    {error || branchPricing.error
                       ? "Actualizá los datos antes de vender"
                       : !register
                         ? "Esta sucursal todavía no tiene cajas"
@@ -923,7 +926,7 @@ function Workspace({
             {tab === "cash" && (
               <>
                 {manager && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Resumen y ventas' }]} />}
-                {manager && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} />
+                {manager && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} />
                   <AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} />
                 </div>}
                 <div hidden={manager && cashView !== 'shift'} role={manager ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={manager ? 'cash-tab-shift' : undefined}>
@@ -954,7 +957,7 @@ function Workspace({
             {tab === "catalog" && manager && (
               <>
               <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, { id: 'prices', label: 'Listas de precios' }]} />
-              <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>
+              <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={branches} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>
               <div hidden={catalogView !== 'products'} role="tabpanel" id="catalog-panel-products" aria-labelledby="catalog-tab-products">
               <CatalogEditor
                 store={store}
@@ -1010,7 +1013,7 @@ function Workspace({
         cart={cart}
         total={cart.reduce((sum, i) => sum + i.subtotal, 0)}
         shifts={shifts}
-        sales={sales}
+        sales={manager && allStoreSales.length > 0 ? allStoreSales : sales}
         movements={movements}
         role={role}
         isOpen={isAiOpen}

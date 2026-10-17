@@ -80,6 +80,7 @@ export function CashDesk({
     ));
 
   const handleAnalyzeShift = async () => {
+    if (cashierMode) return;
     setIsAiLoading(true);
     setAiError(null);
 
@@ -249,18 +250,40 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               <small>Fondo inicial</small>
               <strong>{money(shift.opening_cash)}</strong>
             </div>
-            <div>
-              <small>Ventas en efectivo</small>
-              <strong>{money(cash)}</strong>
-            </div>
-            <div>
-              <small>QR, transferencias y tarjetas</small>
-              <strong>{money(electronic)}</strong>
-            </div>
-            <div>
-              <small>Efectivo esperado</small>
-              <strong>{money(expected)}</strong>
-            </div>
+            {cashierMode ? (
+              <>
+                <div>
+                  <small>Ventas del turno</small>
+                  <strong>{sales.length} {sales.length === 1 ? 'ticket' : 'tickets'}</strong>
+                </div>
+                <div>
+                  <small>QR, transferencias y tarjetas</small>
+                  <strong>{money(electronic)}</strong>
+                </div>
+                <div className="blind-audit-metric-card">
+                  <small>Modalidad de arqueo</small>
+                  <strong className="blind-audit-status">
+                    <span className="blind-audit-dot" aria-hidden="true" />
+                    Arqueo a ciegas
+                  </strong>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <small>Ventas en efectivo</small>
+                  <strong>{money(cash)}</strong>
+                </div>
+                <div>
+                  <small>QR, transferencias y tarjetas</small>
+                  <strong>{money(electronic)}</strong>
+                </div>
+                <div>
+                  <small>Efectivo esperado</small>
+                  <strong>{money(expected)}</strong>
+                </div>
+              </>
+            )}
           </div>
           {canOperate && (
             <div className="settings-grid">
@@ -337,7 +360,22 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               </section>
               <section className="retail-panel">
                 <h2>Cerrar turno</h2>
-                {cashierMode && <small>El saldo esperado incluye todos los ajustes de tu turno, incluso los realizados por un administrador.</small>}
+                {cashierMode ? (
+                  <div className="blind-audit-indicator">
+                    <div className="blind-audit-indicator-header">
+                      <span className="blind-audit-badge">
+                        🔒 Arqueo a ciegas activo
+                      </span>
+                    </div>
+                    <p className="blind-audit-text">
+                      Ingresá el total de efectivo físico que contaste en el cajón.
+                      Por seguridad y transparencia operativa, el sistema no muestra el saldo teórico esperado ni las diferencias calculadas;
+                      las diferencias (sobrantes o faltantes) quedan registradas únicamente para la administración.
+                    </p>
+                  </div>
+                ) : (
+                  <small>El saldo esperado incluye todos los ajustes de tu turno, incluso los realizados por un administrador.</small>
+                )}
                 <p>
                   Contá el dinero físico. El cierre guarda el arqueo y conserva
                   todas las ventas.
@@ -376,30 +414,40 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       onChange={(e) => setCounted(e.target.value)}
                     />
                   </label>
-                  <div className="info-banner">
-                    Diferencia:{" "}
-                    {counted === ""
-                      ? "Ingresá el conteo"
-                      : money(Number(counted) - expected)}
-                  </div>
+                  {cashierMode ? (
+                    <div className="info-banner blind-audit-banner">
+                      {counted === ""
+                        ? "🔒 Ingresá el conteo físico para completar el arqueo."
+                        : `Efectivo físico declarado: ${money(Number(counted))}. El arqueo se auditará al registrar el cierre.`}
+                    </div>
+                  ) : (
+                    <div className="info-banner">
+                      Diferencia:{" "}
+                      {counted === ""
+                        ? "Ingresá el conteo"
+                        : money(Number(counted) - expected)}
+                    </div>
+                  )}
 
-                  <button
-                    type="button"
-                    className="secondary-button shift-ai-analyze-btn"
-                    onClick={handleAnalyzeShift}
-                    disabled={busy || isAiLoading}
-                  >
-                    {isAiLoading ? (
-                      <>
-                        <Loader2 size={16} className="ai-spin-icon" />
-                        <span>Analizando turno con IA…</span>
-                      </>
-                    ) : (
-                      <span>🤖 Analizar turno con IA</span>
-                    )}
-                  </button>
+                  {!cashierMode && (
+                    <button
+                      type="button"
+                      className="secondary-button shift-ai-analyze-btn"
+                      onClick={handleAnalyzeShift}
+                      disabled={busy || isAiLoading}
+                    >
+                      {isAiLoading ? (
+                        <>
+                          <Loader2 size={16} className="ai-spin-icon" />
+                          <span>Analizando turno con IA…</span>
+                        </>
+                      ) : (
+                        <span>🤖 Analizar turno con IA</span>
+                      )}
+                    </button>
+                  )}
 
-                  {aiError && (
+                  {!cashierMode && aiError && (
                     <div className="shift-ai-error-banner" role="alert">
                       <AlertCircle size={16} />
                       <div>
@@ -409,7 +457,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     </div>
                   )}
 
-                  {aiAnalysis && (
+                  {!cashierMode && aiAnalysis && (
                     <div
                       className="shift-ai-analysis-card"
                       role="region"
@@ -532,33 +580,52 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             <thead>
               <tr>
                 <th>Cierre</th>
-                <th>Esperado</th>
-                <th>Contado</th>
-                <th>Diferencia</th>
+                {!cashierMode && <th>Esperado</th>}
+                <th>{cashierMode ? 'Efectivo declarado' : 'Contado'}</th>
+                {!cashierMode && <th>Diferencia</th>}
+                {cashierMode && <th>Estado</th>}
                 <th>Historial</th>
               </tr>
             </thead>
             <tbody>
               {shifts
                 .filter((s) => s.register_id === register?.id && s.closed_at)
-                .map((s) => (
-                  <tr key={s.id}>
-                    <td>{new Date(s.closed_at!).toLocaleString("es-AR")}</td>
-                    <td>{money(s.expected_cash || 0)}</td>
-                    <td>{money(s.counted_cash || 0)}</td>
-                    <td>
-                      {money(Number(s.counted_cash) - Number(s.expected_cash))}
-                    </td>
-                    <td>
-                      <button
-                        className="text-button"
-                        onClick={() => setHistoryShift(s.id)}
-                      >
-                        Ver ventas
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                .map((s) => {
+                  const diff = Number(s.counted_cash) - Number(s.expected_cash);
+                  return (
+                    <tr key={s.id}>
+                      <td>{new Date(s.closed_at!).toLocaleString("es-AR")}</td>
+                      {!cashierMode && <td>{money(s.expected_cash || 0)}</td>}
+                      <td>{money(s.counted_cash || 0)}</td>
+                      {!cashierMode && (
+                        <td>
+                          {diff === 0 ? (
+                            <span className="diff-badge-exact">$0 (Exacto)</span>
+                          ) : diff > 0 ? (
+                            <span className="diff-badge-surplus">+{money(diff)} (Sobrante)</span>
+                          ) : (
+                            <span className="diff-badge-deficit">{money(diff)} (Faltante)</span>
+                          )}
+                        </td>
+                      )}
+                      {cashierMode && (
+                        <td>
+                          <span className="blind-audit-badge-closed">
+                            Arqueado y cerrado
+                          </span>
+                        </td>
+                      )}
+                      <td>
+                        <button
+                          className="text-button"
+                          onClick={() => setHistoryShift(s.id)}
+                        >
+                          Ver ventas
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

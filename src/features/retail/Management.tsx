@@ -28,6 +28,7 @@ import {
   X,
 } from "lucide-react";
 import { groqChat } from "../../services/groqService";
+import { unitsPerPack } from '../../services/inventoryUnits';
 import {
   replenishmentService,
   type StockReplenishment,
@@ -134,6 +135,7 @@ export function CatalogEditor({
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(50);
   const [stockFilter, setStockFilter] = useState(false);
+  const [lowMarginFilter, setLowMarginFilter] = useState(false);
   const editorRef = useRef<HTMLFormElement>(null);
   useEffect(() => {
     if (!adding && !editing) return;
@@ -155,6 +157,8 @@ export function CatalogEditor({
     supplierCode: "",
     tags: [] as string[],
     unitType: "unit" as "unit" | "kg" | "lt" | "pack" | "box",
+    packSize: '',
+    marginGroup: 'standard' as 'standard' | 'low_margin',
   });
   const [tagInput, setTagInput] = useState("");
 
@@ -346,6 +350,8 @@ export function CatalogEditor({
       supplierCode?: string;
       tags?: string[];
       unitType?: string;
+      pack_size?: number | null;
+      margin_group?: 'standard' | 'low_margin' | null;
     };
   } | null>(null);
 
@@ -370,6 +376,8 @@ export function CatalogEditor({
       supplierCode: "",
       tags: [],
       unitType: "unit",
+      packSize: '',
+      marginGroup: 'standard',
     });
   };
 
@@ -394,6 +402,8 @@ export function CatalogEditor({
       supplierCode: p.supplierCode || "",
       tags: p.tags ? [...p.tags] : [],
       unitType: (p.unitType as "unit" | "kg" | "lt" | "pack" | "box") || "unit",
+      packSize: p.pack_size == null ? '' : String(p.pack_size),
+      marginGroup: p.margin_group ?? 'standard',
     });
   };
 
@@ -408,6 +418,9 @@ export function CatalogEditor({
   // Stock Replenishment states (Unitary)
   const [replenishTarget, setReplenishTarget] = useState<Product | null>(null);
   const [replenishQty, setReplenishQty] = useState<number>(12);
+  const [replenishByPack, setReplenishByPack] = useState(false);
+  const replenishmentPackSize = unitsPerPack(replenishTarget?.pack_size);
+  const replenishmentUnits = replenishQty * (replenishByPack ? replenishmentPackSize : 1);
   const [replenishCost, setReplenishCost] = useState<string>("0");
   const [replenishSupplier, setReplenishSupplier] = useState<string>("");
   const [replenishNotes, setReplenishNotes] = useState<string>("");
@@ -428,6 +441,7 @@ export function CatalogEditor({
   const startReplenish = (p: Product) => {
     setReplenishTarget(p);
     setReplenishQty(12);
+    setReplenishByPack(false);
     setReplenishCost(String(p.cost || 0));
     setReplenishSupplier("");
     setReplenishNotes("");
@@ -435,9 +449,9 @@ export function CatalogEditor({
 
   const handleConfirmUnitaryReplenish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replenishTarget || replenishQty <= 0) return;
+    if (!replenishTarget || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000) return;
 
-    const newStock = replenishTarget.stock + replenishQty;
+    const newStock = replenishTarget.stock + replenishmentUnits;
     const numCost = parseFloat(replenishCost);
     const validCost = !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
 
@@ -448,9 +462,9 @@ export function CatalogEditor({
           replenishTarget.id,
           newStock,
           validCost,
-          replenishQty,
+          replenishmentUnits,
         ),
-      `Reposición registrada: +${replenishQty} u. de ${replenishTarget.name}`,
+      `Reposición registrada: +${replenishmentUnits} u. de ${replenishTarget.name}`,
     );
 
     if (success) {
@@ -461,14 +475,14 @@ export function CatalogEditor({
         type: "unitario",
         supplier: replenishSupplier.trim() || undefined,
         notes: replenishNotes.trim() || undefined,
-        totalUnits: replenishQty,
+        totalUnits: replenishmentUnits,
         itemsCount: 1,
         items: [
           {
             productId: replenishTarget.id,
             code: replenishTarget.code,
             name: replenishTarget.name,
-            quantityAdded: replenishQty,
+            quantityAdded: replenishmentUnits,
             previousStock: replenishTarget.stock,
             newStock,
             cost: validCost,
@@ -944,6 +958,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     supplierCode?: string;
     tags?: string[];
     unitType?: string;
+    pack_size?: number | null;
+    margin_group?: 'standard' | 'low_margin' | null;
   }) => {
     if (
       await run(
@@ -999,6 +1015,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       supplierCode: formData.supplierCode.trim() || undefined,
       tags: formData.tags,
       unitType: formData.unitType,
+      pack_size: formData.packSize.trim() ? Number(formData.packSize) : null,
+      margin_group: formData.marginGroup,
     };
 
     setIsCheckingAnomalies(true);
@@ -1099,7 +1117,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
     await doSaveProduct(p);
   };
 
-  const filtered = products.filter((p) => (!stockFilter || p.stock <= p.minStock) &&
+  const filtered = products.filter((p) => (!stockFilter || p.stock <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
     (p.name + " " + p.code + " " + p.category)
       .toLowerCase()
       .includes(query.toLowerCase()),
@@ -1623,6 +1641,18 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               </select>
             </label>
 
+            <label title="Cuántas unidades tiene cada bulto que comprás. Al reponer podés ingresar la cantidad de bultos y el sistema multiplica.">
+              Unidades por bulto/pack
+              <input name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onChange={e => setFormData(prev => ({ ...prev, packSize: e.target.value }))} />
+              <small>El precio, el costo y el stock se expresan por unidad individual.</small>
+            </label>
+            <label>Grupo de margen
+              <select name="margin_group" value={formData.marginGroup} onChange={e => setFormData(prev => ({ ...prev, marginGroup: e.target.value as 'standard' | 'low_margin' }))}>
+                <option value="standard">Estándar</option>
+                <option value="low_margin">Bajo margen (Cigarrillos, Cargas, etc.)</option>
+              </select>
+              <small>Separa estos productos del análisis principal de rentabilidad.</small>
+            </label>
             <div className="product-tags-field">
               <label>
                 Etiquetas / Tags
@@ -1942,21 +1972,25 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 <div className="status-col">
                   <span className="col-label">A ingresar</span>
                   <span className="col-val accent">
-                    +{replenishQty || 0} u.
+                    +{replenishmentUnits || 0} u.
                   </span>
                 </div>
                 <div className="status-divider">=</div>
                 <div className="status-col">
                   <span className="col-label">Stock resultante</span>
                   <span className="col-val final">
-                    {replenishTarget.stock + (Number(replenishQty) || 0)} u.
+                    {replenishTarget.stock + (replenishmentUnits || 0)} u.
                   </span>
                 </div>
               </div>
 
+              {replenishmentPackSize > 1 && <label className="pack-mode-toggle">
+                <input type="checkbox" checked={replenishByPack} onChange={e => { setReplenishByPack(e.target.checked); setReplenishQty(1); }} />
+                Ingresar por bultos <small>({replenishmentPackSize} unidades por bulto)</small>
+              </label>}
               <div className="replenish-quick-buttons">
                 <span className="quick-label">Accesos rápidos:</span>
-                {[6, 12, 24, 48, 100].map((num) => (
+                {(replenishByPack ? [1, 2, 3, 5, 10] : [6, 12, 24, 48, 100]).map((num) => (
                   <button
                     key={num}
                     type="button"
@@ -1970,19 +2004,21 @@ ${JSON.stringify(catalogSample, null, 2)}`;
 
               <div className="replenish-input-grid">
                 <label>
-                  Cantidad a ingresar (+)
+                  {replenishByPack ? 'Cantidad de bultos' : 'Cantidad a ingresar (+)'}
                   <input
                     type="number"
                     min="1"
                     step="1"
+                    max={Math.floor(1000000 / (replenishByPack ? replenishmentPackSize : 1))}
                     required
                     value={replenishQty}
                     onChange={(e) =>
                       setReplenishQty(
-                        Math.max(1, parseInt(e.target.value, 10) || 0),
+                        Number(e.target.value),
                       )
                     }
                   />
+                  {replenishByPack && <small aria-live="polite">= {replenishmentUnits.toLocaleString('es-AR')} unidades individuales</small>}
                 </label>
                 <label>
                   Nuevo costo unitario ($) <small>(opcional)</small>
@@ -2030,9 +2066,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 <button
                   type="submit"
                   className="primary-button"
-                  disabled={busy || replenishQty <= 0}
+                  disabled={busy || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000}
                 >
-                  Confirmar reposición (+{replenishQty} u.)
+                  Confirmar reposición (+{replenishmentUnits} u.)
                 </button>
               </div>
             </form>
@@ -2175,6 +2211,26 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                               <strong className="text-success">
                                 +{r.quantityAdded} u.
                               </strong>
+                              {r.warning && <small className="pack-conversion-warning"><AlertTriangle size={14} aria-hidden="true" />{r.warning}</small>}
+                              {unitsPerPack(r.product?.pack_size) > 1 && <label className="csv-pack-choice">
+                                Cantidad original: {r.rawQuantity}
+                                <select aria-label={`Interpretar cantidad de ${r.rawName}, fila ${i + 1}`} value={r.interpretedAsPacks ? 'packs' : 'units'} disabled={busy || isProcessingCsv} onChange={e => {
+                                  const asPacks = e.target.value === 'packs';
+                                  setCsvParseResult(previous => {
+                                    if (!previous) return previous;
+                                    const validRows = previous.validRows.map((row, index) => {
+                                      if (index !== i) return row;
+                                      const raw = row.rawQuantity ?? row.quantityAdded;
+                                      const size = unitsPerPack(row.product?.pack_size);
+                                      return { ...row, interpretedAsPacks: asPacks, quantityAdded: raw * (asPacks ? size : 1), warning: asPacks ? `Se interpretó como bultos y se multiplicó por pack_size (${size}): ${raw} × ${size} = ${raw * size} unidades.` : undefined };
+                                    });
+                                    return { ...previous, validRows, totalUnitsToAdd: validRows.reduce((sum, row) => sum + row.quantityAdded, 0) };
+                                  });
+                                }}>
+                                  <option value="units">Unidades individuales</option>
+                                  <option value="packs" disabled={(r.rawQuantity || 0) * unitsPerPack(r.product?.pack_size) > 1000000}>Bultos ×{r.product?.pack_size}</option>
+                                </select>
+                              </label>}
                             </td>
                             <td>
                               <strong>
@@ -2834,6 +2890,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         />
       </label>
       <button className="secondary-button" aria-pressed={stockFilter} onClick={() => { setStockFilter(!stockFilter); setVisibleCount(50); }}><Filter size={16} />{stockFilter ? 'Mostrando stock bajo' : 'Ver stock bajo'}</button>
+      <button className="secondary-button" aria-pressed={lowMarginFilter} onClick={() => { setLowMarginFilter(!lowMarginFilter); setVisibleCount(50); }}><Filter size={16} />{lowMarginFilter ? 'Mostrando bajo margen' : 'Ver solo bajo margen'}</button>
       <span className="result-count" role="status">{filtered.length} productos</span></div>
       <div className="table-scroll">
         <table>
@@ -2854,6 +2911,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     {p.emoji} {p.name}
                   </strong>
                   <small>{p.code}</small>
+                  {unitsPerPack(p.pack_size) > 1 && <small className="pack-size-badge">Pack ×{p.pack_size}</small>}
+                  {p.margin_group === 'low_margin' && <small className="low-margin-badge">↓ Margen bajo</small>}
                 </td>
                 <td>{p.category}</td>
                 <td>${p.price.toLocaleString("es-AR")}</td>

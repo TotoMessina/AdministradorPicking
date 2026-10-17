@@ -4,6 +4,12 @@ El frontend está configurado en `.env.local` para el proyecto `lkahqqsduatkhxru
 
 ## 1. Instalar la base de datos
 
+Para precios diferenciados por sucursal, aplicar también `202610160005_branch_price_rules.sql` antes de publicar el frontend. Ver configuración y [Guía de Pruebas](BRANCH_PRICES.md).
+
+Para separar rubros de bajo margen, aplicar también `202610160004_margin_groups.sql`. Ver configuración, criterios de cálculo y [Guía de Pruebas](MARGIN_GROUPS.md).
+
+Para la conversión bulto/unidad, ejecutar también `202610160003_pack_size.sql` antes de publicar el frontend actualizado. Ver configuración, ejemplos y [Guía de Pruebas](PACK_SIZE.md).
+
 1. Abrí https://supabase.com/dashboard/project/lkahqqsduatkhxruiolo/sql/new
 2. Ejecutá las migraciones de `supabase/migrations` en orden: `202610010001`, `202610020001`, `202610070001`, `202610130001`, `202610140001` y `202610150001`. Copiá el contenido completo de cada archivo.
 3. En un proyecto existente, ejecutá solamente las migraciones pendientes. La nueva migración `202610130001_branches_prices_ledgers.sql` es transaccional: asigna las cajas y ventas existentes a la sucursal **Principal**, la **Lista madre** y el registro **General**, sin cambiar importes, stock ni cierres. Instalá esta migración antes de publicar el frontend actualizado.

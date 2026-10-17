@@ -22,13 +22,20 @@ import {
   X,
 } from "lucide-react";
 import { groqChat, GroqError } from "../services/groqService";
-import { extractTextFromFile, cleanInvoiceOcrText } from "../services/invoiceParserService";
+import { extractTextFromFile, cleanInvoiceOcrText, invoicePackCatalogContext } from "../services/invoiceParserService";
+import { unitsPerPack as configuredPackSize } from '../services/inventoryUnits';
 import type { Product, Category } from "../features/retail/api";
 import { retail } from "../features/retail/api";
+import { linkInvoiceItems, rankCatalogMatches } from '../services/invoiceMatchingService';
+import { normalizeSupplierText, saveMapping } from '../services/supplierMappingService';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 interface InvoiceItem {
+  invoiceLine: string;
+  linkStatus: 'auto' | 'pending' | 'confirmed';
+  linkReason: string;
+  costKnown: boolean;
   /** Nombre original tal como aparece en la factura */
   rawName: string;
   /** Código EAN/barcode si figura */
@@ -39,6 +46,7 @@ interface InvoiceItem {
   rawCost: number;
   /** Unidades individuales que contiene cada display/caja (1 si es suelto) */
   unitsPerPack: number;
+  quantityUnit?: 'unit' | 'pack';
   /** Indica si se detectó o configuró como display/caja cerrada */
   isPack: boolean;
   /** Cantidad total de unidades individuales que ingresarán al stock (rawQty * unitsPerPack) */
@@ -427,7 +435,7 @@ function resolveCategory(
   return availableCategories[0].id;
 }
 
-function buildParsePrompt(invoiceText: string, categories: Category[] = []): string {
+function buildParsePrompt(invoiceText: string, categories: Category[] = [], products: Product[] = []): string {
   const categoryNames = categories.map((c) => c.name.trim()).filter(Boolean);
   const categoryGuide =
     categoryNames.length > 0
@@ -442,6 +450,7 @@ Tu tarea es extraer:
 2. La lista completa de PRODUCTOS comprados ("items").
 
 ${categoryGuide}
+${invoicePackCatalogContext(invoiceText, products)}
 
 Reglas obligatorias:
 - NO extraigas fechas, CUIT, impuestos, números de comprobante, CAE, subtotales ni totales generales.
@@ -451,6 +460,7 @@ Reglas obligatorias:
   - "name": Nombre o descripción comercial limpia del producto (ej: "MILKA EXTRA DDL BCO").
   - "code": Código de barras (EAN-13 o interno) si figura en ese renglón, caso contrario null.
   - "qty": Cantidad de bultos o cajas facturadas (entero >= 1, por defecto 1).
+  - "quantityUnit": "pack" si son bultos/cajas, o "unit" si el comprobante especifica unidades individuales.
   - "cost": Costo facturado de ese renglón (precio del bulto/caja o total / qty).
   - "unitsPerPack": Si el producto viene en display, caja o bulto cerrado (ej: "36X70" -> 36, "X 24" -> 24, "CAJA X 12" -> 12, "18X8" -> 18, "32X60" -> 32), indicá cuántas unidades individuales contiene. Si es un producto que viene suelto por unidad, indicá 1.
   - "category": La categoría correspondiente elegida de la lista de categorías del kiosco.
@@ -475,131 +485,6 @@ ${invoiceText}`;
 }
 
 // ─── Local Catalog Matching Engine (0 tokens, 0ms) ─────────────────────────
-
-const STOP_WORDS = new Set([
-  "de",
-  "del",
-  "la",
-  "el",
-  "los",
-  "las",
-  "un",
-  "una",
-  "unos",
-  "unas",
-  "por",
-  "en",
-  "con",
-  "sin",
-  "para",
-  "x",
-  "y",
-]);
-
-function normalizeText(text: string): string {
-  return text
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-function extractMeaningfulTokens(text: string): string[] {
-  return normalizeText(text)
-    .split(" ")
-    .filter((t) => t.length > 1 && !STOP_WORDS.has(t));
-}
-
-function findBestCatalogMatch(
-  rawName: string,
-  rawCode: string | null | undefined,
-  products: Product[],
-): { matchedProduct: Product | null; confidence: number } {
-  const cleanCode = rawCode?.trim().toLowerCase();
-  // 1. Coincidencia exacta por código de barras / EAN
-  if (cleanCode && cleanCode.length >= 4) {
-    const codeMatch = products.find(
-      (p) => p.code && p.code.trim().toLowerCase() === cleanCode,
-    );
-    if (codeMatch) {
-      return { matchedProduct: codeMatch, confidence: 1.0 };
-    }
-  }
-
-  const normName = normalizeText(rawName);
-  if (!normName) return { matchedProduct: null, confidence: 0 };
-
-  // 2. Coincidencia exacta por nombre normalizado
-  const exactNameMatch = products.find((p) => normalizeText(p.name) === normName);
-  if (exactNameMatch) {
-    return { matchedProduct: exactNameMatch, confidence: 0.98 };
-  }
-
-  const nameTokens = extractMeaningfulTokens(rawName);
-  if (nameTokens.length === 0) return { matchedProduct: null, confidence: 0 };
-
-  let bestProduct: Product | null = null;
-  let bestScore = 0;
-
-  for (const p of products) {
-    const normProdName = normalizeText(p.name);
-
-    // Contención como subcadena
-    if (normName.includes(normProdName) || normProdName.includes(normName)) {
-      const lenRatio =
-        Math.min(normName.length, normProdName.length) /
-        Math.max(normName.length, normProdName.length);
-      const subScore = 0.8 + lenRatio * 0.15;
-      if (subScore > bestScore) {
-        bestScore = subScore;
-        bestProduct = p;
-      }
-      continue;
-    }
-
-    // Similitud de tokens ponderada
-    const prodTokens = extractMeaningfulTokens(p.name);
-    if (p.brand) {
-      prodTokens.push(...extractMeaningfulTokens(p.brand));
-    }
-
-    const prodSet = new Set(prodTokens);
-    let common = 0;
-    for (const t of nameTokens) {
-      if (prodSet.has(t)) {
-        common += 1;
-      } else {
-        // Coincidencia de prefijos para abreviaciones (ej: "alf" <-> "alfajor")
-        for (const pt of prodSet) {
-          if (
-            (t.length >= 3 && pt.startsWith(t)) ||
-            (pt.length >= 3 && t.startsWith(pt))
-          ) {
-            common += 0.7;
-            break;
-          }
-        }
-      }
-    }
-
-    const score = (2 * common) / (nameTokens.length + prodTokens.length);
-    if (score > bestScore) {
-      bestScore = score;
-      bestProduct = p;
-    }
-  }
-
-  if (bestProduct && bestScore >= 0.45) {
-    return {
-      matchedProduct: bestProduct,
-      confidence: Math.min(0.95, Number(bestScore.toFixed(2))),
-    };
-  }
-
-  return { matchedProduct: null, confidence: 0 };
-}
 
 function extractJson<T>(raw: string): T | null {
   try {
@@ -633,6 +518,7 @@ export function InvoiceAnalyzer({
   const [invoiceText, setInvoiceText] = useState("");
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [providerName, setProviderName] = useState("");
+  const [supplierOverride, setSupplierOverride] = useState('');
   const [invoiceDate, setInvoiceDate] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [importedCount, setImportedCount] = useState(0);
@@ -655,6 +541,10 @@ export function InvoiceAnalyzer({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterStatus, setFilterStatus] = useState<"all" | "new" | "matched" | "skip">("all");
   const [isEditingProvider, setIsEditingProvider] = useState(false);
+  const [productSearch, setProductSearch] = useState<Record<number, string>>({});
+  const [linkProgress, setLinkProgress] = useState('');
+  const importInProgress = useRef(false);
+  const sortedProducts = useMemo(() => products.filter(product => product.active !== false).slice().sort((a, b) => a.name.localeCompare(b.name, 'es-AR')), [products]);
 
   const [localCategories, setLocalCategories] = useState<Category[]>(categories || []);
 
@@ -725,13 +615,14 @@ export function InvoiceAnalyzer({
       clearRateLimitTimer();
       setError(null);
       setStep("parsing");
+      setLinkProgress('Extrayendo los artículos y el proveedor…');
       try {
         // Filtrar caracteres innecesarios y ruido de escaneo/AFIP antes de enviar al LLM
         const cleanText = cleanInvoiceOcrText(invoiceText);
         let parseRaw = "";
         try {
           parseRaw = await groqChat(
-            [{ role: "user", content: buildParsePrompt(cleanText, localCategories) }],
+            [{ role: "user", content: buildParsePrompt(cleanText, localCategories, products) }],
             { maxTokens: 1400, temperature: 0.1 },
           );
         } catch (errFirst) {
@@ -746,7 +637,7 @@ export function InvoiceAnalyzer({
             // Reintentar con modelo de respaldo (openai/gpt-oss-120b)
             try {
               parseRaw = await groqChat(
-                [{ role: "user", content: buildParsePrompt(cleanText, localCategories) }],
+                [{ role: "user", content: buildParsePrompt(cleanText, localCategories, products) }],
                 { model: "openai/gpt-oss-120b", maxTokens: 1400, temperature: 0.1 },
               );
             } catch (errSecond) {
@@ -765,6 +656,7 @@ export function InvoiceAnalyzer({
         }
 
         type RawExtractedItem = {
+          invoice_line?: string;
           name?: string;
           rawName?: string;
           code?: string | null;
@@ -773,6 +665,7 @@ export function InvoiceAnalyzer({
           cost?: number;
           unitCost?: number;
           unitsPerPack?: number;
+          quantityUnit?: 'unit' | 'pack';
           category?: string | null;
         };
 
@@ -788,26 +681,37 @@ export function InvoiceAnalyzer({
           return;
         }
 
-        // Proveedor extraído exclusivamente
-        setProviderName(parsed.proveedor?.trim() || "");
+        const supplier = supplierOverride.trim() || parsed.proveedor?.trim() || '';
+        setProviderName(supplier);
         setInvoiceDate("");
+        setLinkProgress('Buscando en la memoria del proveedor y comparando con tu catálogo…');
+        const links = await linkInvoiceItems(storeId, supplier, parsed.items.map(it => ({
+          invoice_line: (it.invoice_line || it.name || it.rawName || '').trim(), code: it.code || it.rawCode,
+          quantity: it.qty, quantity_unit: it.quantityUnit, invoiced_cost: it.cost ?? null, extracted_pack_size: it.unitsPerPack,
+        })), products);
 
         const existingCodes = new Set(
           products.map((p) => p.code?.trim().toLowerCase()).filter(Boolean),
         );
 
-        const resolvedItems: InvoiceItem[] = parsed.items.map((it) => {
+        const resolvedItems: InvoiceItem[] = parsed.items.map((it, index) => {
           const rawName = (it.name || it.rawName || "").trim();
           const rawCode = (it.code || it.rawCode || "").trim();
+          const link = links[index];
+          const matchedProduct = products.find(product => product.id === link.matched_product_id) || null;
 
-          // Detección de unidades por display/caja (prioriza regex verificado de mayorista y luego sugerencia de IA)
-          const regexUnits = detectPackUnits(rawName);
+          // Respect explicit individual units; otherwise use the presentation, catalog pack, or AI suggestion.
+          const regexUnits = detectPackUnits(link.invoice_line || rawName);
           const aiUnits = Number(it.unitsPerPack);
-          const unitsPerPack = Math.max(1, regexUnits > 1 ? regexUnits : (aiUnits > 1 ? aiUnits : 1));
+          const catalogUnits = configuredPackSize(matchedProduct?.pack_size);
+          const safeAiUnits = Number.isInteger(aiUnits) && aiUnits > 1 ? aiUnits : 1;
+          const unitsPerPack = it.quantityUnit === 'unit' ? 1 : regexUnits > 1 ? regexUnits : link.pack_size_detected ?? (safeAiUnits > 1 ? safeAiUnits : catalogUnits);
           const isPack = unitsPerPack > 1;
 
           const rawQty = Math.max(1, Number(it.qty) || 1);
-          const rawCost = Math.max(0, Number(it.cost ?? it.unitCost) || 0);
+          const costKnown = (it.cost != null && Number.isFinite(Number(it.cost)) && Number(it.cost) >= 0)
+            || (it.unitCost != null && Number.isFinite(Number(it.unitCost)) && Number(it.unitCost) >= 0);
+          const rawCost = Math.max(0, Number(it.cost ?? (Number(it.unitCost) * unitsPerPack)) || 0);
 
           // Si viene en display/caja: el costo unitario real es rawCost / unitsPerPack
           // y el stock total a ingresar es rawQty * unitsPerPack
@@ -818,9 +722,6 @@ export function InvoiceAnalyzer({
 
           // Categorización automática en las categorías del usuario
           const assignedCategoryId = resolveCategory(it.category || undefined, rawName, localCategories);
-
-          // Coincidencia local en catálogo en 0ms sin consumir tokens de IA
-          const { matchedProduct, confidence } = findBestCatalogMatch(rawName, rawCode, products);
 
           const hasMatch = !!matchedProduct;
           let newCode = rawCode;
@@ -834,17 +735,22 @@ export function InvoiceAnalyzer({
           const suggestedPrice = unitCost > 0 ? Math.round(unitCost * 1.4) : 100;
 
           return {
+            invoiceLine: link.invoice_line || rawName,
+            linkStatus: link.autoLinked ? 'auto' : 'pending',
+            linkReason: link.reason,
+            costKnown,
             rawName: rawName || "Producto sin nombre",
             rawCode: rawCode || undefined,
             rawQty,
             rawCost,
             unitsPerPack,
+            quantityUnit: it.quantityUnit,
             isPack,
             qty,
             unitCost,
             matchedProduct,
-            matchConfidence: confidence,
-            action: hasMatch ? "both" : "create_new", // Por defecto cargar no existentes como productos nuevos
+            matchConfidence: link.confidence,
+            action: hasMatch ? (costKnown ? 'both' : 'add_stock') : 'skip',
             newName: rawName || "Nuevo Producto",
             newCode,
             newPrice: suggestedPrice,
@@ -853,6 +759,10 @@ export function InvoiceAnalyzer({
         });
 
         setItems(resolvedItems);
+        setProductSearch({});
+        setSearchQuery('');
+        setFilterStatus('all');
+        setExpandedItems(new Set());
         setStep("review");
       } catch (err) {
         const msg = err instanceof Error ? err.message : "Error desconocido al analizar la factura.";
@@ -860,7 +770,7 @@ export function InvoiceAnalyzer({
         setStep("input");
       }
     },
-    [invoiceText, products, localCategories, clearRateLimitTimer, startRateLimitCountdown],
+    [invoiceText, products, localCategories, supplierOverride, storeId, clearRateLimitTimer, startRateLimitCountdown],
   );
 
   useEffect(() => {
@@ -870,33 +780,46 @@ export function InvoiceAnalyzer({
   // ── Import ──────────────────────────────────────────────────────────────
 
   const handleImport = useCallback(async () => {
+    if (importInProgress.current) return;
     const toUpdate = items.filter((it) => it.matchedProduct && it.action !== "skip");
     const toCreate = items.filter((it) => !it.matchedProduct && it.action === "create_new");
+
+    if (toUpdate.some(item => item.linkStatus === 'pending')) {
+      setError('Confirmá las vinculaciones pendientes u omití esos artículos antes de aplicar la reposición.');
+      return;
+    }
+    if ([...toUpdate, ...toCreate].some(item => !Number.isFinite(item.qty) || item.qty <= 0 || item.qty > 1000000
+      || !Number.isSafeInteger(item.unitsPerPack) || item.unitsPerPack < 1
+      || !Number.isFinite(item.unitCost) || item.unitCost < 0
+      || (!item.costKnown && (item.action === 'both' || item.action === 'update_cost' || item.action === 'create_new')))) {
+      setError('Revisá cantidades y costos: usá cantidades positivas de hasta 1.000.000 y completá el costo antes de actualizarlo o crear un producto.');
+      return;
+    }
 
     if (!toUpdate.length && !toCreate.length) {
       setError("No hay ítems para importar. Elegí al menos una acción distinta de 'Omitir'.");
       return;
     }
+    importInProgress.current = true;
     setStep("importing");
     setError(null);
 
     try {
       // 1. Actualización de productos existentes
       if (toUpdate.length > 0) {
-        const batchItems: { id: string; newStock: number; newCost?: number; quantityAdded?: number }[] = [];
+        const batchItems = new Map<string, { id: string; newStock: number; newCost?: number; quantityAdded: number }>();
         for (const it of toUpdate) {
           const prod = it.matchedProduct!;
-          const newStock =
-            it.action === "add_stock" || it.action === "both"
-              ? prod.stock + it.qty
-              : prod.stock;
+          const previous = batchItems.get(prod.id);
+          const quantityAdded = (previous?.quantityAdded || 0) + (it.action === 'add_stock' || it.action === 'both' ? it.qty : 0);
+          if (quantityAdded > 1000000) throw new Error(`La reposición de ${prod.name} supera 1.000.000 de unidades.`);
           const newCost =
             it.action === "update_cost" || it.action === "both"
               ? it.unitCost
-              : undefined;
-          batchItems.push({ id: prod.id, newStock, newCost, quantityAdded: newStock - prod.stock });
+              : previous?.newCost;
+          batchItems.set(prod.id, { id: prod.id, newStock: prod.stock + quantityAdded, newCost, quantityAdded });
         }
-        await retail.replenishStockBatch(storeId, batchItems);
+        await retail.replenishStockBatch(storeId, [...batchItems.values()]);
       }
 
       // 2. Alta de productos nuevos en catálogo
@@ -944,6 +867,7 @@ export function InvoiceAnalyzer({
               emoji,
               active: true,
               supplier: providerName?.trim() || undefined,
+              pack_size: it.unitsPerPack > 1 ? it.unitsPerPack : null,
             },
             false,
           );
@@ -971,6 +895,8 @@ export function InvoiceAnalyzer({
       const msg = err instanceof Error ? err.message : "Error al importar productos.";
       setError(msg);
       setStep("review");
+    } finally {
+      importInProgress.current = false;
     }
   }, [items, storeId, onImportDone, products, localCategories, providerName]);
 
@@ -986,7 +912,45 @@ export function InvoiceAnalyzer({
   };
 
   const updateItem = (i: number, patch: Partial<InvoiceItem>) => {
-    setItems((prev) => prev.map((it, idx) => (idx === i ? { ...it, ...patch } : it)));
+    setItems((prev) => prev.map((it, idx) => idx === i ? { ...it, ...patch,
+      ...(patch.qty !== undefined ? { rawQty: patch.qty / it.unitsPerPack } : {}),
+      ...(patch.unitCost !== undefined ? { unitCost: Number.isFinite(patch.unitCost) ? patch.unitCost : 0, rawCost: Number.isFinite(patch.unitCost) ? patch.unitCost * it.unitsPerPack : 0, costKnown: Number.isFinite(patch.unitCost) && patch.unitCost >= 0 } : {}),
+      ...(patch.matchedProduct !== undefined ? { linkStatus: 'pending' as const } : {}),
+    } : it));
+  };
+
+  const selectProduct = (i: number, productId: string) => {
+    setItems(previous => previous.map((item, index) => {
+      if (index !== i) return item;
+      const product = sortedProducts.find(candidate => candidate.id === productId) || null;
+      const explicit = detectPackUnits(item.invoiceLine);
+      const catalogSize = configuredPackSize(product?.pack_size);
+      const size = item.quantityUnit === 'unit' ? 1 : explicit > 1 ? explicit : catalogSize > 1 ? catalogSize : item.unitsPerPack;
+      return { ...item, matchedProduct: product, linkStatus: 'pending',
+        linkReason: 'Selección manual. Confirmá para recordarla para este proveedor.',
+        action: product ? (item.costKnown ? 'both' : 'add_stock') : 'skip',
+        unitsPerPack: size, isPack: size > 1, qty: item.rawQty * size,
+        unitCost: Math.round(item.rawCost / size * 100) / 100,
+      };
+    }));
+  };
+
+  const confirmMapping = (i: number) => {
+    const item = items[i];
+    if (!item?.matchedProduct) return;
+    try {
+      if (!Number.isFinite(item.qty) || item.qty <= 0 || item.qty > 1000000) throw new Error('Revisá la cantidad recibida antes de confirmar.');
+      saveMapping(storeId, providerName, item.invoiceLine, item.matchedProduct.id, item.matchedProduct.name, item.unitsPerPack);
+      updateItem(i, { linkStatus: 'confirmed' });
+      setError(null);
+    } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo recordar la vinculación.'); }
+  };
+
+  const changeProvider = (value: string) => {
+    if (normalizeSupplierText(value) !== normalizeSupplierText(providerName)) {
+      setItems(previous => previous.map(item => ({ ...item, linkStatus: 'pending', linkReason: 'Cambiaste de proveedor. Confirmá el vínculo para recordarlo en este proveedor.' })));
+    }
+    setProviderName(value);
   };
 
   const handleUpdatePackUnits = (originalIndex: number, newUnits: number) => {
@@ -1010,6 +974,8 @@ export function InvoiceAnalyzer({
 
         return {
           ...it,
+          linkStatus: unitsPerPack !== it.unitsPerPack ? 'pending' : it.linkStatus,
+          quantityUnit: isPack ? 'pack' : 'unit',
           unitsPerPack,
           isPack,
           unitCost,
@@ -1060,6 +1026,7 @@ export function InvoiceAnalyzer({
   const skippedCount = items.filter((it) => it.action === "skip").length;
   const unmatchedTotal = items.filter((it) => !it.matchedProduct).length;
   const totalToImport = matchedCount + newCount;
+  const pendingCount = items.filter(item => item.matchedProduct && item.action !== 'skip' && item.linkStatus === 'pending').length;
 
   const confidenceColor = (c: number) =>
     c >= 0.8 ? "var(--tone-accent)" : c >= 0.5 ? "var(--tone-accent)" : "var(--tone-danger)";
@@ -1223,7 +1190,7 @@ export function InvoiceAnalyzer({
             <div className="invoice-hint">
               <Sparkles size={16} />
               <span>
-                Subí tu factura en <strong>PDF</strong> o <strong>Foto / Imagen</strong> (PNG, JPG, WEBP). La IA procesa el documento, reconoce automáticamente los productos y actualiza tu inventario.
+                Subí tu factura en <strong>PDF</strong> o <strong>Foto / Imagen</strong> (PNG, JPG, WEBP). Revisá las sugerencias y aplicá la reposición cuando esté todo confirmado.
               </span>
             </div>
 
@@ -1308,6 +1275,12 @@ export function InvoiceAnalyzer({
               )}
             </div>
 
+            <label className="invoice-provider-field">
+              Proveedor (opcional)
+              <input value={supplierOverride} onChange={e => setSupplierOverride(e.target.value)} placeholder="Se detecta en la factura si lo dejás vacío" />
+              <span>Usá siempre el mismo nombre para reutilizar las vinculaciones guardadas en este dispositivo.</span>
+            </label>
+
             {/* Extracted text preview toggle */}
             <div className="invoice-text-toggle-row">
               <button
@@ -1365,7 +1338,7 @@ export function InvoiceAnalyzer({
           <div className="invoice-body invoice-loading-state">
             <Loader2 size={38} className="spin" />
             <h3>Analizando la factura…</h3>
-            <p>Extrayendo productos y buscando coincidencias en tu catálogo.<br />Puede tardar unos segundos.</p>
+            <p role="status">{linkProgress}<br />Puede tardar unos segundos.</p>
           </div>
         )}
 
@@ -1383,7 +1356,7 @@ export function InvoiceAnalyzer({
                       type="text"
                       className="inv-supplier-input"
                       value={providerName}
-                      onChange={(e) => setProviderName(e.target.value)}
+                      onChange={(e) => changeProvider(e.target.value)}
                       placeholder="Nombre del proveedor o distribuidora"
                       autoFocus
                       onKeyDown={(e) => {
@@ -1426,6 +1399,12 @@ export function InvoiceAnalyzer({
                 <RefreshCw size={13} /> Volver a cargar
               </button>
             </div>
+
+            <p className="invoice-link-summary" role="status">
+              {items.filter(item => item.linkStatus === 'auto').length} auto-vinculados · {pendingCount} pendientes de confirmar.
+              {!normalizeSupplierText(providerName) && ' Indicá el proveedor para recordar las vinculaciones.'}
+              {' '}Los artículos sin vínculo se omiten hasta que los vincules o elijas crear un producto nuevo.
+            </p>
 
             {/* Toolbar: Search + Filter Tabs */}
             <div className="inv-toolbar">
@@ -1487,7 +1466,7 @@ export function InvoiceAnalyzer({
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Sparkles size={16} />
                     <span>
-                      Factura con <strong>{unmatchedTotal}</strong> producto{unmatchedTotal !== 1 ? "s" : ""} sin coincidencia exacta en tu catálogo
+                      Factura con <strong>{unmatchedTotal}</strong> producto{unmatchedTotal !== 1 ? "s" : ""} sin vincular con tu catálogo
                     </span>
                   </div>
                   {items.some((it) => it.isPack) && (
@@ -1570,6 +1549,11 @@ export function InvoiceAnalyzer({
                   const isMatched = !!it.matchedProduct;
                   const isNew = !isMatched && it.action === "create_new";
                   const isSkipped = it.action === "skip";
+                  const query = normalizeSupplierText(productSearch[i] || '');
+                  const matches = query ? sortedProducts.filter(product => normalizeSupplierText(`${product.name} ${product.code}`).includes(query)).slice(0, 60) : sortedProducts.slice(0, 60);
+                  const options = [...new Map([...(it.matchedProduct ? [it.matchedProduct] : []), ...matches,
+                    ...(query ? rankCatalogMatches(query, query, sortedProducts, 6).map(match => match.product) : []),
+                  ].map(product => [product.id, product])).values()];
 
                   const cardClass = isMatched
                     ? "is-matched"
@@ -1605,20 +1589,20 @@ export function InvoiceAnalyzer({
                             <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 6 }}>
                               {isMatched ? (
                                 <>
-                                  <span className="inv-match-pill ok">
-                                    En Catálogo ({Math.round(it.matchConfidence * 100)}%)
+                                  <span className={`inv-match-pill invoice-link-status ${it.linkStatus === 'pending' ? 'pending' : 'known'}`}>
+                                    {it.linkStatus === 'auto' ? '🟢 Auto-vinculado (ya conocido)' : it.linkStatus === 'confirmed' ? '🟢 Confirmado y recordado' : '🟡 Requiere confirmación'}
                                   </span>
                                   {it.matchedProduct!.category && (
                                     <span className="inv-tag-cat">{it.matchedProduct!.category}</span>
                                   )}
                                   <span style={{ fontSize: 11, color: "var(--tone-muted)" }}>
-                                    Factura: {it.rawName}
+                                    Factura: {it.invoiceLine}
                                   </span>
                                 </>
                               ) : isNew ? (
                                 <>
-                                  <span className="inv-match-pill new">
-                                    ✨ Cargar como Nuevo
+                                  <span className="inv-match-pill invoice-link-status missing">
+                                    🔴 No encontrado · Crear producto nuevo
                                   </span>
                                   {/* Selector interactivo de Categoría directamente en la tarjeta */}
                                   <div className="inv-card-cat-wrap">
@@ -1639,8 +1623,8 @@ export function InvoiceAnalyzer({
                                   {it.newCode && <span className="inv-tag-code">EAN: {it.newCode}</span>}
                                 </>
                               ) : (
-                                <span className="inv-match-pill skip">
-                                  🚫 Se omitirá de la importación
+                                <span className="inv-match-pill invoice-link-status missing">
+                                  🔴 No encontrado · Se omitirá hasta vincularlo
                                 </span>
                               )}
                             </div>
@@ -1666,7 +1650,7 @@ export function InvoiceAnalyzer({
                               {it.isPack ? "COSTO UNIT. REAL" : "COSTO UNIT."}
                             </span>
                             <span className="inv-metric-val cost">
-                              ${it.unitCost.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              {it.costKnown ? `$${it.unitCost.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : 'Sin detectar'}
                             </span>
                             {it.isPack && (
                               <span className="inv-metric-sub">
@@ -1741,6 +1725,38 @@ export function InvoiceAnalyzer({
                             {expandedItems.has(i) ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                           </button>
                         </div>
+                      </div>
+
+                      <div className="invoice-link-review">
+                        <p>{it.linkReason} {it.matchedProduct && it.linkStatus === 'pending' ? `Confianza: ${Math.round(it.matchConfidence * 100)}%.` : ''}</p>
+                        {it.linkStatus !== 'pending' && isMatched ? (
+                          <button type="button" className="secondary-button" onClick={() => updateItem(i, { linkStatus: 'pending' })}>Cambiar vínculo</button>
+                        ) : (
+                          <>
+                            <div className="invoice-link-fields">
+                              <label>Buscar en el catálogo
+                                <input aria-label={`Buscar producto para ${it.invoiceLine}`} value={productSearch[i] || ''} placeholder="Nombre o código; admite errores y abreviaturas" onChange={e => setProductSearch(previous => ({ ...previous, [i]: e.target.value }))} />
+                              </label>
+                              <label>Producto del catálogo
+                                <select aria-label={`Producto para ${it.invoiceLine}`} value={it.matchedProduct?.id || ''} onChange={e => selectProduct(i, e.target.value)}>
+                                  <option value="">— Elegí un producto —</option>
+                                  {options.map(product => <option key={product.id} value={product.id}>{product.name}{product.code ? ` · ${product.code}` : ''}</option>)}
+                                </select>
+                                <span>Se muestran hasta 60 resultados y las coincidencias aproximadas. Escribí para buscar en todo el catálogo.</span>
+                              </label>
+                              <label>Cantidad recibida (unidades)
+                                <input type="number" min="0.001" max="1000000" step="any" value={it.qty} onChange={e => updateItem(i, { qty: Number(e.target.value) })} />
+                              </label>
+                              <label>Costo por unidad individual ($)
+                                <input type="number" min="0" step="0.01" placeholder="No detectado" value={it.costKnown ? it.unitCost : ''} onChange={e => updateItem(i, { unitCost: e.target.value === '' ? NaN : Number(e.target.value) })} />
+                              </label>
+                            </div>
+                            <button type="button" className="primary-button" disabled={!it.matchedProduct || !normalizeSupplierText(providerName)} onClick={() => confirmMapping(i)}>
+                              <CheckCircle2 size={14} /> {it.matchConfidence > 0 ? 'Confirmar y recordar' : 'Vincular y recordar'}
+                            </button>
+                            {!normalizeSupplierText(providerName) && <p>Completá el proveedor arriba para recordar el vínculo.</p>}
+                          </>
+                        )}
                       </div>
 
                       {/* Barra de Presentación y Unidades por Display / Bulto Cerrado */}
@@ -1931,41 +1947,6 @@ export function InvoiceAnalyzer({
                                 )}
                               </div>
 
-                              {/* Manual Link with existing catalog product */}
-                              <div style={{ marginTop: 6, paddingTop: 10, borderTop: "1px dashed var(--tone-hover)" }}>
-                                <div style={{ fontSize: 11.5, color: "var(--tone-muted)", marginBottom: 6 }}>
-                                  ¿Este producto ya existe en tu stock? Vincúlalo manualmente:
-                                </div>
-                                <div className="invoice-manual-search">
-                                  <Search size={14} />
-                                  <select
-                                    value=""
-                                    onChange={(e) => {
-                                      const prod =
-                                        products.find((p) => p.id === e.target.value) || null;
-                                      if (prod) {
-                                        updateItem(i, {
-                                          matchedProduct: prod,
-                                          action: "both",
-                                          matchConfidence: 1,
-                                        });
-                                      }
-                                    }}
-                                  >
-                                    <option value="">
-                                      — Seleccionar producto existente del catálogo —
-                                    </option>
-                                    {products
-                                      .slice()
-                                      .sort((a, b) => a.name.localeCompare(b.name, "es-AR"))
-                                      .map((p) => (
-                                        <option key={p.id} value={p.id}>
-                                          {p.emoji} {p.name} (stock actual: {p.stock} | costo: ${p.cost})
-                                        </option>
-                                      ))}
-                                  </select>
-                                </div>
-                              </div>
                             </div>
                           ) : (
                             /* Editing Matched Product */
@@ -2093,11 +2074,12 @@ export function InvoiceAnalyzer({
               <button
                 className="primary-button"
                 onClick={() => void handleImport()}
-                disabled={totalToImport === 0}
+                disabled={totalToImport === 0 || pendingCount > 0}
               >
-                <PackageCheck size={14} /> Importar {totalToImport} producto{totalToImport !== 1 ? "s" : ""}
+                <PackageCheck size={14} /> Aplicar reposición ({totalToImport} producto{totalToImport !== 1 ? "s" : ""})
                 {newCount > 0 ? ` (${matchedCount} exist. + ${newCount} nuev.)` : ""}
               </button>
+              {pendingCount > 0 && <span role="status">Confirmá u omití {pendingCount} vinculación{pendingCount !== 1 ? 'es' : ''} pendiente{pendingCount !== 1 ? 's' : ''}.</span>}
             </div>
           </div>
         )}

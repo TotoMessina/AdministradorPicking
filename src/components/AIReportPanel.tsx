@@ -20,6 +20,8 @@ import { groqStream } from "../services/groqService";
 import { retail, type Shift, type Product, type Role } from "../features/retail/api";
 import type { KioscoSale } from "../types/kiosco";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
+import { marginSales, summarizeMargins, marginPrompt, type MarginSummary as MarginSummaryData } from '../features/retail/marginAnalytics';
+import { MarginSummary } from '../features/retail/MarginSummary';
 
 export type PeriodType = "today" | "7days" | "month";
 export type AIReportStatus = "idle" | "loading" | "streaming" | "done" | "error";
@@ -34,6 +36,7 @@ export interface AIReportPanelProps {
 }
 
 export interface PeriodCalculations {
+  separation: MarginSummaryData;
   period: PeriodType;
   periodLabel: string;
   totalRevenue: number;
@@ -180,6 +183,8 @@ function calculateLocalMetrics(
   products: Product[],
   period: PeriodType
 ): PeriodCalculations {
+  const separation = summarizeMargins(filteredSales, products);
+  filteredSales = marginSales(filteredSales, products, 'standard');
   const labels: Record<PeriodType, string> = {
     today: "Hoy",
     "7days": "Últimos 7 días",
@@ -245,50 +250,12 @@ function calculateLocalMetrics(
     .sort((a, b) => b.qty - a.qty || b.subtotal - a.subtotal)
     .slice(0, 5);
 
-  // Optional profit estimation from catalog costs
-  let totalCost = 0;
-  let hasValidCosts = false;
-  const costLookup = new Map<string, number>();
-
-  for (const p of products) {
-    if (typeof p.cost === "number" && p.cost > 0) {
-      hasValidCosts = true;
-      if (p.id) costLookup.set(p.id, p.cost);
-      costLookup.set(p.name.toLowerCase().trim(), p.cost);
-    }
-  }
-
-  if (hasValidCosts) {
-    for (const s of filteredSales) {
-      const rawItems = s.items;
-      const items = Array.isArray(rawItems)
-        ? rawItems
-        : typeof rawItems === "string"
-        ? (() => {
-            try {
-              return JSON.parse(rawItems);
-            } catch {
-              return [];
-            }
-          })()
-        : [];
-
-      for (const item of items) {
-        const cost =
-          (item.productId && costLookup.get(item.productId)) ??
-          costLookup.get((item.name || "").toLowerCase().trim());
-        if (cost !== undefined) {
-          totalCost += cost * (Number(item.qty) || 0);
-        }
-      }
-    }
-  }
-
-  const profit = hasValidCosts && totalCost > 0 ? totalRevenue - totalCost : undefined;
-  const marginPercent =
-    profit !== undefined && totalRevenue > 0 ? (profit / totalRevenue) * 100 : undefined;
+  const totalCost = separation.standard.cost;
+  const profit = separation.standard.profit ?? undefined;
+  const marginPercent = separation.standard.marginPercent ?? undefined;
 
   return {
+    separation,
     period,
     periodLabel: labels[period],
     totalRevenue,
@@ -313,7 +280,7 @@ function calculateLocalMetrics(
  * Builds the Groq prompt with real calculated numerical data
  */
 function buildUserPrompt(storeName: string, m: PeriodCalculations): string {
-  if (m.totalSalesCount === 0) {
+  if (m.separation.totalTickets === 0) {
     return `Comercio: "${storeName || "Kiosco Express"}"
 Período analizado: ${m.periodLabel}
 
@@ -352,7 +319,7 @@ Brindá un breve informe ejecutivo indicando que no hubo transacciones registrad
 Período analizado: ${m.periodLabel}
 
 MÉTRICAS LOCALES CALCULADAS:
-- Total facturado: $${m.totalRevenue.toLocaleString("es-AR")}
+- Facturación principal sin bajo margen: $${m.totalRevenue.toLocaleString("es-AR")}
 - Cantidad de tickets / ventas: ${m.totalSalesCount}
 - Ticket promedio: $${Math.round(m.averageTicket).toLocaleString("es-AR")}
 - Unidades totales vendidas: ${m.totalUnitsSold} u.${marginSection}${shiftsSection}
@@ -362,6 +329,8 @@ ${paymentLines}
 
 TOP 5 PRODUCTOS MÁS VENDIDOS:
 ${topProductLines}
+
+${marginPrompt(m.separation)}
 
 INSTRUCCIONES DE RESPUESTA:
 Respondé en formato Markdown estructurado con estas 4 secciones indispensables:
@@ -408,7 +377,9 @@ Período: ${m.periodLabel}
 Fecha de emisión: ${new Date().toLocaleDateString("es-AR")} ${new Date().toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
 
 === RESUMEN NUMÉRICO DEL PERÍODO ===
-• Total Facturado: $${m.totalRevenue.toLocaleString("es-AR")}
+• Facturación real (sin bajo margen): $${m.totalRevenue.toLocaleString("es-AR")}
+• Facturación bajo margen: $${m.separation.lowMargin.revenue.toLocaleString('es-AR')}
+• Contribución del bajo margen a la ganancia bruta: ${m.separation.lowMarginContributionPercent === null ? 'No disponible' : m.separation.lowMarginContributionPercent.toFixed(1) + '%'}
 • Ventas registradas: ${m.totalSalesCount}
 • Ticket Promedio: $${Math.round(m.averageTicket).toLocaleString("es-AR")}
 • Unidades vendidas: ${m.totalUnitsSold}
@@ -478,6 +449,11 @@ export function AIReportPanel({
   const metrics = useMemo(() => {
     return calculateLocalMetrics(filteredSales, filteredShifts, products, period);
   }, [filteredSales, filteredShifts, products, period]);
+  const metricsSignature = JSON.stringify(metrics);
+  useEffect(() => {
+    abortControllerRef.current?.abort();
+    setStatus('idle'); setReportText(''); setErrorMessage('');
+  }, [metricsSignature]);
 
   // Handle stream generation
   const handleGenerateReport = async () => {
@@ -609,11 +585,12 @@ export function AIReportPanel({
         </div>
       </div>
 
+      <MarginSummary summary={metrics.separation} />
       {/* Numerical KPI Grid (Calculated locally, without IA) */}
       <div className="ai-report-kpi-grid">
         <div className="ai-report-kpi-card">
           <div className="ai-report-kpi-header">
-            <span className="ai-report-kpi-label">Total Facturado</span>
+            <span className="ai-report-kpi-label">Facturación sin bajo margen</span>
             <DollarSign size={16} className="ai-report-kpi-icon" />
           </div>
           <div className="ai-report-kpi-value accent-green">

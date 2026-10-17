@@ -18,7 +18,7 @@ const server = await createServer({
   define: { 'import.meta.env.VITE_SUPABASE_URL': JSON.stringify('https://example.supabase.co'), 'import.meta.env.VITE_SUPABASE_ANON_KEY': JSON.stringify('test-only') },
   plugins: [{ name: 'test-document-parser', enforce: 'pre',
     resolveId(id) { if (id.endsWith('/invoiceParserService')) return '\0test-document-parser'; },
-    load(id) { if (id === '\0test-document-parser') return 'export const extractTextFromFile = async () => { throw new Error("Document parsing is outside UI navigation tests"); }; export const cleanInvoiceOcrText = x => x;'; },
+    load(id) { if (id === '\0test-document-parser') return 'export const extractTextFromFile = async () => { throw new Error("Document parsing is outside UI navigation tests"); }; export const cleanInvoiceOcrText = x => x; export const invoicePackCatalogContext = () => "";'; },
   }],
 });
 let client;
@@ -34,12 +34,13 @@ try {
     branches: [{ id: 'b1', name: 'Centro', address: '', is_default: true }, { id: 'b2', name: 'Norte', address: '', is_default: false }],
     registers: [{ id: 'r1', name: 'Caja Centro', branch_id: 'b1', active: true }, { id: 'r2', name: 'Caja Norte', branch_id: 'b2', active: true }],
     shifts: [{ id: 'shift1', register_id: 'r1', opened_by: 'user', opened_at: '2026-10-13T12:00:00Z', opening_cash: 0, closed_at: null }, { id: 'shift2', register_id: 'r2', opened_by: 'user', opened_at: '2026-10-13T12:00:00Z', opening_cash: 0, closed_at: null }],
-    priceLists: [{ id: 'wholesale', name: 'Mayorista', adjustment: -10, active: true }], priceOverrides: [],
+    priceLists: [{ id: 'wholesale', name: 'Mayorista', adjustment: -10, active: true }, { id: 'center', name: 'Precios Centro', adjustment: 20, active: true, branch_id: 'b1' }], priceOverrides: [],
     ledgers: [{ id: 'general', name: 'General', is_default: true, active: true }, { id: 'other', name: 'Especial', active: true }],
     members: [], invitations: [], allSales: [], sales: [], movements: [], reportSales: [], registerAvailability: [], shiftBalance: 0, quickProducts: [], popularProducts: [],
   };
   for (const [method, value] of Object.entries(fixtures)) retail[method] = async () => value;
   retail.acceptInvitations = async () => 0;
+  retail.branchPriceRule = async (_store, branch) => branch === 'b1' ? 'center' : null;
   render(React.createElement(ToastProvider, null, React.createElement(RetailApp, { session: { user: { id: 'user', email: 'test@example.test' } } })));
   await waitFor(() => assert.ok(screen.getByLabelText('Buscar producto o escanear código')));
   let quickSaved;
@@ -56,6 +57,7 @@ try {
   assert.ok(manualPanel.parentElement.classList.contains('catalog'));
   assert.ok(manualPanel.compareDocumentPosition(document.querySelector('.product-grid')) & dom.window.Node.DOCUMENT_POSITION_FOLLOWING);
   fireEvent.click(screen.getByText('Opciones de venta'));
+  assert.equal(screen.getByLabelText('Lista de precios').value, 'center', 'B1 starts with its assigned list');
   fireEvent.change(screen.getByLabelText('Lista de precios'), { target: { value: 'wholesale' } });
   fireEvent.click(screen.getByRole('button', { name: 'Agregar Agua 0, $90. 10 disponibles' }));
   assert.equal(screen.getByLabelText('Lista de precios').disabled, true);
@@ -69,6 +71,14 @@ try {
   assert.equal(screen.getByLabelText('Caja de atención').value, 'r2');
   await waitFor(() => assert.equal(screen.queryByRole('button', { name: 'Venta rápida: Agua 1' }), null));
   assert.equal(screen.queryByRole('button', { name: 'Quitar Agua 0' }), null);
+  await waitFor(() => assert.equal(screen.getByLabelText('Lista de precios').value, '', 'B2 without assignment uses the mother list'));
+  assert.equal(screen.getByLabelText('Lista de precios').querySelector('option[value="center"]'), null, 'B1 exclusive list is unavailable in B2');
+  await React.act(async () => fireEvent.change(screen.getByLabelText('Sucursal', { exact: true }), { target: { value: 'b1' } }));
+  await waitFor(() => assert.equal(screen.getByLabelText('Lista de precios').value, 'center', 'Switching B2 to B1 restores the branch default'));
+  fireEvent.change(screen.getByLabelText('Lista de precios'), { target: { value: 'wholesale' } });
+  await React.act(async () => fireEvent.click(screen.getByRole('button', { name: 'Actualizar datos' })));
+  await waitFor(() => assert.equal(screen.getByLabelText('Lista de precios').value, 'wholesale', 'Manager override survives refresh on the same branch'));
+  console.log('PASS branch default on B2 to B1, mother-list fallback, exclusive list filtering and preserved manager override');
   console.log('PASS progressive sale options, product paging, branch selection and cart protection');
 
   fireEvent.click(screen.getByRole('button', { name: /Productos y stock/ }));
@@ -159,6 +169,7 @@ try {
   await React.act(async () => fireEvent.click(screen.getByRole('button', { name: 'Abrir Caja Norte' })));
   fireEvent.click(await screen.findByRole('button', { name: 'Ir a vender' }));
   await screen.findByLabelText('Buscar producto o escanear código');
+  assert.equal(screen.getByLabelText('Lista de precios').disabled, true, 'Cashier cannot override the branch price rule');
   cleanup();
   console.log('PASS assigned cashier defaults, private navigation, occupied register protection and guided opening-to-selling');
 

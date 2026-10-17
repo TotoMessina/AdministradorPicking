@@ -29,6 +29,7 @@ import { useToast } from "../context/ToastContext";
 import { AiAssistantWidget } from "./AiAssistantWidget";
 import { QuickProducts } from '../features/retail/QuickProducts';
 import { cents } from '../features/retail/payments';
+import { formatPackStock, unitsPerPack } from '../services/inventoryUnits';
 interface Props {
   products: KioscoProduct[];
   cart: KioscoCartItem[];
@@ -97,6 +98,7 @@ export function PosTab({
   const [checkoutError, setCheckoutError] = useState('');
   const [visibleCount, setVisibleCount] = useState(60);
   const [availableOnly, setAvailableOnly] = useState(false);
+  const [hideLowMargin, setHideLowMargin] = useState(false);
   const [internalMobileView, setInternalMobileView] = useState<"catalog" | "checkout">("catalog");
   const mobilePosView = controlledMobileView ?? internalMobileView;
   const setMobilePosView = (view: "catalog" | "checkout") => {
@@ -150,6 +152,7 @@ export function PosTab({
     (p) =>
       (category === "" || p.category === category) &&
       (!availableOnly || p.stock > 0) &&
+      (!hideLowMargin || p.margin_group !== 'low_margin') &&
       (normalize(p.name).includes(normalize(query)) ||
         p.code.includes(query.trim())),
   );
@@ -191,6 +194,8 @@ export function PosTab({
         qty: i.qty,
         unitPrice: i.product.price,
         subtotal: i.subtotal,
+        marginGroup: i.product.margin_group ?? 'standard',
+        unitCost: i.product.cost && i.product.cost > 0 ? i.product.cost : null,
       })),
       total,
       paymentMethod: chosen,
@@ -380,7 +385,8 @@ export function PosTab({
             </form>
           )}
         </div>
-        {storeId && branchId && <QuickProducts storeId={storeId} branchId={branchId} products={products} manager={canCustomizeQuick} onAdd={add} disabled={busy || !!isLoading} />}
+        <label className="margin-pos-filter"><input type="checkbox" checked={hideLowMargin} onChange={e => setHideLowMargin(e.target.checked)} />Ocultar temporalmente productos de bajo margen</label>
+        {storeId && branchId && <QuickProducts storeId={storeId} branchId={branchId} products={hideLowMargin ? products.filter(p => p.margin_group !== 'low_margin') : products} manager={canCustomizeQuick} onAdd={add} disabled={busy || !!isLoading} />}
         <div className="category-list" aria-label="Categorías">
           {categories.map((c) => (
             <button
@@ -498,7 +504,7 @@ export function PosTab({
                         p.stock <= p.minStock ? "stock-low" : "stock-ok"
                       }
                     >
-                      {p.stock === 0 ? "Sin stock" : `${p.stock} disponibles`}
+                      {unitsPerPack(p.pack_size) > 1 ? formatPackStock(p.stock, p.pack_size) : p.stock === 0 ? "Sin stock" : `${p.stock} disponibles`}
                     </span>
                     <div className="product-price">
                       <strong>{money(p.price)}</strong>

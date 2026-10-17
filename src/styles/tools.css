@@ -139,6 +139,19 @@
 .inv-unmatched-header, .inv-unmatched-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .inv-unmatched-actions { margin-top: 10px; }
 .invoice-items { display: grid; gap: 12px; }
+.invoice-provider-field { display: grid; gap: 6px; margin-top: 16px; font-size: 12px; }
+.invoice-provider-field span, .invoice-link-fields span { color: var(--tone-muted); font-size: 11px; }
+.invoice-link-summary { padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); font-size: 12px; }
+.invoice-link-status.known { color: #276345; background: #eff8f2; }
+.invoice-link-status.pending { color: #805512; background: #fff8e7; }
+.invoice-link-status.missing { color: var(--tone-danger); background: var(--tone-danger-soft); }
+.invoice-link-review { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--tone-border); }
+.invoice-link-review > p { margin: 0; color: var(--tone-muted); font-size: 12px; }
+.invoice-link-review > button { justify-self: start; }
+.invoice-link-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.invoice-link-fields label { display: grid; align-content: start; gap: 6px; font-size: 12px; }
+.invoice-link-fields input, .invoice-link-fields select { width: 100%; }
+@media (max-width: 640px) { .invoice-link-fields { grid-template-columns: minmax(0, 1fr); } }
 .inv-card { border: 1px solid var(--tone-border); border-radius: 10px; overflow: hidden; }
 .inv-card-main { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; padding: 16px; }
 .inv-card-product { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 220px; }
