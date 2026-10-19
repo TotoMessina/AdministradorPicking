@@ -28,6 +28,8 @@ import type { Product, Category } from "../features/retail/api";
 import { retail } from "../features/retail/api";
 import { linkInvoiceItems, rankCatalogMatches } from '../services/invoiceMatchingService';
 import { normalizeSupplierText, saveMapping } from '../services/supplierMappingService';
+import { invoiceCostIncrease, type InvoiceCostChange } from '../services/invoicePricingService';
+import { InvoicePriceProposal } from './InvoicePriceProposal';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -74,7 +76,9 @@ export interface InvoiceAnalyzerProps {
   products: Product[];
   categories?: Category[];
   onClose: () => void;
-  onImportDone?: (updatedCount: number) => void;
+  onImportDone?: (updatedCount: number) => void | Promise<void>;
+  onPricesUpdated?: () => void | Promise<void>;
+  catalogBusy?: boolean;
 }
 
 // ─── Code and Emoji Helpers ─────────────────────────────────────────────────
@@ -513,6 +517,8 @@ export function InvoiceAnalyzer({
   categories,
   onClose,
   onImportDone,
+  onPricesUpdated,
+  catalogBusy = false,
 }: InvoiceAnalyzerProps) {
   const [step, setStep] = useState<"input" | "parsing" | "review" | "importing" | "done">("input");
   const [invoiceText, setInvoiceText] = useState("");
@@ -524,6 +530,9 @@ export function InvoiceAnalyzer({
   const [importedCount, setImportedCount] = useState(0);
   const [createdCount, setCreatedCount] = useState(0);
   const [updatedCount, setUpdatedCount] = useState(0);
+  const [costChanges, setCostChanges] = useState<InvoiceCostChange[]>([]);
+  const [showPriceProposal, setShowPriceProposal] = useState(false);
+  const [pricesBusy, setPricesBusy] = useState(false);
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set());
   const [isExtracting, setIsExtracting] = useState(false);
   const [extractProgress, setExtractProgress] = useState("");
@@ -634,22 +643,11 @@ export function InvoiceAnalyzer({
               errFirst.message.toLowerCase().includes("tokens per minute"));
 
           if (isRateLimit) {
-            // Reintentar con modelo de respaldo (openai/gpt-oss-120b)
-            try {
-              parseRaw = await groqChat(
-                [{ role: "user", content: buildParsePrompt(cleanText, localCategories, products) }],
-                { model: "openai/gpt-oss-120b", maxTokens: 1400, temperature: 0.1 },
-              );
-            } catch (errSecond) {
-              const waitSec =
-                (errFirst instanceof GroqError ? errFirst.retryAfter : undefined) ||
-                (errSecond instanceof GroqError ? errSecond.retryAfter : undefined) ||
-                25;
-              startRateLimitCountdown(waitSec);
-              throw new Error(
-                `Límite de velocidad de Groq (1.000 tokens/min en Free Tier). Reintentando automáticamente en ${Math.ceil(waitSec)}s...`,
-              );
-            }
+            const waitSec = errFirst.retryAfter || 25;
+            startRateLimitCountdown(waitSec);
+            throw new Error(
+              `Límite de velocidad de Groq. Reintentando automáticamente en ${Math.ceil(waitSec)}s...`,
+            );
           } else {
             throw errFirst;
           }
@@ -805,6 +803,7 @@ export function InvoiceAnalyzer({
     setError(null);
 
     try {
+      const importedCosts = new Map<string, InvoiceCostChange>();
       // 1. Actualización de productos existentes
       if (toUpdate.length > 0) {
         const batchItems = new Map<string, { id: string; newStock: number; newCost?: number; quantityAdded: number }>();
@@ -817,6 +816,9 @@ export function InvoiceAnalyzer({
             it.action === "update_cost" || it.action === "both"
               ? it.unitCost
               : previous?.newCost;
+          if (it.action === 'update_cost' || it.action === 'both') {
+            importedCosts.set(prod.id, { id: prod.id, name: prod.name, previousCost: prod.cost, newCost: it.unitCost, currentPrice: prod.price });
+          }
           batchItems.set(prod.id, { id: prod.id, newStock: prod.stock + quantityAdded, newCost, quantityAdded });
         }
         await retail.replenishStockBatch(storeId, [...batchItems.values()]);
@@ -889,8 +891,12 @@ export function InvoiceAnalyzer({
       setImportedCount(totalCount);
       setUpdatedCount(toUpdate.length);
       setCreatedCount(toCreate.length);
+      setCostChanges([...importedCosts.values()].filter(change => invoiceCostIncrease(change.previousCost, change.newCost)));
+      setShowPriceProposal(false);
       setStep("done");
-      onImportDone?.(totalCount);
+      void Promise.resolve().then(() => onImportDone?.(totalCount)).catch(() => {
+        setError('La reposición se guardó, pero no se pudo actualizar el catálogo en pantalla. Actualizá los datos al cerrar.');
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Error al importar productos.";
       setError(msg);
@@ -1124,7 +1130,7 @@ export function InvoiceAnalyzer({
               </p>
             </div>
           </div>
-          <button className="invoice-close-btn" onClick={onClose} aria-label="Cerrar">
+          <button className="invoice-close-btn" onClick={onClose} disabled={step === 'importing' || pricesBusy} aria-label="Cerrar">
             <X size={20} />
           </button>
         </div>
@@ -1547,6 +1553,7 @@ export function InvoiceAnalyzer({
               ) : (
                 filteredItems.map(({ it, originalIndex: i }) => {
                   const isMatched = !!it.matchedProduct;
+                  const costIncrease = isMatched && it.costKnown ? invoiceCostIncrease(it.matchedProduct!.cost, it.unitCost) : null;
                   const isNew = !isMatched && it.action === "create_new";
                   const isSkipped = it.action === "skip";
                   const query = normalizeSupplierText(productSearch[i] || '');
@@ -1592,6 +1599,9 @@ export function InvoiceAnalyzer({
                                   <span className={`inv-match-pill invoice-link-status ${it.linkStatus === 'pending' ? 'pending' : 'known'}`}>
                                     {it.linkStatus === 'auto' ? '🟢 Auto-vinculado (ya conocido)' : it.linkStatus === 'confirmed' ? '🟢 Confirmado y recordado' : '🟡 Requiere confirmación'}
                                   </span>
+                                  {costIncrease && <span className="invoice-cost-increase" title={`Costo anterior: $${it.matchedProduct!.cost.toLocaleString('es-AR')} · Nuevo costo individual: $${it.unitCost.toLocaleString('es-AR')}`}>
+                                    {costIncrease.percent === null ? '⚠️ Nuevo costo (antes $0)' : `⚠️ Subió ${costIncrease.percent.toLocaleString('es-AR', { maximumFractionDigits: 2 })}%`}
+                                  </span>}
                                   {it.matchedProduct!.category && (
                                     <span className="inv-tag-cat">{it.matchedProduct!.category}</span>
                                   )}
@@ -2095,7 +2105,8 @@ export function InvoiceAnalyzer({
 
         {/* DONE */}
         {step === "done" && (
-          <div className="invoice-body invoice-done-state">
+          <div className="invoice-body">
+            <div className="invoice-done-state">
             <CheckCircle2 size={54} color="var(--tone-accent)" />
             <h3>¡Importación completada!</h3>
             <p>
@@ -2121,9 +2132,15 @@ export function InvoiceAnalyzer({
                 </span>
               )}
             </div>
-            <button className="primary-button" onClick={onClose}>
+            {costChanges.length > 0 ? <>
+              <p><AlertTriangle size={15} /> {costChanges.length} producto{costChanges.length === 1 ? '' : 's'} con suba de costo mayor al 2%. Podés revisar su precio de venta.</p>
+              {!showPriceProposal && <button type="button" className="primary-button" onClick={() => setShowPriceProposal(true)}>Ver propuesta de precios</button>}
+            </> : <p>No se detectaron subas mayores al 2% entre los costos actualizados.</p>}
+            <button className="secondary-button" onClick={onClose} disabled={pricesBusy}>
               Cerrar
             </button>
+            </div>
+            {showPriceProposal && <InvoicePriceProposal storeId={storeId} changes={costChanges} products={products} onApplied={onPricesUpdated} onBusyChange={setPricesBusy} catalogBusy={catalogBusy} />}
           </div>
         )}
       </div>

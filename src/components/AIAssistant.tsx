@@ -14,7 +14,7 @@ import {
   User,
   Bot,
 } from "lucide-react";
-import { groqStream, isRateLimitError, getRetryDelay, FALLBACK_FAST_MODEL } from "../services/groqService";
+import { groqStream, isRateLimitError, getRetryDelay, DEFAULT_MODEL, FALLBACK_FAST_MODEL } from "../services/groqService";
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import { retail, type Store, type Product, type Shift, type Movement, type Role } from "../features/retail/api";
@@ -686,7 +686,7 @@ ${JSON.stringify(contextPayload, null, 2)}`;
           const waitSecs = getRetryDelay(err, attempt === 1 ? 3 : attempt === 2 ? 5 : 7);
 
           // Fallback to high-TPM lightweight model on attempt >= 2 if rate limit continues
-          if (attempt >= 2 && !chosenModel) {
+          if (attempt >= 2 && !chosenModel && DEFAULT_MODEL !== FALLBACK_FAST_MODEL) {
             chosenModel = FALLBACK_FAST_MODEL;
           }
 

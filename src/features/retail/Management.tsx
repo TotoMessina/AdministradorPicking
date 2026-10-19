@@ -43,9 +43,12 @@ import type {
   Register,
   Member,
   Invitation,
+  Branch,
+  PendingReplenishment,
 } from "./api";
 import { retail } from "./api";
 import { InvoiceAnalyzer } from "../../components/InvoiceAnalyzer";
+import { PendingReplenishments } from './PendingReplenishments';
 export type Run = (
   action: () => Promise<unknown>,
   message?: string,
@@ -121,6 +124,11 @@ export function CatalogEditor({
   busy,
   allSales = [],
   role = "admin",
+  pendingRemitos = [],
+  pendingRemitoError = '',
+  branches = [],
+  onRefreshRemitos = () => {},
+  onReviewedRemito = () => {},
 }: {
   store: Store;
   categories: Category[];
@@ -129,6 +137,11 @@ export function CatalogEditor({
   busy: boolean;
   allSales?: KioscoSale[];
   role?: Role;
+  pendingRemitos?: PendingReplenishment[];
+  pendingRemitoError?: string;
+  branches?: Branch[];
+  onRefreshRemitos?: () => void;
+  onReviewedRemito?: (id: string) => void;
 }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [adding, setAdding] = useState(false);
@@ -1124,6 +1137,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
   );
   return (
     <div className="retail-panel">
+      {isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
       <div className="section-heading">
         <div>
           <h2>Productos e inventario</h2>
@@ -2876,8 +2890,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               async () => {},
               `Se importaron e impactaron ${count} productos desde la factura`,
             );
-            setIsInvoiceModalOpen(false);
           }}
+          onPricesUpdated={async () => { await run(async () => {}); }}
+          catalogBusy={busy}
         />
       )}
 

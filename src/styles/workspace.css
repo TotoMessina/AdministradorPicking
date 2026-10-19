@@ -92,6 +92,94 @@ td button { min-height: 32px; padding: 6px 8px; font-size: 12px; }
 .price-list-settings summary { font-size: 17px; font-weight: 650; }
 .price-list-settings h3 { margin: 24px 0 12px; }
 .cash-workspace { display: grid; gap: 22px; }
+.stock-transfers > .section-heading { margin-top: 0; }
+.stock-transfer-fields { display: grid; gap: 16px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.stock-transfer-fields label, .stock-transfer-filter { display: grid; gap: 6px; font-size: 12px; }
+.stock-transfer-fields input, .stock-transfer-fields select, .stock-transfer-fields textarea { width: 100%; }
+.stock-transfer-route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: end; gap: 14px; }
+.stock-transfer-route > svg { margin-bottom: 12px; color: var(--tone-muted); }
+.stock-transfer-search-results { display: grid; gap: 8px; max-height: 330px; overflow-y: auto; padding: 10px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); }
+.stock-transfer-search-results > button { justify-content: flex-start; text-align: left; }
+.stock-transfer-search-results > button > span { flex: 1; min-width: 0; }
+.stock-transfer-search-results small, .stock-transfers td small { display: block; margin-top: 4px; color: var(--tone-muted); font-size: 11px; }
+.stock-transfer-form-actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center; font-size: 12px; }
+.stock-transfer-help { display: flex; gap: 8px; align-items: center; color: var(--tone-muted); font-size: 12px; }
+.stock-transfer-error { color: var(--tone-danger); font-size: 12px; overflow-wrap: anywhere; }
+.stock-transfer-history-heading { margin-top: 26px; padding-top: 20px; border-top: 1px solid var(--tone-border); }
+.stock-transfer-filter { max-width: 260px; margin-bottom: 16px; }
+.stock-transfer-history { min-width: 920px; }
+.stock-transfers caption { padding: 8px 0; text-align: left; color: var(--tone-muted); font-size: 12px; }
+.stock-transfer-history details ul { margin-bottom: 0; padding-left: 18px; }
+.stock-transfer-history details { min-width: 170px; }
+.stock-transfer-notes { max-width: 260px; min-width: 130px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.stock-transfer-row-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.stock-transfer-status { display: inline-flex; padding: 4px 8px; border: 1px solid var(--tone-border); border-radius: 6px; background: var(--tone-canvas); font-size: 11px; font-weight: 600; }
+.stock-transfer-status.confirmed { color: var(--tone-accent); background: var(--tone-accent-soft); }
+.stock-transfer-status.cancelled { color: var(--tone-muted); background: var(--tone-soft); }
+@media (max-width: 640px) {
+  .stock-transfer-route { grid-template-columns: minmax(0, 1fr); }
+  .stock-transfer-route > svg { display: none; }
+  .stock-transfer-form-actions > button { width: 100%; }
+}
+.remito-nav-badge, .remito-count, .remito-status { display: inline-flex; align-items: center; justify-content: center; padding: 3px 8px; border-radius: 20px; background: var(--tone-accent-soft); color: var(--tone-accent); font-size: 11px; font-weight: 650; }
+.remito-nav-badge { margin-left: auto; min-width: 22px; }
+.quick-remito { display: grid; gap: 16px; width: 100%; max-width: 760px; margin-inline: auto; }
+.quick-remito > h2, .quick-remito > p { margin: 0; }
+.quick-remito > label, .remito-items label, .remito-rejection label { display: grid; align-content: start; gap: 6px; font-size: 12px; }
+.quick-remito input, .quick-remito select, .quick-remito textarea, .remito-items input, .remito-items select { width: 100%; }
+.quick-remito small { color: var(--tone-muted); }
+.remito-camera-input { position: absolute; width: 1px !important; height: 1px; min-height: 0; padding: 0; opacity: 0; pointer-events: none; }
+.remito-camera-button { min-height: 82px; gap: 12px; font-size: 18px; }
+.quick-remito-preview { display: grid; gap: 8px; justify-items: center; padding: 12px; border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-canvas); }
+.quick-remito-preview img { max-width: 100%; max-height: 360px; object-fit: contain; border-radius: 8px; }
+.quick-remito-preview small { overflow-wrap: anywhere; }
+.remito-quick-actions, .pending-remito-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.remito-quick-actions > button { flex: 1 1 220px; }
+.remito-progress { display: flex; align-items: center; gap: 10px; color: var(--tone-accent); }
+.remito-error { color: var(--tone-danger); font-size: 12px; overflow-wrap: anywhere; }
+.remito-warning { display: block; margin-top: 5px; color: var(--tone-muted); font-size: 12px; }
+.remito-sent { display: grid; gap: 18px; justify-items: center; text-align: center; padding: 22px 0; color: var(--tone-accent); }
+.remito-items { display: grid; gap: 12px; }
+.remito-item { display: grid; gap: 12px; padding: 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.remito-item small { display: block; margin-top: 5px; color: var(--tone-muted); font-size: 11px; overflow-wrap: anywhere; }
+.remito-item-actions { display: flex; align-items: end; gap: 12px; }
+.remito-item-actions > label { flex: 1; }
+.remito-product-picker { display: grid; gap: 10px; }
+.pending-remitos-panel { display: grid; gap: 14px; padding-bottom: 20px; margin-bottom: 20px; border-bottom: 1px solid var(--tone-border); }
+.pending-remitos-panel > .section-heading { margin: 0; }
+.pending-remitos-panel .remito-panel-toggle { justify-content: start; border-color: transparent; padding-left: 0; }
+.pending-remito-card { padding: 16px; margin-top: 16px; border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-canvas); }
+.pending-remito-card > header { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: start; gap: 12px; margin-bottom: 16px; }
+.pending-remito-card h3 { margin: 0 0 4px; font-size: 15px; }
+.pending-remito-card header small { color: var(--tone-muted); font-size: 11px; }
+.pending-remito-content { display: grid; grid-template-columns: minmax(140px, 200px) minmax(0, 1fr); gap: 18px; }
+.pending-remito-actions { margin-top: 16px; }
+.remito-photo { display: grid; align-content: start; justify-items: start; gap: 10px; }
+.remito-photo img { width: 100%; max-height: 220px; object-fit: contain; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.remito-notes { white-space: pre-wrap; overflow-wrap: anywhere; margin-top: 0; }
+.remito-ocr { margin-bottom: 12px; }
+.remito-ocr pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; padding: 10px; font-size: 11px; }
+.remito-rejection { display: grid; gap: 10px; margin-top: 14px; }
+.remito-rejection > button { justify-self: start; }
+@media (max-width: 760px) {
+  .nav-item .remito-nav-badge { position: absolute; top: 2px; right: 12%; margin: 0; min-width: 18px; padding: 1px 5px; font-size: 10px; }
+  .pending-remito-content { grid-template-columns: minmax(0, 1fr); }
+  .remito-photo { grid-template-columns: minmax(90px, 130px) minmax(0, 1fr); align-items: center; }
+  .remito-photo small { grid-column: 1 / -1; }
+  .pending-remito-card { padding: 12px; }
+  .pending-remito-actions > button, .remito-rejection > button { flex: 1 1 100%; width: 100%; }
+}
+.cash-movement-fields { display: grid; gap: 14px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.cash-movement-fields label { display: grid; gap: 6px; }
+.cash-movement-fields small { color: var(--tone-muted); font-size: 11px; }
+.movement-voucher-preview { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); }
+.movement-voucher-preview img { width: 120px; height: 120px; object-fit: contain; border-radius: 6px; background: var(--tone-surface); }
+.movement-voucher-preview > span { min-width: 0; flex: 1; overflow-wrap: anywhere; font-size: 12px; }
+.movement-voucher-preview small { display: block; margin-top: 5px; }
+.movement-error, .team-row small.movement-error { color: var(--tone-danger); font-size: 12px; overflow-wrap: anywhere; }
+.team-row .movement-voucher-link { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.movement-voucher-link button { min-height: 32px; font-size: 12px; }
+.movement-voucher-link small { width: 100%; }
 .cash-workspace > .section-heading { margin: 0; }
 .cash-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(155px, 1fr)); gap: 12px; margin-block: 18px; }
 .cash-metrics > div { padding: 18px; border: 1px solid var(--tone-border); border-radius: 10px; background: white; }

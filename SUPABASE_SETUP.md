@@ -4,6 +4,12 @@ El frontend está configurado en `.env.local` para el proyecto `lkahqqsduatkhxru
 
 ## 1. Instalar la base de datos
 
+Para transferencias internas entre sucursales, aplicar `202610190003_stock_transfers.sql` antes de publicar el frontend. Registra traslados sin modificar el stock total. Ver [Guía de Pruebas](STOCK_TRANSFERS.md).
+
+Para captura de remitos y aprobación de stock, aplicar `202610190002_pending_replenishments.sql` antes de publicar el frontend. Ver flujo, permisos y [Guía de Pruebas](PENDING_REPLENISHMENTS.md).
+
+Para salidas de caja con comprobante, aplicar `202610190001_justified_withdrawal.sql` antes de publicar el frontend. Crea un bucket privado y restringe el acceso a comprobantes a administradores. Ver [Guía de Pruebas](JUSTIFIED_WITHDRAWALS.md).
+
 Para precios diferenciados por sucursal, aplicar también `202610160005_branch_price_rules.sql` antes de publicar el frontend. Ver configuración y [Guía de Pruebas](BRANCH_PRICES.md).
 
 Para separar rubros de bajo margen, aplicar también `202610160004_margin_groups.sql`. Ver configuración, criterios de cálculo y [Guía de Pruebas](MARGIN_GROUPS.md).

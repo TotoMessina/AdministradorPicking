@@ -1,6 +1,9 @@
 import { supabase, isValidUUID } from "../../lib/supabase";
 import type { KioscoProduct, KioscoSale } from "../../types/kiosco";
-import { withOffline } from './offline';
+import { syncOffline, withOffline } from './offline';
+import { movementDetails, VOUCHER_BUCKET, voucherExtension, voucherMimeType, voucherPath, voucherReference } from './vouchers';
+import { REMITO_BUCKET, remitoExtension, remitoPath, remitoReference, type PendingReplenishment, type PendingReplenishmentItem } from './remitos';
+export type { PendingReplenishment, PendingReplenishmentItem } from './remitos';
 export type Role = "owner" | "admin" | "cashier";
 export interface Store {
   id: string;
@@ -25,6 +28,20 @@ export interface Register {
   branch_id: string;
 }
 export interface Branch { id: string; store_id: string; name: string; address: string; is_default: boolean }
+export interface StockTransferItem { product_id: string; product_name: string; qty: number }
+export interface StockTransfer {
+  id: string;
+  store_id: string;
+  from_branch_id: string;
+  to_branch_id: string;
+  created_by: string;
+  created_at: string;
+  notes: string | null;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  items: StockTransferItem[];
+  reviewed_by?: string | null;
+  reviewed_at?: string | null;
+}
 export interface PriceList { id: string; store_id: string; name: string; adjustment: number; active: boolean; branch_id?: string | null }
 export interface PriceOverride { list_id: string; product_id: string; price: number }
 export interface SalesLedger { id: string; store_id: string; name: string; is_default: boolean; active: boolean }
@@ -57,6 +74,9 @@ export interface Movement {
   amount: number;
   reason: string;
   created_at: string;
+  category?: string;
+  voucher_url?: string | null;
+  supplier_name?: string | null;
 }
 export interface Member {
   user_id: string;
@@ -354,10 +374,7 @@ const remoteRetail = {
   async movements(store: string, shift: string) {
     return allRows<Movement>((from, to) =>
       supabase
-        .from("retail_movements")
-        .select("*")
-        .eq("store_id", store)
-        .eq("shift_id", shift)
+        .rpc('retail_movement_details', { p_store: store, p_shift: shift })
         .order("created_at", { ascending: false })
         .order("id")
         .range(from, to),
@@ -594,7 +611,11 @@ const remoteRetail = {
     amount: number,
     reason: string,
     request: string,
+    category = 'general',
+    voucherUrl?: string | null,
+    supplierName?: string | null,
   ) {
+    const details = movementDetails(type, category, voucherUrl, supplierName);
     return result(
       supabase.rpc("retail_add_movement", {
         p_shift: shift,
@@ -602,8 +623,74 @@ const remoteRetail = {
         p_amount: amount,
         p_reason: reason,
         p_request: request,
+        p_category: details.category,
+        p_voucher_url: details.voucherUrl,
+        p_supplier_name: details.supplierName,
       }),
     );
+  },
+  async uploadVoucher(store: string, shiftId: string, file: File): Promise<string> {
+    const extension = voucherExtension(file);
+    if (!isValidUUID(store) || !isValidUUID(shiftId)) throw new Error('Comercio o turno inválido.');
+    if (typeof navigator !== 'undefined' && navigator.onLine === false) throw new Error('Necesitás conexión para subir el comprobante. Conservá el archivo y reintentá cuando vuelva internet.');
+    await syncOffline();
+    const shift = await result<{ id: string } | null>(supabase.from('retail_shifts').select('id').eq('id', shiftId).eq('store_id', store).is('closed_at', null).maybeSingle());
+    if (!shift) throw new Error('El turno no está disponible en el servidor. Sincronizá o actualizá el turno y reintentá.');
+    const path = `${store}/${shiftId}/${crypto.randomUUID()}.${extension}`;
+    await result(supabase.storage.from(VOUCHER_BUCKET).upload(path, file, { contentType: voucherMimeType(file), upsert: false, cacheControl: '0' }));
+    return voucherReference(path);
+  },
+  async uploadRemito(store: string, file: File): Promise<string> {
+    const extension = remitoExtension(file);
+    if (!isValidUUID(store)) throw new Error('Comercio inválido.');
+    if (navigator.onLine === false) throw new Error('Necesitás conexión para enviar la foto. El borrador sigue en esta pantalla.');
+    const { data, error } = await supabase.auth.getUser();
+    if (error) throw error;
+    if (!data.user) throw new Error('Iniciá sesión antes de enviar el remito.');
+    const path = `${store}/${data.user.id}/${crypto.randomUUID()}.${extension}`;
+    await result(supabase.storage.from(REMITO_BUCKET).upload(path, file, { contentType: voucherMimeType(file), upsert: false, cacheControl: '0' }));
+    return remitoReference(path);
+  },
+  async getRemitoUrl(store: string, reference: string): Promise<string> {
+    const path = remitoPath(store, reference);
+    const signed = await result<{ signedUrl: string }>(supabase.storage.from(REMITO_BUCKET).createSignedUrl(path, 300));
+    return signed.signedUrl;
+  },
+  async submitPendingReplenishment(store: string, branchId: string | null, imageUrl: string, extractedText: string | null, items: PendingReplenishmentItem[], notes: string): Promise<string> {
+    remitoPath(store, imageUrl);
+    return result<string>(supabase.rpc('retail_submit_pending_replenishment', {
+      p_store: store, p_branch: branchId || null, p_image_url: imageUrl, p_extracted_text: extractedText || null, p_items: items, p_notes: notes.trim() || null,
+    }));
+  },
+  async approvePendingReplenishment(store: string, id: string, items?: PendingReplenishmentItem[]): Promise<string> {
+    return result<string>(supabase.rpc('retail_approve_replenishment', { p_store: store, p_id: id, p_items: items ?? null }));
+  },
+  async rejectPendingReplenishment(store: string, id: string, reason: string): Promise<string> {
+    return result<string>(supabase.rpc('retail_reject_replenishment', { p_store: store, p_id: id, p_reason: reason.trim() }));
+  },
+  async pendingReplenishments(store: string): Promise<PendingReplenishment[]> {
+    return allRows<PendingReplenishment>((from, to) => supabase.from('retail_pending_replenishments').select('*').eq('store_id', store).eq('status', 'pending').order('submitted_at').order('id').range(from, to));
+  },
+  async createTransfer(store: string, fromBranch: string, toBranch: string, items: StockTransferItem[], notes: string, requestId?: string): Promise<string> {
+    if (!fromBranch || !toBranch || fromBranch === toBranch) throw new Error('Elegí sucursales de origen y destino diferentes.');
+    return result<string>(supabase.rpc('retail_create_transfer', {
+      p_store: store, p_from_branch: fromBranch, p_to_branch: toBranch, p_items: items, p_notes: notes.trim() || null, p_request: requestId || crypto.randomUUID(),
+    }));
+  },
+  async confirmTransfer(store: string, transferId: string): Promise<string> {
+    return result<string>(supabase.rpc('retail_confirm_transfer', { p_store: store, p_transfer_id: transferId }));
+  },
+  async cancelTransfer(store: string, transferId: string): Promise<string> {
+    return result<string>(supabase.rpc('retail_cancel_transfer', { p_store: store, p_transfer_id: transferId }));
+  },
+  async stockTransfers(store: string): Promise<StockTransfer[]> {
+    return allRows<StockTransfer>((from, to) => supabase.from('retail_stock_transfers').select('*').eq('store_id', store).order('created_at', { ascending: false }).order('id').range(from, to));
+  },
+  async getVoucherUrl(store: string, shiftId: string, reference: string): Promise<string> {
+    const path = voucherPath(store, shiftId, reference);
+    // Storage SELECT policy authorizes managers only, including when called outside the UI.
+    const signed = await result<{ signedUrl: string }>(supabase.storage.from(VOUCHER_BUCKET).createSignedUrl(path, 60));
+    return signed.signedUrl;
   },
   async checkout(store: string, shift: string, sale: KioscoSale) {
     const id = await result<string>(

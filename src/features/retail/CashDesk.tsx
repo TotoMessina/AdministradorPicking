@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { AlertCircle, Bot, Loader2, Sparkles } from "lucide-react";
 import type { KioscoSale } from "../../types/kiosco";
 import { groqChat } from "../../services/groqService";
@@ -11,6 +11,8 @@ import {
 } from "./api";
 import type { Run } from "./Management";
 import { cashInSale } from './payments';
+import { CashMovementForm } from './CashMovementForm';
+import { MovementVoucherLink } from './MovementVoucherLink';
 const money = (v: number) =>
   "$" + Number(v).toLocaleString("es-AR", { maximumFractionDigits: 2 });
 export function CashDesk({
@@ -49,7 +51,7 @@ export function CashDesk({
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
-  const movementRequest = useRef({ signature: "", id: "" });
+  const [movementBusy, setMovementBusy] = useState(false);
   const [serverBalance, setServerBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState('');
   useEffect(() => {
@@ -289,74 +291,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             <div className="settings-grid">
               <section className="retail-panel">
                 <h2>Registrar movimiento</h2>
-                <form
-                  className="retail-form"
-                  onSubmit={async (e) => {
-                    e.preventDefault();
-                    const form = e.currentTarget,
-                      f = new FormData(form);
-                    const type = String(f.get("type")),
-                      amount = Number(f.get("amount")),
-                      reason = String(f.get("reason"));
-                    const signature = JSON.stringify([
-                      shift.id,
-                      type,
-                      amount,
-                      reason,
-                    ]);
-                    if (movementRequest.current.signature !== signature)
-                      movementRequest.current = {
-                        signature,
-                        id: crypto.randomUUID(),
-                      };
-                    if (
-                      await run(
-                        () =>
-                          retail.addMovement(
-                            shift.id,
-                            type,
-                            amount,
-                            reason,
-                            movementRequest.current.id,
-                          ),
-                        "Movimiento registrado",
-                      )
-                    ) {
-                      form.reset();
-                      movementRequest.current = { signature: "", id: "" };
-                    }
-                  }}
-                >
-                  <label>
-                    Tipo
-                    <select name="type">
-                      <option value="INGRESO">Ingreso de efectivo</option>
-                      <option value="RETIRO">Retiro de efectivo</option>
-                    </select>
-                  </label>
-                  <label>
-                    Importe ($)
-                    <input
-                      name="amount"
-                      type="number"
-                      min="0.01"
-                      step="0.01"
-                      required
-                    />
-                  </label>
-                  <label>
-                    Motivo
-                    <input
-                      name="reason"
-                      required
-                      maxLength={300}
-                      placeholder="Ej. Pago a proveedor"
-                    />
-                  </label>
-                  <button className="primary-button" disabled={busy}>
-                    Guardar movimiento
-                  </button>
-                </form>
+                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} run={run} onBusyChange={setMovementBusy} />
               </section>
               <section className="retail-panel">
                 <h2>Cerrar turno</h2>
@@ -384,7 +319,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   className="retail-form"
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (cashierMode && serverBalance === null) return;
+                    if (movementBusy || (cashierMode && serverBalance === null)) return;
                     if (
                       window.confirm(
                         `¿Cerrar el turno de ${register?.name} con ${money(Number(counted))} contados?`,
@@ -495,7 +430,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     </div>
                   )}
 
-                  <button disabled={busy || (cashierMode && serverBalance === null)} className="primary-button">
+                  <button disabled={busy || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
                     Confirmar cierre
                   </button>
                 </form>
@@ -553,6 +488,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     {m.type} ·{" "}
                     {new Date(m.created_at).toLocaleTimeString("es-AR")}
                   </small>
+                  {m.category === 'supplier_payment' && <small>Pago a proveedor · {m.supplier_name}</small>}
+                  {m.category === 'other' && <small>Otro retiro</small>}
+                  {!cashierMode && m.voucher_url && shift && <MovementVoucherLink store={storeId} shift={shift.id} reference={m.voucher_url} />}
                 </span>
                 <strong>
                   {m.type === "RETIRO" ? "−" : "+"}

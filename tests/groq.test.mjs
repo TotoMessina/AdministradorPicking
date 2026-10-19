@@ -31,7 +31,7 @@ try {
   globalThis.fetch = async (url, options) => { calls.push({ url, options, body: JSON.parse(options.body) }); return Response.json({ choices: [{ message: { content: 'Dale, che.' } }] }); };
   assert.equal(await groqChat(messages, { temperature: 0, maxTokens: 64, signal: controller.signal }), 'Dale, che.');
   assert.equal(calls[0].url, 'https://api.groq.com/openai/v1/chat/completions');
-  assert.equal(calls[0].body.model, 'llama-3.3-70b-versatile');
+  assert.equal(calls[0].body.model, 'llama-3.1-8b-instant');
   assert.equal(calls[0].body.temperature, 0);
   assert.equal(calls[0].body.max_completion_tokens, 64);
   assert.equal(calls[0].options.signal, controller.signal);

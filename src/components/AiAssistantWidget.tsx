@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Sparkles, X, Send, Trash2, AlertCircle, ShoppingBag, Wallet, Package, Settings2 } from "lucide-react";
-import { groqStream, isRateLimitError, getRetryDelay, FALLBACK_FAST_MODEL } from "../services/groqService";
+import { groqStream, isRateLimitError, getRetryDelay, DEFAULT_MODEL, FALLBACK_FAST_MODEL } from "../services/groqService";
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import type { KioscoCartItem, KioscoProduct, KioscoSale, PaymentMethod } from "../types/kiosco";
@@ -229,7 +229,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
           attempt++;
           const waitSecs = getRetryDelay(err, attempt === 1 ? 3 : attempt === 2 ? 5 : 7);
 
-          if (attempt >= 2 && !chosenModel) {
+          if (attempt >= 2 && !chosenModel && DEFAULT_MODEL !== FALLBACK_FAST_MODEL) {
             chosenModel = FALLBACK_FAST_MODEL;
           }
 

@@ -3,6 +3,7 @@ import type { Session } from '@supabase/supabase-js';
 import type { KioscoSale } from '../../types/kiosco';
 import type { Product, Shift, Register, Movement, Branch, PriceList, SalesLedger } from './api';
 import { cashInSale } from './payments';
+import { movementDetails, voucherPath } from './vouchers';
 
 type Operation = { id: string; kind: 'open' | 'sale' | 'movement' | 'close' | 'stock'; store: string; at: string; shift?: string; [key: string]: unknown };
 export type PendingOperation = { operation: Operation; error?: string };
@@ -60,6 +61,10 @@ async function transaction<T>(user: string, mutate: (state: State) => T, write =
 }
 const reads = new Set(['stores', 'role', 'categories', 'registers', 'shifts', 'branches', 'priceLists', 'branchPriceRule', 'priceOverrides', 'ledgers', 'products', 'sales', 'movements', 'shiftBalance', 'registerAvailability', 'quickProducts', 'popularProducts', 'members', 'invitations', 'allSales', 'reportSales']);
 const operational = new Set(['openShift', 'closeShift', 'addMovement', 'checkout', 'replenishProductStock', 'replenishStockBatch']);
+// These remito calls never change stock/catalog permissions. Polling a badge or
+// signing a thumbnail must not trigger the configuration-wide cache refresh.
+const remitoOnline = new Set(['pendingReplenishments', 'getRemitoUrl', 'uploadRemito', 'submitPendingReplenishment', 'rejectPendingReplenishment']);
+const transferOnline = new Set(['stockTransfers', 'createTransfer', 'confirmTransfer', 'cancelTransfer']);
 const fetching = new Set<string>();
 const fetchedAt = new Map<string, number>();
 async function remoteRead(user: string, method: string, args: unknown[]) {
@@ -229,9 +234,13 @@ async function localWrite(user: string, method: string, args: unknown[]) {
       } else if (method === 'addMovement') {
         const id = String(args[4]); if (moves.some(m => m.id === id)) return id;
         const value = amount(args[2]); if (!value || !['INGRESO', 'RETIRO'].includes(String(args[1])) || !String(args[3]).trim()) throw new Error('Completá el importe y motivo');
-        moves.unshift({ id, type: args[1] as Movement['type'], amount: value, reason: String(args[3]), created_at: at });
+        const details = movementDetails(String(args[1]), args[5] == null ? 'general' : String(args[5]), args[6] as string | null | undefined, args[7] as string | null | undefined);
+        if (details.voucherUrl) voucherPath(store, shiftId, details.voucherUrl);
+        const canSeeVoucher = ['owner', 'admin'].includes(findCached<string>(s, 'role', store) || '');
+        moves.unshift({ id, type: args[1] as Movement['type'], amount: value, reason: String(args[3]), created_at: at,
+          category: details.category, supplier_name: details.supplierName, voucher_url: canSeeVoucher ? details.voucherUrl : null });
         put(s, 'shiftBalance', [shiftId], Math.round((balance + (args[1] === 'INGRESO' ? value : -value)) * 100) / 100);
-        op = { id, kind: 'movement', store, shift: shiftId, at, type: args[1], amount: value, reason: args[3] }; output = id;
+        op = { id, kind: 'movement', store, shift: shiftId, at, type: args[1], amount: value, reason: args[3], ...details }; output = id;
       } else {
         const counted = amount(args[1]); shift.closed_at = at; shift.counted_cash = counted; shift.expected_cash = balance;
         const availability = findCached<{ register_id: string; occupied: boolean }[]>(s, 'registerAvailability', store);
@@ -253,6 +262,14 @@ export function withOffline<T extends Remote>(source: T): T {
       const user = activeUser;
       if (!user || !offlineSupported()) return original(...args as never[]);
       if (operational.has(property)) return localWrite(user, property, args);
+      if (remitoOnline.has(property)) {
+        if (navigator.onLine === false) throw new Error('Necesitás conexión para consultar o enviar remitos. El borrador sigue en esta pantalla.');
+        return original(...args as never[]);
+      }
+      if (transferOnline.has(property)) {
+        if (navigator.onLine === false) throw new Error('Necesitás conexión para consultar o registrar transferencias. El borrador sigue en esta pantalla.');
+        return original(...args as never[]);
+      }
       if (property === 'acceptInvitations') {
         if (navigator.onLine === false) return 0;
         const cached = await transaction(user, s => s.cache[key('stores', [])]);

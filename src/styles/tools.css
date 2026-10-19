@@ -139,6 +139,27 @@
 .inv-unmatched-header, .inv-unmatched-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .inv-unmatched-actions { margin-top: 10px; }
 .invoice-items { display: grid; gap: 12px; }
+.invoice-cost-increase { display: inline-flex; align-items: center; padding: 4px 7px; border-radius: 5px; color: #805512; background: #fff8e7; font-size: 11px; font-weight: 600; }
+.invoice-price-proposal { display: grid; gap: 16px; width: 100%; padding-top: 20px; border-top: 1px solid var(--tone-border); }
+.invoice-price-proposal > h3, .invoice-price-proposal > p { margin: 0; }
+.invoice-price-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.invoice-price-controls label { display: grid; align-content: start; gap: 6px; font-size: 12px; }
+.invoice-price-controls input { width: 100%; }
+.invoice-price-help { color: var(--tone-muted); font-size: 12px; }
+.invoice-price-table { min-width: 920px; }
+.invoice-price-table caption { text-align: left; padding-bottom: 10px; color: var(--tone-muted); font-size: 12px; }
+.invoice-price-table small, .invoice-price-applied { display: block; margin-top: 5px; color: var(--tone-muted); font-size: 11px; font-weight: 400; }
+.invoice-price-table input[type='checkbox'] { vertical-align: middle; }
+.invoice-price-error { color: var(--tone-danger); font-size: 12px; }
+.invoice-price-table small.invoice-price-error { color: var(--tone-danger); }
+.invoice-price-notice, .invoice-price-applied { color: var(--tone-accent); }
+.invoice-price-ai { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); }
+.invoice-price-ai-toggle { display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.invoice-price-ai > button { justify-self: start; }
+.invoice-price-ai-text { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 13px; }
+.invoice-price-ai small { color: var(--tone-muted); }
+.invoice-price-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 12px; padding: 16px 0 4px; border-top: 1px solid var(--tone-border); font-size: 12px; }
+@media (max-width: 640px) { .invoice-price-controls { grid-template-columns: minmax(0, 1fr); } }
 .invoice-provider-field { display: grid; gap: 6px; margin-top: 16px; font-size: 12px; }
 .invoice-provider-field span, .invoice-link-fields span { color: var(--tone-muted); font-size: 11px; }
 .invoice-link-summary { padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); font-size: 12px; }

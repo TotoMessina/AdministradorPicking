@@ -11,6 +11,7 @@ import {
   Sparkles,
   Menu,
   X,
+  Camera,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useToast } from "../../context/ToastContext";
@@ -46,7 +47,10 @@ import { useMobileScreenMotion } from './useMobileExperience';
 import { configureOffline, stopOffline, backgroundAuth } from './offline';
 import { OfflineStatus } from './OfflineStatus';
 import { useBranchPriceList } from './useBranchPriceList';
-type Tab = "pos" | "cash" | "catalog" | "settings" | "ai";
+import { QuickRemito } from './QuickRemito';
+import { usePendingReplenishments } from './usePendingReplenishments';
+import { StockTransfers } from './StockTransfers';
+type Tab = "pos" | "cash" | "catalog" | "settings" | "ai" | "remito";
 export function RetailApp({ session }: { session: Session }) {
   useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -264,9 +268,10 @@ function Workspace({
   const register = registers.find((r) => r.id === registerId);
   const occupiedByOther = !shift && availability.some(r => r.register_id === registerId && r.occupied);
   const manager = role === "owner" || role === "admin";
+  const pendingRemitos = usePendingReplenishments(store.id, manager);
   const branchPricing = useBranchPriceList(store.id, branchId, priceLists, manager);
   const priceListId = branchPricing.priceListId;
-  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings', 'ai'] : [])];
+  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings', 'ai'] : ['remito'])];
   const canOperate =
     !!shift && !!register?.active && (manager || shift.opened_by === session.user.id);
   const refresh = useCallback(async () => {
@@ -504,7 +509,7 @@ function Workspace({
       setBusy(false);
     }
   };
-  const refreshAll = () => { branchPricing.reload(); void run(async () => {}, "Datos actualizados"); };
+  const refreshAll = () => { branchPricing.reload(); void run(async () => { await pendingRemitos.refresh(); }, "Datos actualizados"); };
   useEffect(() => {
     if (pushEntry) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, [pushEntry]);
@@ -704,7 +709,7 @@ function Workspace({
                     },
                     { id: "settings", label: "Mi comercio", icon: Settings2 },
                   ]
-                : []),
+                : [{ id: 'remito', label: 'Remito', icon: Camera }]),
               ...(manager
                 ? [
                     {
@@ -723,6 +728,7 @@ function Workspace({
               aria-current={tab === id ? "page" : undefined}
               onClick={() => {
                 setTab(id as Tab);
+                if (id === 'remito') setIsAiOpen(false);
                 setPosMobileView("catalog");
                 setMobileAccountOpen(false);
                 if (window.matchMedia("(max-width: 760px)").matches) window.scrollTo(0, 0);
@@ -730,7 +736,8 @@ function Workspace({
             >
               <Icon size={18} />
               <span className="desktop-nav-label">{label}</span>
-              <span className="mobile-nav-label">{{ pos: "Vender", cash: "Caja", catalog: "Productos", settings: "Comercio", ai: "Asistente" }[id]}</span>
+              <span className="mobile-nav-label">{{ pos: "Vender", cash: "Caja", catalog: "Productos", settings: "Comercio", ai: "Asistente", remito: 'Remito' }[id]}</span>
+              {id === 'catalog' && pendingRemitos.records.length > 0 && <span className="remito-nav-badge" aria-label={`${pendingRemitos.records.length} remitos pendientes`}>{pendingRemitos.records.length > 99 ? '99+' : pendingRemitos.records.length}</span>}
             </button>
           ))}
         </nav>
@@ -793,6 +800,7 @@ function Workspace({
                   catalog: "CATÁLOGO",
                   settings: "CONFIGURACIÓN",
                   ai: "ASISTENTE",
+                  remito: 'REMITOS',
                 }[tab]
               }
             </span>
@@ -805,12 +813,13 @@ function Workspace({
                   catalog: "Productos y precios",
                   settings: "Mi comercio",
                   ai: "Asistente de negocio",
+                  remito: 'Cargar remito',
                 }[tab]
               }
               </span>
-              <span className="mobile-page-title">{{ pos: "Nueva venta", cash: "Caja y turnos", catalog: "Productos", settings: "Mi comercio", ai: "Asistente" }[tab]}</span>
+              <span className="mobile-page-title">{{ pos: "Nueva venta", cash: "Caja y turnos", catalog: "Productos", settings: "Mi comercio", ai: "Asistente", remito: 'Cargar remito' }[tab]}</span>
             </h1>
-            <p>{{ pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí tu turno, revisá los movimientos y consultá tus ventas.', catalog: 'Mantené tus productos, existencias y precios al día.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.' }[tab]}</p>
+            <p>{{ pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí tu turno, revisá los movimientos y consultá tus ventas.', catalog: 'Mantené tus productos, existencias y precios al día.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.', remito: 'Una foto, las cantidades y la aprobación del encargado.' }[tab]}</p>
           </div>
           <div className={`register-picker ${tab === 'pos' && canOperate ? 'pos-compact-refresh' : tab !== 'pos' && tab !== 'cash' ? 'context-picker-hidden' : ''}`}>
             {!(tab === 'pos' && canOperate && !branchPricing.loading && !branchPricing.error && !error) && (
@@ -956,8 +965,9 @@ function Workspace({
             )}
             {tab === "catalog" && manager && (
               <>
-              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, { id: 'prices', label: 'Listas de precios' }]} />
+              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, { id: 'prices', label: 'Listas de precios' }, { id: 'transfers', label: 'Transferencias' }]} />
               <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={branches} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>
+              <div hidden={catalogView !== 'transfers'} role="tabpanel" id="catalog-panel-transfers" aria-labelledby="catalog-tab-transfers"><StockTransfers key={store.id} storeId={store.id} branches={branches} products={products} run={run} busy={busy} active={catalogView === 'transfers'} /></div>
               <div hidden={catalogView !== 'products'} role="tabpanel" id="catalog-panel-products" aria-labelledby="catalog-tab-products">
               <CatalogEditor
                 store={store}
@@ -967,6 +977,11 @@ function Workspace({
                 run={run}
                 busy={busy}
                 role={role}
+                pendingRemitos={pendingRemitos.records}
+                pendingRemitoError={pendingRemitos.error}
+                branches={branches}
+                onRefreshRemitos={() => void pendingRemitos.refresh()}
+                onReviewedRemito={pendingRemitos.reviewed}
               />
               </div>
               </>
@@ -1000,13 +1015,14 @@ function Workspace({
             )}
           </>
         )}
+        {!manager && !loading && <div hidden={tab !== 'remito'}><QuickRemito key={store.id} store={store.id} branches={branches} branchId={branchId} products={products} run={run} busy={busy} /></div>}
       </main>
       <ThermalReceiptModal
         sale={ticket}
         isOpen={!!ticket}
         onClose={() => setTicket(null)}
       />
-      <AiAssistantWidget
+      {tab !== 'remito' && <AiAssistantWidget
         storeName={store.name}
         currentTab={tab === 'ai' ? undefined : tab}
         products={products}
@@ -1018,7 +1034,7 @@ function Workspace({
         role={role}
         isOpen={isAiOpen}
         onToggle={setIsAiOpen}
-      />
+      />}
     </div>
   );
 }

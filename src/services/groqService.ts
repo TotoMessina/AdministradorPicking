@@ -3,7 +3,7 @@ import { GroqError, type GroqMessage, type GroqOptions } from '../types/ai';
 export { GroqError } from '../types/ai';
 
 const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
-const DEFAULT_MODEL = import.meta.env?.VITE_GROQ_MODEL?.trim() || 'llama-3.3-70b-versatile';
+export const DEFAULT_MODEL = import.meta.env?.VITE_GROQ_MODEL?.trim() || 'llama-3.1-8b-instant';
 const BASE_SYSTEM_PROMPT =
   'Sos un asistente para la administración de comercios. Respondé por defecto ' +
   'en español rioplatense informal, usando vos y expresiones como che o dale ' +
