@@ -2,6 +2,28 @@
 
 El frontend está configurado en `.env.local` para el proyecto `lkahqqsduatkhxruiolo`. La clave pública permite autenticación y acceso sujeto a RLS; no permite crear el esquema.
 
+## Errores 404 de Groq y 400 al guardar productos
+
+- **Groq:** el frontend usa `llama-3.1-8b-instant` por defecto. `VITE_GROQ_MODEL` permite elegir otro modelo y tiene prioridad sobre ese valor. Si Groq devuelve `model_not_found`, verificá qué modelos están disponibles en tu cuenta y ajustá esa variable. En localhost, reiniciá el servidor de desarrollo después de cambiar `.env.local`; en Vercel, volvé a desplegar. El error queda dentro de la herramienta de IA: guardar productos, vender y cerrar turnos no requiere generar una respuesta.
+- **Productos:** la revisión de solo lectura del 19/10/2026 obtuvo `42703: column retail_products.margin_group does not exist` en este proyecto. Para corregirlo, aplicá completa la migración pendiente [202610160004_margin_groups.sql](supabase/migrations/202610160004_margin_groups.sql) en el SQL Editor. Incluye columna, permiso, captura del grupo/costo en futuras ventas y recarga de caché del esquema. No basta con actualizar la web.
+- Si el error menciona `pack_size`, revisá también la migración [202610160003_pack_size.sql](supabase/migrations/202610160003_pack_size.sql). No vuelvas a ejecutar migraciones ya aplicadas correctamente ni omitas campos del producto para esconder un esquema desactualizado.
+
+### Si SQL devuelve «column margin_group already exists»
+
+La columna ya existe en la base donde ejecutaste el SQL. Ese error no confirma por sí solo que también estén instalados el permiso, la función y el trigger. La versión actual de [202610160004_margin_groups.sql](supabase/migrations/202610160004_margin_groups.sql) se puede volver a ejecutar completa: no recrea la columna existente, conserva sus valores, asegura default/restricción/permiso y reemplaza la función y su trigger dentro de una transacción. Incluye `NOTIFY pgrst, 'reload schema'` al finalizar, siguiendo la [guía de Supabase](https://supabase.com/docs/guides/troubleshooting/refresh-postgrest-schema).
+
+Copiá nuevamente el archivo actualizado y ejecutalo en una consulta nueva del SQL Editor del proyecto `lkahqqsduatkhxruiolo`. No uses la copia anterior que falla al crear la columna. Si hay valores existentes fuera de `standard`/`low_margin`, la restricción puede detener la transacción: no los borra ni los convierte automáticamente; en ese caso, revisá el error antes de continuar.
+
+Guía de Pruebas: después de que el SQL termine correctamente, recargá http://localhost:3001/, guardá un producto con código nuevo y editá solo su precio. Debe guardar sin error de columna y conservar el grupo de margen. La migración actualizada solo fue revisada como archivo; no se ejecutó contra la base remota. Si continúa el 400, copiá el JSON de Network → solicitud `retail_products` → Response para identificar la causa vigente.
+
+No se aplicaron migraciones remotas como parte de esa revisión. La aplicación ahora muestra una indicación específica si falta alguna de esas columnas y conserva el formulario al fallar el guardado.
+
+### Guía de Pruebas
+
+1. Reiniciá el servidor local y entrá a http://localhost:3001/. Abrí Ayuda → Consultar al asistente y enviá una consulta breve: el request a Groq debe usar `VITE_GROQ_MODEL` si está configurado, o `llama-3.1-8b-instant` en su ausencia. Si el proveedor rechaza el modelo o no hay conexión, debe mostrarse el error en el panel y permitir reintentar o cerrarlo para seguir operando.
+2. Después de aplicar la migración pendiente, creá un producto con código nuevo. Esperado: confirmación de guardado y producto visible en el catálogo, sin error de columna inexistente. Editá grupo de margen y verificá que persiste al volver a abrirlo.
+3. En producción, comprobá lo mismo en https://administrador-picking.vercel.app/ después del despliegue con la variable actualizada. Estas pruebas manuales siguen pendientes; el listado de modelos se consultó, pero no se ejecutaron análisis con datos del negocio ni escrituras de prueba en la base.
+
 ## 1. Instalar la base de datos
 
 Para transferencias internas entre sucursales, aplicar `202610190003_stock_transfers.sql` antes de publicar el frontend. Registra traslados sin modificar el stock total. Ver [Guía de Pruebas](STOCK_TRANSFERS.md).
@@ -17,7 +39,7 @@ Para separar rubros de bajo margen, aplicar también `202610160004_margin_groups
 Para la conversión bulto/unidad, ejecutar también `202610160003_pack_size.sql` antes de publicar el frontend actualizado. Ver configuración, ejemplos y [Guía de Pruebas](PACK_SIZE.md).
 
 1. Abrí https://supabase.com/dashboard/project/lkahqqsduatkhxruiolo/sql/new
-2. Ejecutá las migraciones de `supabase/migrations` en orden: `202610010001`, `202610020001`, `202610070001`, `202610130001`, `202610140001` y `202610150001`. Copiá el contenido completo de cada archivo.
+2. Consultá el [orden completo de las 14 migraciones](docs/instalar-base-kiosco.md). En una base nueva se aplican todas en ese orden, de una en una; en una existente, ejecutá primero el [inventario de solo lectura](supabase/maintenance/check_kiosco_installation.sql) y revisá cuáles están pendientes. Copiá el contenido completo de cada archivo que corresponda.
 3. En un proyecto existente, ejecutá solamente las migraciones pendientes. La nueva migración `202610130001_branches_prices_ledgers.sql` es transaccional: asigna las cajas y ventas existentes a la sucursal **Principal**, la **Lista madre** y el registro **General**, sin cambiar importes, stock ni cierres. Instalá esta migración antes de publicar el frontend actualizado.
 4. Si aparece un error, compartí el texto del error, sin claves ni contraseñas. No vuelvas a ejecutar una migración que ya terminó correctamente.
 

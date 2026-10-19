@@ -17,7 +17,7 @@ export function CashierAccess({ storeId, targetId, email, branchId, registerId, 
       <option value="">Todas las sucursales</option>
       {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
     </select></label>
-    <label>Caja de atención<select aria-label={`Caja de ${email}`} value={register} disabled={busy} onChange={event => {
+    <label>Caja de cobro<select aria-label={`Caja de ${email}`} value={register} disabled={busy} onChange={event => {
       const next = event.target.value; setRegister(next);
       if (next) setBranch(registers.find(r => r.id === next)?.branch_id || '');
     }}>

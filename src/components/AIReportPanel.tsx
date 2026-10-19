@@ -477,6 +477,7 @@ export function AIReportPanel({
           { role: "user", content: userPrompt },
         ],
         (delta) => {
+          if (controller.signal.aborted) return;
           if (!started) {
             started = true;
             setStatus("streaming");
@@ -490,10 +491,9 @@ export function AIReportPanel({
         }
       );
 
-      setStatus("done");
+      if (!controller.signal.aborted) setStatus("done");
     } catch (err: unknown) {
       if (controller.signal.aborted) {
-        setStatus("idle");
         return;
       }
       setStatus("error");
@@ -535,7 +535,7 @@ export function AIReportPanel({
         <div className="ai-report-title-group">
           <div className="ai-report-badge">
             <Sparkles size={13} />
-            <span>Consultor Ejecutivo IA</span>
+            <span>Explicación opcional con IA</span>
           </div>
           <h2 className="ai-report-title">
             <BarChart3 size={22} className="ai-report-kpi-icon" />
@@ -707,7 +707,7 @@ export function AIReportPanel({
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <button
               type="button"
-              className="ai-report-generate-btn"
+              className="secondary-button"
               onClick={handleGenerateReport}
               disabled={status === "loading" || status === "streaming"}
             >
@@ -724,7 +724,7 @@ export function AIReportPanel({
               ) : (
                 <>
                   <BarChart3 size={18} />
-                  <span>📊 Generar reporte del período</span>
+                  <span>Explicar estos resultados</span>
                 </>
               )}
             </button>

@@ -30,7 +30,10 @@ function apiError(payload: unknown, status: number, headers?: Headers): GroqErro
   const error = isRecord(payload) && isRecord(payload.error) ? payload.error : {};
   const code = typeof error.code === 'string' ? error.code
     : typeof error.type === 'string' ? error.type : `HTTP_${status}`;
-  const message = typeof error.message === 'string' ? error.message : `Groq respondió con un error (${status}).`;
+  const providerMessage = typeof error.message === 'string' ? error.message : `Groq respondió con un error (${status}).`;
+  const message = code === 'model_not_found'
+    ? `${providerMessage} Revisá VITE_GROQ_MODEL y elegí un modelo disponible en tu cuenta. Sin esa variable se usa llama-3.1-8b-instant. Reiniciá el servidor local o volvé a desplegar después de cambiarla.`
+    : providerMessage;
 
   let retryAfter: number | undefined;
   const headerVal = headers?.get('retry-after');

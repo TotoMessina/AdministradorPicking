@@ -4,7 +4,7 @@ Fecha de revisión: 19 de octubre de 2026.
 
 ## Alcance y evidencia
 
-Este documento diagnostica el estado local del repositorio y define la implementación de cinco mejoras: formulario de producto simple, lenguaje operativo, configuración progresiva, inicio guiado y ayuda IA contextual. No implementa esos cambios.
+Este documento conserva el diagnóstico inicial y registra la implementación de cinco mejoras: formulario de producto simple, lenguaje operativo, configuración progresiva, inicio guiado y ayuda IA contextual. Las secciones 1–10 son la línea base histórica; la sección 11 corresponde a la primera entrega. La revisión integrada está en la [sección 12](#12-revisión-integrada-de-los-cinco-cambios). La [sección 13](#13-jerarquía-visual-de-vender-y-caja) actualiza específicamente Vender y Caja con la siguiente mejora de UX/UI.
 
 Se revisaron secciones de los componentes, servicios y migraciones citados. No se ejecutó la aplicación en navegador, no se consultó el esquema remoto, no se probaron dispositivos y no se realizaron pruebas con personas. Las cantidades de pasos de este documento son recorridos deducidos del código bajo condiciones declaradas, no mediciones de usabilidad, tiempos ni clics observados. La disponibilidad efectiva de las funciones SQL depende de las migraciones aplicadas en cada entorno.
 
@@ -26,7 +26,7 @@ Las referencias usan nombres de componentes y funciones para seguir siendo útil
 | [202610150001_cashier_access.sql](../supabase/migrations/202610150001_cashier_access.sql) | Asignación sucursal/caja, acceso a turnos y movimientos propios, permisos efectivos. |
 | [workspace.css](../src/styles/workspace.css), [mobile-native.css](../src/styles/mobile-native.css) | Contextos ocultos, paneles móviles, teclado virtual y movimiento reducido. |
 
-## 1. Recorrido actual del cajero
+## 1. Línea base previa: recorrido del cajero
 
 ### Iniciar sesión y encontrar la caja
 
@@ -67,7 +67,7 @@ El cierre pide Efectivo contado, botón Confirmar cierre y una confirmación adi
 
 **Fricción:** hay explicaciones y avisos repetidos alrededor del arqueo, junto con métricas, ventas, movimientos y cierres anteriores en la misma vista. Se puede abreviar su presentación, conservando la regla y los estados de error. No reemplazar el conteo físico por un importe calculado.
 
-## 2. Recorrido actual del administrador
+## 2. Línea base previa: recorrido del administrador
 
 ### Crear o editar producto — tarea habitual
 
@@ -187,7 +187,7 @@ Mi comercio muestra cantidad/resumen de locales y personas, y acceso a administr
 | Subida/OCR/Groq fallidos | Reintento dentro de la tarea; preservar archivo/datos; conservar vías manuales existentes. |
 | Una opción desactivada que figura en un histórico | Preservar contexto histórico, sin volverla seleccionable para nuevas operaciones. |
 
-## 6. Línea base reproducible: pasos obligatorios actuales
+## 6. Línea base reproducible: pasos obligatorios anteriores
 
 ### Regla de conteo
 
@@ -294,7 +294,7 @@ Para cada etapa de código, validación permitida: `npx tsc --noEmit -p tsconfig
 | UI escondida que aún se ejecuta | Revisar efectos y listeners en paneles `hidden`; esconder un componente no cancela red, lector ni validación automáticamente. |
 | Capas móviles y permisos superpuestos | Un diálogo a la vez, retorno de foco, teclado virtual y movimiento reducido; comprobar en PWA real. |
 
-## 9. Guía de Pruebas del diagnóstico y línea base
+## 9. Guía histórica del diagnóstico y línea base
 
 URL: **http://localhost:3001/**. Estas pruebas quedan para el usuario; no se ejecutaron en esta revisión. Usar un comercio de prueba, con administrador y cajero asignado, un producto con stock y otro con `pack_size: 24`, proveedor y bajo margen. Para comparar múltiples locales, preparar una segunda sucursal con su caja y regla de precios. Comprobar que las migraciones necesarias estén aplicadas en el entorno de prueba.
 
@@ -311,10 +311,155 @@ URL: **http://localhost:3001/**. Estas pruebas quedan para el usuario; no se eje
 
 En cada caso anotar rol, dispositivo, estado inicial, acciones realizadas, advertencias, resultado y diferencias contra el conteo deducido. Los pasos futuros deben actualizar esta línea base con evidencia, no reemplazarla por estimaciones presentadas como pruebas.
 
-## 10. Entrega y pendientes
+## 10. Entrega y pendientes del diagnóstico original
 
 - Realizado: revisión estática de recorridos, inventario, glosario, mapa propuesto, secuencia de implementación y línea base condicional.
 - Cambio de esta tarea: solo este documento; sin cambios funcionales, SQL ni configuración.
 - No ejecutado: TypeScript, build, pruebas automatizadas, navegador, backend, PWA o pruebas con personas. TypeScript no corresponde a una entrega exclusivamente documental.
 - Pendiente: ejecutar manualmente la guía, implementar cada etapa autorizada y validar persistencia/roles con las migraciones efectivas del entorno.
 - Validación de facilidad de uso posterior: observar a una persona nueva creando un producto, cobrando y cerrando sin indicaciones; registrar dónde duda, qué busca y qué términos no entiende. Eso complementará los conteos; todavía no ocurrió.
+
+## 11. Avance: formulario simple implementado
+
+Registro histórico de la etapa A. La auditoría IA al guardar que se menciona aquí fue separada posteriormente; para el comportamiento vigente usar la sección 12.
+
+La descripción de las secciones anteriores conserva la línea base previa. Se implementó la etapa del formulario simple en `CatalogEditor`, con estos cambios:
+
+- Nombre, código, precio, costo y stock aparecen primero. El código conserva su obligatoriedad y los valores predeterminados no cambian.
+- Más opciones empieza cerrada tanto al crear como al cambiar de producto para editar. Contiene organización/proveedor, presentación, bultos, grupo de margen y avisos. Los controles siguen montados y enlazados al mismo estado y payload, aunque estén plegados.
+- Al editar, el resumen muestra unidad especial, bulto, bajo margen, marca y proveedor cuando corresponden. Precio/costo/stock indican la unidad de venta efectiva, incluidos kg y litros.
+- Una validación nativa inválida dentro del desplegable lo abre antes de enfocar el primer campo inválido. Tab y el resumen conservan navegación nativa; Escape desde Más opciones vuelve a su resumen. Enter en etiquetas agrega la etiqueta y Enter en inputs no guarda el formulario implícitamente; para guardar con teclado se llega al botón y se pulsa Enter.
+- La búsqueda determinista por código se conserva. Sugerir datos con IA y Revisar precio son acciones secundarias explícitas; nombre/precio ya no consultan Groq al perder foco. Las sugerencias se aplican solo al elegirlas, y respuestas de otro borrador o una edición anterior se descartan.
+- La auditoría IA anterior a guardar sigue existente, como estaba previsto para esta etapa. Su separación del guardado corresponde a la etapa E; no se debe interpretar esta entrega como eliminación de todas las consultas IA automáticas.
+
+Validación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores. No se ejecutó build ni pruebas automatizadas adicionales. Pendientes: comprobación manual visual, teclado, validaciones nativas, datos persistidos y móvil. No se modificaron API, SQL, permisos, POS ni cálculos de reposición.
+
+### Guía de Pruebas de la etapa implementada
+
+URL: **http://localhost:3001/**, cuenta administradora y comercio de prueba.
+
+1. **Alta básica:** Productos y stock → Agregar producto. Esperado: foco en Nombre, cinco campos principales y Más opciones cerrada. Completar nombre, código único, precio 1000, costo 600 y stock 10; guardar sin abrir Más opciones. Esperado: producto guardado con categoría/defaults existentes. La auditoría de guardado puede mostrar su advertencia anterior.
+2. **Conservar atributos:** editar un producto con marca/proveedor, bulto 24, etiquetas y bajo margen. Esperado: resumen de configuración con el desplegable cerrado. Cambiar solo precio y guardar; volver a editar y abrir Más opciones. Esperado: mismos valores secundarios, stock sin cambios y código conservado.
+3. **Error dentro de opciones cerradas:** con los básicos válidos, abrir Más opciones, ingresar 0 como Unidades por bulto y cerrarla. Pulsar Guardar producto. Esperado: se abre la sección, foco y mensaje de validación en el campo; no se guarda. Repetir con aviso de stock negativo; corregir antes de continuar.
+4. **Unidades:** en un producto de prueba cambiar Unidad a Kilo o Litro, plegar opciones y mirar los básicos. Esperado: precio/costo por kg o litro y stock en kg o litros; no se cambia la regla actual de cantidades ni el multiplicador de reposición.
+5. **Teclado:** recorrer con Tab; abrir el resumen con Enter, agregar una etiqueta con Enter y cerrar opciones con Escape. Esperado: etiqueta agregada sin guardar; Escape enfoca el resumen sin perder datos. En Código, el Enter del lector no envía el producto. Tab hasta Guardar y Enter sí inicia el guardado validado.
+6. **Ayuda opcional:** escribir nombre/código/precio y cambiar foco. Esperado: solo lookup determinista por código cuando se cumplen sus condiciones actuales, sin sugerencias IA generativas por blur. Pulsar Sugerir datos con IA; no aplicar nada y comprobar que los campos no cambian. Cambiar el borrador durante una respuesta pendiente: una respuesta vieja no debe presentarse para el producto nuevo.
+7. **Móvil:** repetir alta y abrir/cerrar opciones en pantalla estrecha. Esperado: campos en una columna, sin desborde horizontal, acciones accesibles y desplegable operable con teclado virtual. Comprobar movimiento reducido al abrir el editor.
+
+Los conteos y la facilidad de uso posteriores todavía no fueron medidos en navegador ni con personas; quedan por registrar al ejecutar estos casos.
+
+## 12. Revisión integrada de los cinco cambios
+
+Revisión del repositorio local del 19/10/2026. Evidencia: lectura acotada de componentes, handlers, payloads, caché offline y SQL local. No es una prueba de usabilidad con personas ni una ejecución de los recorridos en navegador. Los conteos siguientes se deducen del código y deben contrastarse manualmente; no se midieron tiempos, satisfacción ni tasa de éxito.
+
+### Correcciones de integración
+
+- Productos y Transferencias conservan sus componentes al cambiar de sección principal, incluidos producto, reposición, importación y transferencia en preparación. Los efectos de foco y la carga de transferencias respetan la pantalla activa. Los diálogos ocultos no bloquean el lector, los atajos ni el desplazamiento móvil; al volver al editor con un diálogo abierto, el foco vuelve a ese diálogo. Los títulos de importación CSV no comparten ID entre el inicio guiado y el catálogo.
+- Caja mantiene su formulario durante la carga de movimientos. Una respuesta tardía de otro turno se descarta, para no presentar sus ventas/movimientos bajo el contexto nuevo. Cambiar de caja/turno sigue cambiando el formulario correspondiente; no se trasladan conteos entre turnos.
+- Retomar el inicio guiado queda bloqueado mientras hay carrito, con explicación. La carga inicial también consulta la intención vigente antes de abrirse; una respuesta tardía no lo abre encima de una venta o consulta al asistente. Configurar después permite salir localmente sin conexión, sin acreditar tareas: si no se pudo guardar esa preferencia en el servidor, se informa al retomar en Mi comercio.
+- Ayuda funciona aunque falle la consulta del estado de onboarding. Abrir un aviso de la PWA cierra la asistencia general antes de navegar. El aviso inicial de activación de notificaciones se limita a Mi comercio → Más opciones → App y avisos, sin carrito ni operación en curso; los controles existentes de permisos e instalación se conservan.
+- Un enlace de administración abierto con un cajero vuelve a Vender, en vez de dejar una pantalla vacía. Las restricciones siguen en RLS/RPC; esta navegación no concede permisos. El estado vacío de Vender dice Ir a Productos porque ese acceso lleva al catálogo, donde está Agregar producto.
+
+Se conservaron el payload completo al editar productos, la comprobación de stock concurrente, la conversión de bultos, la separación de bajo margen, el cierre y sus confirmaciones, los contratos de venta y la cola offline. No se modificaron precios, fórmulas, tablas, RPC, permisos ni datos en esta revisión.
+
+### Antes / después: acciones obligatorias deducidas
+
+Se usa la regla de la sección 6: una acción por entrada completa, botón, opción, escaneo o confirmación; no se cuentan Tab, scroll ni espera. Sesión preparada, permisos correctos, sin errores, escritorio salvo indicación, secciones inicialmente en su vista predeterminada. No es una medición observada ni un mínimo universal.
+
+| Caso | Antes | Después y secuencia verificable |
+| --- | --- | --- |
+| T1 Ingreso de cajero asignado | 3 | 3: email → contraseña → Ingresar. |
+| T2 Apertura con $2.000 desde Vender | 3 | 3: Abrir turno → efectivo 2000 → Abrir turno. Regresa automáticamente a Vender. Con 0 aceptado son 2, sin apertura automática. |
+| T3 Venta por lector/F1 tras T2 | 3 | 2: escanear → F1. Si se abrió desde Caja sin venir de Vender, sumar Vender. |
+| T4 Efectivo exacto táctil | 3 | 3: producto → Monto exacto → Cobrar. En móvil sumar Ver venta si el cobro no está visible. |
+| T5 QR táctil | 4 | 4: producto → QR → confirmación de pago recibido → Cobrar; posible cambio de vista móvil adicional. |
+| T6 Cierre desde Vender | 4 | 4: Caja → efectivo contado → Confirmar cierre → confirmación del navegador. Sin IA obligatoria. |
+| T7 Alta con costo y stock | 8, o 9 con advertencia IA | 8: Productos → Agregar producto → nombre → código → precio → costo → stock → Guardar producto. Sin consulta generativa al guardar. |
+| T7b Alta conservando costo/stock 0 | 6, o 7 con advertencia IA | 6. Conservar defaults no significa que sean los datos correctos de un producto real. |
+| T8 Editar solo precio | 4, o 5 con advertencia IA | 4: Productos → Editar → precio → Guardar producto. Más opciones queda cerrada y sus valores siguen en el payload. |
+| T9/T10 Reposición desde catálogo | 3 / 4 | 3 para unidades; 4 para bultos: Reponer → Ingresar por bultos → cantidad 2 → confirmar. Con bulto de 24, preview +48 unidades. |
+| T11 Nombre del comercio | 3 | 4: Mi comercio → Editar datos del comercio → nombre → Guardar cambios. El formulario ya no está siempre abierto. |
+| T12 Segunda sucursal | 4 | 6 con local/caja únicos: Mi comercio → Locales y cajas → Administrar locales y cajas → Agregar sucursal → nombre → Crear sucursal. Con administración de locales ya visible: 5. |
+| T13 Lista global +10% | 5 | 6: Productos → Listas de precios → Crear lista → nombre → ajuste 10 → Crear lista. Elegir alcance de sucursal agrega una acción. |
+| T14 Remito solo foto | 5 | 5; conserva envío para revisión y no acredita stock antes de aprobar. |
+| T15 Consulta general | 3 | 4: Ayuda → Consultar al asistente → pregunta → Enviar. En móvil sumar abrir el menú de cuenta si está cerrado. |
+| T16 Comercio nuevo listo para vender | 14 | 12: nombre → Crear comercio → Confirmar y continuar → cinco datos del producto → Guardar producto → Continuar → efectivo inicial → Abrir turno. Supone bootstrap válido, nombre sin corregir, costo/stock ingresados y apertura/avance exitosos. |
+
+El recorrido comparable T1 + T2 + T3 + T6 pasa de 13 a 12 acciones deducidas al entrar a abrir desde Vender. La simplificación también agrega aperturas intencionales de editores de configuración y un acceso secundario a IA. No se presenta eso como una mejora de facilidad de uso ya comprobada. Un retiro agrega sus campos/confirmación al recorrido; no está incluido en esa suma.
+
+### Accesos definitivos
+
+| Necesidad | Acceso actual y alcance |
+| --- | --- |
+| Producto básico / atributos avanzados | Productos → Agregar producto o Editar → Más opciones para categoría, marca, proveedor, código de proveedor, etiquetas, unidad, bulto, margen, ícono y aviso de stock. |
+| Reposición | Reponer en la fila; Historial reposición, Carga masiva (CSV), Ajustar precios e Importar factura de compra en Más herramientas. Procesamiento, vinculaciones, memoria de proveedor y propuestas de precios permanecen en factura/remito. |
+| Remitos pendientes | Administrador: Productos, panel de pendientes. Cajero: Remito para capturar/enviar según permisos. |
+| Listas y precios fijos | Ubicación principal: Productos → Listas de precios. Consultar precios y editar precios fijos abre la consulta; cada precio fijo se edita por intención. Mi comercio → Más opciones ofrece un enlace al mismo editor. |
+| Transferencias | Productos → Transferencias, con origen/destino y registro auditado; no crea inventarios separados por sucursal. |
+| Turno y ventas | Caja → Mi turno / Ver ventas para administrador. Cajero: turno y movimientos propios según backend, conteo a ciegas al cerrar. |
+| Datos y locales | Mi comercio → Datos del comercio / Locales y cajas. Un local y una caja se presentan como resumen; Administrar locales y cajas descubre también la segunda sucursal. |
+| Equipo | Mi comercio → Personas con acceso. Agregar persona para propietario; asignaciones de cajeros según rol. No es obligatorio crear empleados para operar. |
+| Registros de ventas | Mi comercio → Más opciones → Registros de ventas. Agrupan ventas; no son puestos ni establecen condición fiscal. |
+| PWA y notificaciones | Mi comercio → Más opciones → App y avisos; instalación también conserva su aviso global existente. Los enlaces de notificaciones abren la sección destino. |
+| IA | Ayuda → Consultar al asistente; desde ahí, análisis completo para administradores. Productos conserva ayudas explícitas y Caja → Ver ventas → Explicar estos resultados conserva métricas del informe y generación voluntaria. |
+| Retomar inicio | Mi comercio → Inicio del comercio → Retomar configuración. Requiere carrito vacío y conexión para guardar avance. |
+
+### Guía de Pruebas integrada — pendiente de ejecución manual
+
+Abrir **http://localhost:3001/**. Usar cuentas y comercio de pruebas; no realizar ventas ficticias en producción. Preparar propietario, administrador y cajero asignado; producto con stock y otro con bulto 24, bajo margen, proveedor y etiquetas; segundo local/caja y lista distinta. Registrar rol, entorno, estado inicial, acciones, mensaje exacto y resultado por caso.
+
+1. **Administrador nuevo.** Crear comercio con nombre único: esperar sucursal Principal, Caja principal, categorías y registros iniciales, sin duplicados. Confirmar nombre: esperar Tus productos sin listas/equipo/IA obligatorios. Cargar cinco campos y guardar: esperar producto persistido; retroceder y volver con otro borrador, que debe seguir escrito. Continuar, ingresar efectivo y abrir: esperar Vender en la misma caja, con un solo turno. Repetir Configurar después, recarga y reanudación desde otro dispositivo: esperar avance compartido y datos ya guardados, no los campos sin guardar. Enviar simultáneamente desde dos dispositivos y simular respuesta perdida: esperar conflicto/reutilización, nunca recursos o turnos duplicados. Cortar conexión en la guía y salir: esperar acceso a la app y ninguna tarea acreditada por salir. Tienda anterior, incluso sin productos: no debe abrir la guía.
+2. **Cajero asignado.** Ingresar: esperar contexto de su sucursal/caja sin selector de opción única ni accesos administrativos. Abrir desde Vender con 2000: esperar retorno a Vender. Escanear y F1: esperar venta única, carrito limpio y foco de lector; repetir F2/F3 y Mixto/F4 con reparto válido. En Caja, cargar un retiro con importe/motivo, navegar a Vender y regresar antes de enviar: esperar borrador conservado; registrarlo y comprobar resultado. Ingresar efectivo contado, Confirmar cierre y aceptar: esperar cierre confirmado sin IA, efectivo esperado ni diferencias visibles al cajero. Con otra cuenta, ocupar su caja: esperar bloqueo de apertura; comprobar en backend que no puede leer movimientos ajenos ni saltar asignaciones mediante una petición directa.
+3. **Administrador existente.** Editar únicamente precio del producto con bulto/bajo margen/proveedor/etiquetas, ir a Caja y volver: esperar edición conservada; guardar, reabrir Más opciones y comparar todos los atributos. Introducir un bulto inválido, plegar y guardar: esperar sección abierta y error enfocado, sin escritura. Reponer dos bultos: esperar +48 unidades y costo/proveedor según los datos elegidos. Revisar un remito pendiente: esperar stock sin incremento antes de aprobar y comprobantes privados. Caja → Ver ventas: esperar ventas y separación de margen intactas. Probar factura, CSV y propuesta de precios con datos de prueba; cancelar debe conservar los otros borradores.
+4. **Varias sucursales.** Con carrito, intentar cambiar sucursal/caja/lista/registro y retomar inicio: esperar controles bloqueados con explicación y venta intacta. Vaciar o terminar la venta; cambiar local: esperar lista predeterminada de ese local y cajas permitidas, con caja ocupada identificada. Crear/editar sucursal, caja y lista desde sus accesos; abrir otro editor y cancelar solo ese: esperar el primer borrador conservado. Ir desde Mi comercio a listas: esperar el mismo editor principal. Preparar transferencia, salir a Caja y volver: esperar origen/destino/artículos/notas conservados; stock total compartido sin alteración visual.
+5. **PWA móvil y teclado.** Abrir editor con teclado virtual: esperar campos, Guardar y Cancelar alcanzables sin desborde. Probar Tab, Enter del lector, Escape y los botones Volver del inicio. Abrir un diálogo de producto, cambiar de sección cuando la interfaz lo permita y regresar: esperar borrador y foco en el diálogo; en Vender los diálogos ocultos no bloquean lector/scroll. Abrir/cerrar IA desde Ayuda: esperar foco dentro del panel abierto y lector operativo al cerrarlo. Abrir aviso de stock/cierre/App: esperar destino correcto y asistente cerrado, sin cambiar un carrito pendiente. Visitar App y avisos: comprobar instalación/activación solo por acción y sin dos diálogos de permisos simultáneos. Repetir con movimiento reducido. Probar Atrás del sistema por separado: la navegación interna usa estado React, no un historial de rutas; Atrás puede salir de la app y no se promete recuperar borradores no guardados tras salir/recargar.
+6. **Offline preparado y fallos de herramientas.** Con conexión, abrir/preparar caja y cargar configuración/stock/lista; cortar red, vender y consultar cola: esperar operación local y estado pendiente de sincronizar, sin cambiar contexto/precios. Reconectar: esperar sincronización sin venta duplicada y confirmación del estado final. Intentar editar configuración, enviar remito/transferencia o consultar IA sin red: esperar explicación dentro de su herramienta y posibilidad de seguir en caja. Quitar configuración de Groq en entorno de prueba o bloquear solo su endpoint: alta manual, venta, movimiento y cierre deben seguir independientes. Verificar también recarga offline con caché existente y mensaje de preparación cuando falten datos.
+
+### Migraciones, validación y pendientes reales
+
+- Esta revisión no agrega SQL ni aplica migraciones remotas. Sigue pendiente de aplicación/validación en el entorno correcto [202610190001_store_onboarding.sql](../supabase/migrations/202610190001_store_onboarding.sql), preparada en la etapa anterior. Aplicarla después de sus migraciones previas y antes de habilitar la creación guiada; ver [inicio-guiado.md](inicio-guiado.md). Sin esa RPC, Crear comercio muestra una indicación de migración necesaria. No insertar estados retroactivos para comercios anteriores.
+- El repositorio también contiene cambios locales previos en `202610160004_margin_groups.sql`. No se consultó qué migraciones tiene la base real: revisar el historial remoto y la guía de Supabase del proyecto antes de aplicar archivos, sin ejecutar migraciones indiscriminadamente.
+- Comprobación ejecutada en esta revisión: `npx tsc --noEmit -p tsconfig.app.json`, finalizó sin errores (código de salida 0). No se ejecutaron builds ni otras pruebas automatizadas.
+- Pendiente: todos los recorridos manuales anteriores, RLS/RPC efectivas, idempotencia y concurrencia real, persistencia desde otro dispositivo, entrega push, permisos del sistema, foco/teclado móvil, offline y sincronización. TypeScript no verifica estos comportamientos.
+- Límite de persistencia: los borradores se conservan al navegar internamente en el mismo comercio y sesión montada. Recargar, salir de la app, cambiar comercio/cuenta o cambiar el contexto del turno no equivale a guardar un formulario. El avance guiado compartido guarda pasos y registros persistidos, no campos sin enviar. Los precios fijos de listas conservan el editor al navegar a otra sección; cambiar lista/filtro puede desmontar sus filas, por lo que se deben guardar o cancelar antes de cambiar esa consulta.
+
+### Observación breve con una persona nueva — no realizada
+
+En un comercio de pruebas preparado, pedir únicamente: «Creá este producto con estos datos; cobrá una unidad; cerrá tu turno contando este efectivo». No indicar botones ni explicar términos. Observar sin intervenir salvo riesgo de datos reales. Registrar cada detención, el control que busca, los textos que pregunta o interpreta de otra manera, errores y recuperación; separar observación de interpretación del observador. Al terminar, preguntar qué esperaba que hiciera cada texto confuso. Usar esos hallazgos para decidir ajustes posteriores; esta revisión de código no sustituye esa prueba ni permite afirmar que las personas completan las tareas sin ayuda.
+
+## 13. Jerarquía visual de Vender y Caja
+
+Implementación acotada posterior a la revisión integrada, conservando paleta y componentes. Cambios de código en `PosTab.tsx`, `CashDesk.tsx`, `RetailApp.tsx`, `workspace.css` y `mobile-native.css`. No se modificaron API, SQL, fórmulas, datos, permisos ni sincronización. Los cambios previos del repositorio siguen presentes.
+
+### Presentación implementada
+
+- **Vender:** zonas identificables de productos, carrito y total/cobro. En escritorio se conserva la distribución de productos y venta en dos columnas. El cobro tiene fondo de la paleta actual, título propio y botón principal más grande. El importe manual sigue junto al buscador, con su acción de agregar como secundaria.
+- **Contexto:** sucursal, caja y estado se presentan una vez en la franja del workspace. Si hay alternativas autorizadas, Cambiar sucursal o caja despliega los selectores existentes; siguen bloqueados con carrito. Lista y registro se conservan en una franja secundaria de la venta, fuera del bloque de cobro. No se solicitan elecciones adicionales para operar con los valores ya válidos.
+- **Ayuda:** Atajos de teclado despliega la explicación completa sin quitar F1–F4, Ctrl+K ni Escape. Filtros, categoría, botonera y acceso a importe manual siguen disponibles.
+- **Móvil:** Productos / Venta conserva cantidad y total en el acceso a la venta. Ver venta lleva el foco y el desplazamiento al panel; volver a Productos recupera el buscador. Los movimientos respetan la preferencia de movimiento reducido. El carrito tiene una altura de consulta limitada y desplazamiento propio para acercar el cobro; con teclado visible se compacta más. El botón Cobrar permanece en el flujo del documento, sin agregar otra barra fija que cubra inputs. Continúa la ocultación de la navegación inferior y barra de carrito durante el teclado virtual.
+- **Caja:** al abrir un turno, el efectivo inicial ocupa un formulario de ancho acotado. Con turno abierto se ofrecen Registrar ingreso o retiro y Cerrar turno, con una frase que explica cada tarea. Solo se muestra el formulario elegido, pero ambos permanecen montados: cambiar de tarea o volver a las acciones conserva lo escrito. El foco llega al título de la tarea y vuelve al acceso al regresar.
+- **Cierre:** el acceso Cerrar turno desde Vender abre directamente el conteo, incluso si anteriormente se estaba registrando un movimiento. Conserva bloqueo por carrito/movimiento pendiente, validación del importe, confirmación del navegador y arqueo a ciegas. La confirmación de éxito identifica el conteo guardado. La explicación IA queda debajo del formulario, con estado y reintento propios.
+- **Consulta:** resumen del turno, ventas, ingresos/retiros y cierres anteriores son desplegables después de las acciones. Se conservan todas las métricas y la visibilidad por rol. Ver ventas del administrador sigue en la navegación existente de Caja.
+
+### Efecto en los recorridos
+
+La apertura y el cobro conservan sus acciones obligatorias. Entrar por Caja para cerrar requiere ahora elegir Cerrar turno antes de ingresar el conteo: son 5 acciones desde Vender si se recorre Caja → Cerrar turno → conteo → Confirmar cierre → confirmación del navegador. El acceso directo Cerrar turno de la franja de Vender sigue siendo una ruta de 4 acciones, porque abre la tarea directamente. Estos conteos actualizan T6 de la sección 12 y son deducciones del código, no observaciones con personas. Consultar contexto editable, resumen o historial requiere desplegarlos; esa reducción de información inicial no equivale a una mejora medida de usabilidad.
+
+### Guía de Pruebas de esta entrega
+
+URL: **http://localhost:3001/**. Pendiente de ejecución por el usuario en comercio de pruebas, con cajero y administrador. No realizar ventas ficticias en producción.
+
+1. **Apertura:** en Vender sin turno, pulsar Abrir turno, ingresar 2000 y confirmar. Esperado: misma sucursal/caja y retorno a Vender; no se exige elegir lista/registro ya resueltos ni se abre automáticamente. Con una sola caja no aparece Cambiar sucursal o caja innecesariamente.
+2. **Lector y teclado:** escanear un producto con stock y cobrar con F1 exacto. Esperado: venta única, carrito limpio y foco recuperado. Repetir F2/F3 y Ctrl+K; desplegar Atajos de teclado para consultar su efecto. Probar importe manual y botonera, sin cambiar sus cálculos.
+3. **Mixto:** agregar productos, F4, ingresar primer importe y segundo medio, confirmar con F4 o confirmar ambos pagos y Cobrar. Esperado: reparto y total originales, sin envío con reparto inválido. En efectivo, ingresar menos del total: Cobrar debe seguir bloqueado y explicar qué falta.
+4. **Retiro y borradores:** Caja → Registrar ingreso o retiro; elegir retiro, completar importe y motivo. Pasar a Cerrar turno, escribir un conteo, volver al retiro y navegar a Vender/Caja. Esperado: ambos borradores conservados en ese turno. Registrar el retiro: esperar confirmación; un formulario oculto no produce validaciones ni recibe Tab. Mantener comprobante obligatorio para pago a proveedor y privacidad del acceso.
+5. **Cierre:** desde Vender pulsar Cerrar turno; esperar foco en la tarea de conteo, sin escogerla nuevamente. Con carrito pendiente, el cierre debe seguir bloqueado. Terminar/vaciar la venta, contar efectivo, Confirmar cierre y aceptar la confirmación. Esperado: cierre guardado y mensaje con el conteo, sin esperar IA. Como cajero, nunca mostrar esperado/diferencia; como administrador, conservar ambos. Consultar cierres anteriores desde su desplegable y verificar el registro.
+6. **Caja ocupada y contexto:** con otra persona ocupando una caja, abrir Cambiar sucursal o caja y seleccionarla. Esperado: identificación de caja ocupada y restricciones de apertura intactas. Con carrito, los selectores permanecen bloqueados; al terminarlo, cambiar local aplica su lista según las reglas existentes. Desplegar lista/registro y comprobar identificación y permisos.
+7. **Móvil:** alternar Productos / Venta con varios artículos, comprobar cantidad/total, desplazamiento del carrito y botones de cantidad. Abrir el teclado de efectivo y del pago mixto; esperar acceso por desplazamiento a Cobrar, sin barras inferiores sobre los campos. Volver a Productos y escanear; verificar foco. Repetir con zoom de texto, orientación horizontal, movimiento reducido y PWA instalada. Abrir/cerrar el asistente y un aviso: comprobar que no quedan capas invisibles bloqueando la venta.
+8. **Offline preparado:** preparar turno/configuración con conexión, desconectar y registrar una venta. Esperado: comportamiento existente de cola local, contexto y precios conservados; reconectar y comprobar sincronización sin duplicados. Provocar un fallo de Groq: su error queda en la herramienta y no bloquea cobrar, registrar movimiento o cerrar.
+
+### Validación y pendientes
+
+El inventario del navegador devolvió cero navegadores disponibles. No se observó la interfaz renderizada ni se realizaron pruebas visuales, de teclado real, backend, móvil, offline o PWA. La guía anterior sigue pendiente y no se afirma una mejora de facilidad de uso comprobada con personas.
+
+Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). No se ejecutaron builds ni otras pruebas automatizadas. No se agregaron ni aplicaron migraciones; permanece la migración local de onboarding y las limitaciones de persistencia detalladas en la sección 12.

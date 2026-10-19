@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useId } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
 import { SectionNav } from './SectionNav';
 import { PushSettings } from './PushSettings';
 import { StaffAccessForm } from './StaffAccessForm';
 import { CashierAccess } from './CashierAccess';
+import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
 import {
   AlertCircle,
   AlertTriangle,
@@ -129,6 +130,8 @@ export function CatalogEditor({
   branches = [],
   onRefreshRemitos = () => {},
   onReviewedRemito = () => {},
+  guided = false,
+  active = true,
 }: {
   store: Store;
   categories: Category[];
@@ -142,19 +145,38 @@ export function CatalogEditor({
   branches?: Branch[];
   onRefreshRemitos?: () => void;
   onReviewedRemito?: (id: string) => void;
+  guided?: boolean;
+  active?: boolean;
 }) {
   const [editing, setEditing] = useState<Product | null>(null);
-  const [adding, setAdding] = useState(false);
+  const [adding, setAdding] = useState(guided);
   const [query, setQuery] = useState("");
   const [visibleCount, setVisibleCount] = useState(50);
   const [stockFilter, setStockFilter] = useState(false);
   const [lowMarginFilter, setLowMarginFilter] = useState(false);
   const editorRef = useRef<HTMLFormElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
+  const csvTitleId = useId();
+  const productOptionsRef = useRef<HTMLDetailsElement>(null);
+  const invalidFocusPending = useRef(false);
+  const suggestionRequest = useRef(0);
+  const priceReviewRequest = useRef(0);
+  const anomalyRequest = useRef(0);
+  const [productReviewNote, setProductReviewNote] = useState('');
+  const [productOptionsOpen, setProductOptionsOpen] = useState(false);
+  const [priceReviewNote, setPriceReviewNote] = useState('');
+  const [productSuggestionNote, setProductSuggestionNote] = useState('');
   useEffect(() => {
+    if (!active) return;
+    const dialog = panelRef.current?.querySelector<HTMLElement>('[role="dialog"]');
+    if (dialog) {
+      dialog.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled])')?.focus();
+      return;
+    }
     if (!adding && !editing) return;
-    editorRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    editorRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     editorRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
-  }, [adding, editing]);
+  }, [adding, editing, active]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -174,6 +196,37 @@ export function CatalogEditor({
     marginGroup: 'standard' as 'standard' | 'low_margin',
   });
   const [tagInput, setTagInput] = useState("");
+  const latestProductDraft = useRef(formData);
+  latestProductDraft.current = formData;
+  const saleUnit = { unit: 'unidad', kg: 'kg', lt: 'litro', pack: 'pack', box: 'caja' }[formData.unitType];
+  const productOptionsSummary = [
+    formData.unitType !== 'unit' ? `Venta por ${saleUnit}` : '',
+    Number(formData.packSize) > 1 ? `Bulto de ${formData.packSize}` : '',
+    formData.marginGroup === 'low_margin' ? 'Bajo margen' : '',
+    formData.brand.trim(),
+    formData.supplier.trim(),
+  ].filter(Boolean).join(' · ');
+
+  const invalidateProductSuggestions = () => {
+    anomalyRequest.current++;
+    setIsCheckingAnomalies(false);
+    setProductReviewNote('');
+    setAnomalyDialog(null);
+    suggestionRequest.current++;
+    priceReviewRequest.current++;
+    setSuggestion(null);
+    setPriceValidation(null);
+    setIsSuggesting(false);
+    setIsCheckingPrice(false);
+    setPriceReviewNote('');
+    setProductSuggestionNote('');
+  };
+
+  useEffect(() => () => {
+    anomalyRequest.current++;
+    suggestionRequest.current++;
+    priceReviewRequest.current++;
+  }, []);
 
   // Sub-feature B: Modal Ajuste de Precios en Bloque states
   const [isBulkPriceModalOpen, setIsBulkPriceModalOpen] = useState(false);
@@ -369,6 +422,8 @@ export function CatalogEditor({
   } | null>(null);
 
   const startAdd = () => {
+    invalidateProductSuggestions();
+    setProductOptionsOpen(false);
     setEditing(null);
     setAdding(true);
     setSuggestion(null);
@@ -395,6 +450,8 @@ export function CatalogEditor({
   };
 
   const startEdit = (p: Product) => {
+    invalidateProductSuggestions();
+    setProductOptionsOpen(false);
     setAdding(false);
     setEditing(p);
     setSuggestion(null);
@@ -421,6 +478,8 @@ export function CatalogEditor({
   };
 
   const cancelEdit = () => {
+    invalidateProductSuggestions();
+    setProductOptionsOpen(false);
     setEditing(null);
     setAdding(false);
     setSuggestion(null);
@@ -690,17 +749,21 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
     }
   };
 
-  // Feature A: onBlur of barcode input (Lookup en dos pasos: Catálogo global + fallback Groq)
+  // Automatic barcode lookup is deterministic; generative suggestions are explicit.
   const handleCodeBlur = async () => {
     const code = formData.code.trim();
     if (!code || formData.name.trim() || isSuggesting) return;
 
+    const requestId = ++suggestionRequest.current;
+    const draft = formData;
     setIsSuggesting(true);
     setSuggestion(null);
+    setProductSuggestionNote('');
 
     try {
       // PASO 1 — Lookup en catálogo global comunitario (sin IA)
       const globalResult = await retail.lookupEan(code);
+      if (requestId !== suggestionRequest.current || latestProductDraft.current !== draft) return;
       if (
         globalResult &&
         globalResult.found &&
@@ -714,42 +777,28 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
           source: globalResult.source || "community",
           confidenceScore: globalResult.confidence_score,
         });
-        return; // NO llamar a Groq (ya tenemos el dato)
+        return;
       }
-
-      // Si no se encontró en catálogo global o falló la llamada -> continuar con Groq
-      const categoryListStr = categories.map((c) => c.name).join(", ");
-      const systemPrompt = `Sos un experto en productos de kiosco y almacén argentino. Dado un código EAN-13, sugiere el nombre del producto, un emoji representativo, la categoría más probable de: [${categoryListStr}], marca, distribuidor habitual en Argentina, unidad (unit, kg, lt, pack, box), tags sugeridos (array), precio y costo orientativo en pesos argentinos. Respondé exclusivamente en JSON con los campos: name, emoji, category, brand, supplier, unitType, tags, estimatedPrice, estimatedCost, disclaimer.`;
-
-      const response = await groqChat(
-        [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: `Código EAN-13: ${code}` },
-        ],
-        { temperature: 0.2 },
-      );
-
-      const parsed = extractJson<ProductSuggestion>(response);
-      if (parsed && (parsed.name || parsed.category || parsed.brand)) {
-        setSuggestion({
-          ...parsed,
-          source: "ai",
-        });
-      }
+      setProductSuggestionNote('No encontramos datos para ese código. Podés completarlos o pedir una sugerencia con IA.');
     } catch {
-      // Non-blocking
+      if (requestId === suggestionRequest.current && latestProductDraft.current === draft) {
+        setProductSuggestionNote('No se pudo consultar el catálogo. Podés completar los datos manualmente.');
+      }
     } finally {
-      setIsSuggesting(false);
+      if (requestId === suggestionRequest.current) setIsSuggesting(false);
     }
   };
 
-  // Feature: Suggestion by Product Name (IA)
-  const triggerNameSuggestion = async (searchName?: string) => {
-    const name = (searchName || formData.name).trim();
-    if (name.length < 2 || isSuggesting) return;
+  const suggestProductDetails = async () => {
+    const name = formData.name.trim();
+    const code = formData.code.trim();
+    if ((name.length < 2 && !code) || isSuggesting) return;
 
+    const requestId = ++suggestionRequest.current;
+    const draft = formData;
     setIsSuggesting(true);
     setSuggestion(null);
+    setProductSuggestionNote('');
 
     try {
       const categoryListStr = categories.map((c) => c.name).join(", ");
@@ -770,41 +819,39 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       const response = await groqChat(
         [
           { role: "system", content: systemPrompt },
-          { role: "user", content: `Producto: "${name}"` },
+          { role: "user", content: name.length >= 2 ? `Producto: "${name}". Código: ${code || 'sin código'}` : `Código de producto: ${code}. Si no podés identificarlo con certeza, no inventes atributos.` },
         ],
         { temperature: 0.2 },
       );
 
+      if (requestId !== suggestionRequest.current || latestProductDraft.current !== draft) return;
       const parsed = extractJson<ProductSuggestion>(response);
       if (parsed && (parsed.name || parsed.category || parsed.brand || parsed.supplier)) {
         setSuggestion({
           ...parsed,
           source: "ai",
         });
+      } else {
+        setProductSuggestionNote('No se obtuvieron sugerencias para este producto. Podés completar los datos manualmente.');
       }
     } catch {
-      // Non-blocking
+      if (requestId === suggestionRequest.current && latestProductDraft.current === draft) {
+        setProductSuggestionNote('No se pudieron obtener sugerencias. Podés reintentar o completar los datos manualmente.');
+      }
     } finally {
-      setIsSuggesting(false);
+      if (requestId === suggestionRequest.current) setIsSuggesting(false);
     }
   };
 
-  const handleNameBlur = async () => {
-    const name = formData.name.trim();
-    if (name.length < 3 || isSuggesting) return;
-    if (!formData.brand.trim() || !formData.supplier.trim() || !formData.price || formData.price === "0") {
-      await triggerNameSuggestion(name);
-    }
-  };
-
-  // AI Price Validation: onBlur of price input
-  const handlePriceBlur = async () => {
+  // Optional price review, requested by the user rather than by leaving an input.
+  const reviewProductPrice = async () => {
     const priceNum = parseFloat(formData.price);
     const costNum = parseFloat(formData.cost);
 
     // Solo si tiene cost cargado (> 0) y price válido (> 0)
     if (isNaN(priceNum) || priceNum <= 0 || isNaN(costNum) || costNum <= 0) {
       setPriceValidation(null);
+      setPriceReviewNote('Ingresá un precio y un costo mayores a cero para revisar el precio.');
       return;
     }
 
@@ -814,13 +861,17 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     // Solo llamar a Groq si margen < 20% OR margen > 250%
     if (margin >= 20 && margin <= 250) {
       setPriceValidation(null);
+      setPriceReviewNote('El cálculo local no detectó un precio fuera del rango de revisión. No se consultó a la IA.');
       return;
     }
 
     if (isCheckingPrice) return;
 
+    const requestId = ++priceReviewRequest.current;
+    const draft = formData;
     setIsCheckingPrice(true);
     setPriceValidation(null);
+    setPriceReviewNote('');
 
     try {
       const categoryName =
@@ -845,6 +896,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
         { temperature: 0.2 },
       );
 
+      if (requestId !== priceReviewRequest.current || latestProductDraft.current !== draft) return;
       const parsed = extractJson<PriceValidationAlert>(response);
       const suggestedPrice = cleanSuggestionNumber(parsed?.suggestion);
 
@@ -856,12 +908,14 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
         });
       } else {
         setPriceValidation(null);
+        setPriceReviewNote('La revisión no devolvió una sugerencia de precio.');
       }
     } catch {
-      // Silent fail: no mostrar nada si falla o no detecta anomalía
+      if (requestId !== priceReviewRequest.current || latestProductDraft.current !== draft) return;
       setPriceValidation(null);
+      setPriceReviewNote('No se pudo revisar el precio. Podés reintentar o guardar los datos ingresados.');
     } finally {
-      setIsCheckingPrice(false);
+      if (requestId === priceReviewRequest.current) setIsCheckingPrice(false);
     }
   };
 
@@ -1008,9 +1062,10 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     }
   };
 
-  // Feature B: Form Submit with Anomaly & Duplicate Detection
-  const handleSubmit = async (e: React.FormEvent) => {
+  // El guardado es independiente de la revisión opcional con IA.
+  const handleSubmit = async (e: React.FormEvent, review = false) => {
     e.preventDefault();
+    if (busy || (review && isCheckingAnomalies)) return;
 
     const p = {
       id: editing?.id || "",
@@ -1032,6 +1087,14 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       margin_group: formData.marginGroup,
     };
 
+    if (!review) {
+      invalidateProductSuggestions();
+      await doSaveProduct(p);
+      return;
+    }
+    const reviewId = ++anomalyRequest.current;
+    const reviewDraft = formData;
+    setProductReviewNote('');
     setIsCheckingAnomalies(true);
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 5000);
@@ -1104,6 +1167,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       const parsed = extractJson<{ hasAnomaly: boolean; warnings: string[] }>(
         response,
       );
+      if (!parsed || typeof parsed.hasAnomaly !== 'boolean' || !Array.isArray(parsed.warnings) || !parsed.warnings.every(warning => typeof warning === 'string') || (parsed.hasAnomaly && !parsed.warnings.length)) throw new Error('La revisión no devolvió una respuesta válida.');
       if (
         parsed?.hasAnomaly &&
         Array.isArray(parsed.warnings) &&
@@ -1111,13 +1175,17 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       ) {
         warnings = parsed.warnings;
       }
-    } catch {
-      // Timeout 5s, network error or abort -> proceed without blocking
+    } catch (error) {
       clearTimeout(timeoutId);
+      if (reviewId === anomalyRequest.current && reviewDraft === latestProductDraft.current) {
+        setProductReviewNote(`${error instanceof Error ? error.message : 'No se pudo revisar el producto.'} Podés reintentar o guardarlo sin revisión.`);
+      }
+      return;
     } finally {
-      setIsCheckingAnomalies(false);
+      if (reviewId === anomalyRequest.current) setIsCheckingAnomalies(false);
     }
 
+    if (reviewId !== anomalyRequest.current || reviewDraft !== latestProductDraft.current) return;
     if (warnings.length > 0) {
       setAnomalyDialog({
         warnings,
@@ -1126,8 +1194,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       return;
     }
 
-    // Direct save if no anomaly found or if Groq check failed/timed out
-    await doSaveProduct(p);
+    setProductReviewNote('La revisión con IA no señaló alertas. Revisá los datos y usá Guardar producto cuando quieras.');
   };
 
   const filtered = products.filter((p) => (!stockFilter || p.stock <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
@@ -1136,18 +1203,19 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       .includes(query.toLowerCase()),
   );
   return (
-    <div className="retail-panel">
-      {isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
+    <div className="retail-panel" ref={panelRef}>
+      {!guided && isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
       <div className="section-heading">
         <div>
-          <h2>Productos e inventario</h2>
+          <h2>{guided ? 'Tus productos' : 'Productos e inventario'}</h2>
           <p>
             El catálogo y las existencias se comparten entre las cajas de este
             comercio.
           </p>
         </div>
         <div className="catalog-actions-row">
-          <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
+          {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={() => setIsCsvModalOpen(true)}>Importar desde CSV / Excel</button>}
+          {!guided && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
           <button
             type="button"
             className="secondary-button"
@@ -1191,7 +1259,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <span>Importar factura de compra</span>
             </button>
           )}
-          </div></details>
+          </div></details>}
           <button
             type="button"
             className="primary-button"
@@ -1204,7 +1272,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       </div>
 
       {/* AI Critical Stock Replenishment Card */}
-      {criticalProducts.length > 0 && (
+      {!guided && criticalProducts.length > 0 && (
         <section
           className="stock-ai-card"
           aria-label="Análisis de stock con IA"
@@ -1245,7 +1313,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               </button>
               <button
                 type="button"
-                className="primary-button stock-ai-analyze-btn"
+                className="secondary-button"
                 disabled={busy || isAnalyzingStock}
                 onClick={handleAnalyzeCriticalStock}
               >
@@ -1257,7 +1325,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 ) : (
                   <>
                     <Sparkles size={15} />
-                    <span>Ver análisis IA</span>
+                    <span>Analizar stock</span>
                   </>
                 )}
               </button>
@@ -1332,6 +1400,31 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           ref={editorRef}
           className="retail-form product-editor"
           onSubmit={handleSubmit}
+          onChangeCapture={invalidateProductSuggestions}
+          onInvalidCapture={event => {
+            if (!productOptionsRef.current?.contains(event.target as Node)) return;
+            productOptionsRef.current.open = true;
+            setProductOptionsOpen(true);
+            if (invalidFocusPending.current) return;
+            invalidFocusPending.current = true;
+            requestAnimationFrame(() => {
+              invalidFocusPending.current = false;
+              editorRef.current?.querySelector<HTMLInputElement | HTMLSelectElement>('input:invalid, select:invalid')?.focus();
+            });
+          }}
+          onKeyDown={event => {
+            if (event.defaultPrevented || event.nativeEvent.isComposing) return;
+            if (event.key === 'Escape' && productOptionsOpen && productOptionsRef.current?.contains(event.target as Node)) {
+              event.preventDefault();
+              event.stopPropagation();
+              setProductOptionsOpen(false);
+              productOptionsRef.current.querySelector('summary')?.focus();
+            } else if (event.key === 'Enter' && event.target instanceof HTMLInputElement) {
+              // A scanner or a field edit must not implicitly save the whole product.
+              event.preventDefault();
+              if (event.target.name === 'code') void handleCodeBlur();
+            }
+          }}
         >
           <h3>{editing ? "Editar producto" : "Nuevo producto"}</h3>
 
@@ -1339,17 +1432,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           {isSuggesting && (
             <div className="ai-suggest-loading">
               <Loader2 size={16} className="ai-spin-icon" />
-              <span>Buscando en catálogo comunitario y sugerencias…</span>
+              <span>Buscando sugerencias para este producto…</span>
             </div>
           )}
 
           {/* Feature A: Suggestion chips */}
-          {isSuggesting && (
-            <div className="ai-suggestion-loading-bar">
-              <Sparkles size={15} className="ai-spin-icon" />
-              <span>Analizando producto y consultando sugerencias con IA…</span>
-            </div>
-          )}
+
 
           {suggestion && (
             <div
@@ -1529,7 +1617,20 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </div>
           )}
 
-          <div className="form-grid">
+          <div className="form-grid product-basic-fields">
+            <label>
+              Nombre
+              <input
+                name="name"
+                required
+                maxLength={160}
+                value={formData.name}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, name: e.target.value }))
+                }
+                placeholder="Ej. Alfajor Jorgito Chocolate o Coca-Cola 500ml"
+              />
+            </label>
             <label>
               Código de barras o interno
               <input
@@ -1540,194 +1641,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, code: e.target.value }))
                 }
-                onBlur={handleCodeBlur}
+                onBlur={guided ? undefined : handleCodeBlur}
                 placeholder="Escaneá o ingresá el código EAN"
               />
             </label>
-            <label>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <span>Nombre</span>
-                {formData.name.trim().length >= 2 && (
-                  <button
-                    type="button"
-                    className="ai-inline-suggest-btn"
-                    onClick={() => triggerNameSuggestion()}
-                    disabled={isSuggesting}
-                    title="Autocompletar marca, distribuidor, categoría y precio con IA"
-                  >
-                    <Sparkles size={12} />
-                    <span>{isSuggesting ? "Buscando…" : "✨ Completar con IA"}</span>
-                  </button>
-                )}
-              </div>
-              <input
-                name="name"
-                required
-                maxLength={160}
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, name: e.target.value }))
-                }
-                onBlur={handleNameBlur}
-                placeholder="Ej. Alfajor Jorgito Chocolate o Coca-Cola 500ml"
-              />
-            </label>
-            <label>
-              Categoría
-              <select
-                name="category"
-                value={formData.categoryId}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    categoryId: e.target.value,
-                  }))
-                }
-              >
-                {categories.map((c) => (
-                  <option value={c.id} key={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label>
-              Marca
-              <input
-                name="brand"
-                maxLength={80}
-                value={formData.brand}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, brand: e.target.value }))
-                }
-                placeholder="Ej: Coca-Cola, Arcor, Bimbo"
-              />
-            </label>
-            <label>
-              Distribuidor
-              <input
-                name="supplier"
-                maxLength={100}
-                value={formData.supplier}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, supplier: e.target.value }))
-                }
-                placeholder="Ej: Distribuidora Norte SRL"
-              />
-            </label>
-            <label>
-              Cód. Proveedor
-              <input
-                name="supplierCode"
-                maxLength={50}
-                value={formData.supplierCode}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    supplierCode: e.target.value,
-                  }))
-                }
-                placeholder="Código del proveedor (opcional)"
-              />
-            </label>
-            <label>
-              Unidad
-              <select
-                name="unitType"
-                value={formData.unitType}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    unitType: e.target.value as
-                      | "unit"
-                      | "kg"
-                      | "lt"
-                      | "pack"
-                      | "box",
-                  }))
-                }
-              >
-                <option value="unit">Unidad (unit)</option>
-                <option value="kg">Kilo (kg)</option>
-                <option value="lt">Litro (lt)</option>
-                <option value="pack">Pack (pack)</option>
-                <option value="box">Caja (box)</option>
-              </select>
-            </label>
-
-            <label title="Cuántas unidades tiene cada bulto que comprás. Al reponer podés ingresar la cantidad de bultos y el sistema multiplica.">
-              Unidades por bulto/pack
-              <input name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onChange={e => setFormData(prev => ({ ...prev, packSize: e.target.value }))} />
-              <small>El precio, el costo y el stock se expresan por unidad individual.</small>
-            </label>
-            <label>Grupo de margen
-              <select name="margin_group" value={formData.marginGroup} onChange={e => setFormData(prev => ({ ...prev, marginGroup: e.target.value as 'standard' | 'low_margin' }))}>
-                <option value="standard">Estándar</option>
-                <option value="low_margin">Bajo margen (Cigarrillos, Cargas, etc.)</option>
-              </select>
-              <small>Separa estos productos del análisis principal de rentabilidad.</small>
-            </label>
-            <div className="product-tags-field">
-              <label>
-                Etiquetas / Tags
-                <div className="tags-input-wrapper">
-                  <input
-                    type="text"
-                    value={tagInput}
-                    onChange={(e) => setTagInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" || e.key === ",") {
-                        e.preventDefault();
-                        const tag = tagInput.trim().replace(/^#/, "");
-                        if (tag && !formData.tags.includes(tag)) {
-                          setFormData((prev) => ({
-                            ...prev,
-                            tags: [...prev.tags, tag],
-                          }));
-                        }
-                        setTagInput("");
-                      }
-                    }}
-                    placeholder="Escribí un tag y presioná Enter (ej: refrigerado, importado)"
-                  />
-                </div>
-              </label>
-              {formData.tags.length > 0 && (
-                <div className="tags-chips-list">
-                  {formData.tags.map((tag) => (
-                    <span key={tag} className="tag-chip">
-                      #{tag}
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            tags: prev.tags.filter((t) => t !== tag),
-                          }))
-                        }
-                        title="Eliminar tag"
-                        aria-label={`Eliminar tag ${tag}`}
-                      >
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </div>
-            <label>
-              Ícono
-              <input
-                name="emoji"
-                maxLength={8}
-                value={formData.emoji}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, emoji: e.target.value }))
-                }
-              />
-            </label>
             <label className="retail-price-field">
-              Precio de venta ($)
+              Precio de venta por {saleUnit} ($)
               <input
                 name="price"
                 type="number"
@@ -1739,7 +1658,6 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, price: e.target.value }))
                 }
-                onBlur={handlePriceBlur}
                 placeholder="0.00"
               />
               {isCheckingPrice && (
@@ -1807,7 +1725,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               )}
             </label>
             <label>
-              Costo ($)
+              Costo por {saleUnit} ($)
               <input
                 name="cost"
                 type="number"
@@ -1822,7 +1740,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               />
             </label>
             <label>
-              Stock actual
+              Stock actual ({saleUnit === 'unidad' ? 'unidades' : saleUnit === 'litro' ? 'litros' : saleUnit === 'pack' ? 'packs' : saleUnit === 'caja' ? 'cajas' : saleUnit})
               <input
                 name="stock"
                 type="number"
@@ -1834,6 +1752,186 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   setFormData((prev) => ({ ...prev, stock: e.target.value }))
                 }
               />
+            </label>
+          </div>
+          <div hidden={guided} className="product-help-actions" aria-label="Ayudas opcionales para el producto">
+            <button type="button" className="text-button" disabled={busy || isSuggesting || (formData.name.trim().length < 2 && !formData.code.trim())} onClick={() => void suggestProductDetails()}>
+              <Sparkles size={14} aria-hidden="true" /> Sugerir datos
+            </button>
+            <button type="button" className="text-button" disabled={busy || isCheckingPrice} onClick={() => void reviewProductPrice()}>
+              Revisar precio
+            </button>
+            <button type="button" className="text-button" disabled={busy || isCheckingAnomalies} onClick={e => { if (editorRef.current?.reportValidity()) void handleSubmit(e, true); }}>
+              {isCheckingAnomalies ? 'Revisando…' : 'Revisar posibles errores'}
+            </button>
+            <small>Estas ayudas usan IA y son opcionales.</small>
+          </div>
+          {productSuggestionNote && <p className="product-help-note" role="status">{productSuggestionNote}</p>}
+          {priceReviewNote && <p className="product-help-note" role="status">{priceReviewNote}</p>}
+          {productReviewNote && <p className="product-help-note" role="status">{productReviewNote}</p>}
+          <details className="product-more-options" ref={productOptionsRef} open={productOptionsOpen} onToggle={event => setProductOptionsOpen(event.currentTarget.open)}>
+            <summary><strong>Más opciones</strong><span>{editing && productOptionsSummary ? productOptionsSummary : 'Categoría, proveedor, bultos y otros datos'}</span></summary>
+            <fieldset className="product-options-group">
+              <legend>Organización y proveedor</legend>
+              <div className="form-grid">
+            <label>
+              Categoría
+              <select
+                name="category"
+                value={formData.categoryId}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    categoryId: e.target.value,
+                  }))
+                }
+              >
+                {categories.map((c) => (
+                  <option value={c.id} key={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Marca
+              <input
+                name="brand"
+                maxLength={80}
+                value={formData.brand}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, brand: e.target.value }))
+                }
+                placeholder="Ej: Coca-Cola, Arcor, Bimbo"
+              />
+            </label>
+            <label>
+              Distribuidor
+              <input
+                name="supplier"
+                maxLength={100}
+                value={formData.supplier}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, supplier: e.target.value }))
+                }
+                placeholder="Ej: Distribuidora Norte SRL"
+              />
+            </label>
+            <label>
+              Cód. Proveedor
+              <input
+                name="supplierCode"
+                maxLength={50}
+                value={formData.supplierCode}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    supplierCode: e.target.value,
+                  }))
+                }
+                placeholder="Código del proveedor (opcional)"
+              />
+            </label>
+            <div className="product-tags-field">
+              <label>
+                Etiquetas / Tags
+                <div className="tags-input-wrapper">
+                  <input
+                    type="text"
+                    value={tagInput}
+                    onChange={(e) => setTagInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.nativeEvent.isComposing) return;
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        const tag = tagInput.trim().replace(/^#/, "");
+                        if (tag && !formData.tags.includes(tag)) {
+                          setFormData((prev) => ({
+                            ...prev,
+                            tags: [...prev.tags, tag],
+                          }));
+                        }
+                        setTagInput("");
+                      }
+                    }}
+                    placeholder="Escribí un tag y presioná Enter (ej: refrigerado, importado)"
+                  />
+                </div>
+              </label>
+              {formData.tags.length > 0 && (
+                <div className="tags-chips-list">
+                  {formData.tags.map((tag) => (
+                    <span key={tag} className="tag-chip">
+                      #{tag}
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            tags: prev.tags.filter((t) => t !== tag),
+                          }))
+                        }
+                        title="Eliminar tag"
+                        aria-label={`Eliminar tag ${tag}`}
+                      >
+                        <X size={12} />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <label>
+              Ícono
+              <input
+                name="emoji"
+                maxLength={8}
+                value={formData.emoji}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, emoji: e.target.value }))
+                }
+              />
+            </label>
+              </div>
+            </fieldset>
+            <fieldset className="product-options-group">
+              <legend>Presentación y avisos</legend>
+              <div className="form-grid">
+            <label>
+              Unidad
+              <select
+                name="unitType"
+                value={formData.unitType}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    unitType: e.target.value as
+                      | "unit"
+                      | "kg"
+                      | "lt"
+                      | "pack"
+                      | "box",
+                  }))
+                }
+              >
+                <option value="unit">Unidad (unit)</option>
+                <option value="kg">Kilo (kg)</option>
+                <option value="lt">Litro (lt)</option>
+                <option value="pack">Pack (pack)</option>
+                <option value="box">Caja (box)</option>
+              </select>
+            </label>
+            <label title="Cuántas unidades tiene cada bulto que comprás. Al reponer podés ingresar la cantidad de bultos y el sistema multiplica.">
+              Unidades por bulto/pack
+              <input name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onChange={e => setFormData(prev => ({ ...prev, packSize: e.target.value }))} />
+              <small>El precio, el costo y el stock se expresan por {saleUnit}. El bulto se usa para convertir cantidades al reponer.</small>
+            </label>
+            <label>Grupo de margen
+              <select name="margin_group" value={formData.marginGroup} onChange={e => setFormData(prev => ({ ...prev, marginGroup: e.target.value as 'standard' | 'low_margin' }))}>
+                <option value="standard">Estándar</option>
+                <option value="low_margin">Bajo margen (Cigarrillos, Cargas, etc.)</option>
+              </select>
+              <small>Separa estos productos del análisis principal de rentabilidad.</small>
             </label>
             <label>
               Avisar cuando queden
@@ -1849,25 +1947,20 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 }
               />
             </label>
-          </div>
+              </div>
+            </fieldset>
+          </details>
           <div className="button-row">
             <button
               className="primary-button"
-              disabled={busy || isCheckingAnomalies}
+              disabled={busy}
             >
-              {isCheckingAnomalies ? (
-                <>
-                  <Loader2 size={16} className="ai-spin-icon" />
-                  <span>Auditando con IA…</span>
-                </>
-              ) : (
-                "Guardar producto"
-              )}
+              Guardar producto
             </button>
             <button
               type="button"
               className="secondary-button"
-              disabled={busy || isCheckingAnomalies}
+              disabled={busy}
               onClick={cancelEdit}
             >
               Cancelar
@@ -2096,11 +2189,11 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           className="ai-modal-backdrop"
           role="dialog"
           aria-modal="true"
-          aria-labelledby="csv-modal-title"
+          aria-labelledby={csvTitleId}
         >
           <div className="ai-modal-card csv-modal-card">
             <div className="ai-modal-header">
-              <div className="ai-modal-title" id="csv-modal-title">
+              <div className="ai-modal-title" id={csvTitleId}>
                 <FileSpreadsheet size={20} className="ai-brand-icon" />
                 <h3>Carga Masiva de Stock (CSV / Excel)</h3>
               </div>
@@ -2896,6 +2989,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         />
       )}
 
+      <div hidden={guided}>
       <div className="catalog-search-toolbar"><label className="filter-label">
         Buscar productos
         <input
@@ -2987,6 +3081,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </table>
       </div>
       {filtered.length > visibleCount && <div className="load-more"><span>{visibleCount} de {filtered.length} productos</span><button className="secondary-button" onClick={() => setVisibleCount(n => n + 50)}>Ver más productos</button></div>}
+      </div>
     </div>
   );
 }
@@ -3032,26 +3127,26 @@ function RegisterRow({
   onDelete: () => Promise<boolean>;
   busy: boolean;
 }) {
-  const [value, setValue] = useState(register.name);
   const [confirmDelete, setConfirmDelete] = useState(false);
   return (
-    <div className="register-row">
+    <SettingsEditor busy={busy} label={`Editar ${register.name}`} summary={<strong>{register.name}</strong>} onClose={() => setConfirmDelete(false)}>
+      {close => <div className="register-row">
       <form
         className="inline-form"
         style={{ flex: 1 }}
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
-          void onSave(value);
+          if (await onSave(String(new FormData(e.currentTarget).get('name')))) close();
         }}
       >
         <input
           aria-label={`Nombre de caja ${register.name}`}
-          value={value}
-          onChange={(e) => setValue(e.target.value)}
+          name="name"
+          defaultValue={register.name}
           required
           maxLength={80}
         />
-        <button className="secondary-button" disabled={busy || value === register.name}>
+        <button className="secondary-button" disabled={busy}>
           Guardar
         </button>
       </form>
@@ -3090,7 +3185,8 @@ function RegisterRow({
           </button>
         </div>
       )}
-    </div>
+    </div>}
+    </SettingsEditor>
   );
 }
 export function StoreSettings({
@@ -3105,7 +3201,9 @@ export function StoreSettings({
   userId,
   run,
   busy,
-  initialView = 'general',
+  view,
+  onViewChange,
+  onOpenPrices,
 }: {
   store: Store;
   categories: Category[];
@@ -3118,26 +3216,48 @@ export function StoreSettings({
   userId: string;
   run: Run;
   busy: boolean;
-  initialView?: string;
+  view: string;
+  onViewChange: (view: string) => void;
+  onOpenPrices: () => void;
 }) {
-  const [view, setView] = useState(initialView);
+  const setView = onViewChange;
+  const [manageLocations, setManageLocations] = useState(false);
+  const [appVisited, setAppVisited] = useState(view === 'app');
+  useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
+  const activeRegisters = registers.filter(r => r.active);
+  const singleLocation = branches.length === 1 && activeRegisters.length === 1;
+  const primaryView = ['general', 'locations', 'team'].includes(view) ? view : 'more';
+  const openLocations = () => { setManageLocations(true); setView('locations'); };
+  if (role !== 'owner' && role !== 'admin') return null;
   return (
-    <div className="settings-workspace">
-      <SectionNav name="settings" label="Secciones de configuración" value={view} onChange={setView} disabled={busy} sections={[{ id: 'general', label: 'General' }, { id: 'locations', label: 'Sucursales y cajas' }, { id: 'ledgers', label: 'Registros de ventas' }, { id: 'app', label: 'App y avisos' }, ...(role === 'owner' || role === 'admin' ? [{ id: 'team', label: 'Equipo y permisos' }] : [])]} />
-      <div hidden={view !== 'app'} role="tabpanel" id="settings-panel-app" aria-labelledby="settings-tab-app">
-        {view === 'app' && <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />}
+    <SettingsEditorGroup><div className="settings-workspace">
+      <SectionNav name="settings" label="Secciones de configuración" value={primaryView} onChange={setView} disabled={busy} sections={[{ id: 'general', label: 'Datos del comercio' }, { id: 'locations', label: 'Locales y cajas' }, { id: 'team', label: 'Personas con acceso' }, { id: 'more', label: 'Más opciones' }]} />
+      <div hidden={primaryView !== 'more'} role="tabpanel" id="settings-panel-more" aria-labelledby="settings-tab-more">
+        <section className="retail-panel">
+          <h2>Más opciones</h2>
+          <div className="business-controls">
+            <button type="button" className="secondary-button" disabled={busy} onClick={onOpenPrices}>Listas de precios · Abrir en Productos</button>
+            <button type="button" className="secondary-button" disabled={busy} aria-pressed={view === 'ledgers'} onClick={() => setView('ledgers')}>Registros de ventas</button>
+            <button type="button" className="secondary-button" disabled={busy} aria-pressed={view === 'app'} onClick={() => setView('app')}>App y avisos</button>
+            <button type="button" className="secondary-button" disabled={busy} aria-pressed={view === 'more'} onClick={() => setView('more')}>Categorías propias</button>
+          </div>
+          <p>Organizá precios y ventas, instalá la app o elegí qué notificaciones recibir.</p>
+        </section>
+      </div>
+      <div hidden={view !== 'app'} role="region" aria-label="App y avisos">
+        {(appVisited || view === 'app') && <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />}
       </div>
       <div className="settings-grid" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
       <section className="retail-panel">
-        <h2>Identidad del comercio</h2>
-        <p>Estos datos aparecen en el mostrador y los tickets.</p>
-        <form
+        <h2>Datos del comercio</h2>
+        <p><strong>{store.name}</strong>{store.address && <> · {store.address}</>}{store.phone && <> · {store.phone}</>}</p>
+        <SettingsEditor label="Editar datos del comercio" busy={busy}>
+        {close => <form
           className="retail-form"
-          key={JSON.stringify(store)}
-          onSubmit={(e) => {
+          onSubmit={async (e) => {
             e.preventDefault();
             const f = new FormData(e.currentTarget);
-            void run(
+            if (await run(
               () =>
                 retail.updateStore(store.id, {
                   name: String(f.get("name")).trim(),
@@ -3147,7 +3267,7 @@ export function StoreSettings({
                   accent_color: String(f.get("color")),
                 }),
               "Comercio actualizado",
-            );
+            )) close();
           }}
         >
           <label>
@@ -3191,25 +3311,36 @@ export function StoreSettings({
           <button className="primary-button" disabled={busy}>
             Guardar cambios
           </button>
-        </form>
+        </form>}
+        </SettingsEditor>
       </section>
       <section className="retail-panel">
+        <h2>Locales y cajas</h2>
+        <p>{singleLocation ? `${branches[0].name} · ${activeRegisters[0].name}` : `${branches.length} sucursales · ${activeRegisters.length} cajas de cobro`}</p>
+        <button type="button" className="secondary-button" disabled={busy} onClick={openLocations}>Administrar locales y cajas</button>
+        <h2>Personas con acceso</h2>
+        <p>{members.length} {members.length === 1 ? 'persona con acceso' : 'personas con acceso'} · {invitations.length} accesos pendientes. Si trabajás por tu cuenta, no necesitás agregar personas.</p>
+        <button type="button" className="secondary-button" disabled={busy} onClick={() => setView('team')}>Administrar personas</button>
+      </section>
+      </div>
+      <section className="retail-panel" hidden={view !== 'more'}>
         <h2>Categorías propias</h2>
         <p>Organizá el catálogo según tu actividad.</p>
         {categories.map((c) => (
-          <RenameRow
-            key={c.id + c.name}
+          <SettingsEditor key={c.id} label={`Editar ${c.name}`} summary={<strong>{c.name}</strong>} busy={busy}>{close => <RenameRow
             name={c.name}
             busy={busy}
-            onSave={(name) =>
-              run(
+            onSave={async (name) => {
+              const saved = await run(
                 () => retail.renameCategory(store.id, c.id, name),
                 "Categoría actualizada",
-              )
-            }
-          />
+              );
+              if (saved) close();
+              return saved;
+            }}
+          />}</SettingsEditor>
         ))}
-        <form
+        <SettingsEditor label="Agregar categoría" busy={busy}>{close => <form
           className="inline-form"
           onSubmit={async (e) => {
             e.preventDefault();
@@ -3221,7 +3352,7 @@ export function StoreSettings({
                 "Categoría agregada",
               )
             )
-              form.reset();
+              close();
           }}
         >
           <input
@@ -3234,18 +3365,22 @@ export function StoreSettings({
           <button className="primary-button" disabled={busy}>
             Agregar
           </button>
-        </form>
+        </form>}</SettingsEditor>
       </section>
-      </div>
-      <div className="settings-grid" hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
+      <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
+      {singleLocation && !manageLocations && <section className="retail-panel">
+        <h2>Locales y cajas</h2><p>{branches[0].name} · {activeRegisters[0].name}</p>
+        <button type="button" className="secondary-button" disabled={busy} onClick={openLocations}>Administrar locales y cajas</button>
+      </section>}
+      <div className="settings-grid" hidden={singleLocation && !manageLocations}>
       <BranchSettings storeId={store.id} branches={branches} run={run} busy={busy} />
       <section className="retail-panel">
-        <h2>Cajas por sucursal</h2>
-        <p>Cada caja tiene sus propios turnos, ventas y movimientos. Eliminar una caja la desactiva sin borrar el historial.</p>
+        <h2>Cajas de cobro</h2>
+        <p>Los puestos desde donde atendés. Cada caja pertenece a una sucursal y tiene sus propios turnos. Eliminar una caja la desactiva sin borrar el historial.</p>
         {registers.filter(r => r.active).map((r) => (
           <div key={r.id}><small>{branches.find(b => b.id === r.branch_id)?.name}</small>
           <RegisterRow
-            key={r.id + r.name}
+            key={r.id}
             register={r}
             busy={busy}
             onSave={(name) =>
@@ -3263,7 +3398,8 @@ export function StoreSettings({
           />
           </div>
         ))}
-        <form
+        {!branches.length && <p>Agregá una sucursal para poder crear una caja.</p>}
+        <SettingsEditor label="Agregar caja" busy={busy || !branches.length}>{close => <form
           className="inline-form"
           onSubmit={async (e) => {
             e.preventDefault();
@@ -3275,29 +3411,31 @@ export function StoreSettings({
                 "Caja agregada",
               )
             )
-              form.reset();
+              close();
           }}
         >
-          <input
+          <label>Nombre de la caja<input
             name="name"
             aria-label="Nueva caja"
             placeholder="Ej. Mostrador 2"
             required
             maxLength={80}
-          />
-          <select name="branch" aria-label="Sucursal de la nueva caja" required>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
+          /></label>
+          {branches.length === 1 ? <span>Sucursal: {branches[0].name}<input type="hidden" name="branch" value={branches[0].id} /></span> : <label>Sucursal<select name="branch" required>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>}
           <button className="primary-button" disabled={busy}>
             Agregar
           </button>
-        </form>
+        </form>}</SettingsEditor>
       </section>
       </div>
-      <div hidden={view !== 'ledgers'} role="tabpanel" id="settings-panel-ledgers" aria-labelledby="settings-tab-ledgers"><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>
+      </div>
+      <div hidden={view !== 'ledgers'} role="region" aria-label="Registros de ventas"><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>
       {(role === "owner" || role === "admin") && (
         <section className="retail-panel" hidden={view !== 'team'} role="tabpanel" id="settings-panel-team" aria-labelledby="settings-tab-team">
-          <h2>Equipo y permisos</h2>
-          <p>Asigná a cada cajero dónde puede trabajar. Las cajas de atención son los puntos de venta, no los registros de facturación.</p>
-          {role === 'owner' && <StaffAccessForm storeId={store.id} run={run} busy={busy} />}
+          <h2>Personas con acceso</h2>
+          <p>{members.length} personas con acceso · {invitations.length} pendientes. Agregá personas solo si alguien más trabaja con vos.</p>
+          <p>Asigná a cada cajero la sucursal y la caja donde puede trabajar. La caja es el puesto desde donde cobra; el registro de ventas agrupa las ventas.</p>
+          {role === 'owner' ? <SettingsEditor label="Agregar persona" busy={busy}>{() => <StaffAccessForm storeId={store.id} run={run} busy={busy} />}</SettingsEditor> : <p>El propietario puede agregar personas. Vos podés administrar las asignaciones de los cajeros.</p>}
           <h3>Accesos pendientes</h3>
           {invitations.length ? (
             invitations.map((i) => (
@@ -3322,7 +3460,7 @@ export function StoreSettings({
                   Revocar
                 </button>}
               </div>
-              {i.role === 'cashier' && <CashierAccess key={`${i.id}:${i.branch_id}:${i.register_id}`} storeId={store.id} targetId={i.id} email={i.email} branchId={i.branch_id} registerId={i.register_id} branches={branches} registers={registers} pending busy={busy} run={run} />}
+              {i.role === 'cashier' && <SettingsEditor label={`Editar asignación de ${i.email}`} summary={<small>{branches.find(b => b.id === i.branch_id)?.name || 'Todas las sucursales'} · {registers.find(r => r.id === i.register_id)?.name || 'Todas las cajas permitidas'}</small>} busy={busy}>{() => <CashierAccess storeId={store.id} targetId={i.id} email={i.email} branchId={i.branch_id} registerId={i.register_id} branches={branches} registers={registers} pending busy={busy} run={run} />}</SettingsEditor>}
               </div>
             ))
           ) : (
@@ -3364,11 +3502,11 @@ export function StoreSettings({
                 </button>
               )}
             </div>
-            {m.role === 'cashier' && <CashierAccess key={`${m.user_id}:${m.branch_id}:${m.register_id}`} storeId={store.id} targetId={m.user_id} email={m.email} branchId={m.branch_id} registerId={m.register_id} branches={branches} registers={registers} busy={busy} run={run} />}
+            {m.role === 'cashier' && <SettingsEditor label={`Editar asignación de ${m.email}`} summary={<small>{branches.find(b => b.id === m.branch_id)?.name || 'Todas las sucursales'} · {registers.find(r => r.id === m.register_id)?.name || 'Todas las cajas permitidas'}</small>} busy={busy}>{() => <CashierAccess storeId={store.id} targetId={m.user_id} email={m.email} branchId={m.branch_id} registerId={m.register_id} branches={branches} registers={registers} busy={busy} run={run} />}</SettingsEditor>}
             </div>
           ))}
         </section>
       )}
-    </div>
+    </div></SettingsEditorGroup>
   );
 }

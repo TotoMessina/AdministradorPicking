@@ -3,7 +3,7 @@
   :root { --mobile-ease: cubic-bezier(.2,.8,.2,1); }
   html { scroll-padding-top: calc(88px + env(safe-area-inset-top)); }
   body { background: var(--tone-canvas); }
-  body:has(.ai-modal-backdrop, .invoice-overlay, .push-welcome-backdrop, .receipt-modal-backdrop, .ai-omni-backdrop) { overflow: hidden; }
+  body:has(:is(.ai-modal-backdrop, .invoice-overlay, .push-welcome-backdrop, .receipt-modal-backdrop, .ai-omni-backdrop):not([hidden], [hidden] *)) { overflow: hidden; }
   .app-sidebar {
     position: sticky; top: 0; z-index: 110;
     padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
@@ -29,6 +29,7 @@
     transition: transform 280ms var(--mobile-ease), width 200ms var(--mobile-ease);
   }
   .nav-item { position: relative; border-radius: 15px; min-height: 52px; font-size: 10px; user-select: none; }
+  .app-sidebar nav:not(:has(.nav-item.active))::before { opacity: 0; }
   .nav-item.active, .nav-item.active:hover:not(:disabled) { background: transparent; }
   .nav-item svg { transition: transform 220ms var(--mobile-ease); }
   .nav-item.active svg { transform: translateY(-1px) scale(1.08); }
@@ -60,6 +61,19 @@
   .payment-methods button { border-radius: 13px; min-height: 66px; }
   .primary-button, .secondary-button { border-radius: 12px; min-height: 44px; }
   .checkout-button { min-height: 52px; border-radius: 15px; }
+  .pos-sale-context { width: 100%; }
+  .pos-layout .catalog-step { display: flex; }
+  .pos-layout .cart-items { max-height: min(36dvh, 300px); }
+  .pos-layout .checkout-heading { margin-bottom: 12px; }
+  .pos-layout .total-line { padding-bottom: 12px; margin-bottom: 14px; }
+  .pos-layout .payment-methods { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .pos-layout .payment-methods button { min-height: 52px; flex-direction: row; flex-wrap: wrap; }
+  .pos-layout .cash-input input, .pos-layout .mixed-payment input { scroll-margin-block: 100px; }
+  .cash-task-actions { gap: 8px; }
+  .cash-task-choice { padding: 16px 12px; min-height: 110px; }
+  .cash-task-choice strong { font-size: 14px; }
+  .cash-task-choice span { font-size: 12px; }
+  .cash-task-panel .retail-form > .primary-button { width: 100%; min-height: 50px; }
   .mobile-cart-bar {
     border-radius: 20px; padding: 12px 16px; background: var(--tone-accent); color: white;
     border-color: transparent; box-shadow: 0 8px 24px #1c243026;
@@ -113,6 +127,8 @@
   /* Keep navigation out of the keyboard's way; retain normal scrolling and zoom. */
   html[data-mobile-keyboard] .app-sidebar nav, html[data-mobile-keyboard] .mobile-cart-bar { visibility: hidden; pointer-events: none; }
   html[data-mobile-keyboard] .main-content { padding-bottom: 24px; }
+  html[data-mobile-keyboard] .pos-layout .cart-items { max-height: 120px; }
+  html[data-mobile-keyboard] .pos-layout .sale-panel { max-height: none; overflow: visible; }
   html[data-mobile-keyboard] .ai-modal-backdrop,
   html[data-mobile-keyboard] .invoice-overlay,
   html[data-mobile-keyboard] .push-welcome-backdrop,

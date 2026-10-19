@@ -1,6 +1,7 @@
 import { supabase, isValidUUID } from "../../lib/supabase";
 import type { KioscoProduct, KioscoSale } from "../../types/kiosco";
 import { syncOffline, withOffline } from './offline';
+import { createStoreOnce, onboarding } from './onboarding';
 import { movementDetails, VOUCHER_BUCKET, voucherExtension, voucherMimeType, voucherPath, voucherReference } from './vouchers';
 import { REMITO_BUCKET, remitoExtension, remitoPath, remitoReference, type PendingReplenishment, type PendingReplenishmentItem } from './remitos';
 export type { PendingReplenishment, PendingReplenishmentItem } from './remitos';
@@ -124,6 +125,13 @@ export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
   if (e?.code === '23505' && e.message?.includes('retail_one_active_price_list_per_branch'))
     return 'Esta sucursal ya tiene una lista activa. Desactivala o cambiala a global antes de asignar otra.';
+  if (e?.code === 'PGRST204' || e?.code === '42703') {
+    if (e.message?.includes('margin_group'))
+      return 'Falta actualizar la base de datos: ejecutá completa la migración 202610160004_margin_groups.sql en el SQL Editor de Supabase. Después, actualizá la pantalla y volvé a guardar. El producto no se guardó.';
+    if (e.message?.includes('pack_size'))
+      return 'Falta actualizar la base de datos: ejecutá completa la migración 202610160003_pack_size.sql en el SQL Editor de Supabase. Después, actualizá la pantalla y volvé a guardar. El producto no se guardó.';
+    return `La base de datos no tiene una columna que necesita esta versión. Revisá las migraciones pendientes en SUPABASE_SETUP.md. ${e.message || ''}`;
+  }
   if (e?.code === "PGRST205" || e?.code === "PGRST202" || e?.code === "42P01")
     return "Falta instalar la base de datos. Ejecutá la migración SQL indicada en SUPABASE_SETUP.md y volvé a intentar.";
   if (e?.code === "PGRST116")
@@ -241,9 +249,7 @@ const remoteRetail = {
     return result(supabase.rpc("retail_accept_invitations"));
   },
   async createStore(name: string) {
-    return result<string>(
-      supabase.rpc("retail_create_store", { p_name: name }),
-    );
+    return createStoreOnce(name);
   },
   async role(store: string, user: string) {
     const data = await result<{ role: Role }>(
@@ -596,6 +602,10 @@ const remoteRetail = {
         p_opening: opening,
       }),
     );
+  },
+  async openOnboardingShift(store: string, register: string, opening: number) {
+    await syncOffline();
+    return onboarding.open(store, register, opening);
   },
   async closeShift(shift: string, counted: number) {
     return result<number>(

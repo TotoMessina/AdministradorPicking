@@ -1,11 +1,26 @@
 begin;
+-- May be rerun to finish a manual installation without deleting existing values.
 alter table public.retail_products
- add column margin_group text default 'standard' check(margin_group in ('standard','low_margin'));
+ add column if not exists margin_group text default 'standard';
+alter table public.retail_products alter column margin_group set default 'standard';
+
+do $migration$
+begin
+ if not exists (
+  select 1 from pg_catalog.pg_constraint
+  where conrelid='public.retail_products'::regclass
+    and conname='retail_products_margin_group_check'
+ ) then
+  alter table public.retail_products
+   add constraint retail_products_margin_group_check check(margin_group in ('standard','low_margin'));
+ end if;
+end;
+$migration$;
 grant update(margin_group) on public.retail_products to authenticated;
 
 -- A ticket may contain both groups. Capture the server's product data per line,
 -- independently of its sales ledger, so later edits do not rewrite profitability.
-create function retail_private.snapshot_margin_items() returns trigger
+create or replace function retail_private.snapshot_margin_items() returns trigger
 language plpgsql security definer set search_path='' as $$
 declare v_item jsonb; v_product public.retail_products; v_items jsonb:='[]'::jsonb;
 begin
@@ -23,6 +38,8 @@ begin
  return new;
 end $$;
 revoke all on function retail_private.snapshot_margin_items() from public,anon,authenticated;
+-- Recreate this migration's trigger atomically; existing sales are untouched.
+drop trigger if exists retail_snapshot_margin_items on public.retail_sales;
 create trigger retail_snapshot_margin_items before insert on public.retail_sales
  for each row execute function retail_private.snapshot_margin_items();
 notify pgrst,'reload schema';

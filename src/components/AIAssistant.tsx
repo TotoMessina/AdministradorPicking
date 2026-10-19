@@ -351,7 +351,7 @@ export function AIAssistant({
 
   // Autoscroll when messages change
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    messagesEndRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
   }, [messages, isStreaming]);
 
   // Clean up streaming on unmount
@@ -632,6 +632,7 @@ ${JSON.stringify(contextPayload, null, 2)}`;
           await groqStream(
             apiMessages,
             (delta: string) => {
+              if (controller.signal.aborted) return;
               currentResponse += delta;
               setMessages((prev) => {
                 if (prev.length === 0) return prev;

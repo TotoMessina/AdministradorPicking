@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { AlertCircle, Bot, Loader2, Sparkles } from "lucide-react";
 import type { KioscoSale } from "../../types/kiosco";
 import { groqChat } from "../../services/groqService";
@@ -30,6 +30,14 @@ export function CashDesk({
   occupiedByOther = false,
   cashierMode = false,
   onSell,
+  active = true,
+  openFromSale = false,
+  onOpened,
+  hasPendingSale = false,
+  openShift = retail.openShift,
+  openingOnly = false,
+  closeRequest = 0,
+  onCloseRequestHandled,
 }: {
   storeId: string;
   register: Register | undefined;
@@ -45,12 +53,43 @@ export function CashDesk({
   occupiedByOther?: boolean;
   cashierMode?: boolean;
   onSell?: () => void;
+  active?: boolean;
+  openFromSale?: boolean;
+  onOpened?: () => void;
+  hasPendingSale?: boolean;
+  openShift?: (store: string, register: string, opening: number) => Promise<unknown>;
+  openingOnly?: boolean;
+  closeRequest?: number;
+  onCloseRequestHandled?: () => void;
 }) {
+  const taskId = useId();
+  const [task, setTask] = useState<'movement' | 'close' | ''>('');
+  const taskPanel = useRef<HTMLDivElement>(null);
+  const taskActions = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (active && closeRequest) {
+      setTask('close');
+      onCloseRequestHandled?.();
+    }
+  }, [active, closeRequest, onCloseRequestHandled]);
+  useEffect(() => {
+    if (active && task) taskPanel.current?.querySelector<HTMLElement>('section:not([hidden]) h2')?.focus();
+  }, [active, task]);
+  const returnToActions = () => {
+    const previous = task;
+    setTask('');
+    taskActions.current?.querySelector<HTMLButtonElement>(`button[data-task="${previous}"]`)?.focus();
+  };
+  const openingRef = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (active && openFromSale && !shift && !occupiedByOther) openingRef.current?.focus();
+  }, [active, openFromSale, shift, occupiedByOther]);
   const [counted, setCounted] = useState("");
   const [historyShift, setHistoryShift] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const aiController = useRef<AbortController | null>(null);
   const [movementBusy, setMovementBusy] = useState(false);
   const [serverBalance, setServerBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState('');
@@ -65,8 +104,11 @@ export function CashDesk({
 
   // Reset analysis when shift changes
   useEffect(() => {
+    aiController.current?.abort();
+    setIsAiLoading(false);
     setAiAnalysis(null);
     setAiError(null);
+    return () => aiController.current?.abort();
   }, [shift?.id]);
 
   const cash = sales
@@ -82,9 +124,12 @@ export function CashDesk({
     ));
 
   const handleAnalyzeShift = async () => {
-    if (cashierMode) return;
+    if (cashierMode || !shift || isAiLoading) return;
+    const controller = new AbortController();
+    aiController.current = controller;
     setIsAiLoading(true);
     setAiError(null);
+    setAiAnalysis(null);
 
     try {
       // 1. Calculate top selling product(s) from sales[].items
@@ -166,40 +211,36 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
       const response = await groqChat([
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
-      ]);
+      ], { signal: controller.signal });
 
-      setAiAnalysis(response);
+      if (!controller.signal.aborted) setAiAnalysis(response);
     } catch (err) {
+      if (controller.signal.aborted) return;
       setAiError(
         err instanceof Error
           ? err.message
           : "No se pudo completar el análisis del turno."
       );
     } finally {
-      setIsAiLoading(false);
+      if (!controller.signal.aborted) setIsAiLoading(false);
     }
   };
 
   return (
     <div className="cash-workspace">
-      {cashierMode && <div className="info-banner cashier-guide">
-        <strong>Tu jornada en tres pasos</strong>
-        <span>1. Abrí tu turno con el efectivo inicial. 2. Registrá las ventas en Vender. 3. Contá el efectivo y confirmá el cierre.</span>
-        <small>Acá ves tus turnos, ventas, ingresos y retiros. Los movimientos de otros usuarios son privados.</small>
-        {canOperate && onSell && <button type="button" className="primary-button" onClick={onSell}>Ir a vender</button>}
-      </div>}
       {balanceError && <p className="error-banner" role="alert">No se pudo consultar el saldo del turno. Tocá Actualizar antes de cerrar. {balanceError}</p>}
       <div className="section-heading">
         <div>
-          <h2>{register?.name || "Seleccioná una caja"}</h2>
+          <h2>{shift ? 'Tu turno' : 'Empezar a trabajar'}</h2>
           <p>
             {shift
-              ? `Turno abierto · ${new Date(shift.opened_at).toLocaleString("es-AR")}`
-              : "Abrí un turno para registrar ventas y movimientos."}
+              ? `Desde ${new Date(shift.opened_at).toLocaleString("es-AR")}`
+              : "Confirmá el efectivo inicial antes de vender."}
           </p>
         </div>
+        {canOperate && onSell && <button type="button" className="secondary-button" disabled={busy} onClick={onSell}>Volver a Vender</button>}
         <button
-          className="secondary-button"
+          className="text-button"
           onClick={onRefresh}
           disabled={busy}
         >
@@ -207,26 +248,28 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
         </button>
       </div>
       {!shift ? (
-        <section className="retail-panel">
+        <section className="retail-panel cash-opening">
           <h2>Abrir turno</h2>
+          <p>Tu turno es el tiempo que trabajás en esta caja. Ingresá el efectivo que hay antes de empezar.</p>
           {occupiedByOther && <p className="info-banner" role="status">Esta caja está ocupada. Elegí otra caja disponible o esperá a que cierre el turno actual y tocá Actualizar.</p>}
           <form
             className="retail-form"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               const opening = Number(
                 new FormData(e.currentTarget).get("opening"),
               );
-              if (register && !occupiedByOther)
-                void run(
-                  () => retail.openShift(storeId, register.id, opening),
+              if (register?.active && !occupiedByOther && !busy && await run(
+                  () => openShift(storeId, register.id, opening),
                   "Turno abierto",
-                );
+                )) onOpened?.();
             }}
           >
             <label>
               Efectivo inicial ($)
               <input
+                ref={openingRef}
+                disabled={busy || !register?.active || occupiedByOther}
                 name="opening"
                 type="number"
                 min="0"
@@ -236,7 +279,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               />
             </label>
             <button className="primary-button" disabled={busy || !register || occupiedByOther || !register.active}>
-              Abrir {register?.name || "caja"}
+              Abrir turno
             </button>
           </form>
         </section>
@@ -247,79 +290,45 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               Esta caja no está disponible para operar. Actualizá los datos y seleccioná una caja habilitada.
             </div>
           )}
-          <div className="cash-metrics">
-            <div>
-              <small>Fondo inicial</small>
-              <strong>{money(shift.opening_cash)}</strong>
-            </div>
-            {cashierMode ? (
-              <>
-                <div>
-                  <small>Ventas del turno</small>
-                  <strong>{sales.length} {sales.length === 1 ? 'ticket' : 'tickets'}</strong>
-                </div>
-                <div>
-                  <small>QR, transferencias y tarjetas</small>
-                  <strong>{money(electronic)}</strong>
-                </div>
-                <div className="blind-audit-metric-card">
-                  <small>Modalidad de arqueo</small>
-                  <strong className="blind-audit-status">
-                    <span className="blind-audit-dot" aria-hidden="true" />
-                    Arqueo a ciegas
-                  </strong>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <small>Ventas en efectivo</small>
-                  <strong>{money(cash)}</strong>
-                </div>
-                <div>
-                  <small>QR, transferencias y tarjetas</small>
-                  <strong>{money(electronic)}</strong>
-                </div>
-                <div>
-                  <small>Efectivo esperado</small>
-                  <strong>{money(expected)}</strong>
-                </div>
-              </>
-            )}
-          </div>
+          {canOperate && <div className="cash-task-actions" ref={taskActions} aria-label="Acciones de tu turno">
+            <button type="button" className="cash-task-choice" data-task="movement" aria-expanded={task === 'movement'} aria-controls={`${taskId}-movement`} disabled={busy || movementBusy} onClick={() => setTask('movement')}>
+              <strong>Registrar ingreso o retiro</strong><span>Movimientos de efectivo durante el turno.</span>
+            </button>
+            <button type="button" className="cash-task-choice" data-task="close" aria-expanded={task === 'close'} aria-controls={`${taskId}-close`} disabled={busy || movementBusy} onClick={() => setTask('close')}>
+              <strong>Cerrar turno</strong><span>Contá el efectivo y guardá tu cierre.</span>
+            </button>
+          </div>}
           {canOperate && (
-            <div className="settings-grid">
-              <section className="retail-panel">
-                <h2>Registrar movimiento</h2>
+            <div className="cash-task-panels" ref={taskPanel} hidden={!task}>
+              {task && <button type="button" className="text-button" disabled={busy || movementBusy} onClick={returnToActions}>Volver a las acciones · conservar borrador</button>}
+              <section className="retail-panel cash-task-panel" id={`${taskId}-movement`} hidden={task !== 'movement'}>
+                <h2 tabIndex={-1}>Registrar ingreso o retiro</h2>
                 <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} run={run} onBusyChange={setMovementBusy} />
               </section>
-              <section className="retail-panel">
-                <h2>Cerrar turno</h2>
+              <section className="retail-panel cash-task-panel" id={`${taskId}-close`} hidden={task !== 'close'}>
+                <h2 tabIndex={-1}>Cerrar turno</h2>
                 {cashierMode ? (
                   <div className="blind-audit-indicator">
                     <div className="blind-audit-indicator-header">
                       <span className="blind-audit-badge">
-                        🔒 Arqueo a ciegas activo
+                        Conteo al cierre
                       </span>
                     </div>
                     <p className="blind-audit-text">
-                      Ingresá el total de efectivo físico que contaste en el cajón.
-                      Por seguridad y transparencia operativa, el sistema no muestra el saldo teórico esperado ni las diferencias calculadas;
-                      las diferencias (sobrantes o faltantes) quedan registradas únicamente para la administración.
+                      Contá el efectivo e ingresá el total. El administrador revisará las diferencias; vos no necesitás calcularlas.
                     </p>
                   </div>
                 ) : (
                   <small>El saldo esperado incluye todos los ajustes de tu turno, incluso los realizados por un administrador.</small>
                 )}
                 <p>
-                  Contá el dinero físico. El cierre guarda el arqueo y conserva
-                  todas las ventas.
+                  Ingresá todo el efectivo que contaste en esta caja. Al confirmar, se guarda el conteo y termina el turno.
                 </p>
                 <form
                   className="retail-form"
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (movementBusy || (cashierMode && serverBalance === null)) return;
+                    if (hasPendingSale || movementBusy || (cashierMode && serverBalance === null)) return;
                     if (
                       window.confirm(
                         `¿Cerrar el turno de ${register?.name} con ${money(Number(counted))} contados?`,
@@ -328,7 +337,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       if (
                         await run(
                           () => retail.closeShift(shift.id, Number(counted)),
-                          "Turno cerrado",
+                          `Turno cerrado. Conteo guardado: ${money(Number(counted))}.`,
                         )
                       ) {
                         setCounted("");
@@ -352,8 +361,8 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   {cashierMode ? (
                     <div className="info-banner blind-audit-banner">
                       {counted === ""
-                        ? "🔒 Ingresá el conteo físico para completar el arqueo."
-                        : `Efectivo físico declarado: ${money(Number(counted))}. El arqueo se auditará al registrar el cierre.`}
+                        ? "Ingresá el efectivo que contaste para cerrar el turno."
+                        : `Efectivo contado: ${money(Number(counted))}.`}
                     </div>
                   ) : (
                     <div className="info-banner">
@@ -364,6 +373,12 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     </div>
                   )}
 
+                  {hasPendingSale && <p role="status">Tenés una venta pendiente. Volvé a Vender para cobrarla o vaciarla antes de cerrar el turno.</p>}
+                  <button disabled={busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
+                    Confirmar cierre
+                  </button>
+                </form>
+                <div className="cash-optional-analysis" hidden={cashierMode}>
                   {!cashierMode && (
                     <button
                       type="button"
@@ -377,7 +392,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                           <span>Analizando turno con IA…</span>
                         </>
                       ) : (
-                        <span>🤖 Analizar turno con IA</span>
+                        <span>{aiError ? 'Reintentar explicación del turno' : 'Explicar este turno con IA'}</span>
                       )}
                     </button>
                   )}
@@ -430,15 +445,55 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     </div>
                   )}
 
-                  <button disabled={busy || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
-                    Confirmar cierre
-                  </button>
-                </form>
+                </div>
               </section>
             </div>
           )}
-          <section className="retail-panel">
-            <h2>Ventas del turno ({sales.length})</h2>
+          <details className="cash-summary retail-panel">
+          <summary>Consultar resumen del turno</summary>
+          <div className="cash-metrics">
+            <div>
+              <small>Efectivo inicial</small>
+              <strong>{money(shift.opening_cash)}</strong>
+            </div>
+            {cashierMode ? (
+              <>
+                <div>
+                  <small>Ventas del turno</small>
+                  <strong>{sales.length} {sales.length === 1 ? 'ticket' : 'tickets'}</strong>
+                </div>
+                <div>
+                  <small>QR, transferencias y tarjetas</small>
+                  <strong>{money(electronic)}</strong>
+                </div>
+                <div className="blind-audit-metric-card">
+                  <small>Al cerrar turno</small>
+                  <strong className="blind-audit-status">
+                    <span className="blind-audit-dot" aria-hidden="true" />
+                    Contá el efectivo
+                  </strong>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <small>Ventas en efectivo</small>
+                  <strong>{money(cash)}</strong>
+                </div>
+                <div>
+                  <small>QR, transferencias y tarjetas</small>
+                  <strong>{money(electronic)}</strong>
+                </div>
+                <div>
+                  <small>Efectivo esperado</small>
+                  <strong>{money(expected)}</strong>
+                </div>
+              </>
+            )}
+          </div>
+          </details>
+          <details className="retail-panel">
+            <summary>Ver ventas del turno ({sales.length})</summary>
             <div className="table-scroll">
               <table>
                 <thead>
@@ -477,9 +532,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 </tbody>
               </table>
             </div>
-          </section>
-          <section className="retail-panel">
-            <h2>Movimientos del turno</h2>
+          </details>
+          <details className="retail-panel">
+            <summary>Ver ingresos y retiros del turno</summary>
             {movements.map((m) => (
               <div key={m.id} className="team-row">
                 <span>
@@ -499,10 +554,11 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               </div>
             ))}
             {!movements.length && <p>No se registraron ingresos ni retiros.</p>}
-          </section>
+          </details>
         </>
       )}
-      <section className="retail-panel">
+      <details className="retail-panel cash-history" hidden={openingOnly}>
+        <summary>{cashierMode ? 'Consultar tus últimos cierres' : 'Consultar últimos cierres de esta caja'}</summary>
         {historyShift && (
           <ShiftHistory
             key={historyShift}
@@ -512,7 +568,6 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             onClose={() => setHistoryShift("")}
           />
         )}
-        <h2>{cashierMode ? 'Tus últimos cierres en esta caja' : 'Últimos cierres de esta caja'}</h2>
         <div className="table-scroll">
           <table>
             <thead>
@@ -567,7 +622,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             </tbody>
           </table>
         </div>
-      </section>
+      </details>
     </div>
   );
 }

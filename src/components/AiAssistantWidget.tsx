@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Sparkles, X, Send, Trash2, AlertCircle, ShoppingBag, Wallet, Package, Settings2 } from "lucide-react";
-import { groqStream, isRateLimitError, getRetryDelay, DEFAULT_MODEL, FALLBACK_FAST_MODEL } from "../services/groqService";
+import { groqStream } from "../services/groqService";
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import type { KioscoCartItem, KioscoProduct, KioscoSale, PaymentMethod } from "../types/kiosco";
@@ -9,7 +9,7 @@ import { summarizeMargins, marginPrompt } from '../features/retail/marginAnalyti
 
 interface Props {
   storeName?: string;
-  currentTab?: "pos" | "cash" | "catalog" | "settings";
+  currentTab?: "pos" | "cash" | "catalog" | "settings" | "remito" | "ai";
   products: KioscoProduct[];
   cart: KioscoCartItem[];
   total: number;
@@ -20,6 +20,7 @@ interface Props {
   role?: string;
   isOpen: boolean;
   onToggle: (open: boolean) => void;
+  onOpenFull?: () => void;
 }
 
 export function AiAssistantWidget({
@@ -35,11 +36,13 @@ export function AiAssistantWidget({
   role = "cajero",
   isOpen,
   onToggle,
+  onOpenFull,
 }: Props) {
   const [aiPrompt, setAiPrompt] = useState("");
   const [aiResponse, setAiResponse] = useState("");
   const [isAiLoading, setIsAiLoading] = useState(false);
   const [aiError, setAiError] = useState("");
+  const [lastQuery, setLastQuery] = useState('');
   const abortControllerRef = useRef<AbortController | null>(null);
   const responseAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -57,19 +60,14 @@ export function AiAssistantWidget({
   }, [aiResponse]);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && isOpen) {
-        onToggle(false);
-      }
+    if (!isOpen) return;
+    const previous = document.activeElement as HTMLElement | null;
+    inputRef.current?.focus();
+    return () => {
+      abortControllerRef.current?.abort();
+      setIsAiLoading(false);
+      if (previous?.isConnected && !previous.closest('[hidden]')) previous.focus();
     };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [isOpen, onToggle]);
-
-  useEffect(() => {
-    if (isOpen) {
-      setTimeout(() => inputRef.current?.focus(), 60);
-    }
   }, [isOpen]);
 
   // Dynamic preset chips based on current section
@@ -108,7 +106,8 @@ export function AiAssistantWidget({
 
   const handleSendQuery = async (queryText: string) => {
     const q = queryText.trim();
-    if (!q || isAiLoading) return;
+    if (!q || !isOpen || isAiLoading) return;
+    setLastQuery(q);
 
     setAiPrompt("");
     setAiError("");
@@ -193,74 +192,17 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
       { role: "user", content: q },
     ];
 
-    const MAX_RETRIES = 3;
-    let attempt = 0;
-    let chosenModel: string | undefined = undefined;
-
     try {
-      while (attempt <= MAX_RETRIES) {
-        if (controller.signal.aborted) return;
-
-        try {
-          await groqStream(
-            messages,
-            (chunk) => {
-              setAiResponse((prev) => prev + chunk);
-            },
-            { signal: controller.signal, maxTokens: 1000, model: chosenModel }
-          );
-          // Succeeded
-          break;
-        } catch (err) {
-          if (controller.signal.aborted) return;
-
-          const isRateLimit = isRateLimitError(err);
-          if (!isRateLimit || attempt >= MAX_RETRIES) {
-            const msg =
-              isRateLimit
-                ? "Se alcanzó temporalmente el límite por minuto de Groq en todos los intentos. Aguardá unos segundos y volvé a consultar."
-                : err instanceof Error
-                ? err.message
-                : "No se pudo consultar al asistente de Groq.";
-            setAiError(msg);
-            break;
-          }
-
-          attempt++;
-          const waitSecs = getRetryDelay(err, attempt === 1 ? 3 : attempt === 2 ? 5 : 7);
-
-          if (attempt >= 2 && !chosenModel && DEFAULT_MODEL !== FALLBACK_FAST_MODEL) {
-            chosenModel = FALLBACK_FAST_MODEL;
-          }
-
-          const modelNote = chosenModel === FALLBACK_FAST_MODEL ? " (probando modelo alternativo)" : "";
-
-          for (let s = waitSecs; s > 0; s--) {
-            if (controller.signal.aborted) return;
-            setAiResponse(
-              `⏳ Aguardando disponibilidad de tokens gratuitos (${s}s)... intento ${attempt} de ${MAX_RETRIES}${modelNote}`
-            );
-            await new Promise<void>((resolve) => {
-              const timer = setTimeout(() => {
-                controller.signal.removeEventListener("abort", onAbort);
-                resolve();
-              }, 1000);
-              function onAbort() {
-                clearTimeout(timer);
-                resolve();
-              }
-              controller.signal.addEventListener("abort", onAbort);
-            });
-          }
-
-          if (controller.signal.aborted) return;
-          setAiResponse("🔄 Reintentando con tokens disponibles...");
-        }
+      await groqStream(messages, chunk => {
+        if (!controller.signal.aborted) setAiResponse(previous => previous + chunk);
+      }, { signal: controller.signal, maxTokens: 1000 });
+    } catch (err) {
+      if (!controller.signal.aborted) {
+        setAiResponse('');
+        setAiError(err instanceof Error ? err.message : 'No se pudo completar la consulta. Reintentá cuando haya conexión.');
       }
     } finally {
-      if (!controller.signal.aborted) {
-        setIsAiLoading(false);
-      }
+      if (!controller.signal.aborted) setIsAiLoading(false);
     }
   };
 
@@ -272,10 +214,12 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
   };
 
   const tabLabels: Record<string, { label: string; icon: typeof ShoppingBag }> = {
-    pos: { label: "Mostrador", icon: ShoppingBag },
-    cash: { label: "Cajas y turnos", icon: Wallet },
+    pos: { label: "Vender", icon: ShoppingBag },
+    cash: { label: "Caja", icon: Wallet },
     catalog: { label: "Catálogo", icon: Package },
     settings: { label: "Mi comercio", icon: Settings2 },
+    remito: { label: "Remitos", icon: Package },
+    ai: { label: "Análisis del comercio", icon: Sparkles },
   };
 
   const currentTabInfo = tabLabels[currentTab] || tabLabels.pos;
@@ -292,25 +236,23 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
         />
       )}
 
-      {/* Floating Action Button - Omnipresent across all dimensions */}
-      <button
-        type="button"
-        className={`ai-omni-fab ${isOpen ? "is-active is-open" : ""} tab-${currentTab}`}
-        onClick={() => onToggle(!isOpen)}
-        aria-label={isOpen ? "Cerrar asistente IA" : "Abrir asistente IA"}
-        title={isOpen ? "Cerrar asistente IA" : "Abrir asistente IA"}
-      >
-        <span className="ai-omni-fab-glow" aria-hidden="true" />
-        <Sparkles size={18} className="ai-omni-fab-icon" />
-        <span className="ai-omni-fab-text">✨ IA</span>
-      </button>
-
       {/* Floating Copilot Window / Drawer */}
       {isOpen && (
         <aside
           className="ai-omni-drawer"
           aria-label="Panel del asistente IA"
-          role="complementary"
+          role="dialog"
+          aria-modal="true"
+          onKeyDown={e => {
+            e.stopPropagation();
+            if (e.key === 'Escape') { e.preventDefault(); onToggle(false); }
+            if (e.key === 'Tab') {
+              const controls = Array.from(e.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), input:not([disabled]), a[href], [tabindex="0"]'));
+              const first = controls[0]; const last = controls[controls.length - 1];
+              if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last?.focus(); }
+              else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first?.focus(); }
+            }
+          }}
         >
           <div className="ai-omni-drag-handle" aria-hidden="true" />
           {/* Header */}
@@ -356,6 +298,10 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
           </div>
 
           {/* Quick Preset Chips */}
+          <div className="ai-omni-chips-bar">
+            <small>Ayuda opcional generada con IA. Revisá la respuesta antes de tomar decisiones.</small>
+            {onOpenFull && <button type="button" className="text-button" onClick={onOpenFull}>Abrir análisis completo del comercio</button>}
+          </div>
           <div className="ai-omni-chips-bar" aria-label="Consultas rápidas">
             <span className="ai-omni-chips-title">Consultas rápidas</span>
             <div className="ai-omni-chips-wrap">
@@ -387,6 +333,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
                 <div>
                   <strong>No se pudo completar la consulta</strong>
                   <p>{aiError}</p>
+                  <button type="button" className="secondary-button" disabled={isAiLoading} onClick={() => void handleSendQuery(lastQuery)}>Reintentar consulta</button>
                 </div>
               </div>
             ) : aiResponse ? (
@@ -429,7 +376,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
               value={aiPrompt}
               onChange={(e) => setAiPrompt(e.target.value)}
               placeholder="Preguntale al asistente..."
-              disabled={isAiLoading}
+              readOnly={isAiLoading}
               aria-label="Pregunta para el asistente IA"
             />
             <button

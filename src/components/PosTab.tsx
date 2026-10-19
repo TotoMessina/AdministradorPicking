@@ -31,6 +31,7 @@ import { QuickProducts } from '../features/retail/QuickProducts';
 import { cents } from '../features/retail/payments';
 import { formatPackStock, unitsPerPack } from '../services/inventoryUnits';
 interface Props {
+  active?: boolean;
   products: KioscoProduct[];
   cart: KioscoCartItem[];
   setCart: React.Dispatch<React.SetStateAction<KioscoCartItem[]>>;
@@ -49,6 +50,8 @@ interface Props {
 }
 const money = (n: number) =>
   "$" + n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
+// Los borradores de otras pantallas pueden conservar diálogos montados pero ocultos.
+const hasVisibleDialog = () => Array.from(document.querySelectorAll('[role="dialog"]')).some(dialog => dialog.getClientRects().length > 0);
 const normalize = (s: string) =>
   s
     .normalize("NFD")
@@ -64,6 +67,7 @@ const methods: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { id: "Credito", label: "Crédito", icon: CreditCard },
 ];
 export function PosTab({
+  active = true,
   products,
   cart,
   setCart,
@@ -109,6 +113,8 @@ export function PosTab({
   const handleOpenAi = onOpenAi || (() => setInternalAiOpen(true));
   const searchRef = useRef<HTMLInputElement>(null);
   const submitting = useRef(false);
+  const activeRef = useRef(active);
+  activeRef.current = active;
   const request = useRef({ signature: "", id: "" });
   const total = cents(cart.reduce((sum, i) => sum + i.subtotal, 0)) / 100;
   const count = cart.reduce((sum, i) => sum + i.qty, 0);
@@ -118,17 +124,18 @@ export function PosTab({
   const splitValid = Number.isFinite(splitValue) && splitValue > 0 && cents(splitValue) < cents(total) && splitFirst !== splitSecond;
   const confirmed = confirmedPayment === paymentSignature;
   useEffect(() => {
+    if (!active) return;
     const focus = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
+      if (!hasVisibleDialog() && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         searchRef.current?.focus();
       }
     };
     window.addEventListener("keydown", focus);
     return () => window.removeEventListener("keydown", focus);
-  }, []);
+  }, [active]);
   const add = (p: KioscoProduct) => {
-    if (busy) return;
+    if (busy || isLoading || !active) return;
     const existing = cart.find((i) => i.product.id === p.id);
     if (p.code !== "MANUAL" && (existing?.qty || 0) >= p.stock) {
       notify("warning", "No quedan más unidades disponibles de este producto.");
@@ -169,7 +176,7 @@ export function PosTab({
   const checkout = async (chosen: PaymentMethod = method, shortcut = false) => {
     const tendered = shortcut && chosen === 'Efectivo' && !cash ? total : received;
     if (
-      submitting.current ||
+      !active || isLoading || submitting.current ||
       !cart.length ||
       total <= 0 ||
       (chosen === "Efectivo"
@@ -219,7 +226,7 @@ export function PosTab({
       onTriggerChecklist("stock");
       onTriggerChecklist(method === "QR" ? "qr" : "vuelto");
       notify("success", `Venta de ${money(total)} registrada.`);
-      searchRef.current?.focus();
+      if (activeRef.current) searchRef.current?.focus();
     } catch (error) {
       setCheckoutError(error instanceof Error ? error.message : 'No se pudo registrar la venta. Tus productos siguen en el carrito.');
       notify(
@@ -233,9 +240,22 @@ export function PosTab({
       setBusy(false);
     }
   };
+  const showProducts = () => {
+    setMobilePosView('catalog');
+    requestAnimationFrame(() => { if (activeRef.current) searchRef.current?.focus(); });
+  };
+  const showSale = () => {
+    setMobilePosView('checkout');
+    requestAnimationFrame(() => {
+      if (!activeRef.current) return;
+      const panel = document.getElementById('pos-sale-panel');
+      panel?.focus({ preventScroll: true });
+      panel?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+    });
+  };
   const keyboard = useRef<(event: KeyboardEvent) => void>(() => {});
   keyboard.current = e => {
-    if (e.defaultPrevented || e.isComposing || e.repeat || e.ctrlKey || e.metaKey || e.altKey || submitting.current || busy || isLoading || document.querySelector('[role="dialog"]')) return;
+    if (e.defaultPrevented || e.isComposing || e.repeat || e.ctrlKey || e.metaKey || e.altKey || submitting.current || busy || isLoading || hasVisibleDialog()) return;
     if (['F1', 'F2', 'F3', 'F4'].includes(e.key)) {
       e.preventDefault();
       if (!cart.length) { searchRef.current?.focus(); return; }
@@ -247,17 +267,19 @@ export function PosTab({
         if (chosen === 'Efectivo' && cash && received < total) { setMethod(chosen); setMobilePosView('checkout'); document.getElementById('cash-received')?.focus(); }
         void checkout(chosen, true);
       }
-    } else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManual(false); setMobilePosView('catalog'); searchRef.current?.focus(); }
+    } else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManual(false); showProducts(); }
     else if (e.key === 'Enter' && ['cash-received', 'mixed-amount'].includes((e.target as HTMLElement)?.id)) { e.preventDefault(); void checkout(method, true); }
   };
   const scanner = useRef({ text: '', at: 0 });
   const scanHandler = useRef<(code: string) => void>(() => {});
   scanHandler.current = code => { const product = products.find(p => p.code === code); if (product) { add(product); setQuery(''); searchRef.current?.focus(); } else notify('warning', `Código no encontrado: ${code}`); };
   useEffect(() => {
+    scanner.current.text = '';
+    if (!active) return;
     searchRef.current?.focus();
     const keydown = (e: KeyboardEvent) => {
       keyboard.current(e);
-      if (e.defaultPrevented || e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.isComposing || document.querySelector('[role="dialog"]')) return;
+      if (e.defaultPrevented || e.repeat || e.ctrlKey || e.altKey || e.metaKey || e.isComposing || hasVisibleDialog()) return;
       const target = e.target as HTMLElement;
       if (target?.closest?.('input,textarea,select,[contenteditable="true"]')) return;
       const elapsed = performance.now() - scanner.current.at;
@@ -266,37 +288,35 @@ export function PosTab({
     };
     window.addEventListener('keydown', keydown);
     return () => window.removeEventListener('keydown', keydown);
-  }, []);
+  }, [active]);
   return (
     <div
       className={`pos-layout ${mobilePosView === "checkout" ? "pos-mobile-checkout-active" : "pos-mobile-catalog-active"}`}
       data-mobile-view={mobilePosView}
     >
-      <div className="pos-mobile-view-tabs" role="tablist" aria-label="Modo de venta">
+      <div className="pos-mobile-view-tabs" role="group" aria-label="Vista de la venta">
         <button
           type="button"
-          role="tab"
-          aria-selected={mobilePosView === "catalog"}
+          aria-pressed={mobilePosView === "catalog"}
           className={`pos-mobile-tab-btn ${mobilePosView === "catalog" ? "active" : ""}`}
-          onClick={() => setMobilePosView("catalog")}
+          onClick={showProducts}
         >
           <Package size={15} />
-          <span>Catálogo</span>
+          <span>Productos</span>
         </button>
         <button
           type="button"
-          role="tab"
-          aria-selected={mobilePosView === "checkout"}
+          aria-pressed={mobilePosView === "checkout"}
           className={`pos-mobile-tab-btn ${mobilePosView === "checkout" ? "active" : ""}`}
-          onClick={() => setMobilePosView("checkout")}
+          onClick={showSale}
         >
           <ShoppingBag size={15} />
-          <span>Cobro {count > 0 && <span className="pos-mobile-tab-badge">{count}</span>}</span>
+          <span>Venta {count > 0 && <span className="pos-mobile-tab-badge">{count}</span>}<small>{money(total)}</small></span>
         </button>
       </div>
+      {stationControls && <div className="pos-sale-context">{stationControls}</div>}
       <section className="catalog" aria-label="Catálogo de productos">
-        <p className="keyboard-shortcuts">F1 Efectivo · F2 QR / Mercado Pago · F3 Transferencia · F4 Mixto · Ctrl+K Buscar · Esc Volver. Los atajos confirman el pago recibido; F1 usa el monto exacto si no ingresaste otro.</p>
-        <div className="catalog-step"><span className="step-number">1</span><h2>Agregá productos</h2><span>Buscá o escaneá un código</span></div>
+        <div className="catalog-step"><span className="step-number">1</span><h2>Agregá productos</h2></div>
         <form className="search-box" onSubmit={search}>
           <Search size={21} />
           <input
@@ -323,6 +343,7 @@ export function PosTab({
           )}
           <Barcode size={22} />
         </form>
+        <details className="pos-shortcuts"><summary>Atajos de teclado</summary><p className="keyboard-shortcuts">F1 Efectivo · F2 QR / Mercado Pago · F3 Transferencia · F4 Mixto · Ctrl+K Buscar · Esc Volver. Los atajos confirman el pago recibido; F1 usa el monto exacto si no ingresaste otro.</p></details>
         <div className="manual-panel">
           <button
             className="manual-toggle"
@@ -343,6 +364,7 @@ export function PosTab({
               className="manual-form"
               onSubmit={(e) => {
                 e.preventDefault();
+                if (busy || isLoading || !active) return;
                 const value = Number(amount);
                 if (!Number.isFinite(value) || value <= 0) return;
                 add({
@@ -379,7 +401,7 @@ export function PosTab({
                   placeholder="0"
                 />
               </label>
-              <button className="primary-button" disabled={busy}>
+              <button className="secondary-button" disabled={busy || isLoading}>
                 Agregar
               </button>
             </form>
@@ -405,16 +427,16 @@ export function PosTab({
             {category !== "" && `en ${category.toLowerCase()}`}
           </span>
           <div className="catalog-meta-actions">
-            <button
+            {!onOpenAi && <button
               type="button"
-              className="catalog-ai-btn"
+              className="text-button"
               onClick={handleOpenAi}
-              title="Abrir Asistente IA"
-              aria-label="Abrir Asistente IA"
+              title="Consultar al asistente"
+              aria-label="Consultar al asistente"
             >
               <Sparkles size={14} />
-              <span>Asistente IA</span>
-            </button>
+              <span>Consultar al asistente</span>
+            </button>}
             <button
               className={`text-button ${availableOnly ? "selected" : ""}`}
               aria-pressed={availableOnly}
@@ -449,7 +471,7 @@ export function PosTab({
                   className="primary-button"
                   onClick={onGoToCreateProduct}
                 >
-                  <Plus size={18} /> Agregar mi primer producto
+                  <Plus size={18} /> Ir a Productos
                 </button>
               ) : (
                 <p>
@@ -522,19 +544,19 @@ export function PosTab({
 
         </div>
       </section>
-      <aside id="pos-sale-panel" className="sale-panel" aria-label="Venta actual">
+      <aside id="pos-sale-panel" className="sale-panel" aria-label="Venta actual" tabIndex={-1}>
         <div className="pos-mobile-checkout-header">
           <button
             type="button"
             className="pos-mobile-back-btn"
-            onClick={() => setMobilePosView("catalog")}
-            aria-label="Volver al catálogo"
+            onClick={showProducts}
+            aria-label="Volver a productos"
           >
             <ArrowLeft size={16} />
-            <span>Catálogo</span>
+            <span>Productos</span>
           </button>
           <div className="pos-mobile-checkout-title">
-            <h2>Cobro</h2>
+            <h2>2 · Revisá tu venta</h2>
             <span className="pos-mobile-item-badge">
               {count} {count === 1 ? "ítem" : "ítems"}
             </span>
@@ -549,16 +571,12 @@ export function PosTab({
             <Trash2 size={17} />
           </button>
         </div>
-        {stationControls && (
-          <div className="pos-station-controls">
-            {stationControls}
-          </div>
-        )}
+        <section className="sale-cart" aria-label="Carrito de la venta">
         <div className="sale-header">
           <div>
-            <span className="eyebrow">2 · REVISÁ Y COBRÁ</span>
+            <span className="eyebrow">2 · REVISÁ LOS PRODUCTOS</span>
             <h2>
-              Venta actual <span>{count}</span>
+              Carrito <span>{count}</span>
             </h2>
           </div>
           <button
@@ -600,10 +618,10 @@ export function PosTab({
               <button
                 type="button"
                 className="secondary-button pos-empty-back-btn"
-                onClick={() => setMobilePosView("catalog")}
+                onClick={showProducts}
               >
                 <ArrowLeft size={15} />
-                <span>Ir al catálogo</span>
+                <span>Ir a productos</span>
               </button>
             </div>
           ) : (
@@ -669,7 +687,9 @@ export function PosTab({
             ))
           )}
         </div>
-        <div className="checkout">
+        </section>
+        <section className="checkout" aria-label="Total y cobro">
+          <div className="checkout-heading"><span className="step-number">3</span><h2>Cobrá la venta</h2></div>
           <div className="total-line">
             <span>
               Total a cobrar
@@ -782,7 +802,7 @@ export function PosTab({
           <button
             className="primary-button checkout-button"
             disabled={
-              busy ||
+              busy || isLoading ||
               !cart.length ||
               total <= 0 ||
               (method === "Efectivo"
@@ -809,7 +829,7 @@ export function PosTab({
                   ? 'Confirmá el pago recibido para habilitar el cobro'
                   : "Al cobrar, se genera el ticket de la venta"}
           </p>
-        </div>
+        </section>
       </aside>
       {cart.length > 0 && (
         <aside className="mobile-cart-bar" aria-label="Resumen móvil de venta">
@@ -822,12 +842,7 @@ export function PosTab({
           <button
             type="button"
             className="primary-button mobile-cart-bar-btn"
-            onClick={() => {
-              setMobilePosView("checkout");
-              document
-                .getElementById("pos-sale-panel")
-                ?.scrollIntoView({ behavior: "smooth" });
-            }}
+            onClick={showSale}
           >
             <span>Ver venta</span>
             <ArrowRight size={15} />
