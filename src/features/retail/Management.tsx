@@ -155,6 +155,7 @@ export function CatalogEditor({
   const [stockFilter, setStockFilter] = useState(false);
   const [lowMarginFilter, setLowMarginFilter] = useState(false);
   const editorRef = useRef<HTMLFormElement>(null);
+  const editorTrigger = useRef<HTMLButtonElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const csvTitleId = useId();
   const productOptionsRef = useRef<HTMLDetailsElement>(null);
@@ -168,7 +169,7 @@ export function CatalogEditor({
   const [productSuggestionNote, setProductSuggestionNote] = useState('');
   useEffect(() => {
     if (!active) return;
-    const dialog = panelRef.current?.querySelector<HTMLElement>('[role="dialog"]');
+    const dialog = Array.from(panelRef.current?.querySelectorAll<HTMLElement>('[role="dialog"]') || []).find(element => element.getClientRects().length > 0);
     if (dialog) {
       dialog.querySelector<HTMLElement>('button:not([disabled]), input:not([disabled]), select:not([disabled])')?.focus();
       return;
@@ -177,6 +178,11 @@ export function CatalogEditor({
     editorRef.current?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
     editorRef.current?.querySelector<HTMLInputElement>('input')?.focus({ preventScroll: true });
   }, [adding, editing, active]);
+  useEffect(() => {
+    if (!active || busy || adding || editing || !editorTrigger.current || editorTrigger.current.closest('[hidden]')) return;
+    editorTrigger.current.focus();
+    editorTrigger.current = null;
+  }, [adding, editing, active, busy]);
 
   const [formData, setFormData] = useState({
     name: "",
@@ -1204,8 +1210,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
   );
   return (
     <div className="retail-panel" ref={panelRef}>
-      {!guided && isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
-      <div className="section-heading">
+      <div className="section-heading" hidden={!guided && (adding || !!editing)}>
         <div>
           <h2>{guided ? 'Tus productos' : 'Productos e inventario'}</h2>
           <p>
@@ -1264,135 +1269,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             type="button"
             className="primary-button"
             disabled={busy || !categories.length}
-            onClick={startAdd}
+            hidden={adding || !!editing}
+            onClick={event => { editorTrigger.current = event.currentTarget; startAdd(); }}
           >
             + Agregar producto
           </button>
         </div>
       </div>
-
-      {/* AI Critical Stock Replenishment Card */}
-      {!guided && criticalProducts.length > 0 && (
-        <section
-          className="stock-ai-card"
-          aria-label="Análisis de stock con IA"
-        >
-          <div className="stock-ai-header">
-            <div className="stock-ai-title-wrap">
-              <span className="stock-ai-bell">🔔</span>
-              <div>
-                <div className="stock-ai-title-row">
-                  <h4>Productos para reponer</h4>
-                  <span className="stock-critical-badge">
-                    {criticalProducts.length}{" "}
-                    {criticalProducts.length === 1 ? "crítico" : "críticos"}
-                  </span>
-                </div>
-                <p className="stock-ai-subtitle">
-                  Hay {criticalProducts.length}{" "}
-                  {criticalProducts.length === 1 ? "producto" : "productos"} por
-                  debajo o en su stock mínimo (
-                  {criticalProducts
-                    .map((p) => p.name)
-                    .slice(0, 3)
-                    .join(", ")}
-                  {criticalProducts.length > 3 ? "…" : ""}).
-                </p>
-              </div>
-            </div>
-
-            <div className="stock-ai-actions">
-              <button
-                type="button"
-                className={`secondary-button ${stockFilter ? "active" : ""}`}
-                onClick={() => setStockFilter((prev) => !prev)}
-                title={stockFilter ? "Mostrar todos los productos" : "Filtrar tabla para ver solo los productos críticos"}
-              >
-                <Filter size={15} />
-                <span>{stockFilter ? "Ver todos" : `Ver solo bajo stock (${criticalProducts.length})`}</span>
-              </button>
-              <button
-                type="button"
-                className="secondary-button"
-                disabled={busy || isAnalyzingStock}
-                onClick={handleAnalyzeCriticalStock}
-              >
-                {isAnalyzingStock ? (
-                  <>
-                    <Loader2 size={15} className="ai-spin-icon" />
-                    <span>Analizando reposición…</span>
-                  </>
-                ) : (
-                  <>
-                    <Sparkles size={15} />
-                    <span>Analizar stock</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {stockAiError && (
-            <div className="stock-ai-error-banner" role="alert">
-              <AlertCircle size={16} />
-              <span>{stockAiError}</span>
-            </div>
-          )}
-
-          {stockAiAnalysis && (
-            <div className="stock-ai-result-box">
-              <div className="stock-ai-result-header">
-                <span className="stock-ai-result-title">
-                  <PackageCheck size={16} />
-                  <span>Orden de Compra y Prioridad Sugerida</span>
-                </span>
-                <div className="stock-ai-result-btns">
-                  <button
-                    type="button"
-                    className="ai-report-copy-btn"
-                    onClick={handleCopyOrder}
-                    title="Copiar orden de compra para enviar a proveedor"
-                  >
-                    {copiedOrder ? <Check size={14} /> : <Copy size={14} />}
-                    <span>{copiedOrder ? "¡Copiado!" : "Copiar orden"}</span>
-                  </button>
-                  <button
-                    type="button"
-                    className="ai-modal-close"
-                    onClick={() => setStockAiAnalysis(null)}
-                    title="Cerrar análisis"
-                    aria-label="Cerrar análisis"
-                  >
-                    <X size={15} />
-                  </button>
-                </div>
-              </div>
-
-              <div className="stock-ai-result-content">
-                {stockAiAnalysis
-                  .split("\n")
-                  .filter(Boolean)
-                  .map((line, idx) => {
-                    const isUrgent = line.includes("[URGENTE]");
-                    const isModerate = line.includes("[MODERADO]");
-                    const isTotal =
-                      line.toUpperCase().includes("INVERSIÓN TOTAL ESTIMADA") ||
-                      line.toUpperCase().includes("INVERSION TOTAL ESTIMADA");
-
-                    return (
-                      <div
-                        key={idx}
-                        className={`stock-ai-line ${isUrgent ? "line-urgent" : isModerate ? "line-moderate" : isTotal ? "line-total" : ""}`}
-                      >
-                        {line}
-                      </div>
-                    );
-                  })}
-              </div>
-            </div>
-          )}
-        </section>
-      )}
 
       {(adding || editing) && (
         <form
@@ -1426,7 +1309,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             }
           }}
         >
-          <h3>{editing ? "Editar producto" : "Nuevo producto"}</h3>
+          <h3>{editing ? `Editar ${editing.name}` : "Nuevo producto"}</h3>
+          <p className="product-editor-intro">Completá los datos del producto y guardá los cambios. Los demás atributos están en Más opciones.</p>
 
           {/* Feature A: Suggestion loading state */}
           {isSuggesting && (
@@ -1617,6 +1501,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </div>
           )}
 
+          <fieldset className="product-basic-group">
+            <legend>Datos básicos</legend>
           <div className="form-grid product-basic-fields">
             <label>
               Nombre
@@ -1754,6 +1640,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               />
             </label>
           </div>
+          </fieldset>
           <div hidden={guided} className="product-help-actions" aria-label="Ayudas opcionales para el producto">
             <button type="button" className="text-button" disabled={busy || isSuggesting || (formData.name.trim().length < 2 && !formData.code.trim())} onClick={() => void suggestProductDetails()}>
               <Sparkles size={14} aria-hidden="true" /> Sugerir datos
@@ -1950,7 +1837,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               </div>
             </fieldset>
           </details>
-          <div className="button-row">
+          <div className="button-row product-editor-actions">
             <button
               className="primary-button"
               disabled={busy}
@@ -2989,7 +2876,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         />
       )}
 
-      <div hidden={guided}>
+      <div className="catalog-list" hidden={guided || adding || !!editing}>
       <div className="catalog-search-toolbar"><label className="filter-label">
         Buscar productos
         <input
@@ -3023,9 +2910,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   {unitsPerPack(p.pack_size) > 1 && <small className="pack-size-badge">Pack ×{p.pack_size}</small>}
                   {p.margin_group === 'low_margin' && <small className="low-margin-badge">↓ Margen bajo</small>}
                 </td>
-                <td>{p.category}</td>
-                <td>${p.price.toLocaleString("es-AR")}</td>
-                <td>
+                <td data-label="Categoría">{p.category}</td>
+                <td data-label="Precio">${p.price.toLocaleString("es-AR")}</td>
+                <td data-label="Stock">
                   <span className={p.stock <= p.minStock ? "stock-low" : ""}>
                     {p.stock} {p.stock <= p.minStock && "· Reponer"}
                   </span>
@@ -3033,17 +2920,19 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 <td>
                   <div className="button-row">
                     <button
-                      className="text-button accent-text"
+                      className="secondary-button"
                       disabled={busy}
                       onClick={() => startReplenish(p)}
+                      aria-label={`Reponer ${p.name}`}
                       title="Reponer stock de este producto"
                     >
                       + Reponer
                     </button>
                     <button
-                      className="text-button"
+                      className="secondary-button"
                       disabled={busy}
-                      onClick={() => startEdit(p)}
+                      onClick={event => { editorTrigger.current = event.currentTarget; startEdit(p); }}
+                      aria-label={`Editar ${p.name}`}
                     >
                       Editar
                     </button>
@@ -3081,6 +2970,132 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </table>
       </div>
       {filtered.length > visibleCount && <div className="load-more"><span>{visibleCount} de {filtered.length} productos</span><button className="secondary-button" onClick={() => setVisibleCount(n => n + 50)}>Ver más productos</button></div>}
+      </div>
+      <div hidden={guided || adding || !!editing}>
+      {!guided && isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
+      {/* AI Critical Stock Replenishment Card */}
+      {!guided && criticalProducts.length > 0 && (
+        <section
+          className="stock-ai-card"
+          aria-label="Análisis de stock con IA"
+        >
+          <div className="stock-ai-header">
+            <div className="stock-ai-title-wrap">
+              <span className="stock-ai-bell">🔔</span>
+              <div>
+                <div className="stock-ai-title-row">
+                  <h4>Productos para reponer</h4>
+                  <span className="stock-critical-badge">
+                    {criticalProducts.length}{" "}
+                    {criticalProducts.length === 1 ? "crítico" : "críticos"}
+                  </span>
+                </div>
+                <p className="stock-ai-subtitle">
+                  Hay {criticalProducts.length}{" "}
+                  {criticalProducts.length === 1 ? "producto" : "productos"} por
+                  debajo o en su stock mínimo (
+                  {criticalProducts
+                    .map((p) => p.name)
+                    .slice(0, 3)
+                    .join(", ")}
+                  {criticalProducts.length > 3 ? "…" : ""}).
+                </p>
+              </div>
+            </div>
+
+            <div className="stock-ai-actions">
+              <button
+                type="button"
+                className={`secondary-button ${stockFilter ? "active" : ""}`}
+                onClick={() => setStockFilter((prev) => !prev)}
+                title={stockFilter ? "Mostrar todos los productos" : "Filtrar tabla para ver solo los productos críticos"}
+              >
+                <Filter size={15} />
+                <span>{stockFilter ? "Ver todos" : `Ver solo bajo stock (${criticalProducts.length})`}</span>
+              </button>
+              <button
+                type="button"
+                className="secondary-button"
+                disabled={busy || isAnalyzingStock}
+                onClick={handleAnalyzeCriticalStock}
+              >
+                {isAnalyzingStock ? (
+                  <>
+                    <Loader2 size={15} className="ai-spin-icon" />
+                    <span>Analizando reposición…</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={15} />
+                    <span>Analizar stock</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+
+          {stockAiError && (
+            <div className="stock-ai-error-banner" role="alert">
+              <AlertCircle size={16} />
+              <span>{stockAiError}</span>
+            </div>
+          )}
+
+          {stockAiAnalysis && (
+            <div className="stock-ai-result-box">
+              <div className="stock-ai-result-header">
+                <span className="stock-ai-result-title">
+                  <PackageCheck size={16} />
+                  <span>Orden de Compra y Prioridad Sugerida</span>
+                </span>
+                <div className="stock-ai-result-btns">
+                  <button
+                    type="button"
+                    className="ai-report-copy-btn"
+                    onClick={handleCopyOrder}
+                    title="Copiar orden de compra para enviar a proveedor"
+                  >
+                    {copiedOrder ? <Check size={14} /> : <Copy size={14} />}
+                    <span>{copiedOrder ? "¡Copiado!" : "Copiar orden"}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="ai-modal-close"
+                    onClick={() => setStockAiAnalysis(null)}
+                    title="Cerrar análisis"
+                    aria-label="Cerrar análisis"
+                  >
+                    <X size={15} />
+                  </button>
+                </div>
+              </div>
+
+              <div className="stock-ai-result-content">
+                {stockAiAnalysis
+                  .split("\n")
+                  .filter(Boolean)
+                  .map((line, idx) => {
+                    const isUrgent = line.includes("[URGENTE]");
+                    const isModerate = line.includes("[MODERADO]");
+                    const isTotal =
+                      line.toUpperCase().includes("INVERSIÓN TOTAL ESTIMADA") ||
+                      line.toUpperCase().includes("INVERSION TOTAL ESTIMADA");
+
+                    return (
+                      <div
+                        key={idx}
+                        className={`stock-ai-line ${isUrgent ? "line-urgent" : isModerate ? "line-moderate" : isTotal ? "line-total" : ""}`}
+                      >
+                        {line}
+                      </div>
+                    );
+                  })}
+              </div>
+            </div>
+          )}
+        </section>
+      )}
+
       </div>
     </div>
   );
@@ -3222,6 +3237,24 @@ export function StoreSettings({
 }) {
   const setView = onViewChange;
   const [manageLocations, setManageLocations] = useState(false);
+  const morePanelRef = useRef<HTMLDivElement>(null);
+  const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const openMoreSection = (next: 'app' | 'ledgers', trigger: HTMLButtonElement) => {
+    moreTriggerRef.current = trigger;
+    setView(next);
+    requestAnimationFrame(() => {
+      const region = morePanelRef.current?.querySelector<HTMLElement>(`[data-settings-view="${next}"]`);
+      if (region?.getClientRects().length) region.focus();
+    });
+  };
+  const returnToMore = () => {
+    setView('more');
+    requestAnimationFrame(() => {
+      if (!morePanelRef.current?.getClientRects().length) return;
+      if (moreTriggerRef.current?.getClientRects().length) moreTriggerRef.current.focus();
+      else morePanelRef.current.querySelector<HTMLButtonElement>('section:not([hidden]) button')?.focus();
+    });
+  };
   const [appVisited, setAppVisited] = useState(view === 'app');
   useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
   const activeRegisters = registers.filter(r => r.active);
@@ -3231,23 +3264,75 @@ export function StoreSettings({
   if (role !== 'owner' && role !== 'admin') return null;
   return (
     <SettingsEditorGroup><div className="settings-workspace">
-      <SectionNav name="settings" label="Secciones de configuración" value={primaryView} onChange={setView} disabled={busy} sections={[{ id: 'general', label: 'Datos del comercio' }, { id: 'locations', label: 'Locales y cajas' }, { id: 'team', label: 'Personas con acceso' }, { id: 'more', label: 'Más opciones' }]} />
-      <div hidden={primaryView !== 'more'} role="tabpanel" id="settings-panel-more" aria-labelledby="settings-tab-more">
-        <section className="retail-panel">
+      <div className="settings-intro"><h2>Mi comercio · {store.name}</h2><p>Consultá la configuración o elegí qué querés cambiar.</p></div>
+      <SectionNav name="settings" label="Secciones de configuración" value={primaryView} onChange={setView} disabled={busy} sections={[
+        { id: 'general', label: 'Datos del comercio', description: 'Nombre, contacto y ticket' },
+        { id: 'locations', label: 'Locales y cajas', description: singleLocation ? `${branches[0].name} · ${activeRegisters[0].name}` : `${branches.length} sucursales · ${activeRegisters.length} cajas de cobro` },
+        { id: 'team', label: 'Personas con acceso', description: `${members.length} ${members.length === 1 ? 'persona' : 'personas'} · Roles y asignaciones` },
+        { id: 'more', label: 'Más opciones', description: 'Precios, registros, categorías y app' },
+      ]} />
+      <div ref={morePanelRef} hidden={primaryView !== 'more'} role="tabpanel" id="settings-panel-more" aria-labelledby="settings-tab-more">
+        <button type="button" className="text-button" hidden={view === 'more'} disabled={busy} onClick={returnToMore}>Volver a Más opciones</button>
+        <section className="retail-panel" hidden={view !== 'more'}>
           <h2>Más opciones</h2>
           <div className="business-controls">
             <button type="button" className="secondary-button" disabled={busy} onClick={onOpenPrices}>Listas de precios · Abrir en Productos</button>
-            <button type="button" className="secondary-button" disabled={busy} aria-pressed={view === 'ledgers'} onClick={() => setView('ledgers')}>Registros de ventas</button>
-            <button type="button" className="secondary-button" disabled={busy} aria-pressed={view === 'app'} onClick={() => setView('app')}>App y avisos</button>
-            <button type="button" className="secondary-button" disabled={busy} aria-pressed={view === 'more'} onClick={() => setView('more')}>Categorías propias</button>
+            <button type="button" className="secondary-button" disabled={busy} onClick={event => openMoreSection('ledgers', event.currentTarget)}>Registros de ventas</button>
+            <button type="button" className="secondary-button" disabled={busy} onClick={event => openMoreSection('app', event.currentTarget)}>App y avisos</button>
           </div>
           <p>Organizá precios y ventas, instalá la app o elegí qué notificaciones recibir.</p>
         </section>
-      </div>
-      <div hidden={view !== 'app'} role="region" aria-label="App y avisos">
+      <section className="retail-panel" hidden={view !== 'more'}>
+        <details className="settings-categories"><summary>Categorías propias · Ver y administrar</summary>
+        <p>Organizá el catálogo según tu actividad.</p>
+        {categories.map((c) => (
+          <SettingsEditor key={c.id} label={`Editar ${c.name}`} summary={<strong>{c.name}</strong>} busy={busy}>{close => <RenameRow
+            name={c.name}
+            busy={busy}
+            onSave={async (name) => {
+              const saved = await run(
+                () => retail.renameCategory(store.id, c.id, name),
+                "Categoría actualizada",
+              );
+              if (saved) close();
+              return saved;
+            }}
+          />}</SettingsEditor>
+        ))}
+        <SettingsEditor label="Agregar categoría" busy={busy}>{close => <form
+          className="inline-form"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const form = e.currentTarget;
+            const name = String(new FormData(form).get("name"));
+            if (
+              await run(
+                () => retail.addCategory(store.id, name),
+                "Categoría agregada",
+              )
+            )
+              close();
+          }}
+        >
+          <input
+            name="name"
+            aria-label="Nueva categoría"
+            placeholder="Ej. Panadería"
+            required
+            maxLength={80}
+          />
+          <button className="primary-button" disabled={busy}>
+            Agregar
+          </button>
+        </form>}</SettingsEditor>
+        </details>
+      </section>
+      <div hidden={view !== 'app'} data-settings-view="app" tabIndex={-1} role="region" aria-label="App y avisos">
         {(appVisited || view === 'app') && <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />}
       </div>
-      <div className="settings-grid" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
+      <div hidden={view !== 'ledgers'} data-settings-view="ledgers" tabIndex={-1} role="region" aria-label="Registros de ventas"><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>
+      </div>
+      <div className="settings-data" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
       <section className="retail-panel">
         <h2>Datos del comercio</h2>
         <p><strong>{store.name}</strong>{store.address && <> · {store.address}</>}{store.phone && <> · {store.phone}</>}</p>
@@ -3314,62 +3399,11 @@ export function StoreSettings({
         </form>}
         </SettingsEditor>
       </section>
-      <section className="retail-panel">
-        <h2>Locales y cajas</h2>
-        <p>{singleLocation ? `${branches[0].name} · ${activeRegisters[0].name}` : `${branches.length} sucursales · ${activeRegisters.length} cajas de cobro`}</p>
-        <button type="button" className="secondary-button" disabled={busy} onClick={openLocations}>Administrar locales y cajas</button>
-        <h2>Personas con acceso</h2>
-        <p>{members.length} {members.length === 1 ? 'persona con acceso' : 'personas con acceso'} · {invitations.length} accesos pendientes. Si trabajás por tu cuenta, no necesitás agregar personas.</p>
-        <button type="button" className="secondary-button" disabled={busy} onClick={() => setView('team')}>Administrar personas</button>
-      </section>
       </div>
-      <section className="retail-panel" hidden={view !== 'more'}>
-        <h2>Categorías propias</h2>
-        <p>Organizá el catálogo según tu actividad.</p>
-        {categories.map((c) => (
-          <SettingsEditor key={c.id} label={`Editar ${c.name}`} summary={<strong>{c.name}</strong>} busy={busy}>{close => <RenameRow
-            name={c.name}
-            busy={busy}
-            onSave={async (name) => {
-              const saved = await run(
-                () => retail.renameCategory(store.id, c.id, name),
-                "Categoría actualizada",
-              );
-              if (saved) close();
-              return saved;
-            }}
-          />}</SettingsEditor>
-        ))}
-        <SettingsEditor label="Agregar categoría" busy={busy}>{close => <form
-          className="inline-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const name = String(new FormData(form).get("name"));
-            if (
-              await run(
-                () => retail.addCategory(store.id, name),
-                "Categoría agregada",
-              )
-            )
-              close();
-          }}
-        >
-          <input
-            name="name"
-            aria-label="Nueva categoría"
-            placeholder="Ej. Panadería"
-            required
-            maxLength={80}
-          />
-          <button className="primary-button" disabled={busy}>
-            Agregar
-          </button>
-        </form>}</SettingsEditor>
-      </section>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
       {singleLocation && !manageLocations && <section className="retail-panel">
         <h2>Locales y cajas</h2><p>{branches[0].name} · {activeRegisters[0].name}</p>
+        <p>Podés editar este local o agregar otra sucursal y más cajas.</p>
         <button type="button" className="secondary-button" disabled={busy} onClick={openLocations}>Administrar locales y cajas</button>
       </section>}
       <div className="settings-grid" hidden={singleLocation && !manageLocations}>
@@ -3429,11 +3463,10 @@ export function StoreSettings({
       </section>
       </div>
       </div>
-      <div hidden={view !== 'ledgers'} role="region" aria-label="Registros de ventas"><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>
       {(role === "owner" || role === "admin") && (
         <section className="retail-panel" hidden={view !== 'team'} role="tabpanel" id="settings-panel-team" aria-labelledby="settings-tab-team">
           <h2>Personas con acceso</h2>
-          <p>{members.length} personas con acceso · {invitations.length} pendientes. Agregá personas solo si alguien más trabaja con vos.</p>
+          <p>{members.length} personas con acceso · {invitations.length} pendientes. Son quienes pueden entrar a este comercio. Si trabajás por tu cuenta, no necesitás agregar personas.</p>
           <p>Asigná a cada cajero la sucursal y la caja donde puede trabajar. La caja es el puesto desde donde cobra; el registro de ventas agrupa las ventas.</p>
           {role === 'owner' ? <SettingsEditor label="Agregar persona" busy={busy}>{() => <StaffAccessForm storeId={store.id} run={run} busy={busy} />}</SettingsEditor> : <p>El propietario puede agregar personas. Vos podés administrar las asignaciones de los cajeros.</p>}
           <h3>Accesos pendientes</h3>

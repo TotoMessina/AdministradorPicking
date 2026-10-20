@@ -22,7 +22,7 @@ export function SettingsEditor({ label, summary, busy, children, onClose }: {
   const body = useRef<HTMLDivElement>(null);
   const restoreFocus = useRef(false);
   useEffect(() => {
-    if (open) body.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')?.focus();
+    if (open && !body.current?.closest('[hidden]')) body.current?.querySelector<HTMLElement>('input:not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])')?.focus();
   }, [open]);
   useEffect(() => {
     if (restoreFocus.current && !open && !busy) {
@@ -36,7 +36,7 @@ export function SettingsEditor({ label, summary, busy, children, onClose }: {
     if (group) group.select(''); else setLocalOpen(false);
     onClose?.();
   };
-  return <div className="settings-editor">
+  return <div className={`settings-editor${open ? ' settings-editor-open' : ''}`}>
     <div className="team-row">
       {summary && <div>{summary}</div>}
       <button ref={trigger} type="button" className="secondary-button" disabled={busy}

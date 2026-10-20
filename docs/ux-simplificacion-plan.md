@@ -1,10 +1,10 @@
 # Plan de simplificación de uso — AdministradorKiosco
 
-Fecha de revisión: 19 de octubre de 2026.
+Fecha de última revisión: 20 de octubre de 2026.
 
 ## Alcance y evidencia
 
-Este documento conserva el diagnóstico inicial y registra la implementación de cinco mejoras: formulario de producto simple, lenguaje operativo, configuración progresiva, inicio guiado y ayuda IA contextual. Las secciones 1–10 son la línea base histórica; la sección 11 corresponde a la primera entrega. La revisión integrada está en la [sección 12](#12-revisión-integrada-de-los-cinco-cambios). La [sección 13](#13-jerarquía-visual-de-vender-y-caja) actualiza específicamente Vender y Caja con la siguiente mejora de UX/UI.
+Este documento conserva el diagnóstico inicial y registra la implementación de cinco mejoras: formulario de producto simple, lenguaje operativo, configuración progresiva, inicio guiado y ayuda IA contextual. Las secciones 1–10 son la línea base histórica; la sección 11 corresponde a la primera entrega. La revisión integrada está en la [sección 12](#12-revisión-integrada-de-los-cinco-cambios). La [sección 13](#13-jerarquía-visual-de-vender-y-caja) actualiza Vender y Caja; la [sección 14](#14-consulta-y-edición-en-productos-y-mi-comercio) registra la mejora posterior de Productos y Mi comercio.
 
 Se revisaron secciones de los componentes, servicios y migraciones citados. No se ejecutó la aplicación en navegador, no se consultó el esquema remoto, no se probaron dispositivos y no se realizaron pruebas con personas. Las cantidades de pasos de este documento son recorridos deducidos del código bajo condiciones declaradas, no mediciones de usabilidad, tiempos ni clics observados. La disponibilidad efectiva de las funciones SQL depende de las migraciones aplicadas en cada entorno.
 
@@ -463,3 +463,53 @@ URL: **http://localhost:3001/**. Pendiente de ejecución por el usuario en comer
 El inventario del navegador devolvió cero navegadores disponibles. No se observó la interfaz renderizada ni se realizaron pruebas visuales, de teclado real, backend, móvil, offline o PWA. La guía anterior sigue pendiente y no se afirma una mejora de facilidad de uso comprobada con personas.
 
 Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). No se ejecutaron builds ni otras pruebas automatizadas. No se agregaron ni aplicaron migraciones; permanece la migración local de onboarding y las limitaciones de persistencia detalladas en la sección 12.
+
+## 14. Consulta y edición en Productos y Mi comercio
+
+Entrega del 20 de octubre de 2026. Cambios acotados en `Management.tsx`, `SettingsEditor.tsx`, `SectionNav.tsx`, `workspace.css` y `mobile-native.css`. Se revisaron también `RetailApp.tsx` y `BusinessSettings.tsx`; se reutilizan su navegación, permisos y formularios sin cambiar contratos, rutas, cálculos ni persistencia. Los cambios de Vender y Caja se conservan.
+
+### Presentación y accesos definitivos
+
+- **Productos → Catálogo y stock:** el encabezado, Agregar producto, búsqueda y listado preceden a remitos pendientes y análisis opcional de stock. Editar y Reponer tienen botones secundarios con el nombre del producto en su etiqueta accesible. En móvil, el CSS agrupa cada fila en bloques con precio, categoría, stock y acciones; la lectura visual y con tecnologías de asistencia está pendiente de comprobar en dispositivo.
+- **Agregar producto / Editar:** el formulario ocupa la zona principal, con título Nuevo producto o Editar [nombre]. El catálogo y sus herramientas se ocultan mientras se trabaja; no se desmontan sus estados ni los diálogos de importación/reposición. El bloque Datos básicos reúne nombre, código, precio, costo y stock con las reglas existentes. Más opciones conserva todos los atributos, el resumen y la apertura con foco ante una validación inválida. Guardar producto y Cancelar se mantienen juntos al pie, en el flujo de la página; no hay una barra fija superpuesta. Al terminar, se devuelve el foco al acceso de origen si sigue disponible.
+- **Herramientas del catálogo:** Más herramientas conserva historial de reposiciones, CSV, ajuste de precios e importación de factura. Sugerir datos y las revisiones IA permanecen voluntarias. Listas de precios y Transferencias mantienen sus pestañas y sus editores existentes.
+- **Mi comercio:** una sola navegación con cuatro accesos descriptivos reemplaza la combinación de pestañas y tarjetas que repetían destinos. Datos del comercio muestra el resumen y Editar datos del comercio. Locales y cajas incluye el resumen de la única sucursal/caja y Administrar locales y cajas; explica que desde ahí se agrega una segunda sucursal. Con varias sucursales se mantienen los editores individuales por intención.
+- **Personas con acceso:** explica quién puede entrar, muestra cantidades y aclara que agregar personas no es obligatorio para trabajar por cuenta propia. Agregar persona sigue limitado al propietario; las asignaciones conservan sus permisos reales.
+- **Más opciones:** Listas de precios lleva al único editor principal en Productos; Registros de ventas y App y avisos abren su contenido con Volver a Más opciones y foco explícito. Categorías propias · Ver y administrar despliega la sección existente, sin el anterior botón circular que seleccionaba la vista ya activa. Los editores activos se distinguen por agrupación y borde de la paleta actual; cambiar de editor conserva su borrador y Cancelar descarta solo el propio.
+- **PWA e inicio guiado:** se conserva la selección directa de `app` desde avisos; el contenido está dentro del panel Más opciones y no requiere abrir Categorías. El acceso a retomar el inicio y la protección del carrito permanecen en `RetailApp.tsx`. No se agregan solicitudes de permisos ni listeners globales.
+
+### Comparación verificable por código
+
+| Tarea | Antes de esta entrega | Después |
+| --- | --- | --- |
+| Crear/editar producto | Formulario junto al listado y los avisos; título genérico al editar. | Formulario como zona principal, nombre del producto en el título; guardar/cancelar devuelve la consulta. No se agregan campos obligatorios. |
+| Editar desde móvil | Acciones en la última columna de una tabla desplazable. | Acciones bajo los datos de cada producto mediante CSS móvil; pendiente de inspección visual. |
+| Entrar a configuración | Pestañas y una tarjeta de Datos repetían accesos a locales y personas. | Una navegación descriptiva y contenido de la sección elegida. |
+| Categorías | Botón que llevaba a la misma vista, con todas las filas ya visibles. | Desplegable explícito, con ediciones por intención. |
+| Abrir opciones de app/registros | Menú completo y contenido específico simultáneos. | Contenido específico y Volver a Más opciones; los avisos siguen entrando directamente. |
+
+No son mediciones de facilidad de uso. La consulta del catálogo mientras se edita ahora requiere guardar o cancelar ese producto; cambiar a otra sección y volver conserva el formulario sin guardarlo. La conservación de borradores se limita a navegación interna en la misma sesión montada, no a recargar o cambiar de cuenta/comercio. Se mantiene la limitación previa de precios fijos al cambiar lista/filtro descrita en la sección 12.
+
+### Guía de Pruebas — pendiente de ejecución manual
+
+URL: **http://localhost:3001/**. Usar un comercio de pruebas con propietario, administrador y cajero asignado. Repetir los casos de formulario en escritorio y móvil con teclado virtual; no usar datos de producción para pruebas de escritura.
+
+1. **Alta básica:** Productos → Agregar producto; completar nombre/código y precio, revisar costo/stock predeterminados y guardar. Esperado: título Nuevo producto, bloque básico claro, listado sin competir, producto guardado y regreso a consulta. Cancelar una segunda alta no debe guardar nada.
+2. **Editar precio:** usar un producto con bulto 24, bajo margen, marca, proveedor, código de proveedor y etiquetas. Editar, cambiar solo precio, guardar y reabrir Más opciones. Esperado: título con nombre, atributos y categoría intactos, misma unidad y conversión; ninguna consulta IA necesaria.
+3. **Validación plegada:** en Más opciones ingresar un valor inválido, por ejemplo stock mínimo −1, plegar y pulsar Guardar producto. Esperado: sección abierta y campo inválido enfocado; no se guarda hasta corregir. Con Tab, controles de secciones ocultas no deben recibir foco. Revisar Guardar/Cancelar con teclado virtual, zoom y movimiento reducido: campos y errores deben seguir alcanzables.
+4. **Reposición y herramientas:** Reponer un producto de bulto 24, elegir dos bultos y confirmar. Esperado: 48 unidades según el cálculo existente. Abrir historial/CSV/factura desde Más herramientas y un remito pendiente debajo del listado; comprobar acceso a vinculaciones, comprobantes privados y propuestas de precios sin cambiar sus reglas.
+5. **Borradores al navegar:** empezar un producto, pasar a Mi comercio o Vender y regresar. Esperado: campos intactos. Repetir con CSV y reposición abiertos, si la navegación lo permite; no deben capturar el lector al quedar ocultos. En Mi comercio, empezar Editar datos, ir a Personas y abrir otro editor; cancelar este y volver a Datos → Continuar: esperar el primer borrador intacto. Repetir con dos sucursales.
+6. **Uno y varios locales:** con un solo local/caja, entrar a Locales y cajas: esperar resumen y Administrar locales y cajas, sin formularios abiertos. Administrar → Agregar sucursal/caja, cancelar y luego guardar en entorno de pruebas. Con varias, editar una y abrir otra: esperar borradores conservados y asignaciones intactas. No se eliminan datos al cambiar la vista.
+7. **Listas y categorías:** Más opciones → Listas de precios debe abrir Productos → Listas de precios. Crear/editar y cancelar usando el editor existente. Volver a Mi comercio → Más opciones → Categorías propias: esperar lista plegada inicialmente, accesos Editar/Agregar al desplegar y validaciones visibles. Registros de ventas conserva crear, editar y activar/desactivar según las reglas actuales.
+8. **Roles:** el propietario puede Agregar persona; el administrador conserva sus asignaciones y el mensaje que reserva las altas al propietario. El cajero no debe ver Productos/Mi comercio ni obtener permisos administrativos. La autorización real requiere comprobación de backend independiente de esta interfaz.
+9. **PWA y retomar inicio:** abrir un aviso destinado a configuración con otra sección seleccionada. Esperado: App y avisos visible directamente, permisos e instalación solo según el flujo existente. Volver a Más opciones debe recuperar foco; navegar con flechas entre sus cuatro accesos. Retomar el inicio con carrito ocupado debe seguir bloqueado; con carrito vacío debe conservar el avance persistido.
+
+### Validación y pendientes
+
+Comprobación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). No se ejecutaron builds ni otras pruebas automatizadas.
+
+No había navegadores disponibles en la sesión; no se evaluó la interfaz renderizada. Quedan pendientes los recorridos anteriores, foco real, lector, lectura accesible de la tabla móvil, teclado virtual, entrega PWA, backend y conservación real de borradores. No se hicieron pruebas con personas ni se midieron tiempos o éxito de tareas. No se agregaron dependencias ni migraciones; sigue pendiente confirmar en el entorno correcto la migración local de onboarding indicada en la sección 12. No se aplicó SQL remoto.
+
+### Observación propuesta — no realizada
+
+Pedir a una persona nueva, en datos de prueba: «Creá este producto, cambiá su precio y guardalo». No señalar botones ni explicar la navegación. Registrar dónde se detiene, qué intenta pulsar, si distingue crear de editar, dónde busca Guardar y qué textos no entiende. Al final preguntar qué esperaba de los controles confusos. Esta observación pendiente permitirá evaluar la intuitividad que la revisión de código no puede demostrar.

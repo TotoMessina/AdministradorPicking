@@ -27,7 +27,7 @@ import { unitsPerPack as configuredPackSize } from '../services/inventoryUnits';
 import type { Product, Category } from "../features/retail/api";
 import { retail } from "../features/retail/api";
 import { linkInvoiceItems, rankCatalogMatches } from '../services/invoiceMatchingService';
-import { normalizeSupplierText, saveMapping } from '../services/supplierMappingService';
+import { migrateLocalMappings, normalizeSupplierText, saveMapping } from '../services/supplierMappingService';
 import { invoiceCostIncrease, type InvoiceCostChange } from '../services/invoicePricingService';
 import { InvoicePriceProposal } from './InvoicePriceProposal';
 
@@ -552,6 +552,31 @@ export function InvoiceAnalyzer({
   const [isEditingProvider, setIsEditingProvider] = useState(false);
   const [productSearch, setProductSearch] = useState<Record<number, string>>({});
   const [linkProgress, setLinkProgress] = useState('');
+  const [mappingNotice, setMappingNotice] = useState('');
+  const [mappingRetry, setMappingRetry] = useState(false);
+  const [mappingBusy, setMappingBusy] = useState(false);
+  const mappingInProgress = useRef(false);
+  const mappingContext = useRef({ storeId, providerName });
+  mappingContext.current = { storeId, providerName };
+  useEffect(() => {
+    let cancelled = false;
+    try {
+      const pending = localStorage.getItem(`kiosco_supplier_mappings_${storeId}`);
+      const migrated = localStorage.getItem(`kiosco_mappings_migrated_${storeId}`) === '1';
+      // A completed legacy migration does not suppress later offline writes.
+      if (pending || !migrated) {
+        void migrateLocalMappings(storeId).then(() => {
+          if (!cancelled && pending) { setMappingNotice('Las vinculaciones de este dispositivo ya están compartidas con el comercio.'); setMappingRetry(false); }
+        }).catch(() => {
+          if (!cancelled) { setMappingNotice('No se pudo compartir la memoria local. Los vínculos se conservan en este dispositivo; revisá la conexión y reintentá. Si persiste, verificá que la migración de Supabase esté aplicada.'); setMappingRetry(true); }
+        });
+      }
+    } catch {
+      setMappingNotice('No se pudo acceder a la memoria local. Revisá los permisos de almacenamiento del navegador.');
+      setMappingRetry(true);
+    }
+    return () => { cancelled = true; };
+  }, [storeId]);
   const importInProgress = useRef(false);
   const sortedProducts = useMemo(() => products.filter(product => product.active !== false).slice().sort((a, b) => a.name.localeCompare(b.name, 'es-AR')), [products]);
 
@@ -941,15 +966,23 @@ export function InvoiceAnalyzer({
     }));
   };
 
-  const confirmMapping = (i: number) => {
+  const confirmMapping = async (i: number) => {
     const item = items[i];
-    if (!item?.matchedProduct) return;
+    if (!item?.matchedProduct || mappingInProgress.current) return;
+    mappingInProgress.current = true;
+    setMappingBusy(true);
     try {
       if (!Number.isFinite(item.qty) || item.qty <= 0 || item.qty > 1000000) throw new Error('Revisá la cantidad recibida antes de confirmar.');
-      saveMapping(storeId, providerName, item.invoiceLine, item.matchedProduct.id, item.matchedProduct.name, item.unitsPerPack);
-      updateItem(i, { linkStatus: 'confirmed' });
+      await saveMapping(storeId, providerName, item.invoiceLine, item.matchedProduct.id, item.matchedProduct.name, item.unitsPerPack);
+      if (mappingContext.current.storeId !== storeId || mappingContext.current.providerName !== providerName) return;
+      setItems(previous => previous.map((current, index) => index === i && current === item ? { ...current, linkStatus: 'confirmed' } : current));
+      let pending = false;
+      try { pending = !!localStorage.getItem(`kiosco_supplier_mappings_${storeId}`); } catch { /* The server may still have saved it. */ }
+      setMappingNotice(pending ? 'Vínculo guardado en este dispositivo. Hay vinculaciones pendientes de compartir; reintentá con conexión.' : 'Vínculo guardado para los usuarios del comercio.');
+      setMappingRetry(pending);
       setError(null);
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo recordar la vinculación.'); }
+    finally { mappingInProgress.current = false; setMappingBusy(false); }
   };
 
   const changeProvider = (value: string) => {
@@ -1179,6 +1212,17 @@ export function InvoiceAnalyzer({
           </div>
         )}
 
+        {mappingNotice && <div className="info-banner" role="status">
+          <span>{mappingNotice}</span>
+          {mappingRetry && <button type="button" className="text-button" disabled={mappingBusy} onClick={async () => {
+            if (mappingInProgress.current) return;
+            mappingInProgress.current = true;
+            setMappingBusy(true);
+            try { await migrateLocalMappings(storeId); setMappingNotice('Memoria compartida con el comercio.'); setMappingRetry(false); }
+            catch { setMappingNotice('No se pudo compartir la memoria. Los datos locales se conservan. Revisá la conexión, el acceso al comercio y la migración de Supabase antes de reintentar.'); }
+            finally { mappingInProgress.current = false; setMappingBusy(false); }
+          }}>Reintentar sincronización</button>}
+        </div>}
         {/* Error */}
         {error && rateLimitCountdown === null && (
           <div className="invoice-error">
@@ -1761,7 +1805,7 @@ export function InvoiceAnalyzer({
                                 <input type="number" min="0" step="0.01" placeholder="No detectado" value={it.costKnown ? it.unitCost : ''} onChange={e => updateItem(i, { unitCost: e.target.value === '' ? NaN : Number(e.target.value) })} />
                               </label>
                             </div>
-                            <button type="button" className="primary-button" disabled={!it.matchedProduct || !normalizeSupplierText(providerName)} onClick={() => confirmMapping(i)}>
+                            <button type="button" className="primary-button" disabled={mappingBusy || !it.matchedProduct || !normalizeSupplierText(providerName)} onClick={() => void confirmMapping(i)}>
                               <CheckCircle2 size={14} /> {it.matchConfidence > 0 ? 'Confirmar y recordar' : 'Vincular y recordar'}
                             </button>
                             {!normalizeSupplierText(providerName) && <p>Completá el proveedor arriba para recordar el vínculo.</p>}

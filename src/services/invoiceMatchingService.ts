@@ -20,6 +20,7 @@ export interface InvoiceLinkResult {
   unit_cost: number | null;
   reason: string;
   autoLinked: boolean;
+  suggested_alias?: string;
 }
 
 const ignored = new Set(['de', 'del', 'la', 'el', 'los', 'las', 'por', 'con', 'sin', 'para', 'x', 'un', 'una']);
@@ -70,7 +71,7 @@ export function rankCatalogMatches(line: string, code: string | null | undefined
 export async function linkInvoiceItems(storeId: string, supplier: string, lines: InvoiceLinkInput[], products: Product[]): Promise<InvoiceLinkResult[]> {
   const catalog = products.filter(product => product.active !== false);
   const byId = new Map(catalog.map(product => [product.id, product]));
-  const memory = getMappings(storeId, supplier).filter(mapping => byId.has(mapping.product_id));
+  const memory = (await getMappings(storeId, supplier)).filter(mapping => byId.has(mapping.product_id));
   const aliases = memory.map(mapping => ({ ...byId.get(mapping.product_id)!, name: mapping.invoice_text, brand: undefined, code: '' }));
   const result: InvoiceLinkResult[] = [];
   // Bounded candidate catalogs and batches keep large catalogs/invoices out of a single completion.
@@ -103,7 +104,8 @@ Respetá códigos, sabores, tamaños y presentaciones. No inventes IDs: usá sol
 Una memoria conocida es evidencia fuerte pero ante un código incompatible o variante diferente bajá confidence y pedí revisión.
 Detectá pack_size_detected (unidades por bulto), 1 si indica unidades sueltas, null si no se sabe. Usá pack_size del catálogo o la memoria cuando no hay presentación explícita distinta.
 invoiced_cost es el precio ORIGINAL por unidad facturada (bulto o suelto), nunca el total del renglón. unit_cost debe ser costo de UNA unidad individual: invoiced_cost / pack_size_detected si se facturan bultos; si quantity_unit="unit", usá pack_size_detected=1 y unit_cost=invoiced_cost. No multipliques por quantity ni dividas dos veces. Si invoiced_cost es null, devolvé unit_cost=null. La app verifica el cálculo con los importes extraídos.
-Respondé SOLO JSON: {"items":[{"line_index":0,"invoice_line":"descripción original exacta","matched_product_id":null,"matched_product_name":"","confidence":0.0,"pack_size_detected":null,"unit_cost":null,"reason":"motivo breve en español"}]}. Incluí una respuesta por cada línea, conservando line_index, incluso si las descripciones se repiten. confidence es de 0 a 1.` }], { maxTokens: 2800, temperature: 0.1 });
+Proponé suggested_alias en minúsculas, sin tildes, expandiendo abreviaturas solo cuando estén respaldadas por el catálogo. Ejemplo: "ALF JORG CHOC X24" puede sugerir "alfajor jorgito negro 55g x24" si el candidato confirma esa variante y tamaño. No inventes datos; el alias no reemplaza invoice_line ni confirma el vínculo.
+Respondé SOLO JSON: {"items":[{"line_index":0,"invoice_line":"descripción original exacta","matched_product_id":null,"matched_product_name":"","confidence":0.0,"pack_size_detected":null,"unit_cost":null,"reason":"motivo breve en español","suggested_alias":"nombre normalizado sugerido"}]}. Incluí una respuesta por cada línea, conservando line_index, incluso si las descripciones se repiten. confidence es de 0 a 1.` }], { maxTokens: 3200, temperature: 0.1 });
       const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
       const parsed: unknown = JSON.parse(cleaned);
       if (parsed && typeof parsed === 'object' && 'items' in parsed && Array.isArray(parsed.items)) answers = parsed.items;
@@ -125,6 +127,7 @@ Respondé SOLO JSON: {"items":[{"line_index":0,"invoice_line":"descripción orig
         unit_cost: valid && typeof answer.unit_cost === 'number' && Number.isFinite(answer.unit_cost) && answer.unit_cost >= 0 ? answer.unit_cost : null,
         reason: codeConflict ? 'El código de la factura difiere del producto sugerido. Revisá y confirmá el vínculo.' : valid && typeof answer.reason === 'string' ? answer.reason.slice(0, 500) : context.known_mapping ? 'Vinculación recordada para este proveedor.' : `${unavailable || !valid ? 'La IA no pudo validar el vínculo. ' : ''}Sugerencia por similitud de nombre o código; confirmá el producto.`,
         autoLinked: !!(context.known_mapping && context.known_mapping.product_id === product?.id && confidence >= 0.8 && !codeConflict),
+        suggested_alias: valid && typeof answer.suggested_alias === 'string' ? normalizeSupplierText(answer.suggested_alias).slice(0, 300) : undefined,
       });
     });
   }
