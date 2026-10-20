@@ -70,6 +70,10 @@ export interface Product extends KioscoProduct {
   margin_group?: 'standard' | 'low_margin' | null;
 }
 export interface Movement {
+  shift_id?: string;
+  store_id?: string;
+  register_id?: string;
+  created_by?: string;
   id: string;
   type: "INGRESO" | "RETIRO";
   amount: number;
@@ -94,6 +98,9 @@ export interface Invitation {
   register_id: string | null;
 }
 export interface SaleRow {
+  shift_id?: string;
+  store_id?: string;
+  created_by?: string;
   payments?: KioscoSale['payments'];
   branch_id: string;
   branch_name: string;
@@ -170,6 +177,9 @@ async function allRows<T>(
   }
 }
 export const saleFromRow = (row: SaleRow): KioscoSale => ({
+  shift_id: row.shift_id,
+  store_id: row.store_id,
+  created_by: row.created_by,
   branchId: row.branch_id,
   branchName: row.branch_name,
   registerName: row.register_name,
@@ -378,13 +388,14 @@ const remoteRetail = {
     return (rows || []).map(saleFromRow);
   },
   async movements(store: string, shift: string) {
-    return allRows<Movement>((from, to) =>
+    const rows = await allRows<Movement>((from, to) =>
       supabase
         .rpc('retail_movement_details', { p_store: store, p_shift: shift })
         .order("created_at", { ascending: false })
         .order("id")
         .range(from, to),
     );
+    return rows.map(row => ({ ...row, store_id: store, shift_id: shift }));
   },
   async saveProduct(
     store: string,

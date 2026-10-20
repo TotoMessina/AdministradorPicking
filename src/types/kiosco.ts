@@ -36,6 +36,10 @@ export interface CashMovement {
 }
 
 export interface KioscoSale {
+  shift_id?: string;
+  store_id?: string;
+  register_id?: string;
+  created_by?: string;
   branchId?: string;
   branchName?: string;
   registerName?: string;

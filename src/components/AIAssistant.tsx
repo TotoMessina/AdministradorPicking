@@ -17,10 +17,12 @@ import {
 import { groqStream, isRateLimitError, getRetryDelay, DEFAULT_MODEL, FALLBACK_FAST_MODEL } from "../services/groqService";
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
-import { retail, type Store, type Product, type Shift, type Movement, type Role } from "../features/retail/api";
+import { retail, type Store, type Product, type Shift, type Movement, type Role, type Member } from "../features/retail/api";
 import type { KioscoSale } from "../types/kiosco";
 import { marginSales, summarizeMargins, marginPrompt, type MarginSummary as MarginSummaryData } from '../features/retail/marginAnalytics';
 import { MarginSummary } from '../features/retail/MarginSummary';
+import { detectAnomalies } from '../services/anomalyDetectionService';
+import { predictStockLevels, type StockPrediction } from '../services/stockPredictionService';
 
 export interface AIAssistantProps {
   store: Store;
@@ -30,16 +32,57 @@ export interface AIAssistantProps {
   movements: Movement[];
   role: Role;
   ownerEmail?: string;
+  members?: Member[];
 }
 
 const INITIAL_CAPABILITY_CHIPS = [
   { label: "¿Cómo va el negocio esta semana?", icon: TrendingUp },
+  { label: "¿Detectaste algo sospechoso en los turnos?", icon: AlertTriangle },
   { label: "¿Qué distribuidor me deja más margen?", icon: TrendingUp },
   { label: "Analizá mis productos sin movimiento", icon: AlertTriangle },
   { label: "¿Cuándo fue mi mejor turno del mes?", icon: Trophy },
   { label: "Sugerí categorías para reorganizar el catálogo", icon: LayoutGrid },
   { label: "¿Qué debería comprar esta semana?", icon: ShoppingCart },
+  { label: "¿De qué me voy a quedar sin stock esta semana?", icon: ShoppingCart },
 ];
+
+function compactStockPredictions(predictions: StockPrediction[], products: Product[]) {
+  type Entry = Record<string, string | number | boolean | null>;
+  const costs = new Map(products.map(p => [p.id, p.cost]));
+  const capital = (p: StockPrediction) => {
+    const cost = costs.get(p.productId);
+    return typeof cost === 'number' && Number.isFinite(cost) && cost >= 0
+      ? Math.round(p.currentStock * cost * 100) / 100 : null;
+  };
+  const short = (value: string) => [...value].length > 48 ? [...value].slice(0, 47).join('') + '…' : value;
+  const base = (p: StockPrediction): Entry => ({ id: p.productId, producto: short(p.productName) });
+  const candidates = {
+    criticos: predictions.filter(p => p.priority === 'critical' || p.priority === 'soon').slice(0, 10).map(p => ({
+      ...base(p), proveedor: short(p.supplier || 'Sin proveedor'), quiebre: p.stockoutDate || null,
+      unidades: p.suggestedOrderQty, ...(p.suggestedOrderPacks !== null ? { bultos: p.suggestedOrderPacks } : {}),
+    } as Entry)),
+    sobrestock: predictions.filter(p => p.priority === 'overstocked')
+      .sort((a, b) => (capital(b) ?? -1) - (capital(a) ?? -1)).slice(0, 5)
+      .map(p => ({ ...base(p), stock: p.currentStock, capital: capital(p), ...(p.dailyAvgSales === 0 ? { sinVentasObservadas: true } : {}) } as Entry)),
+    tendenciasAlAlza: predictions.filter(p => p.trend === 'accelerating')
+      .sort((a, b) => b.dailyAvgSales - a.dailyAvgSales).slice(0, 5)
+      .map(p => ({ ...base(p), diarias: Math.round(p.dailyAvgSales * 100) / 100 } as Entry)),
+  };
+  const summary = { criticos: [] as Entry[], sobrestock: [] as Entry[], tendenciasAlAlza: [] as Entry[] };
+  const keys = ['criticos', 'sobrestock', 'tendenciasAlAlza'] as const;
+  const encoder = new TextEncoder();
+  // Compact fields and a byte budget keep this addition small without a tokenizer dependency.
+  // Round-robin reserves room for each nonempty category, prioritizing shortages on ties.
+  for (let index = 0; index < 10; index++) {
+    for (const key of keys) {
+      const row = candidates[key][index];
+      if (!row) continue;
+      summary[key].push(row);
+      if (encoder.encode(JSON.stringify(summary)).length > 1200) summary[key].pop();
+    }
+  }
+  return summary;
+}
 
 function extractDate(item: {
   date?: string;
@@ -271,6 +314,7 @@ export function AIAssistant({
   movements,
   role,
   ownerEmail,
+  members,
 }: AIAssistantProps) {
   const [messages, setMessages] = useState<GroqMessage[]>([]);
   const [input, setInput] = useState("");
@@ -484,15 +528,29 @@ export function AIAssistant({
 
     const rangoHistorico = {
       totalVentasEnBD: activeSales.length,
-      cobertura:
-        activeSales.length < 500
-          ? `100% de las ventas registradas del comercio desde su creación (${activeSales.length} ventas en total)`
-          : `Últimas 500 ventas registradas en el sistema`,
+      cobertura: `Muestra cargada de ${activeSales.length} ventas. La consulta histórica está limitada a 500 registros y puede usarse la del turno actual si no hay histórico disponible; no se acredita cobertura completa.`,
       primeraVenta: validDates.length > 0 ? validDates[0].toLocaleDateString("es-AR") : "No disponible",
       ultimaVenta: validDates.length > 0 ? validDates[validDates.length - 1].toLocaleDateString("es-AR") : "No disponible",
     };
 
+    const alertasOperativas = role === 'owner' || role === 'admin'
+      ? detectAnomalies(activeSales, shifts.filter(shift => shift.store_id === store.id), activeMovements, products, members, {
+        asOf: now.toISOString(),
+        // Conservatively exclude the earliest potentially partial shift from payment comparisons.
+        salesCompleteSince: validDates[0]?.toISOString(),
+      }) : [];
+    const prediccionStock = compactStockPredictions(predictStockLevels(products, activeSales, { asOf: now.toISOString() }), products);
     const contextPayload = {
+      prediccionStock,
+      alertasOperativas: alertasOperativas.slice(0, 10),
+      alcanceAlertasOperativas: {
+        totalDetectadas: alertasOperativas.length,
+        ventasCargadas: activeSales.length,
+        turnosCargados: shifts.length,
+        movimientosCargados: activeMovements.length,
+        limitaciones: 'Se analizan solo datos cargados: hasta 500 ventas históricas, hasta 200 cierres y movimientos del turno seleccionado. No hay eventos de carritos descartados ni horario 24hs configurado. Las ventas sin turno identificable de forma única se excluyen. No confundir falta de alertas con ausencia de problemas.',
+        criterios: 'Efectivo/QR: turnos cerrados con al menos 3 turnos previos comparables en 30 días, QR contra promedio por turno, pagos mixtos desglosados. Faltantes: hasta 10 últimos cierres por operador; importes ocultos o faltantes interrumpen la secuencia. Ráfagas: más de 5 ventas en 2 minutos e importes ±10%. Horarios en Argentina; madrugada solo informativa sin horario confirmado.',
+      },
       resumenEjecutivo: {
         hoy: {
           tickets: analytics.hoy.tickets,
@@ -570,8 +628,8 @@ MES EN CURSO: ${monthName}.
 REGLAS FUNDAMENTALES DE RESPUESTA:
 ${marginPrompt(analytics.esteMes.separation)}
 Estas reglas de separación aplican a todos los períodos del JSON. Mostrá siempre la facturación bajo margen por separado y no la sumes al ticket promedio ni margen principal. Los arqueos de caja y movimientos operativos incluyen ambos grupos y no son indicadores de rentabilidad.
-1. TENÉS ACCESO COMPLETO: NUNCA digas "no tengo el histórico", "solo tengo las últimas ventas", "el sistema no me muestra fechas" o "no tengo datos de esta semana/mes". El bloque JSON 'CONTEXTO_DEL_NEGOCIO' contiene métricas calculadas con precisión para 'hoy', 'estaSemanaUltimos7Dias', 'esteMes', 'mesAnterior', 'historicoConsolidado' y 'actividadDiariaEsteMes'.
-2. COBERTURA TOTAL DE VENTAS: El comercio tiene ${activeSales.length} ventas registradas en total en su base de datos (${rangoHistorico.cobertura}). NUNCA digas "el sistema solo me muestra ${activeSales.length} ventas y no sé si hubo más". Si tiene ${activeSales.length} ventas, ese es el 100% de las ventas existentes del comercio. Explicáselo con naturalidad: "En lo que va del mes / histórico, tenés registradas ${activeSales.length} ventas por un total de $...".
+1. DATOS DISPONIBLES: Usá las métricas del JSON para los períodos indicados. No inventes registros ausentes ni afirmes que se consultó la base completa.
+2. COBERTURA: ${rangoHistorico.cobertura} Explicá las limitaciones cuando afecten una comparación o investigación operativa.
 3. RENTABILIDAD: Cuando pregunten por la rentabilidad del último mes o de este mes:
    - Facturación real sin bajo margen: $...
    - Facturación bajo margen y su contribución a la ganancia bruta, por separado.
@@ -585,10 +643,14 @@ Estas reglas de separación aplican a todos los períodos del JSON. Mostrá siem
    - "¿Qué distribuidor me deja más margen?": Usá 'distribuidoresMargen'.
    - "Analizá mis productos sin movimiento": Usá 'productosSinMovimiento' y mencioná el capital parado.
    - "¿Cuándo fue mi mejor turno del mes?": Usá 'mejorTurno'.
+   - "¿Qué debería comprar esta semana?" / "¿De qué me voy a quedar sin stock esta semana?": Usá prediccionStock.criticos, agrupá por proveedor e indicá fecha estimada y unidades/bultos sugeridos; no recalcules ni generes pedidos.
+   - "¿Qué producto tiene sobrestock?": Usá prediccionStock.sobrestock; capital es stock por costo, null si falta. Sin ventas observadas no prueba falta de demanda.
+   - Predicción: resumen acotado de la muestra cargada, 14 días completos, última semana doble peso, ajuste por día y cobertura 10 días. Puede faltar historia. No es garantía; stock cero sigue en stockCritico.
 6. TONO: Hablá en español rioplatense (porteño) profesional, natural y directo (usá vos, che, tenés, fijate, bárbaro). Sé claro, ejecutivo, analítico y enfocado en la rentabilidad y crecimiento del comercio. Nunca dejes oraciones o listas a medio terminar.
+7. Si hay alertas operativas, mencionálas proactivamente cuando pregunten por el rendimiento del negocio o un turno. No acuses directamente a nadie, pero presentá los datos para que el dueño investigue. Son heurísticas locales sobre la muestra cargada, no pruebas de fraude. Conservá severidad, cifras y contexto; no transformes ventas sin detalle en carritos borrados comprobados ni ventas de madrugada en irregularidades con horario desconocido. Los movimientos cargados son contexto parcial; no vuelvas a descontarlos de expected_cash ni alteres métricas de margen. La ausencia de alertas no certifica que todo esté bien.
 
 CONTEXTO_DEL_NEGOCIO (DATOS EN TIEMPO REAL):
-${JSON.stringify(contextPayload, null, 2)}`;
+${JSON.stringify(contextPayload)}`;
   };
 
   const handleSend = async (textToSend?: string) => {

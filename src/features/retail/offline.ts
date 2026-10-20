@@ -224,7 +224,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         const defaultList = findCached<PriceList[]>(s, 'priceLists', store)?.find(l => l.active && l.branch_id === register.branch_id)?.id || null;
         if (role === 'cashier' && (sale.priceListId || null) !== defaultList) throw new Error('Usá la lista de precios asignada a esta sucursal. Actualizá los datos antes de cobrar');
         const ledger = need(findCached<SalesLedger[]>(s, 'ledgers', store)).find(l => l.id === sale.ledgerId || (!sale.ledgerId && l.is_default));
-        Object.assign(sale, { ticketNumber: `L-${sale.id.slice(0, 8).toUpperCase()}`, syncStatus: 'pending', createdAt: at, created_at: at, branchId: branch?.id, branchName: branch?.name, registerName: register.name, priceListName: list?.name || 'Lista madre', ledgerId: ledger?.id, ledgerName: ledger?.name });
+        Object.assign(sale, { store_id: store, shift_id: shiftId, created_by: user, register_id: register.id, ticketNumber: `L-${sale.id.slice(0, 8).toUpperCase()}`, syncStatus: 'pending', createdAt: at, created_at: at, branchId: branch?.id, branchName: branch?.name, registerName: register.name, priceListName: list?.name || 'Lista madre', ledgerId: ledger?.id, ledgerName: ledger?.name });
         sales.unshift(sale); put(s, 'shiftBalance', [shiftId], Math.round((balance + cashInSale(sale)) * 100) / 100);
         for (const [cacheKey, value] of Object.entries(s.cache)) {
           const [method, params] = JSON.parse(cacheKey);
@@ -237,7 +237,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         const details = movementDetails(String(args[1]), args[5] == null ? 'general' : String(args[5]), args[6] as string | null | undefined, args[7] as string | null | undefined);
         if (details.voucherUrl) voucherPath(store, shiftId, details.voucherUrl);
         const canSeeVoucher = ['owner', 'admin'].includes(findCached<string>(s, 'role', store) || '');
-        moves.unshift({ id, type: args[1] as Movement['type'], amount: value, reason: String(args[3]), created_at: at,
+        moves.unshift({ id, store_id: store, shift_id: shiftId, created_by: user, type: args[1] as Movement['type'], amount: value, reason: String(args[3]), created_at: at,
           category: details.category, supplier_name: details.supplierName, voucher_url: canSeeVoucher ? details.voucherUrl : null });
         put(s, 'shiftBalance', [shiftId], Math.round((balance + (args[1] === 'INGRESO' ? value : -value)) * 100) / 100);
         op = { id, kind: 'movement', store, shift: shiftId, at, type: args[1], amount: value, reason: args[3], ...details }; output = id;

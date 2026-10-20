@@ -986,6 +986,7 @@ function Workspace({
             {tab === "ai" && manager && (
               <AIAssistant
                 store={store}
+                members={members}
                 products={products}
                 shifts={shifts}
                 sales={allStoreSales.length > 0 ? allStoreSales : sales}
