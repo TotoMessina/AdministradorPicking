@@ -3,6 +3,7 @@ import { FileText, Loader2 } from 'lucide-react';
 import { errorMessage, retail } from './api';
 import type { Run } from './Management';
 import { movementDetails, voucherExtension, voucherMimeType } from './vouchers';
+import { randomUUID } from '../../utils/uuid';
 
 export function CashMovementForm({ store, shift, busy, run, onBusyChange }: {
   store: string; shift: string; busy: boolean; run: Run; onBusyChange: (busy: boolean) => void;
@@ -64,7 +65,7 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange }: {
           }
           const details = movementDetails(type, type === 'RETIRO' ? category : 'general', voucherUrl, supplier);
           const signature = JSON.stringify([shift, type, amount, reason, details]);
-          if (request.current.signature !== signature) request.current = { signature, id: crypto.randomUUID() };
+          if (request.current.signature !== signature) request.current = { signature, id: randomUUID() };
           setStage('saving');
           await retail.addMovement(shift, type, amount, reason, request.current.id, details.category, details.voucherUrl, details.supplierName);
         }

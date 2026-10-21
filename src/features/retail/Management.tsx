@@ -48,6 +48,7 @@ import type {
   PendingReplenishment,
 } from "./api";
 import { retail } from "./api";
+import { randomUUID } from "../../utils/uuid";
 import { InvoiceAnalyzer } from "../../components/InvoiceAnalyzer";
 import { PendingReplenishments } from './PendingReplenishments';
 export type Run = (
@@ -550,7 +551,7 @@ export function CatalogEditor({
 
     if (success) {
       replenishmentService.saveRecord({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         storeId: store.id,
         createdAt: new Date().toISOString(),
         type: "unitario",
@@ -631,7 +632,7 @@ export function CatalogEditor({
 
     if (success) {
       replenishmentService.saveRecord({
-        id: crypto.randomUUID(),
+        id: randomUUID(),
         storeId: store.id,
         createdAt: new Date().toISOString(),
         type: "csv",

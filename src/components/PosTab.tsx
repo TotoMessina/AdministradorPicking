@@ -25,6 +25,7 @@ import type {
   KioscoSale,
 } from "../types/kiosco";
 import { playScannerBeep, playCashChime } from "../utils/audio";
+import { randomUUID } from "../utils/uuid";
 import { useToast } from "../context/ToastContext";
 import { AiAssistantWidget } from "./AiAssistantWidget";
 import { QuickProducts } from '../features/retail/QuickProducts';
@@ -42,6 +43,7 @@ interface Props {
   storeName?: string;
   onOpenAi?: () => void;
   stationControls?: React.ReactNode;
+  saleLedgerLabel?: (method: PaymentMethod) => string;
   storeId?: string;
   branchId?: string;
   canCustomizeQuick?: boolean;
@@ -78,6 +80,7 @@ export function PosTab({
   storeName,
   onOpenAi,
   stationControls,
+  saleLedgerLabel,
   storeId,
   branchId,
   canCustomizeQuick = false,
@@ -85,8 +88,6 @@ export function PosTab({
   onMobilePosViewChange,
 }: Props) {
   const { notify } = useToast();
-  const categories = useMemo(() => ["", ...new Set(products.map((p) => p.category))], [products]);
-  const [category, setCategory] = useState("");
   const [query, setQuery] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("Efectivo");
   const [cash, setCash] = useState("");
@@ -95,14 +96,11 @@ export function PosTab({
   const [splitSecond, setSplitSecond] = useState<Exclude<PaymentMethod, 'Mixto'>>('QR');
   const [confirmedPayment, setConfirmedPayment] = useState("");
   const [busy, setBusy] = useState(false);
-  const [manual, setManual] = useState(false);
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
+  const [manualModalOpen, setManualModalOpen] = useState(false);
+  const [manualAmount, setManualAmount] = useState("");
+  const [manualDescription, setManualDescription] = useState("");
   const [clearPending, setClearPending] = useState(false);
   const [checkoutError, setCheckoutError] = useState('');
-  const [visibleCount, setVisibleCount] = useState(60);
-  const [availableOnly, setAvailableOnly] = useState(false);
-  const [hideLowMargin, setHideLowMargin] = useState(false);
   const [internalMobileView, setInternalMobileView] = useState<"catalog" | "checkout">("catalog");
   const mobilePosView = controlledMobileView ?? internalMobileView;
   const setMobilePosView = (view: "catalog" | "checkout") => {
@@ -155,26 +153,28 @@ export function PosTab({
     playScannerBeep();
     onTriggerChecklist("scanner");
   };
-  const filtered = useMemo(() => {
+  const searchMatches = useMemo(() => {
     const qTrim = query.trim();
+    if (!qTrim) return [];
     const qNorm = normalize(qTrim);
     return products.filter(
-      (p) =>
-        (category === "" || p.category === category) &&
-        (!availableOnly || p.stock > 0) &&
-        (!hideLowMargin || p.margin_group !== 'low_margin') &&
-        (!qTrim || p.code.includes(qTrim) || normalize(p.name).includes(qNorm)),
+      (p) => p.code.includes(qTrim) || normalize(p.name).includes(qNorm)
     );
-  }, [products, category, availableOnly, hideLowMargin, query]);
+  }, [products, query]);
   const search = (e: React.FormEvent) => {
     e.preventDefault();
-    const exact = products.find((p) => p.code === query.trim());
-    const match = exact || (filtered.length === 1 ? filtered[0] : undefined);
-    if (query.trim() && match) {
+    const qTrim = query.trim();
+    if (!qTrim) return;
+    const exact = products.find((p) => p.code === qTrim);
+    const match = exact || (searchMatches.length === 1 ? searchMatches[0] : undefined);
+    if (match) {
       add(match);
       setQuery("");
-    } else if (query.trim())
+    } else if (searchMatches.length > 0) {
       notify("info", "Elegí un producto de los resultados para agregarlo.");
+    } else {
+      notify("warning", `Código o producto no encontrado: ${qTrim}`);
+    }
   };
   const checkout = async (chosen: PaymentMethod = method, shortcut = false) => {
     const tendered = shortcut && chosen === 'Efectivo' && !cash ? total : received;
@@ -194,7 +194,7 @@ export function PosTab({
     const payments = chosen === 'Mixto' ? [{ method: splitFirst, amount: splitValue }, { method: splitSecond, amount: (cents(total) - cents(splitValue)) / 100 }] : [{ method: chosen, amount: cents(total) / 100 }];
     const signature = JSON.stringify([cart, chosen, tendered, payments]);
     if (request.current.signature !== signature)
-      request.current = { signature, id: crypto.randomUUID() };
+      request.current = { signature, id: randomUUID() };
     const sale: KioscoSale = {
       id: request.current.id,
       ticketNumber: `T-${Date.now().toString().slice(-8)}`,
@@ -270,7 +270,7 @@ export function PosTab({
         if (chosen === 'Efectivo' && cash && received < total) { setMethod(chosen); setMobilePosView('checkout'); document.getElementById('cash-received')?.focus(); }
         void checkout(chosen, true);
       }
-    } else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManual(false); showProducts(); }
+    } else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManualModalOpen(false); showProducts(); }
     else if (e.key === 'Enter' && ['cash-received', 'mixed-amount'].includes((e.target as HTMLElement)?.id)) { e.preventDefault(); void checkout(method, true); }
   };
   const scanner = useRef({ text: '', at: 0 });
@@ -318,16 +318,16 @@ export function PosTab({
         </button>
       </div>
       {stationControls && <div className="pos-sale-context">{stationControls}</div>}
-      <section className="catalog" aria-label="Catálogo de productos">
+      <section className="catalog" aria-label="Botonera de venta">
         <div className="catalog-step"><span className="step-number">1</span><h2>Agregá productos</h2></div>
         <form className="search-box" onSubmit={search}>
           <Search size={21} />
           <input
             ref={searchRef}
             aria-label="Buscar producto o escanear código"
-            placeholder="Buscá un producto o escaneá su código"
+            placeholder="Buscá un producto o escaneá su código..."
             value={query}
-            onChange={(e) => { setQuery(e.target.value); setVisibleCount(60); }}
+            onChange={(e) => setQuery(e.target.value)}
           />
           {query ? (
             <button
@@ -341,211 +341,72 @@ export function PosTab({
             >
               <X size={18} />
             </button>
-          ) : (
-            <kbd>Ctrl K</kbd>
-          )}
+          ) : null}
           <Barcode size={22} />
         </form>
-        <details className="pos-shortcuts"><summary>Atajos de teclado</summary><p className="keyboard-shortcuts">F1 Efectivo · F2 QR / Mercado Pago · F3 Transferencia · F4 Mixto · Ctrl+K Buscar · Esc Volver. Los atajos confirman el pago recibido; F1 usa el monto exacto si no ingresaste otro.</p></details>
-        <div className="manual-panel">
-          <button
-            className="manual-toggle"
-            aria-expanded={manual}
-            onClick={() => setManual(!manual)}
-          >
-            <span className="manual-icon">
-              <Plus size={18} />
-            </span>
-            <span>
-              <strong>Agregar un importe manual</strong>
-              <small>Para productos que todavía no están en el catálogo</small>
-            </span>
-            <span>{manual ? <Minus size={18} /> : <Plus size={18} />}</span>
-          </button>
-          {manual && (
-            <form
-              className="manual-form"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (busy || isLoading || !active) return;
-                const value = Number(amount);
-                if (!Number.isFinite(value) || value <= 0) return;
-                add({
-                  id: crypto.randomUUID(),
-                  code: "MANUAL",
-                  name: description.trim() || "Venta manual",
-                  price: value,
-                  category: "Varios",
-                  stock: 999,
-                  minStock: 0,
-                  emoji: "🏷️",
-                });
-                setAmount("");
-                setDescription("");
-              }}
-            >
-              <label>
-                Descripción
-                <input
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Ej. Fotocopia"
-                />
-              </label>
-              <label>
-                Importe ($)
-                <input
-                  required
-                  type="number"
-                  min="0.01"
-                  step="0.01"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  placeholder="0"
-                />
-              </label>
-              <button className="secondary-button" disabled={busy || isLoading}>
-                Agregar
-              </button>
-            </form>
-          )}
-        </div>
-        <label className="margin-pos-filter"><input type="checkbox" checked={hideLowMargin} onChange={e => setHideLowMargin(e.target.checked)} />Ocultar temporalmente productos de bajo margen</label>
-        {storeId && branchId && <QuickProducts storeId={storeId} branchId={branchId} products={hideLowMargin ? products.filter(p => p.margin_group !== 'low_margin') : products} manager={canCustomizeQuick} onAdd={add} disabled={busy || !!isLoading} />}
-        <div className="category-list" aria-label="Categorías">
-          {categories.map((c) => (
-            <button
-              key={c}
-              aria-pressed={category === c}
-              className={category === c ? "selected" : ""}
-              onClick={() => { setCategory(c); setVisibleCount(60); }}
-            >
-              {c || "Todos"}
-            </button>
-          ))}
-        </div>
-        <div className="catalog-meta">
-          <span>
-            <strong>{filtered.length}</strong> productos{" "}
-            {category !== "" && `en ${category.toLowerCase()}`}
-          </span>
-          <div className="catalog-meta-actions">
-            {!onOpenAi && <button
-              type="button"
-              className="text-button"
-              onClick={handleOpenAi}
-              title="Consultar al asistente"
-              aria-label="Consultar al asistente"
-            >
-              <Sparkles size={14} />
-              <span>Consultar al asistente</span>
-            </button>}
-            <button
-              className={`text-button ${availableOnly ? "selected" : ""}`}
-              aria-pressed={availableOnly}
-              onClick={() => { setAvailableOnly(!availableOnly); setVisibleCount(60); }}
-            >
-              <SlidersHorizontal size={15} />
-              {availableOnly ? "Solo disponibles" : "Filtrar disponibles"}
-            </button>
-          </div>
-        </div>
-        <div className="product-grid-scroll-wrap" tabIndex={0} aria-label="Catálogo de productos disponibles">
-        <div className="product-grid" aria-busy={isLoading}>
-          {isLoading ? (
-            <div className="empty-state">
-              <Package size={32} />
-              <h2>Cargando tu catálogo…</h2>
-              <p>Estamos preparando los productos.</p>
-            </div>
-          ) : !products.length ? (
-            <div className="empty-state welcome-empty">
-              <span className="empty-icon">
-                <Package size={34} />
-              </span>
-              <span className="eyebrow">TODO LISTO PARA EMPEZAR</span>
-              <h2>Tu primera venta empieza acá</h2>
-              <p>
-                Agregá tus productos para encontrarlos rápido, controlar el
-                stock y vender con tranquilidad.
-              </p>
-              {onGoToCreateProduct ? (
-                <button
-                  className="primary-button"
-                  onClick={onGoToCreateProduct}
-                >
-                  <Plus size={18} /> Ir a Productos
-                </button>
-              ) : (
-                <p>
-                  Pedile a un administrador que agregue los productos del
-                  comercio.
-                </p>
-              )}
-              <span className="empty-hint">
-                También podés usar “Agregar un importe manual”, junto al buscador.
-              </span>
-            </div>
-          ) : !filtered.length ? (
-            <div className="empty-state">
-              <Search size={32} />
-              <h2>No encontramos productos</h2>
-              <p>Probá con otro nombre, código o categoría.</p>
+
+        {query.trim() ? (
+          <div className="pos-search-results" aria-label="Resultados de búsqueda">
+            <div className="pos-search-results-header">
+              <span>Resultados para "{query.trim()}" ({searchMatches.length})</span>
               <button
-                className="secondary-button"
+                type="button"
+                className="text-button"
                 onClick={() => {
                   setQuery("");
-                  setCategory("");
-                  setAvailableOnly(false);
+                  searchRef.current?.focus();
                 }}
               >
-                Limpiar filtros
+                Cerrar búsqueda
               </button>
             </div>
-          ) : (
-            filtered.slice(0, visibleCount).map((p) => {
-              const qty = cart.find((i) => i.product.id === p.id)?.qty || 0;
-              return (
-                <button
-                  key={p.id}
-                  disabled={busy || p.stock <= qty}
-                  className={`product-card ${qty ? "in-cart" : ""}`}
-                  onClick={() => add(p)}
-                  aria-label={`Agregar ${p.name}, ${money(p.price)}. ${p.stock} disponibles`}
-                >
-                  <div
-                    className={`product-art category-${p.category.toLowerCase()}`}
-                  >
-                    <span aria-hidden="true">{p.emoji || "📦"}</span>
-                    {qty > 0 && (
-                      <span className="product-quantity" key={qty}>{qty} en venta</span>
-                    )}
-                  </div>
-                  <div className="product-info">
-                    <small>{p.category}</small>
-                    <h3>{p.name}</h3>
-                    <span
-                      className={
-                        p.stock <= p.minStock ? "stock-low" : "stock-ok"
-                      }
+            {searchMatches.length === 0 ? (
+              <div className="empty-state">
+                <Search size={28} />
+                <p>No encontramos productos con ese nombre o código.</p>
+              </div>
+            ) : (
+              <div className="pos-search-grid">
+                {searchMatches.slice(0, 16).map((p) => {
+                  const qty = cart.find((i) => i.product.id === p.id)?.qty || 0;
+                  return (
+                    <button
+                      key={p.id}
+                      type="button"
+                      disabled={busy || p.stock <= qty}
+                      className={`pos-search-item ${qty ? "in-cart" : ""}`}
+                      onClick={() => {
+                        add(p);
+                        setQuery("");
+                      }}
+                      aria-label={`Agregar ${p.name}, ${money(p.price)}`}
                     >
-                      {unitsPerPack(p.pack_size) > 1 ? formatPackStock(p.stock, p.pack_size) : p.stock === 0 ? "Sin stock" : `${p.stock} disponibles`}
-                    </span>
-                    <div className="product-price">
-                      <strong>{money(p.price)}</strong>
-                      <span className="add-product">
-                        <Plus size={18} />
-                      </span>
-                    </div>
-                  </div>
-                </button>
-              );
-            })
-          )}
-        </div>
-        {filtered.length > visibleCount && <div className="load-more"><span>{visibleCount} de {filtered.length} productos</span><button className="secondary-button" onClick={() => setVisibleCount(n => n + 60)}>Ver más productos</button></div>}
+                      <span className="pos-search-emoji">{p.emoji || "📦"}</span>
+                      <div className="pos-search-info">
+                        <strong>{p.name}</strong>
+                        <small>{p.category} · {unitsPerPack(p.pack_size) > 1 ? formatPackStock(p.stock, p.pack_size) : p.stock <= 0 ? "Sin stock" : `${p.stock} disp.`}</small>
+                      </div>
+                      <strong className="pos-search-price">{money(p.price)}</strong>
+                      <span className="add-product"><Plus size={16} /></span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ) : null}
 
-        </div>
+        {storeId && branchId && (
+          <QuickProducts
+            storeId={storeId}
+            branchId={branchId}
+            products={products}
+            manager={canCustomizeQuick}
+            onAdd={add}
+            onOpenManual={() => setManualModalOpen(true)}
+            disabled={busy || !!isLoading}
+          />
+        )}
       </section>
       <aside id="pos-sale-panel" className="sale-panel" aria-label="Venta actual" tabIndex={-1}>
         <div className="pos-mobile-checkout-header">
@@ -823,6 +684,7 @@ export function PosTab({
               </>
             )}
           </button>
+          {saleLedgerLabel && <p className="checkout-hint">Se guardará en: <strong>{saleLedgerLabel(method)}</strong></p>}
           <p className="checkout-hint">
             {!cart.length
               ? "Agregá productos para comenzar"
@@ -851,6 +713,125 @@ export function PosTab({
             <ArrowRight size={15} />
           </button>
         </aside>
+      )}
+      {manualModalOpen && (
+        <div
+          className="receipt-modal-backdrop"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15, 23, 42, 0.65)",
+            backdropFilter: "blur(4px)",
+            zIndex: 5000,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            padding: "1rem",
+          }}
+          onClick={() => setManualModalOpen(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="manual-modal-title"
+            tabIndex={-1}
+            className="manual-amount-modal"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="manual-modal-header">
+              <div className="manual-modal-icon">
+                <Plus size={20} />
+              </div>
+              <div className="manual-modal-titles">
+                <h3 id="manual-modal-title">Agregar importe manual</h3>
+                <small>Para productos o servicios que no están en el catálogo</small>
+              </div>
+              <button
+                type="button"
+                className="icon-button manual-modal-close"
+                aria-label="Cerrar ventana"
+                onClick={() => setManualModalOpen(false)}
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form
+              className="manual-modal-form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (busy || isLoading || !active) return;
+                const value = Number(manualAmount);
+                if (!Number.isFinite(value) || value <= 0) return;
+                add({
+                  id: randomUUID(),
+                  code: "MANUAL",
+                  name: manualDescription.trim() || "Venta manual",
+                  price: value,
+                  category: "Varios",
+                  stock: 999,
+                  minStock: 0,
+                  emoji: "🏷️",
+                });
+                setManualAmount("");
+                setManualDescription("");
+                setManualModalOpen(false);
+              }}
+            >
+              <div className="manual-modal-field">
+                <label htmlFor="manual-amount-input">
+                  Importe a cobrar ($)
+                </label>
+                <div className="manual-amount-input-wrapper">
+                  <span className="manual-currency-symbol">$</span>
+                  <input
+                    id="manual-amount-input"
+                    autoFocus
+                    required
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={manualAmount}
+                    onChange={(e) => setManualAmount(e.target.value)}
+                    placeholder="0.00"
+                    className="manual-amount-input"
+                  />
+                </div>
+              </div>
+
+              <div className="manual-modal-field">
+                <label htmlFor="manual-description-input">
+                  Descripción <small>(opcional)</small>
+                </label>
+                <input
+                  id="manual-description-input"
+                  value={manualDescription}
+                  onChange={(e) => setManualDescription(e.target.value)}
+                  placeholder="Ej. Fotocopia, golosinas, servicio..."
+                  className="manual-description-input"
+                />
+              </div>
+
+              <div className="manual-modal-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setManualModalOpen(false)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="primary-button"
+                  disabled={!manualAmount || Number(manualAmount) <= 0 || busy || isLoading}
+                >
+                  <Plus size={16} />
+                  <span>Agregar a la venta</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
       {!onOpenAi && (
         <AiAssistantWidget

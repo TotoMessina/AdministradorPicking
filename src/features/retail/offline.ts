@@ -4,6 +4,7 @@ import type { KioscoSale } from '../../types/kiosco';
 import type { Product, Shift, Register, Movement, Branch, PriceList, SalesLedger } from './api';
 import { cashInSale } from './payments';
 import { movementDetails, voucherPath } from './vouchers';
+import { randomUUID } from '../../utils/uuid';
 
 type Operation = { id: string; kind: 'open' | 'sale' | 'movement' | 'close' | 'stock'; store: string; at: string; shift?: string; [key: string]: unknown };
 export type PendingOperation = { operation: Operation; error?: string };
@@ -173,7 +174,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         if (row.newCost !== undefined) product.cost = amount(row.newCost);
         return { product: product.id, delta, cost: row.newCost ?? null };
       });
-      s.revision++; s.queue.push({ operation: { id: crypto.randomUUID(), kind: 'stock', store, at, items } });
+      s.revision++; s.queue.push({ operation: { id: randomUUID(), kind: 'stock', store, at, items } });
       return rows.map(row => ({ id: row.id }));
     }
     if (method === 'checkout') shiftId = String(args[1]);
@@ -192,7 +193,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
       if (!register) throw new Error('Caja no habilitada para esta cuenta');
       const availability = need(findCached<{ register_id: string; occupied: boolean }[]>(s, 'registerAvailability', store));
       if (shifts.some(sh => sh.register_id === register.id && !sh.closed_at) || availability.some(r => r.register_id === register.id && r.occupied)) throw new Error('Esta caja ya tiene un turno abierto');
-      const id = crypto.randomUUID(); const opening = amount(args[2]);
+      const id = randomUUID(); const opening = amount(args[2]);
       const opened: Shift = { id, store_id: store, register_id: register.id, opened_by: user, opened_at: at, opening_cash: opening, closed_at: null, counted_cash: null, expected_cash: null };
       shifts.unshift(opened); availability.forEach(r => { if (r.register_id === register.id) r.occupied = true; });
       put(s, 'sales', [store, id], []); put(s, 'movements', [store, id], []); put(s, 'shiftBalance', [id], opening);
@@ -249,7 +250,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         const counted = amount(args[1]); shift.closed_at = at; shift.counted_cash = counted; shift.expected_cash = balance;
         const availability = findCached<{ register_id: string; occupied: boolean }[]>(s, 'registerAvailability', store);
         availability?.forEach(r => { if (r.register_id === shift!.register_id) r.occupied = false; });
-        op = { id: crypto.randomUUID(), kind: 'close', store, shift: shiftId, at, amount: counted }; output = balance;
+        op = { id: randomUUID(), kind: 'close', store, shift: shiftId, at, amount: counted }; output = balance;
       }
     }
     s.revision++; s.queue.push({ operation: op }); return output;
@@ -266,6 +267,29 @@ export function withOffline<T extends Remote>(source: T): T {
       const user = activeUser;
       if (!user || !offlineSupported()) return original(...args as never[]);
       if (operational.has(property)) return localWrite(user, property, args);
+      if (property === 'saleLedgerHistory') {
+        if (navigator.onLine === false) throw new Error('Conectate para consultar el historial de registros.');
+        return original(...args as never[]);
+      }
+      if (property === 'moveSaleLedger') {
+        if (navigator.onLine === false) throw new Error('Conectate para cambiar el registro de una venta terminada.');
+        const pending = await transaction(user, state => state.queue.some(entry => entry.operation.kind === 'sale' && entry.operation.id === args[1]));
+        if (pending) throw new Error('Esperá a que esta venta se sincronice antes de cambiar su registro.');
+        const moved = await original(...args as never[]) as KioscoSale;
+        // Patch only classification. Never replace optimistic stock, payments or pending operations.
+        try {
+          await transaction(user, state => {
+            state.revision++;
+            for (const [cacheKey, value] of Object.entries(state.cache)) {
+              if (['sales', 'allSales', 'reportSales'].includes(JSON.parse(cacheKey)[0]) && Array.isArray(value)) {
+                state.cache[cacheKey] = (value as KioscoSale[]).map(sale => sale.id === moved.id ? { ...sale, ledgerId: moved.ledgerId, ledgerName: moved.ledgerName } : sale);
+              }
+            }
+          }, true);
+        } catch { /* The server change is saved; caller receives the authoritative sale. */ }
+        event();
+        return moved;
+      }
       if (remitoOnline.has(property)) {
         if (navigator.onLine === false) throw new Error('Necesitás conexión para consultar o enviar remitos. El borrador sigue en esta pantalla.');
         return original(...args as never[]);

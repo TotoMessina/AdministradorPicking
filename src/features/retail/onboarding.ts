@@ -1,4 +1,5 @@
 import { supabase } from '../../lib/supabase';
+import { randomUUID } from '../../utils/uuid';
 
 export interface OnboardingState {
   store_id: string;
@@ -41,7 +42,7 @@ export async function createStoreOnce(name: string) {
   const key = `retail:create:${session?.user.id}:${name.trim().toLocaleLowerCase()}`;
   let request: string;
   try {
-    request = localStorage.getItem(key) || crypto.randomUUID();
+    request = localStorage.getItem(key) || randomUUID();
     localStorage.setItem(key, request);
   } catch { throw new Error('Permití el almacenamiento del navegador para crear el comercio sin repetir la solicitud.'); }
   const { data, error } = await supabase.rpc('retail_create_store_once', { p_name: name, p_request: request });

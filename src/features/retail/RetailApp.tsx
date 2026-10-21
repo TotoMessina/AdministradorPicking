@@ -39,6 +39,8 @@ import { CatalogEditor, StoreSettings, type Run } from "./Management";
 import { CashDesk } from "./CashDesk";
 import { PriceListSettings } from './BusinessSettings';
 import { SalesOverview } from './SalesOverview';
+import { SaleLedgerControl } from './SaleLedgerControl';
+import { resolveSaleLedger } from './ledgerRouting';
 import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
 import { disconnectPushOnLogout, initialPushIntent, readPushIntent } from './push';
@@ -254,6 +256,8 @@ function Workspace({
   const [priceOverrides, setPriceOverrides] = useState<PriceOverride[]>([]);
   const [ledgers, setLedgers] = useState<SalesLedger[]>([]);
   const [ledgerId, setLedgerId] = useState('');
+  const [automaticLedger, setAutomaticLedger] = useState(true);
+  const ledgerSnapshot = useRef<SalesLedger[] | null>(null);
   const [revision, setRevision] = useState(0);
   const [registerId, setRegisterId] = useState("");
   const [shifts, setShifts] = useState<Shift[]>([]);
@@ -290,7 +294,11 @@ function Workspace({
   const saleLists = priceLists.filter(l => (!l.branch_id || l.branch_id === branchId) && (l.active || l.id === priceListId));
   const saleLedgers = ledgers.filter(l => l.active || l.id === ledgerId);
   const priceListName = priceListId ? priceLists.find(l => l.id === priceListId)?.name || 'Lista no disponible' : 'Precio del catálogo';
-  const ledgerName = ledgers.find(l => l.id === ledgerId)?.name || 'Sin registro disponible';
+  if (!cart.length) ledgerSnapshot.current = null;
+  else if (!ledgerSnapshot.current && ledgers.length) ledgerSnapshot.current = ledgers.map(l => ({ ...l, payment_methods: [...(l.payment_methods || [])] }));
+  const routingLedgers = ledgerSnapshot.current || ledgers;
+  const ledgerForPayment = (method: KioscoSale['paymentMethod']) => resolveSaleLedger(routingLedgers, method, automaticLedger ? undefined : ledgerId);
+  const ledgerName = automaticLedger ? 'Automático por medio de pago' : ledgers.find(l => l.id === ledgerId)?.name || 'Sin registro disponible';
   const canChooseList = manager && saleLists.some(l => l.active);
   const canChooseLedger = saleLedgers.filter(l => l.active).length > 1 || saleLedgers.some(l => l.id === ledgerId && !l.active);
   const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings'] : ['remito'])];
@@ -516,7 +524,8 @@ function Workspace({
     });
   const completeSale = async (sale: KioscoSale) => {
     if (branchPricing.loading || branchPricing.error) throw new Error(branchPricing.error || 'Esperá a que se apliquen los precios de la sucursal.');
-    if (!ledgers.some(l => l.id === ledgerId && l.active)) throw new Error('El registro de ventas ya no está disponible. Vaciá la venta y elegí un registro activo antes de volver a cargarla.');
+    const destination = ledgerForPayment(sale.paymentMethod);
+    if (!destination || !ledgers.some(l => l.id === destination.id && l.active)) throw new Error('El registro asignado ya no está activo. Pedile al administrador que lo reactive o revisá el registro antes de volver a cargar la venta.');
     if (!shift || !canOperate || running.current)
       throw new Error("Abrí tu turno antes de vender.");
     running.current = true;
@@ -529,14 +538,14 @@ function Workspace({
         sale.amountPaid,
         sale.payments,
         priceListId,
-        ledgerId,
+        destination.id,
       ]);
       if (checkoutRequest.current.signature !== signature)
         checkoutRequest.current = { signature, id: sale.id };
       const saved = await retail.checkout(store.id, shift.id, {
         ...sale,
         priceListId: priceListId || null,
-        ledgerId,
+        ledgerId: destination.id,
         id: checkoutRequest.current.id,
       });
       checkoutRequest.current = { signature: "", id: "" };
@@ -629,10 +638,11 @@ function Workspace({
             <small>Define los precios de esta venta.</small>
           </label> : <p>Lista de precios: <strong>{priceListName}</strong></p>}
           {canChooseLedger ? <label>Registro de ventas
-            <select disabled={busy || cart.length > 0} value={ledgerId} onChange={e => setLedgerId(e.target.value)}>
+            <select disabled={busy || cart.length > 0} value={automaticLedger ? '' : ledgerId} onChange={e => { setAutomaticLedger(!e.target.value); if (e.target.value) setLedgerId(e.target.value); }}>
+              <option value="">Automático por medio de pago</option>
               {saleLedgers.map(l => <option key={l.id} value={l.id} disabled={!l.active}>{l.name}{!l.active && ' (inactivo)'}</option>)}
             </select>
-            <small>Agrupa las ventas; no determina si tienen factura.</small>
+            <small>Automático usa las reglas de esta tienda al cobrar. Elegir un registro fija el destino de las próximas ventas hasta volver a Automático.</small>
           </label> : <p>Registro de ventas: <strong>{ledgerName}</strong></p>}
           {cart.length > 0 && <small>La sucursal, la caja, la lista y el registro se mantienen hasta terminar o vaciar la venta.</small>}
         </div>
@@ -780,7 +790,15 @@ function Workspace({
           onRegisterChange={id => { const next = registers.find(r => r.id === id); if (next) { branchSelection.current = next.branch_id; setBranchId(next.branch_id); setRegisterId(id); } }}
           onSell={() => setTab('pos')} onSettings={() => { setSettingsView('locations'); setTab('settings'); }} onRefresh={refreshAll} />}
         <div hidden={guiding}>
-        {lastSale && tab === 'pos' && <div className="last-sale"><span>Última venta: ${lastSale.total.toLocaleString('es-AR')}</span><button type="button" className="text-button" onClick={() => showTicket(sales.find(s => s.id === lastSale.id) || lastSale)}>Ver último ticket</button></div>}
+        {lastSale && tab === 'pos' && <div className="last-sale"><span>Última venta: ${lastSale.total.toLocaleString('es-AR')}</span><button type="button" className="text-button" onClick={() => showTicket(sales.find(s => s.id === lastSale.id) || lastSale)}>Ver último ticket</button>
+          <SaleLedgerControl key={lastSale.id} storeId={store.id} sale={sales.find(s => s.id === lastSale.id) || lastSale} ledgers={ledgers} disabled={busy}
+            onMoved={saved => {
+              setLastSale(previous => previous?.id === saved.id ? saved : previous);
+              setSales(previous => previous.map(sale => sale.id === saved.id ? { ...sale, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : sale));
+              setTicket(previous => previous?.id === saved.id ? { ...previous, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : previous);
+              setRevision(value => value + 1);
+            }} />
+        </div>}
         <div className="page-heading">
           <div>
             <span className="eyebrow">
@@ -894,6 +912,7 @@ function Workspace({
                   cart={cart}
                   setCart={setCart}
                   onCompleteSale={completeSale}
+                  saleLedgerLabel={method => ledgerForPayment(method)?.name || 'No disponible'}
                   onTriggerChecklist={() => {}}
                   onGoToCreateProduct={
                     manager ? () => { setCatalogView('products'); setTab("catalog"); } : undefined

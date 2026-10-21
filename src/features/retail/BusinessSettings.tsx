@@ -3,6 +3,7 @@ import { retail, type Branch, type PriceList, type PriceOverride, type Product, 
 import type { Run } from './Management';
 import { productsForList } from './pricing';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
+import { ledgerPaymentMethods, resolveSaleLedger } from './ledgerRouting';
 
 export function BranchSettings({ storeId, branches, run, busy }: { storeId: string; branches: Branch[]; run: Run; busy: boolean }) {
   return <section className="retail-panel">
@@ -23,8 +24,35 @@ export function BranchSettings({ storeId, branches, run, busy }: { storeId: stri
 export function LedgerSettings({ storeId, ledgers, run, busy }: { storeId: string; ledgers: SalesLedger[]; run: Run; busy: boolean }) {
   return <section className="retail-panel"><h2>Registros de ventas</h2>
     <p>Un registro de ventas es una agrupación que elegís para organizar las ventas. No es una caja de cobro ni determina si hay factura. Todos integran los totales del comercio.</p>
-    <SettingsEditorGroup>{[...ledgers, null].map(l => <SettingsEditor key={l?.id || 'new'} busy={busy}
-      label={l ? `Editar ${l.name}` : 'Agregar registro'} summary={l && <><strong>{l.name}</strong><small>{l.active ? 'Activo' : 'Inactivo'}</small></>}>
+    <p>General y Pruebas organizan ventas reales: ambos afectan stock y caja. Pruebas no es un entorno de simulación.</p>
+    {(!ledgers.some(l => l.name === 'General' && l.active) || !ledgers.some(l => l.name === 'Pruebas' && l.active)) && <div>
+      <button type="button" className="secondary-button" disabled={busy} onClick={() => void run(() => retail.prepareSalesLedgers(storeId), 'Registros preparados. General es el principal.')}>
+        Preparar General y Pruebas
+      </button><p>Crea o reactiva los que falten y define General como principal. Conserva los otros registros, sus reglas y las ventas anteriores.</p>
+    </div>}
+    <SettingsEditorGroup>
+      <SettingsEditor label="Configurar selección por medio de pago" busy={busy}
+        summary={<><strong>Principal: {ledgers.find(l => l.is_default)?.name || 'Sin definir'}</strong>
+          <small>{ledgerPaymentMethods.map(method => `${method.label}: ${resolveSaleLedger(ledgers, method.id)?.name || 'Sin registro'}`).join(' · ')}</small></>}>
+        {close => <form className="retail-form" onSubmit={async event => {
+          event.preventDefault(); const fields = new FormData(event.currentTarget);
+          const rules = Object.fromEntries(ledgerPaymentMethods.map(method => [method.id, String(fields.get(method.id) || '')]).filter(([, value]) => value));
+          if (await run(() => retail.saveLedgerRouting(storeId, String(fields.get('default')), rules), 'Reglas de esta tienda guardadas')) close();
+        }}>
+          <label>Registro principal<select name="default" required defaultValue={ledgers.find(l => l.is_default)?.id || ''} disabled={busy}>
+            <option value="" disabled>Elegí un registro</option>{ledgers.filter(l => l.active).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+          </select></label>
+          <p>Si un medio no tiene regla, se usa el principal. Pago mixto envía la venta completa a su registro, sin dividir el ticket. Podés elegir otro registro manualmente en Vender.</p>
+          {ledgerPaymentMethods.map(method => <label key={method.id}>{method.label}
+            <select name={method.id} disabled={busy} defaultValue={ledgers.find(l => l.active && l.payment_methods?.includes(method.id))?.id || ''}>
+              <option value="">Usar el principal</option>{ledgers.filter(l => l.active).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
+            </select>
+          </label>)}
+          <button className="primary-button" disabled={busy}>Guardar reglas</button>
+        </form>}
+      </SettingsEditor>
+      {[...ledgers, null].map(l => <SettingsEditor key={l?.id || 'new'} busy={busy}
+      label={l ? `Editar ${l.name}` : 'Agregar registro'} summary={l && <><strong>{l.name}{l.is_default ? ' · Principal' : ''}</strong><small>{l.active ? 'Activo' : 'Inactivo'}</small></>}>
       {close => <form className="inline-form business-edit-row" onSubmit={async e => {
       e.preventDefault(); const form = e.currentTarget; const f = new FormData(form);
       if (await run(() => retail.saveLedger(storeId, String(f.get('name')), l?.id, l?.active ?? true), 'Registro guardado')) close();

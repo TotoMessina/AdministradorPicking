@@ -3,6 +3,7 @@ import { ArrowRight, Check, Loader2, Plus, RefreshCw, Search, Trash2, X } from '
 import { errorMessage, retail, type Branch, type Product, type StockTransfer, type StockTransferItem } from './api';
 import type { Run } from './Management';
 import { normalizeSupplierText } from '../../services/supplierMappingService';
+import { randomUUID } from '../../utils/uuid';
 
 const validQuantity = (qty: number) => Number.isSafeInteger(qty) && qty > 0 && qty <= 1000000;
 const statusNames = { pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada' };
@@ -71,7 +72,7 @@ export function StockTransfers({ storeId, branches, products, run, busy, active 
     if (!valid) { setFormError('Elegí dos sucursales diferentes y agregá productos con cantidades enteras positivas.'); return; }
     const payload: StockTransferItem[] = items.map(item => ({ ...item, product_name: byId.get(item.product_id)!.name }));
     const signature = JSON.stringify([storeId, from, to, [...items].sort((a, b) => a.product_id.localeCompare(b.product_id)), notes.trim()]);
-    if (request.current.signature !== signature) request.current = { signature, id: crypto.randomUUID() };
+    if (request.current.signature !== signature) request.current = { signature, id: randomUUID() };
     working.current = true; setSaving('new'); setFormError('');
     let failure: unknown;
     try {

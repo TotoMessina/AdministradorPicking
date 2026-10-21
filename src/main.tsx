@@ -1,4 +1,5 @@
-import { StrictMode } from 'react'
+import './utils/uuid';
+import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client'
 import App from './App'
 

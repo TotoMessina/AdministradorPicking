@@ -1,4 +1,5 @@
 import { supabase, isValidUUID } from "../../lib/supabase";
+import { randomUUID } from "../../utils/uuid";
 import type { KioscoProduct, KioscoSale } from "../../types/kiosco";
 import { syncOffline, withOffline } from './offline';
 import { createStoreOnce, onboarding } from './onboarding';
@@ -45,7 +46,8 @@ export interface StockTransfer {
 }
 export interface PriceList { id: string; store_id: string; name: string; adjustment: number; active: boolean; branch_id?: string | null }
 export interface PriceOverride { list_id: string; product_id: string; price: number }
-export interface SalesLedger { id: string; store_id: string; name: string; is_default: boolean; active: boolean }
+export interface SalesLedger { id: string; store_id: string; name: string; is_default: boolean; active: boolean; payment_methods?: import('../../types/kiosco').PaymentMethod[] }
+export interface SaleLedgerChange { id: string; from_name: string; to_name: string; changed_by: string; changed_at: string }
 export interface Shift {
   id: string;
   store_id: string;
@@ -278,6 +280,20 @@ const remoteRetail = {
   async saveLedger(store: string, name: string, id?: string, active = true) {
     const query = supabase.from('retail_ledgers');
     return result(id ? query.update({ name: name.trim(), active }).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, name: name.trim() }));
+  },
+  async saveLedgerRouting(store: string, defaultId: string, rules: Record<string, string>) {
+    return result(supabase.rpc('retail_save_ledger_routing', { p_store: store, p_default: defaultId, p_rules: rules }));
+  },
+  async prepareSalesLedgers(store: string) {
+    return result(supabase.rpc('retail_prepare_sales_ledgers', { p_store: store }));
+  },
+  async moveSaleLedger(store: string, sale: string, target: string, expected: string, request: string) {
+    const row = await result<SaleRow>(supabase.rpc('retail_move_sale_ledger', { p_store: store, p_sale: sale, p_target: target, p_expected: expected, p_request: request }));
+    return saleFromRow(row);
+  },
+  async saleLedgerHistory(store: string, sale: string) {
+    return allRows<SaleLedgerChange>((from, to) => supabase.from('retail_sale_ledger_changes').select('id,from_name,to_name,changed_by,changed_at')
+      .eq('store_id', store).eq('sale_id', sale).order('changed_at', { ascending: false }).order('id').range(from, to));
   },
   async reportSales(store: string, fromDate: string, toDate: string) {
     const rows = await allRows<SaleRow>((from, to) => supabase.from('retail_sales').select('*').eq('store_id', store).gte('created_at', fromDate).lt('created_at', toDate).order('created_at').order('id').range(from, to));
@@ -707,7 +723,7 @@ const remoteRetail = {
     await syncOffline();
     const shift = await result<{ id: string } | null>(supabase.from('retail_shifts').select('id').eq('id', shiftId).eq('store_id', store).is('closed_at', null).maybeSingle());
     if (!shift) throw new Error('El turno no está disponible en el servidor. Sincronizá o actualizá el turno y reintentá.');
-    const path = `${store}/${shiftId}/${crypto.randomUUID()}.${extension}`;
+    const path = `${store}/${shiftId}/${randomUUID()}.${extension}`;
     await result(supabase.storage.from(VOUCHER_BUCKET).upload(path, file, { contentType: voucherMimeType(file), upsert: false, cacheControl: '0' }));
     return voucherReference(path);
   },
@@ -718,7 +734,7 @@ const remoteRetail = {
     const { data, error } = await supabase.auth.getUser();
     if (error) throw error;
     if (!data.user) throw new Error('Iniciá sesión antes de enviar el remito.');
-    const path = `${store}/${data.user.id}/${crypto.randomUUID()}.${extension}`;
+    const path = `${store}/${data.user.id}/${randomUUID()}.${extension}`;
     await result(supabase.storage.from(REMITO_BUCKET).upload(path, file, { contentType: voucherMimeType(file), upsert: false, cacheControl: '0' }));
     return remitoReference(path);
   },
@@ -745,7 +761,7 @@ const remoteRetail = {
   async createTransfer(store: string, fromBranch: string, toBranch: string, items: StockTransferItem[], notes: string, requestId?: string): Promise<string> {
     if (!fromBranch || !toBranch || fromBranch === toBranch) throw new Error('Elegí sucursales de origen y destino diferentes.');
     return result<string>(supabase.rpc('retail_create_transfer', {
-      p_store: store, p_from_branch: fromBranch, p_to_branch: toBranch, p_items: items, p_notes: notes.trim() || null, p_request: requestId || crypto.randomUUID(),
+      p_store: store, p_from_branch: fromBranch, p_to_branch: toBranch, p_items: items, p_notes: notes.trim() || null, p_request: requestId || randomUUID(),
     }));
   },
   async confirmTransfer(store: string, transferId: string): Promise<string> {
