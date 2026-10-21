@@ -1,10 +1,22 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 
 export interface SupplierMapping {
+  id?: string;
+  confidence?: number;
+  times_used?: number;
+  last_used_at?: string;
   invoice_text: string;
   product_id: string;
   product_name: string;
   pack_size_detected?: number;
+}
+
+export interface SaveMappingOptions { confidence?: number; usageOnly?: boolean; mappingId?: string }
+
+function fromRemote(row: SupplierMapping): SupplierMapping {
+  return { id: row.id, invoice_text: row.invoice_text, product_id: row.product_id, product_name: row.product_name,
+    confidence: Number(row.confidence), times_used: Number(row.times_used), last_used_at: row.last_used_at,
+    ...(row.pack_size_detected != null ? { pack_size_detected: row.pack_size_detected } : {}) };
 }
 
 interface SupplierMappings {
@@ -77,12 +89,15 @@ async function remote<T>(request: (signal: AbortSignal) => PromiseLike<{ data: T
 }
 
 async function upload(storeId: string, supplier: string, mapping: SupplierMapping) {
-  await remote(signal => supabase.rpc('retail_upsert_supplier_mapping', {
+  const data = await remote(signal => supabase.rpc('retail_upsert_supplier_mapping', {
     p_store: storeId, p_supplier: supplier, p_invoice_text: mapping.invoice_text,
     p_product_id: mapping.product_id, p_product_name: mapping.product_name,
     p_pack_size: mapping.pack_size_detected ?? null,
+    p_confidence: mapping.confidence ?? 1,
   }).abortSignal(signal));
-  try { remember(cacheKey(storeId), supplier, mapping); } catch { /* Server copy is safe. */ }
+  const saved = fromRemote(data);
+  try { remember(cacheKey(storeId), supplier, saved); } catch { /* Server copy is safe. */ }
+  return saved;
 }
 
 function acknowledge(storeId: string, supplier: string, mapping: SupplierMapping) {
@@ -116,12 +131,17 @@ export async function getMappings(storeId: string, supplier: string): Promise<Su
   // Retry pending offline writes before reading the shared authoritative memory.
   try { await migrateLocalMappings(storeId); } catch { /* Preserve pending data for retry. */ }
   try {
-    const data = await remote(signal => supabase.rpc('retail_get_supplier_mappings', { p_store: storeId, p_supplier: normalized }).abortSignal(signal));
-    if (!Array.isArray(data)) throw new Error('Respuesta de memoria inválida');
-    const mappings: SupplierMapping[] = data.map(row => ({ invoice_text: row.invoice_text, product_id: row.product_id, product_name: row.product_name,
-      ...(row.pack_size_detected != null ? { pack_size_detected: row.pack_size_detected } : {}) }));
-    try { writeGroup(cacheKey(storeId), normalized, mappings); } catch { /* Read still succeeds without browser storage. */ }
-    return mappings;
+    return await inStore(storeId, async () => {
+      const mappings: SupplierMapping[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const data = await remote(signal => supabase.rpc('retail_get_supplier_mappings', { p_store: storeId, p_supplier: normalized }).range(offset, offset + 499).abortSignal(signal));
+        if (!Array.isArray(data)) throw new Error('Respuesta de memoria inválida');
+        mappings.push(...data.map(fromRemote));
+        if (data.length < 500) break;
+      }
+      try { writeGroup(cacheKey(storeId), normalized, mappings); } catch { /* Read still succeeds without browser storage. */ }
+      return mappings;
+    });
   } catch { return cachedMappings(storeId, normalized); }
 }
 
@@ -137,23 +157,55 @@ export function findMapping(storeId: string, supplier: string, invoiceText: stri
   return normalized ? cachedMappings(storeId, normalizeSupplierText(supplier)).find(mapping => normalizeSupplierText(mapping.invoice_text) === normalized) || null : null;
 }
 
-export async function saveMapping(storeId: string, supplier: string, invoiceText: string, productId: string, productName: string, packSize?: number): Promise<void> {
+export async function saveMapping(storeId: string, supplier: string, invoiceText: string, productId: string, productName: string, packSize?: number, options: SaveMappingOptions = {}): Promise<SupplierMapping> {
   const supplierKey = normalizeSupplierText(supplier);
   if (!storeId || !supplierKey) throw new Error('Ingresá el proveedor para recordar esta vinculación.');
   if (!normalizeSupplierText(invoiceText) || !productId || !productName.trim()) throw new Error('Elegí un producto válido para recordar la vinculación.');
   if (packSize !== undefined && (!Number.isSafeInteger(packSize) || packSize < 1 || packSize > 2147483647)) throw new Error('La presentación debe tener una cantidad entera de unidades válida mayor a cero.');
-  const mapping: SupplierMapping = { invoice_text: invoiceText.trim(), product_id: productId, product_name: productName.trim(), ...(packSize !== undefined ? { pack_size_detected: packSize } : {}) };
+  const confidence = options.confidence ?? 1;
+  if (!Number.isFinite(confidence) || confidence < 0 || confidence > 1) throw new Error('La confianza debe estar entre cero y uno.');
+  const mapping: SupplierMapping = { invoice_text: invoiceText.trim(), product_id: productId, product_name: productName.trim(), confidence, ...(packSize !== undefined ? { pack_size_detected: packSize } : {}) };
   return inStore(storeId, async () => {
+    if (options.usageOnly) {
+      if (!options.mappingId) throw new Error('El alias necesita una identificación compartida para registrar su uso.');
+      // Usage is best-effort online: never queue a stale automatic upsert that could resurrect an alias.
+      const data = await remote(signal => supabase.rpc('retail_upsert_supplier_mapping', {
+        p_store: storeId, p_supplier: supplierKey, p_invoice_text: mapping.invoice_text,
+        p_product_id: productId, p_product_name: productName, p_pack_size: packSize ?? null,
+        p_confidence: confidence, p_usage_only: true, p_mapping_id: options.mappingId,
+      }).abortSignal(signal));
+      const saved = fromRemote(data);
+      try { remember(cacheKey(storeId), supplierKey, saved); } catch { /* Server copy is safe. */ }
+      return saved;
+    }
     let localSaved = false;
     try { remember(key(storeId), supplierKey, mapping); localSaved = true; } catch { /* Try the server even if local storage is unavailable. */ }
     try {
-      await upload(storeId, supplierKey, mapping);
+      const saved = await upload(storeId, supplierKey, mapping);
       try { acknowledge(storeId, supplierKey, mapping); } catch { /* Remote save succeeded; do not report it as lost. */ }
+      return saved;
     }
     catch {
       if (!localSaved) throw new Error('No se pudo guardar la vinculación ni en el comercio ni en este dispositivo. Revisá la conexión y el almacenamiento e intentá nuevamente.');
+      return mapping;
     }
   });
 }
 
-export const supplierMappingService = { getMappings, saveMapping, findMapping, migrateLocalMappings };
+export function deleteMapping(storeId: string, supplier: string, mapping: SupplierMapping): Promise<boolean> {
+  return inStore(storeId, async () => {
+    if (!mapping.id) throw new Error('Sincronizá este alias antes de eliminarlo del comercio.');
+    const normalized = normalizeSupplierText(supplier);
+    await remote(signal => supabase.rpc('retail_delete_supplier_mapping', { p_store: storeId, p_supplier: normalized, p_mapping_id: mapping.id }).abortSignal(signal));
+    let cacheCleared = true;
+    for (const storageKey of [key(storeId), cacheKey(storeId)]) {
+      try {
+        writeGroup(storageKey, normalized, localMappings(storageKey, normalized).filter(item =>
+          item.id !== mapping.id && normalizeSupplierText(item.invoice_text) !== normalizeSupplierText(mapping.invoice_text)));
+      } catch { cacheCleared = false; }
+    }
+    return cacheCleared;
+  });
+}
+
+export const supplierMappingService = { getMappings, saveMapping, findMapping, migrateLocalMappings, deleteMapping };

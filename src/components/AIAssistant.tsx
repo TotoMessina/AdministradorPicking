@@ -23,6 +23,8 @@ import { marginSales, summarizeMargins, marginPrompt, type MarginSummary as Marg
 import { MarginSummary } from '../features/retail/MarginSummary';
 import { detectAnomalies } from '../services/anomalyDetectionService';
 import { predictStockLevels, type StockPrediction } from '../services/stockPredictionService';
+import { analyzeCapital } from '../services/capitalAnalysisService';
+import { replenishmentService } from '../services/replenishmentService';
 
 export interface AIAssistantProps {
   store: Store;
@@ -36,6 +38,7 @@ export interface AIAssistantProps {
 }
 
 const INITIAL_CAPABILITY_CHIPS = [
+  { label: "¿Tengo mercadería clavada o por vencer?", icon: AlertTriangle },
   { label: "¿Cómo va el negocio esta semana?", icon: TrendingUp },
   { label: "¿Detectaste algo sospechoso en los turnos?", icon: AlertTriangle },
   { label: "¿Qué distribuidor me deja más margen?", icon: TrendingUp },
@@ -540,7 +543,30 @@ export function AIAssistant({
         salesCompleteSince: validDates[0]?.toISOString(),
       }) : [];
     const prediccionStock = compactStockPredictions(predictStockLevels(products, activeSales, { asOf: now.toISOString() }), products);
+    const localRestocks = replenishmentService.getHistory(store.id);
+    const capitalAlerts = analyzeCapital(products, activeSales, { asOf: now.toISOString(),
+      replenishments: Array.isArray(localRestocks) ? localRestocks.filter(record => record?.storeId === store.id) : [],
+    });
+    const semaforoRojos = capitalAlerts.filter((a) => a.urgency === 'red');
+    const semaforoAmarillos = capitalAlerts.filter((a) => a.urgency === 'yellow');
+    const capitalTotalInmovilizado = capitalAlerts
+      .filter((a) => a.urgency === 'red' || a.urgency === 'yellow')
+      .reduce((sum, a) => sum + a.capitalLocked, 0);
+    const productosMuertos = capitalAlerts.filter((a) => a.rotationSpeed === 'dead').length;
+    // Same population and valuation as the numerator: active products with valid positive stock/cost.
+    const stockTotalValorizado = capitalAlerts.reduce((sum, alert) => sum + alert.capitalLocked, 0);
+
     const contextPayload = {
+      semaforoCapital: {
+        rojos: semaforoRojos.slice(0, 8),
+        amarillos: semaforoAmarillos.slice(0, 5),
+        capitalTotalInmovilizado: Math.round(capitalTotalInmovilizado),
+        productosMuertos,
+        stockTotalValorizado: Math.round(stockTotalValorizado),
+        porcentajeCapitalParado: stockTotalValorizado > 0 ? Math.round(capitalTotalInmovilizado / stockTotalValorizado * 10000) / 100 : null,
+        productosSinVentaObservada: capitalAlerts.filter(alert => alert.daysSinceLastSale === null).length,
+        alcance: 'Totales sobre todos los productos activos con stock y costo positivos; listas acotadas a 8 rojos y 5 amarillos. Rotación por días desde última venta en la muestra cargada, no por unidades/stock. Sin venta observada se clasifica dead para revisión, sin demostrar 45 días de inactividad. Reposición: fecha persistida o historial local de este dispositivo, que puede incluir pendientes de sincronización. No hay trazabilidad por lote.',
+      },
       prediccionStock,
       alertasOperativas: alertasOperativas.slice(0, 10),
       alcanceAlertasOperativas: {
@@ -642,6 +668,8 @@ Estas reglas de separación aplican a todos los períodos del JSON. Mostrá siem
    - "¿Cómo va el negocio esta semana?": Usá 'estaSemanaUltimos7Dias' (facturación, tickets, ganancia, top productos) y cruzalo con el stock crítico.
    - "¿Qué distribuidor me deja más margen?": Usá 'distribuidoresMargen'.
    - "Analizá mis productos sin movimiento": Usá 'productosSinMovimiento' y mencioná el capital parado.
+   - "¿Tengo mercadería clavada o por vencer?" / mercadería clavada / capital parado / vencimientos: Cuando pregunten por mercadería clavada, capital parado o vencimientos, usá 'semaforoCapital'. Sugerí las promociones concretas del campo 'suggestedPromoText'. Calculá el porcentaje de capital parado respecto al stock total valorizado.
+   - Usá porcentajeCapitalParado ya calculado (null = sin base para calcular). Capital parado suma rojos y amarillos de toda la muestra, no solo los listados. Sin última venta conocida no afirmes que nunca se vendió ni que pasaron 45 días. Es un indicador por recencia, no una medición de demanda o rentabilidad. Los precios promocionales son propuestas sin aplicar; revisá su costo y margen, especialmente bajo margen, y no prometas ganancias ni inventes descuentos de liquidación. Un producto vencido se revisa y retira de la venta, nunca se promociona. No interpretes falta de fecha como ausencia de vencimiento; puede haber distintos lotes.
    - "¿Cuándo fue mi mejor turno del mes?": Usá 'mejorTurno'.
    - "¿Qué debería comprar esta semana?" / "¿De qué me voy a quedar sin stock esta semana?": Usá prediccionStock.criticos, agrupá por proveedor e indicá fecha estimada y unidades/bultos sugeridos; no recalcules ni generes pedidos.
    - "¿Qué producto tiene sobrestock?": Usá prediccionStock.sobrestock; capital es stock por costo, null si falta. Sin ventas observadas no prueba falta de demanda.

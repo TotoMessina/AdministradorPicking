@@ -103,7 +103,10 @@ export async function exportOfflineBackup() {
 export async function syncOffline() {
   const user = activeUser;
   if (!user || !offlineSupported() || syncing || navigator.onLine === false) return;
+  const hasQueue = await transaction(user, s => s.queue.length > 0);
+  if (!hasQueue) return;
   syncing = true; event();
+  let syncedAny = false;
   try {
     // Serial server receipts make concurrent tabs/retries harmless; the local snapshot
     // is reconciled by operation ID after the transaction has committed remotely.
@@ -122,6 +125,7 @@ export async function syncOffline() {
         }
         break;
       }
+      syncedAny = true;
       await transaction(user, s => {
         s.revision++;
         s.queue = s.queue.filter(q => q.operation.id !== entry.operation.id);
@@ -134,8 +138,8 @@ export async function syncOffline() {
       event();
     }
     const state = await transaction(user, s => s);
-    if (!state.queue.length && activeUser === user) for (const k of Object.keys(state.cache)) {
-      const [method, args] = JSON.parse(k); if (reads.has(method)) backgroundRead(user, method, args, true);
+    if (syncedAny && !state.queue.length && activeUser === user) for (const k of Object.keys(state.cache)) {
+      const [method, args] = JSON.parse(k); if (reads.has(method)) backgroundRead(user, method, args, false);
     }
   } catch { /* Durable queue remains intact; online event/timer/manual retry resumes. */ }
   finally { syncing = false; event(); }

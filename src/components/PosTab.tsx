@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Barcode,
@@ -85,7 +85,7 @@ export function PosTab({
   onMobilePosViewChange,
 }: Props) {
   const { notify } = useToast();
-  const categories = ["", ...new Set(products.map((p) => p.category))];
+  const categories = useMemo(() => ["", ...new Set(products.map((p) => p.category))], [products]);
   const [category, setCategory] = useState("");
   const [query, setQuery] = useState("");
   const [method, setMethod] = useState<PaymentMethod>("Efectivo");
@@ -155,14 +155,17 @@ export function PosTab({
     playScannerBeep();
     onTriggerChecklist("scanner");
   };
-  const filtered = products.filter(
-    (p) =>
-      (category === "" || p.category === category) &&
-      (!availableOnly || p.stock > 0) &&
-      (!hideLowMargin || p.margin_group !== 'low_margin') &&
-      (normalize(p.name).includes(normalize(query)) ||
-        p.code.includes(query.trim())),
-  );
+  const filtered = useMemo(() => {
+    const qTrim = query.trim();
+    const qNorm = normalize(qTrim);
+    return products.filter(
+      (p) =>
+        (category === "" || p.category === category) &&
+        (!availableOnly || p.stock > 0) &&
+        (!hideLowMargin || p.margin_group !== 'low_margin') &&
+        (!qTrim || p.code.includes(qTrim) || normalize(p.name).includes(qNorm)),
+    );
+  }, [products, category, availableOnly, hideLowMargin, query]);
   const search = (e: React.FormEvent) => {
     e.preventDefault();
     const exact = products.find((p) => p.code === query.trim());

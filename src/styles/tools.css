@@ -166,6 +166,12 @@
 .invoice-link-status.known { color: #276345; background: #eff8f2; }
 .invoice-link-status.pending { color: #805512; background: #fff8e7; }
 .invoice-link-status.missing { color: var(--tone-danger); background: var(--tone-danger-soft); }
+.invoice-alias-list { list-style: none; padding: 0; margin: 12px 0 0; display: grid; gap: 12px; }
+.invoice-alias-list li { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--tone-border); }
+.invoice-alias-list li > div { min-width: 0; overflow-wrap: anywhere; }
+.invoice-alias-list li > button { flex-shrink: 0; min-width: 44px; min-height: 44px; }
+.invoice-division-reason { white-space: normal; max-width: 240px; }
+.invoice-alias-panel :focus-visible { outline: 2px solid var(--tone-text); outline-offset: 3px; }
 .invoice-link-review { display: grid; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--tone-border); }
 .invoice-link-review > p { margin: 0; color: var(--tone-muted); font-size: 12px; }
 .invoice-link-review > button { justify-self: start; }

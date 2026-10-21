@@ -68,6 +68,8 @@ export interface Product extends KioscoProduct {
   unitType?: string;
   pack_size?: number | null;
   margin_group?: 'standard' | 'low_margin' | null;
+  expiry_date?: string | null;
+  last_restocked_at?: string | null;
 }
 export interface Movement {
   shift_id?: string;
@@ -137,6 +139,8 @@ export function errorMessage(error: unknown): string {
       return 'Falta actualizar la base de datos: ejecutá completa la migración 202610160004_margin_groups.sql en el SQL Editor de Supabase. Después, actualizá la pantalla y volvé a guardar. El producto no se guardó.';
     if (e.message?.includes('pack_size'))
       return 'Falta actualizar la base de datos: ejecutá completa la migración 202610160003_pack_size.sql en el SQL Editor de Supabase. Después, actualizá la pantalla y volvé a guardar. El producto no se guardó.';
+    if (e.message?.includes('expiry_date') || e.message?.includes('last_restocked_at'))
+      return 'Falta actualizar la base de datos: ejecutá completa la migración 202610200003_product_expiry.sql en el SQL Editor de Supabase. Después, actualizá la pantalla y volvé a guardar. El producto no se guardó.';
     return `La base de datos no tiene una columna que necesita esta versión. Revisá las migraciones pendientes en SUPABASE_SETUP.md. ${e.message || ''}`;
   }
   if (e?.code === "PGRST205" || e?.code === "PGRST202" || e?.code === "42P01")
@@ -201,6 +205,38 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   created_at: row.created_at,
   createdAt: row.created_at,
 });
+
+async function lookupOpenFoodFacts(code: string): Promise<EanLookupResult> {
+  try {
+    const res = await fetch(`https://world.openfoodfacts.org/api/v2/product/${encodeURIComponent(code)}.json`, {
+      signal: AbortSignal.timeout(2800),
+      headers: {
+        'User-Agent': 'KioscoAdminApp/1.0 (retail product lookup)',
+      },
+    });
+    if (!res.ok) return { found: false };
+    const json = await res.json();
+    if (json.status !== 1 || !json.product) return { found: false };
+    const p = json.product;
+    const name: string = (p.product_name_es || p.product_name || p.generic_name_es || p.generic_name || '').trim();
+    if (!name) return { found: false };
+    const brand: string | undefined = p.brands?.split(',')[0]?.trim() || undefined;
+    const rawCategories: string = p.categories_es || p.categories || '';
+    const category_suggestion = rawCategories.split(',')[0]?.trim() || undefined;
+    return {
+      found: true,
+      name,
+      brand,
+      category_suggestion,
+      emoji: '📦',
+      source: 'community',
+      confidence_score: 0.85,
+    };
+  } catch {
+    return { found: false };
+  }
+}
+
 const remoteRetail = {
   async quickProducts(store: string, branch: string) {
     return result<{ product_id: string; position: number }[]>(supabase.from('retail_quick_products').select('product_id,position').eq('store_id', store).eq('branch_id', branch).order('position'));
@@ -309,6 +345,8 @@ const remoteRetail = {
       unit_type?: string | null;
       pack_size?: number | null;
       margin_group?: 'standard' | 'low_margin' | null;
+      expiry_date?: string | null;
+      last_restocked_at?: string | null;
     }>((from, to) =>
       supabase
         .from("retail_products")
@@ -339,6 +377,8 @@ const remoteRetail = {
       unitType: p.unit_type || "unit",
       pack_size: p.pack_size ?? null,
       margin_group: p.margin_group ?? 'standard',
+      expiry_date: p.expiry_date ?? null,
+      last_restocked_at: p.last_restocked_at ?? null,
     }));
   },
   async shifts(store: string) {
@@ -421,6 +461,9 @@ const remoteRetail = {
       unit_type: p.unitType || "unit",
       pack_size: p.pack_size ?? null,
       margin_group: p.margin_group ?? 'standard',
+      // Older callers that only edit prices must not clear optional metadata.
+      ...(p.expiry_date !== undefined ? { expiry_date: p.expiry_date || null } : {}),
+      ...(p.last_restocked_at !== undefined ? { last_restocked_at: p.last_restocked_at || null } : {}),
     };
     if (edit)
       return result(
@@ -459,7 +502,10 @@ const remoteRetail = {
     newCost?: number,
     _quantityAdded?: number,
   ) {
-    const values: Record<string, unknown> = { stock: newStock };
+    const values: Record<string, unknown> = {
+      stock: newStock,
+      ...(_quantityAdded !== undefined && _quantityAdded > 0 ? { last_restocked_at: new Date().toISOString() } : {}),
+    };
     if (typeof newCost === "number" && newCost >= 0) {
       values.cost = newCost;
     }
@@ -478,8 +524,12 @@ const remoteRetail = {
     items: { id: string; newStock: number; newCost?: number; quantityAdded?: number }[],
   ) {
     const results = [];
+    const nowIso = new Date().toISOString();
     for (const item of items) {
-      const values: Record<string, unknown> = { stock: item.newStock };
+      const values: Record<string, unknown> = {
+        stock: item.newStock,
+        ...(item.quantityAdded !== undefined && item.quantityAdded > 0 ? { last_restocked_at: nowIso } : {}),
+      };
       if (typeof item.newCost === "number" && item.newCost >= 0) {
         values.cost = item.newCost;
       }
@@ -829,15 +879,30 @@ const remoteRetail = {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const timeoutPromise = new Promise<EanLookupResult>((resolve) => {
-        timer = setTimeout(() => resolve({ found: false }), 3000);
+        timer = setTimeout(() => resolve({ found: false }), 3500);
       });
 
       const fetchPromise = (async (): Promise<EanLookupResult> => {
         const { data, error } = await supabase.rpc("retail_lookup_ean", {
           p_code: trimmed,
         });
-        if (error || !data) return { found: false };
-        return data as EanLookupResult;
+        if (!error && data && (data as EanLookupResult).found) {
+          return data as EanLookupResult;
+        }
+        // Fallback: Si no está en retail_global_catalog, buscar en Open Food Facts
+        const offResult = await lookupOpenFoodFacts(trimmed);
+        if (offResult.found && offResult.name) {
+          void remoteRetail.contributeCatalog(
+            trimmed,
+            offResult.name,
+            offResult.brand,
+            offResult.category_suggestion,
+            offResult.emoji || '📦',
+            'community',
+          ).catch(() => {});
+          return offResult;
+        }
+        return { found: false };
       })();
 
       return await Promise.race([fetchPromise, timeoutPromise]);

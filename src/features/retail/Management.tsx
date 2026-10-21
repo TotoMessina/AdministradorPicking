@@ -200,6 +200,7 @@ export function CatalogEditor({
     unitType: "unit" as "unit" | "kg" | "lt" | "pack" | "box",
     packSize: '',
     marginGroup: 'standard' as 'standard' | 'low_margin',
+    expiryDate: '',
   });
   const [tagInput, setTagInput] = useState("");
   const latestProductDraft = useRef(formData);
@@ -452,6 +453,7 @@ export function CatalogEditor({
       unitType: "unit",
       packSize: '',
       marginGroup: 'standard',
+      expiryDate: '',
     });
   };
 
@@ -480,6 +482,7 @@ export function CatalogEditor({
       unitType: (p.unitType as "unit" | "kg" | "lt" | "pack" | "box") || "unit",
       packSize: p.pack_size == null ? '' : String(p.pack_size),
       marginGroup: p.margin_group ?? 'standard',
+      expiryDate: p.expiry_date || '',
     });
   };
 
@@ -755,10 +758,23 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
     }
   };
 
-  // Automatic barcode lookup is deterministic; generative suggestions are explicit.
+  // Automatic barcode lookup checks local catalog, global community catalog, and Open Food Facts.
   const handleCodeBlur = async () => {
     const code = formData.code.trim();
-    if (!code || formData.name.trim() || isSuggesting) return;
+    if (!code || isSuggesting) return;
+
+    // PASO 1 — Verificar si ya existe en el catálogo local de este comercio
+    const existing = products.find(
+      (p) => p.code?.trim().toLowerCase() === code.toLowerCase() && p.id !== editing?.id,
+    );
+    if (existing) {
+      setProductSuggestionNote(
+        `⚠️ Este código ya pertenece a "${existing.name}" en tu catálogo (Precio: $${existing.price.toLocaleString("es-AR")}, Stock: ${existing.stock} u.).`,
+      );
+      return;
+    }
+
+    if (formData.name.trim()) return;
 
     const requestId = ++suggestionRequest.current;
     const draft = formData;
@@ -767,7 +783,7 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
     setProductSuggestionNote('');
 
     try {
-      // PASO 1 — Lookup en catálogo global comunitario (sin IA)
+      // PASO 2 — Lookup en catálogo global comunitario y Open Food Facts
       const globalResult = await retail.lookupEan(code);
       if (requestId !== suggestionRequest.current || latestProductDraft.current !== draft) return;
       if (
@@ -785,7 +801,7 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
         });
         return;
       }
-      setProductSuggestionNote('No encontramos datos para ese código. Podés completarlos o pedir una sugerencia con IA.');
+      setProductSuggestionNote('No encontramos datos para ese código. Podés ingresar el nombre o pedir una sugerencia con IA.');
     } catch {
       if (requestId === suggestionRequest.current && latestProductDraft.current === draft) {
         setProductSuggestionNote('No se pudo consultar el catálogo. Podés completar los datos manualmente.');
@@ -796,7 +812,7 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
   };
 
   const suggestProductDetails = async () => {
-    const name = formData.name.trim();
+    let name = formData.name.trim();
     const code = formData.code.trim();
     if ((name.length < 2 && !code) || isSuggesting) return;
 
@@ -807,6 +823,47 @@ Respetá estrictamente el formato de salida solicitado con la etiqueta de urgenc
     setProductSuggestionNote('');
 
     try {
+      // Si no hay nombre pero sí código, buscar primero en base de datos de productos (local y global/OFF)
+      if (name.length < 2 && code) {
+        // 1. Catálogo local
+        const existing = products.find(
+          (p) => p.code?.trim().toLowerCase() === code.toLowerCase() && p.id !== editing?.id,
+        );
+        if (existing) {
+          setSuggestion({
+            name: existing.name,
+            emoji: existing.emoji || "📦",
+            category: existing.category || "",
+            brand: existing.brand,
+            supplier: existing.supplier,
+            estimatedPrice: existing.price,
+            estimatedCost: existing.cost,
+            source: "community",
+            disclaimer: "Datos obtenidos de tu catálogo existente",
+          });
+          setProductSuggestionNote(`Encontrado en tu catálogo: "${existing.name}".`);
+          setIsSuggesting(false);
+          return;
+        }
+
+        // 2. Catálogo global / Open Food Facts
+        const eanRes = await retail.lookupEan(code);
+        if (requestId !== suggestionRequest.current || latestProductDraft.current !== draft) return;
+        if (eanRes && eanRes.found && eanRes.name) {
+          name = eanRes.name;
+          setFormData((prev) => ({
+            ...prev,
+            name: eanRes.name || prev.name,
+            brand: eanRes.brand || prev.brand,
+            emoji: eanRes.emoji || prev.emoji,
+          }));
+        } else {
+          setProductSuggestionNote('No encontramos ese código en tu catálogo ni en la base comunitaria. Escribí el nombre del producto (ej: Alfajor Jorgito) para que la IA sugiera precios y categorías.');
+          setIsSuggesting(false);
+          return;
+        }
+      }
+
       const categoryListStr = categories.map((c) => c.name).join(", ");
       const systemPrompt = `Sos un experto en retail, kioscos y almacenes de Argentina.
 Dado el nombre de un producto (o descripción informal), completá sus atributos comerciales para el catálogo.
@@ -825,7 +882,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       const response = await groqChat(
         [
           { role: "system", content: systemPrompt },
-          { role: "user", content: name.length >= 2 ? `Producto: "${name}". Código: ${code || 'sin código'}` : `Código de producto: ${code}. Si no podés identificarlo con certeza, no inventes atributos.` },
+          { role: "user", content: `Producto: "${name}". Código: ${code || 'sin código'}` },
         ],
         { temperature: 0.2 },
       );
@@ -1033,6 +1090,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     unitType?: string;
     pack_size?: number | null;
     margin_group?: 'standard' | 'low_margin' | null;
+    expiry_date?: string | null;
+    last_restocked_at?: string | null;
   }) => {
     if (
       await run(
@@ -1091,6 +1150,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       unitType: formData.unitType,
       pack_size: formData.packSize.trim() ? Number(formData.packSize) : null,
       margin_group: formData.marginGroup,
+      expiry_date: formData.expiryDate ? formData.expiryDate : null,
     };
 
     if (!review) {
@@ -1203,11 +1263,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
     setProductReviewNote('La revisión con IA no señaló alertas. Revisá los datos y usá Guardar producto cuando quieras.');
   };
 
-  const filtered = products.filter((p) => (!stockFilter || p.stock <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
-    (p.name + " " + p.code + " " + p.category)
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return products.filter((p) => (!stockFilter || p.stock <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
+      (!q || (p.name + " " + p.code + " " + p.category).toLowerCase().includes(q)),
+    );
+  }, [products, stockFilter, lowMarginFilter, query]);
   return (
     <div className="retail-panel" ref={panelRef}>
       <div className="section-heading" hidden={!guided && (adding || !!editing)}>
@@ -1528,6 +1589,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   setFormData((prev) => ({ ...prev, code: e.target.value }))
                 }
                 onBlur={guided ? undefined : handleCodeBlur}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    if (!guided) void handleCodeBlur();
+                  }
+                }}
                 placeholder="Escaneá o ingresá el código EAN"
               />
             </label>
@@ -1624,6 +1691,18 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 }
                 placeholder="0.00"
               />
+            </label>
+            <label>
+              Fecha de vencimiento (opcional)
+              <input
+                name="expiry_date"
+                type="date"
+                value={formData.expiryDate}
+                onChange={(e) =>
+                  setFormData((prev) => ({ ...prev, expiryDate: e.target.value }))
+                }
+              />
+              <small>Si hay varios lotes, indicá el próximo vencimiento. No cambia precios ni bloquea ventas.</small>
             </label>
             <label>
               Stock actual ({saleUnit === 'unidad' ? 'unidades' : saleUnit === 'litro' ? 'litros' : saleUnit === 'pack' ? 'packs' : saleUnit === 'caja' ? 'cajas' : saleUnit})
