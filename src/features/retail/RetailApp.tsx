@@ -12,6 +12,9 @@ import {
   Menu,
   X,
   Camera,
+  Tag,
+  BookOpen,
+  ChevronDown,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useToast } from "../../context/ToastContext";
@@ -623,30 +626,93 @@ function Workspace({
     </label>}
   </>;
   const posStationControls = canOperate ? (
-    <div className="pos-station-bar">
-      {canChooseList || canChooseLedger ? <details className="sale-options station-sale-options">
-        <summary>
-          <span>Opciones de venta</span>
-          <strong>{priceListName} · Registro: {ledgerName}</strong>
-        </summary>
-        <div className="business-controls">
-          {canChooseList ? <label>Lista de precios
-            <select disabled={busy || cart.length > 0 || branchPricing.loading} value={priceListId} onChange={e => branchPricing.select(e.target.value)}>
-              <option value="">Precio del catálogo</option>
-              {saleLists.map(l => <option key={l.id} value={l.id} disabled={!l.active}>{l.name}{!l.active && ' (inactiva)'}</option>)}
-            </select>
-            <small>Define los precios de esta venta.</small>
-          </label> : <p>Lista de precios: <strong>{priceListName}</strong></p>}
-          {canChooseLedger ? <label>Registro de ventas
-            <select disabled={busy || cart.length > 0} value={automaticLedger ? '' : ledgerId} onChange={e => { setAutomaticLedger(!e.target.value); if (e.target.value) setLedgerId(e.target.value); }}>
-              <option value="">Automático por medio de pago</option>
-              {saleLedgers.map(l => <option key={l.id} value={l.id} disabled={!l.active}>{l.name}{!l.active && ' (inactivo)'}</option>)}
-            </select>
-            <small>Automático usa las reglas de esta tienda al cobrar. Elegir un registro fija el destino de las próximas ventas hasta volver a Automático.</small>
-          </label> : <p>Registro de ventas: <strong>{ledgerName}</strong></p>}
-          {cart.length > 0 && <small>La sucursal, la caja, la lista y el registro se mantienen hasta terminar o vaciar la venta.</small>}
+    <div className="pos-station-buttons" role="toolbar" aria-label="Opciones de venta">
+      {canChooseList ? (
+        <label
+          className="pos-station-btn-pill"
+          title={cart.length > 0 ? "Vaciá el carrito para cambiar la lista de precios" : "Cambiar lista de precios"}
+        >
+          <span className="pos-station-btn-icon" aria-hidden="true">
+            <Tag size={13} />
+          </span>
+          <span className="pos-station-btn-text">
+            <span className="pos-station-btn-tag">Lista</span>
+            <strong className="pos-station-btn-val">{priceListName}</strong>
+          </span>
+          <span className="pos-station-btn-arrow" aria-hidden="true">
+            <ChevronDown size={13} />
+          </span>
+          <select
+            disabled={busy || cart.length > 0 || branchPricing.loading}
+            value={priceListId}
+            onChange={e => branchPricing.select(e.target.value)}
+            className="pos-station-btn-select"
+            aria-label="Seleccionar lista de precios"
+          >
+            <option value="">Precio del catálogo</option>
+            {saleLists.map(l => (
+              <option key={l.id} value={l.id} disabled={!l.active}>
+                {l.name}{!l.active && ' (inactiva)'}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <div className="pos-station-btn-pill static" title="Lista de precios">
+          <span className="pos-station-btn-icon" aria-hidden="true">
+            <Tag size={13} />
+          </span>
+          <span className="pos-station-btn-text">
+            <span className="pos-station-btn-tag">Lista</span>
+            <strong className="pos-station-btn-val">{priceListName}</strong>
+          </span>
         </div>
-      </details> : <small>Lista de precios: <strong>{priceListName}</strong> · Registro de ventas: <strong>{ledgerName}</strong></small>}
+      )}
+
+      {canChooseLedger ? (
+        <label
+          className="pos-station-btn-pill"
+          title={cart.length > 0 ? "Vaciá el carrito para cambiar el registro de ventas" : "Cambiar registro de ventas"}
+        >
+          <span className="pos-station-btn-icon" aria-hidden="true">
+            <BookOpen size={13} />
+          </span>
+          <span className="pos-station-btn-text">
+            <span className="pos-station-btn-tag">Registro</span>
+            <strong className="pos-station-btn-val">{automaticLedger ? 'Automático' : ledgerName}</strong>
+          </span>
+          <span className="pos-station-btn-arrow" aria-hidden="true">
+            <ChevronDown size={13} />
+          </span>
+          <select
+            disabled={busy || cart.length > 0}
+            value={automaticLedger ? '' : ledgerId}
+            onChange={e => {
+              setAutomaticLedger(!e.target.value);
+              if (e.target.value) setLedgerId(e.target.value);
+            }}
+            className="pos-station-btn-select"
+            aria-label="Seleccionar registro de ventas"
+          >
+            <option value="">Automático por medio de pago</option>
+            {saleLedgers.map(l => (
+              <option key={l.id} value={l.id} disabled={!l.active}>
+                {l.name}{!l.active && ' (inactivo)'}
+              </option>
+            ))}
+          </select>
+        </label>
+      ) : (
+        <div className="pos-station-btn-pill static" title="Registro de ventas">
+          <span className="pos-station-btn-icon" aria-hidden="true">
+            <BookOpen size={13} />
+          </span>
+          <span className="pos-station-btn-text">
+            <span className="pos-station-btn-tag">Registro</span>
+            <strong className="pos-station-btn-val">{automaticLedger ? 'Automático' : ledgerName}</strong>
+          </span>
+        </div>
+      )}
     </div>
   ) : undefined;
   return (
@@ -665,7 +731,10 @@ function Workspace({
             <StoreIcon size={22} />
           </span>
           <span className="store-brand-name">
-            {store.name}
+            <span className="store-brand-title">
+              <span className="store-brand-text">{store.name}</span>
+              <OfflineStatus />
+            </span>
             <span className="brand-sub">MI NEGOCIO</span>
           </span>
         </div>
@@ -783,7 +852,6 @@ function Workspace({
         </div>
       </header>
       <main id="main-content" className="main-content" ref={mainRef}>
-        <OfflineStatus />
         {manager && !loading && <GuidedStart store={store} userId={session.user.id} branches={branches} registers={registers}
           register={register} shift={shift} occupied={occupiedByOther} categories={categories} products={products}
           busy={busy} run={run} showResume={tab === 'settings'} onStatus={guideStatus} autoStart={!pushEntry && !cart.length && !isAiOpen} hasPendingSale={cart.length > 0}

@@ -17,6 +17,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   AlertCircle,
+  Wallet,
 } from "lucide-react";
 import type {
   KioscoProduct,
@@ -253,7 +254,7 @@ export function PosTab({
       if (!activeRef.current) return;
       const panel = document.getElementById('pos-sale-panel');
       panel?.focus({ preventScroll: true });
-      panel?.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+      panel?.scrollIntoView({ behavior: 'auto', block: 'start' });
     });
   };
   const keyboard = useRef<(event: KeyboardEvent) => void>(() => {});
@@ -317,7 +318,6 @@ export function PosTab({
           <span>Venta {count > 0 && <span className="pos-mobile-tab-badge">{count}</span>}<small>{money(total)}</small></span>
         </button>
       </div>
-      {stationControls && <div className="pos-sale-context">{stationControls}</div>}
       <section className="catalog" aria-label="Botonera de venta">
         <div className="catalog-step"><span className="step-number">1</span><h2>Agregá productos</h2></div>
         <form className="search-box" onSubmit={search}>
@@ -436,6 +436,7 @@ export function PosTab({
           </button>
         </div>
         <section className="sale-cart" aria-label="Carrito de la venta">
+        {stationControls && <div className="pos-cart-top-bar">{stationControls}</div>}
         <div className="sale-header">
           <div>
             <span className="eyebrow">2 · REVISÁ LOS PRODUCTOS</span>
@@ -663,6 +664,14 @@ export function PosTab({
             )}
           </fieldset>
           {checkoutError && <div role="alert" className="error-banner checkout-error"><AlertCircle size={18} /><span>{checkoutError}</span></div>}
+          {saleLedgerLabel && (
+            <div className="checkout-ledger-target">
+              <Wallet size={13} className="checkout-ledger-icon" aria-hidden="true" />
+              <span>
+                Se guardará en: <strong>{saleLedgerLabel(method)}</strong>
+              </span>
+            </div>
+          )}
           <button
             className="primary-button checkout-button"
             disabled={
@@ -684,16 +693,15 @@ export function PosTab({
               </>
             )}
           </button>
-          {saleLedgerLabel && <p className="checkout-hint">Se guardará en: <strong>{saleLedgerLabel(method)}</strong></p>}
-          <p className="checkout-hint">
-            {!cart.length
-              ? "Agregá productos para comenzar"
-              : method === "Efectivo" && received < total
+          {cart.length > 0 && (
+            <p className="checkout-hint">
+              {method === "Efectivo" && received < total
                 ? "Ingresá cuánto recibiste para continuar"
                 : method !== 'Efectivo' && !confirmed
                   ? 'Confirmá el pago recibido para habilitar el cobro'
                   : "Al cobrar, se genera el ticket de la venta"}
-          </p>
+            </p>
+          )}
         </section>
       </aside>
       {cart.length > 0 && (
