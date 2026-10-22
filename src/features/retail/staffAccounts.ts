@@ -1,27 +1,27 @@
 import { createSignupClient, supabase } from '../../lib/supabase';
 
-export type StaffRole = 'admin' | 'cashier';
+export type StaffRole = 'admin' | 'supervisor' | 'cashier';
 export type StaffAccountResult = 'ready' | 'confirmation' | 'existing';
 
-export async function authorizeStaff(storeId: string, email: string, role: StaffRole) {
+export async function authorizeStaff(storeId: string, email: string, role: StaffRole, profileId?: string) {
   const normalizedEmail = email.trim().toLowerCase();
   // Reuse pending invitations so a failed signup can be retried safely.
   const { data: pending, error: readError } = await supabase.from('retail_invitations')
-    .select('id,role').eq('store_id', storeId).eq('email', normalizedEmail).maybeSingle();
+    .select('id,role,profile_id').eq('store_id', storeId).eq('email', normalizedEmail).maybeSingle();
   if (readError) throw readError;
   if (pending) {
-    if (pending.role !== role) throw new Error('Ese email ya tiene un acceso pendiente con otros permisos. Revocalo antes de cambiar el rol.');
+    if (pending.role !== role || (pending.profile_id || '') !== (profileId || '')) throw new Error('Ese email ya tiene un acceso pendiente con otro rol o perfil. Revisalo en Personas con acceso antes de volver a intentar.');
     return normalizedEmail;
   }
   // Owner-only RLS must succeed before attempting any registration.
-  const { error } = await supabase.from('retail_invitations').insert({ store_id: storeId, email: normalizedEmail, role });
+  const { error } = await supabase.from('retail_invitations').insert({ store_id: storeId, email: normalizedEmail, role, profile_id: profileId || null });
   if (error) throw error;
   return normalizedEmail;
 }
 
-export async function createStaffAccount(storeId: string, email: string, role: StaffRole, password: string): Promise<StaffAccountResult> {
+export async function createStaffAccount(storeId: string, email: string, role: StaffRole, password: string, profileId?: string): Promise<StaffAccountResult> {
   if (password.length < 8 || password.length > 72) throw new Error('Usá una contraseña de entre 8 y 72 caracteres.');
-  const normalizedEmail = await authorizeStaff(storeId, email, role);
+  const normalizedEmail = await authorizeStaff(storeId, email, role, profileId);
   const registration = createSignupClient();
   try {
     // Use the normal email verification flow; never auto-confirm another person's email.

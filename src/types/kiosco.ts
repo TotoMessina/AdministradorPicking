@@ -3,6 +3,8 @@
 export type KioscoCategory = string;
 export type MarginGroup = 'standard' | 'low_margin';
 
+export interface StockComponent { product_id: string; quantity: number }
+
 export interface KioscoProduct {
   id: string;
   code: string; // Código de barras (EAN-13 o interno)
@@ -12,6 +14,7 @@ export interface KioscoProduct {
   cost?: number; // Costo de compra mayorista
   stock: number; // Unidades actuales en mostrador
   pack_size?: number | null; // Unidades individuales por bulto de compra.
+  stock_components?: StockComponent[]; // Por venta: unidades consumidas de productos con stock propio.
   margin_group?: MarginGroup | null;
   minStock: number; // Umbral de reposición urgente (ej: 4 o 6)
   color?: string; // Color temático para la tarjeta táctil
@@ -62,6 +65,7 @@ export interface KioscoSale {
     subtotal: number;
     marginGroup?: MarginGroup | null;
     unitCost?: number | null;
+    stockComponents?: StockComponent[];
   }[];
   total: number;
   paymentMethod: PaymentMethod;

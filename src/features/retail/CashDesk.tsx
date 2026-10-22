@@ -38,6 +38,8 @@ export function CashDesk({
   openingOnly = false,
   closeRequest = 0,
   onCloseRequestHandled,
+  allowIncome = true,
+  allowWithdrawal = true,
 }: {
   storeId: string;
   register: Register | undefined;
@@ -61,6 +63,8 @@ export function CashDesk({
   openingOnly?: boolean;
   closeRequest?: number;
   onCloseRequestHandled?: () => void;
+  allowIncome?: boolean;
+  allowWithdrawal?: boolean;
 }) {
   const taskId = useId();
   const [task, setTask] = useState<'movement' | 'close' | ''>('');
@@ -238,14 +242,6 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               : "Confirmá el efectivo inicial antes de vender."}
           </p>
         </div>
-        {canOperate && onSell && <button type="button" className="secondary-button" disabled={busy} onClick={onSell}>Volver a Vender</button>}
-        <button
-          className="text-button"
-          onClick={onRefresh}
-          disabled={busy}
-        >
-          Actualizar
-        </button>
       </div>
       {!shift ? (
         <section className="retail-panel cash-opening">
@@ -291,9 +287,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             </div>
           )}
           {canOperate && <div className="cash-task-actions" ref={taskActions} aria-label="Acciones de tu turno">
-            <button type="button" className="cash-task-choice" data-task="movement" aria-expanded={task === 'movement'} aria-controls={`${taskId}-movement`} disabled={busy || movementBusy} onClick={() => setTask('movement')}>
-              <strong>Registrar ingreso o retiro</strong><span>Movimientos de efectivo durante el turno.</span>
-            </button>
+            {(allowIncome || allowWithdrawal) && <button type="button" className="cash-task-choice" data-task="movement" aria-expanded={task === 'movement'} aria-controls={`${taskId}-movement`} disabled={busy || movementBusy} onClick={() => setTask('movement')}>
+              <strong>{allowIncome && allowWithdrawal ? 'Registrar ingreso o retiro' : allowIncome ? 'Registrar ingreso' : 'Registrar retiro'}</strong><span>Movimientos de efectivo habilitados en tu perfil.</span>
+            </button>}
             <button type="button" className="cash-task-choice" data-task="close" aria-expanded={task === 'close'} aria-controls={`${taskId}-close`} disabled={busy || movementBusy} onClick={() => setTask('close')}>
               <strong>Cerrar turno</strong><span>Contá el efectivo y guardá tu cierre.</span>
             </button>
@@ -301,9 +297,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
           {canOperate && (
             <div className="cash-task-panels" ref={taskPanel} hidden={!task}>
               {task && <button type="button" className="text-button" disabled={busy || movementBusy} onClick={returnToActions}>Volver a las acciones · conservar borrador</button>}
-              <section className="retail-panel cash-task-panel" id={`${taskId}-movement`} hidden={task !== 'movement'}>
-                <h2 tabIndex={-1}>Registrar ingreso o retiro</h2>
-                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} run={run} onBusyChange={setMovementBusy} />
+              <section className="retail-panel cash-task-panel" id={`${taskId}-movement`} hidden={task !== 'movement' || (!allowIncome && !allowWithdrawal)}>
+                <h2 tabIndex={-1}>{allowIncome && allowWithdrawal ? 'Registrar ingreso o retiro' : allowIncome ? 'Registrar ingreso' : 'Registrar retiro'}</h2>
+                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} run={run} onBusyChange={setMovementBusy} allowIncome={allowIncome} allowWithdrawal={allowWithdrawal} />
               </section>
               <section className="retail-panel cash-task-panel" id={`${taskId}-close`} hidden={task !== 'close'}>
                 <h2 tabIndex={-1}>Cerrar turno</h2>

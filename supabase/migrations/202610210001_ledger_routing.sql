@@ -16,7 +16,7 @@ declare entry record;
 begin
  perform 1 from public.retail_members where store_id=p_store and user_id=auth.uid() for share;
  if coalesce(retail_private.role_for(p_store),'') not in ('owner','admin') then raise exception 'Solo administración puede configurar los registros'; end if;
- perform 1 from public.retail_stores where id=p_store for update;
+ perform 1 from public.retail_stores where id=p_store for no key update;
  perform id from public.retail_ledgers where store_id=p_store order by id for update;
  if not exists(select 1 from public.retail_ledgers where store_id=p_store and id=p_default and active) then raise exception 'Elegí un registro principal activo'; end if;
  if jsonb_typeof(p_rules) is distinct from 'object' then raise exception 'Reglas inválidas'; end if;
@@ -34,14 +34,25 @@ end $$;
 -- Opt-in setup for existing stores: retain all other ledgers and historical sales.
 create function public.retail_prepare_sales_ledgers(p_store uuid) returns void
 language plpgsql security definer set search_path='' as $$
-declare general_id uuid;
+declare general_id uuid; tests_id uuid;
 begin
  perform 1 from public.retail_members where store_id=p_store and user_id=auth.uid() for share;
  if coalesce(retail_private.role_for(p_store),'') not in ('owner','admin') then raise exception 'Solo administración puede preparar los registros'; end if;
- perform 1 from public.retail_stores where id=p_store for update;
+ perform 1 from public.retail_stores where id=p_store for no key update;
  perform id from public.retail_ledgers where store_id=p_store order by id for update;
- insert into public.retail_ledgers(store_id,name) values(p_store,'General'),(p_store,'Pruebas')
+ insert into public.retail_ledgers(store_id,name) values(p_store,'General')
  on conflict(store_id,name) do update set active=true;
+ select id into tests_id from public.retail_ledgers where store_id=p_store and name='Pruebas';
+ if tests_id is null then
+   select id into tests_id from public.retail_ledgers where store_id=p_store and name='Otras ventas' and not is_default;
+   if tests_id is not null then
+     update public.retail_ledgers set name='Pruebas',active=true where id=tests_id;
+   else
+     insert into public.retail_ledgers(store_id,name) values(p_store,'Pruebas');
+   end if;
+ else
+   update public.retail_ledgers set active=true where id=tests_id;
+ end if;
  select id into general_id from public.retail_ledgers where store_id=p_store and name='General';
  update public.retail_ledgers set is_default=false where store_id=p_store and is_default;
  update public.retail_ledgers set is_default=true where id=general_id;
@@ -79,6 +90,7 @@ create function public.retail_move_sale_ledger(p_store uuid,p_sale uuid,p_target
 returns public.retail_sales language plpgsql security definer set search_path='' as $$
 declare s public.retail_sales; destination public.retail_ledgers; previous public.retail_sale_ledger_changes; actor_role text;
 begin
+ if p_store is null or p_sale is null or p_target is null or p_expected is null or p_request is null then raise exception 'Faltan datos para cambiar el registro'; end if;
  perform 1 from public.retail_members where store_id=p_store and user_id=auth.uid() for share;
  actor_role:=retail_private.role_for(p_store);
  select * into s from public.retail_sales where store_id=p_store and id=p_sale;
@@ -94,6 +106,9 @@ begin
    perform 1 from public.retail_shifts where id=s.shift_id for update;
  end if;
  select * into s from public.retail_sales where store_id=p_store and id=p_sale for update;
+ -- Lock both ledger FK targets in the same order as routing configuration.
+ -- Locking only the destination can deadlock when the audit insert locks the source.
+ perform id from public.retail_ledgers where store_id=p_store and id in (s.ledger_id,p_target) order by id for share;
  select * into destination from public.retail_ledgers where store_id=p_store and id=p_target and active for share;
  if not found then raise exception 'El registro de destino ya no está activo'; end if;
  if s.ledger_id=p_target then return s; end if;

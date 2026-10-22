@@ -21,21 +21,22 @@ try {
     registers: async () => [{ id: 'reg', branch_id: 'branch', active: true, name: 'Caja' }],
     registerAvailability: async () => [{ register_id: 'reg', occupied: false }],
     shifts: async () => [], products: async () => [{ id: 'product', name: 'Agua', price: 50, stock: serverStock }],
-    ledgers: async () => [{ id: 'ledger', name: 'General', is_default: true }], priceLists: async () => [],
+    ledgers: async () => [{ id: 'ledger', name: 'General', is_default: true, active: true }], priceLists: async () => [],
     sales: async () => [], movements: async () => [], shiftBalance: async () => 100,
+    permissions: async () => ['sell', 'open_shift', 'close_shift', 'cash_income', 'cash_withdrawal'],
     openShift: async () => assert.fail('Must not wait for remote writes'), checkout: async () => assert.fail('Must not write remotely before durable enqueue'),
     addMovement: async () => assert.fail('Must enqueue'), closeShift: async () => assert.fail('Must enqueue'),
     replenishProductStock: async () => assert.fail('Must enqueue stock'), replenishStockBatch: async () => assert.fail('Must enqueue stock'),
   };
   const retail = offline.withOffline(remote); offline.configureOffline(account);
-  for (const method of ['stores', 'branches', 'registers', 'registerAvailability', 'shifts', 'products', 'ledgers', 'priceLists']) await retail[method](...(method === 'stores' ? [] : ['store']));
+  for (const method of ['stores', 'branches', 'registers', 'registerAvailability', 'shifts', 'products', 'ledgers', 'priceLists', 'permissions']) await retail[method](...(method === 'stores' ? [] : ['store']));
   await retail.role('store', account);
   online = false;
   const shift = await retail.openShift('store', 'reg', 100);
   const makeSale = () => ({ id: crypto.randomUUID(), items: [{ productId: 'product', name: 'Agua', qty: 1, unitPrice: 50, subtotal: 50 }], total: 50, paymentMethod: 'Mixto', payments: [{ method: 'Efectivo', amount: 20 }, { method: 'QR', amount: 30 }], amountPaid: 50, change: 0, ledgerId: 'ledger', timestamp: '12:00' });
   const sale = makeSale();
   const oversold = { ...makeSale(), items: [{ productId: 'product', name: 'Agua', qty: 6, unitPrice: 50, subtotal: 300 }], total: 300 };
-  await assert.rejects(() => retail.checkout('store', shift, oversold), /Stock local insuficiente/);
+  await assert.rejects(() => retail.checkout('store', shift, oversold), /Stock.*insuficiente/);
   assert.equal((await offline.offlineStatus()).queue.length, 1);
   assert.equal((await retail.products('store'))[0].stock, 5, 'rejected local sale rolls back stock and queue');
   last = await retail.checkout('store', shift, sale);
@@ -48,7 +49,7 @@ try {
   assert.equal(await retail.closeShift(shift, 110), 110);
   assert.equal((await offline.offlineStatus()).queue.length, 4);
   assert.equal(calls.length, 0);
-  await assert.rejects(() => retail.replenishProductStock('store', 'product', 6, undefined, 2), /Solo el administrador/);
+  await assert.rejects(() => retail.replenishProductStock('store', 'product', 6, undefined, 2), /Tu perfil no permite esta acción|Solo el administrador/);
   await assert.rejects(() => retail.checkout('store', shift, makeSale()), /turno no está abierto/);
   console.log('PASS offline open, mixed sale, stock deduction, movement and close persist atomically without network');
 

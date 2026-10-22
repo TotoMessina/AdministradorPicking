@@ -1,67 +1,640 @@
 import { useState } from 'react';
+import {
+  Building2,
+  MapPin,
+  Pencil,
+  Plus,
+  Check,
+  RotateCcw,
+  Receipt,
+  Banknote,
+  QrCode,
+  CreditCard,
+  ArrowRightLeft,
+  SlidersHorizontal,
+  Star,
+  Sparkles,
+  Info,
+  Coins,
+} from 'lucide-react';
 import { retail, type Branch, type PriceList, type PriceOverride, type Product, type SalesLedger } from './api';
 import type { Run } from './Management';
 import { productsForList } from './pricing';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
 import { ledgerPaymentMethods, resolveSaleLedger } from './ledgerRouting';
 
-export function BranchSettings({ storeId, branches, run, busy }: { storeId: string; branches: Branch[]; run: Run; busy: boolean }) {
-  return <section className="retail-panel">
-    <h2>Sucursales</h2><p>Locales de un mismo comercio. Cada uno tiene sus cajas; el catálogo y el stock son compartidos.</p>
-    <SettingsEditorGroup>{[...branches, null].map(b => <SettingsEditor key={b?.id || 'new'} busy={busy}
-      label={b ? `Editar ${b.name}` : 'Agregar sucursal'} summary={b && <><strong>{b.name}</strong><small>{b.address || 'Sin dirección'}</small></>}>
-      {close => <form className="retail-form business-edit-row" onSubmit={async e => {
-      e.preventDefault(); const form = e.currentTarget; const f = new FormData(form);
-      if (await run(() => retail.saveBranch(storeId, String(f.get('name')), String(f.get('address')), b?.id), b ? 'Sucursal actualizada' : 'Sucursal creada')) close();
-    }}>
-      <label>{b ? 'Sucursal' : 'Nueva sucursal'}<input name="name" required maxLength={80} defaultValue={b?.name} placeholder="Ej. Centro" /></label>
-      <label>Dirección<input name="address" maxLength={300} defaultValue={b?.address} /></label>
-      <button className="secondary-button" disabled={busy}>{b ? 'Guardar sucursal' : 'Crear sucursal'}</button>
-    </form>}</SettingsEditor>)}</SettingsEditorGroup>
-  </section>;
+export function BranchSettings({
+  storeId,
+  branches,
+  run,
+  busy,
+  registerCounts,
+}: {
+  storeId: string;
+  branches: Branch[];
+  run: Run;
+  busy: boolean;
+  registerCounts?: Record<string, number>;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(branches.length === 0);
+
+  return (
+    <div className="store-settings-card">
+      <div className="store-settings-header">
+        <div className="store-settings-header-icon">
+          <Building2 size={22} />
+        </div>
+        <div className="store-settings-header-text">
+          <h3>Locales y sucursales</h3>
+          <p>Puntos de venta de tu comercio. Comparten catálogo y stock general.</p>
+        </div>
+      </div>
+
+      <div className="location-card-body">
+        {/* Lista de sucursales */}
+        <div className="location-items-list">
+          {branches.map((b) => {
+            const isEditing = editingId === b.id;
+            if (isEditing) {
+              return (
+                <form
+                  key={b.id}
+                  className="location-inline-edit"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.currentTarget);
+                    const success = await run(
+                      () =>
+                        retail.saveBranch(
+                          storeId,
+                          String(f.get('name')),
+                          String(f.get('address')),
+                          b.id,
+                        ),
+                      'Sucursal actualizada',
+                    );
+                    if (success) setEditingId(null);
+                  }}
+                >
+                  <div className="store-field-group">
+                    <label className="store-field-label" htmlFor={`branch-name-${b.id}`}>
+                      Sucursal
+                    </label>
+                    <input
+                      id={`branch-name-${b.id}`}
+                      name="name"
+                      required
+                      maxLength={80}
+                      defaultValue={b.name}
+                      placeholder="Ej. Centro"
+                      className="store-text-input"
+                    />
+                  </div>
+                  <div className="store-field-group">
+                    <label className="store-field-label" htmlFor={`branch-addr-${b.id}`}>
+                      Dirección
+                    </label>
+                    <input
+                      id={`branch-addr-${b.id}`}
+                      name="address"
+                      maxLength={300}
+                      defaultValue={b.address || ''}
+                      placeholder="Ej. Av. San Martín 100"
+                      className="store-text-input"
+                    />
+                  </div>
+                  <div className="location-edit-actions">
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={busy}
+                      onClick={() => setEditingId(null)}
+                    >
+                      <RotateCcw size={14} /> Cancelar
+                    </button>
+                    <button className="primary-button" disabled={busy}>
+                      <Check size={15} /> Guardar sucursal
+                    </button>
+                  </div>
+                </form>
+              );
+            }
+
+            const count = registerCounts?.[b.id];
+            return (
+              <div key={b.id} className="location-item-row">
+                <div className="location-item-left">
+                  <div className="location-item-icon">
+                    <Building2 size={18} />
+                  </div>
+                  <div className="location-item-info">
+                    <strong className="location-item-name">{b.name}</strong>
+                    <div className="location-item-meta">
+                      <span className="location-item-address">
+                        <MapPin size={12} /> {b.address || 'Sin dirección asignada'}
+                      </span>
+                      {count !== undefined && (
+                        <span className="location-pill-badge">
+                          {count} {count === 1 ? 'caja' : 'cajas'}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <div className="location-item-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={busy}
+                    onClick={() => setEditingId(b.id)}
+                    title={`Editar ${b.name}`}
+                  >
+                    <Pencil size={13} /> Editar
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {!branches.length && (
+            <div className="location-empty-notice">
+              <Building2 size={24} />
+              <p>Todavía no agregaste sucursales. Creá tu primer local para comenzar a operar cajas.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Sección Agregar Sucursal */}
+        <div className="location-add-section">
+          <div className="location-add-header">
+            <div className="location-add-title">
+              <Plus size={16} />
+              <span>Nueva sucursal</span>
+            </div>
+            {branches.length > 0 && (
+              <button
+                type="button"
+                className="text-button"
+                onClick={() => setIsAdding(!isAdding)}
+              >
+                {isAdding ? 'Ocultar' : '+ Agregar otra'}
+              </button>
+            )}
+          </div>
+
+          {(isAdding || branches.length === 0) && (
+            <form
+              className="location-add-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                const formEl = e.currentTarget;
+                const success = await run(
+                  () =>
+                    retail.saveBranch(
+                      storeId,
+                      String(f.get('name')),
+                      String(f.get('address')),
+                      undefined,
+                    ),
+                  'Sucursal creada',
+                );
+                if (success) {
+                  formEl.reset();
+                  if (branches.length > 0) setIsAdding(false);
+                }
+              }}
+            >
+              <div className="store-fields-2col">
+                <div className="store-field-group">
+                  <label className="store-field-label" htmlFor="new-branch-name">
+                    Nueva sucursal
+                  </label>
+                  <input
+                    id="new-branch-name"
+                    name="name"
+                    required
+                    maxLength={80}
+                    placeholder="Ej. Centro"
+                    className="store-text-input"
+                  />
+                </div>
+                <div className="store-field-group">
+                  <label className="store-field-label" htmlFor="new-branch-address">
+                    Dirección
+                  </label>
+                  <input
+                    id="new-branch-address"
+                    name="address"
+                    maxLength={300}
+                    placeholder="Ej. Av. San Martín 100"
+                    className="store-text-input"
+                  />
+                </div>
+              </div>
+              <div className="location-add-footer">
+                <button className="primary-button" disabled={busy}>
+                  <Plus size={16} /> Crear sucursal
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
-export function LedgerSettings({ storeId, ledgers, run, busy }: { storeId: string; ledgers: SalesLedger[]; run: Run; busy: boolean }) {
-  return <section className="retail-panel"><h2>Registros de ventas</h2>
-    <p>Un registro de ventas es una agrupación que elegís para organizar las ventas. No es una caja de cobro ni determina si hay factura. Todos integran los totales del comercio.</p>
-    <p>General y Pruebas organizan ventas reales: ambos afectan stock y caja. Pruebas no es un entorno de simulación.</p>
-    {(!ledgers.some(l => l.name === 'General' && l.active) || !ledgers.some(l => l.name === 'Pruebas' && l.active)) && <div>
-      <button type="button" className="secondary-button" disabled={busy} onClick={() => void run(() => retail.prepareSalesLedgers(storeId), 'Registros preparados. General es el principal.')}>
-        Preparar General y Pruebas
-      </button><p>Crea o reactiva los que falten y define General como principal. Conserva los otros registros, sus reglas y las ventas anteriores.</p>
-    </div>}
-    <SettingsEditorGroup>
-      <SettingsEditor label="Configurar selección por medio de pago" busy={busy}
-        summary={<><strong>Principal: {ledgers.find(l => l.is_default)?.name || 'Sin definir'}</strong>
-          <small>{ledgerPaymentMethods.map(method => `${method.label}: ${resolveSaleLedger(ledgers, method.id)?.name || 'Sin registro'}`).join(' · ')}</small></>}>
-        {close => <form className="retail-form" onSubmit={async event => {
-          event.preventDefault(); const fields = new FormData(event.currentTarget);
-          const rules = Object.fromEntries(ledgerPaymentMethods.map(method => [method.id, String(fields.get(method.id) || '')]).filter(([, value]) => value));
-          if (await run(() => retail.saveLedgerRouting(storeId, String(fields.get('default')), rules), 'Reglas de esta tienda guardadas')) close();
-        }}>
-          <label>Registro principal<select name="default" required defaultValue={ledgers.find(l => l.is_default)?.id || ''} disabled={busy}>
-            <option value="" disabled>Elegí un registro</option>{ledgers.filter(l => l.active).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-          </select></label>
-          <p>Si un medio no tiene regla, se usa el principal. Pago mixto envía la venta completa a su registro, sin dividir el ticket. Podés elegir otro registro manualmente en Vender.</p>
-          {ledgerPaymentMethods.map(method => <label key={method.id}>{method.label}
-            <select name={method.id} disabled={busy} defaultValue={ledgers.find(l => l.active && l.payment_methods?.includes(method.id))?.id || ''}>
-              <option value="">Usar el principal</option>{ledgers.filter(l => l.active).map(l => <option key={l.id} value={l.id}>{l.name}</option>)}
-            </select>
-          </label>)}
-          <button className="primary-button" disabled={busy}>Guardar reglas</button>
-        </form>}
-      </SettingsEditor>
-      {[...ledgers, null].map(l => <SettingsEditor key={l?.id || 'new'} busy={busy}
-      label={l ? `Editar ${l.name}` : 'Agregar registro'} summary={l && <><strong>{l.name}{l.is_default ? ' · Principal' : ''}</strong><small>{l.active ? 'Activo' : 'Inactivo'}</small></>}>
-      {close => <form className="inline-form business-edit-row" onSubmit={async e => {
-      e.preventDefault(); const form = e.currentTarget; const f = new FormData(form);
-      if (await run(() => retail.saveLedger(storeId, String(f.get('name')), l?.id, l?.active ?? true), 'Registro guardado')) close();
-    }}>
-      <label>Nombre del registro<input name="name" required maxLength={80} defaultValue={l?.name} placeholder="Ej. Ventas mayoristas" /></label>
-      <button className="secondary-button" disabled={busy}>{l ? 'Guardar' : 'Agregar registro'}</button>
-      {l && !l.is_default && <button type="button" className="text-button" disabled={busy} onClick={() => void run(() => retail.saveLedger(storeId, l.name, l.id, !l.active), 'Registro actualizado')}>{l.active ? 'Desactivar' : 'Reactivar'}</button>}
-    </form>}</SettingsEditor>)}</SettingsEditorGroup>
-  </section>;
+export function LedgerSettings({
+  storeId,
+  ledgers,
+  run,
+  busy,
+}: {
+  storeId: string;
+  ledgers: SalesLedger[];
+  run: Run;
+  busy: boolean;
+}) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isAdding, setIsAdding] = useState(false);
+
+  const hasGeneral = ledgers.some((l) => l.name === 'General' && l.active);
+  const hasPruebas = ledgers.some((l) => l.name === 'Pruebas' && l.active);
+  const activeCount = ledgers.filter((l) => l.active).length;
+  const defaultLedger = ledgers.find((l) => l.is_default) || ledgers.find((l) => l.active);
+
+  const getAssignedMethodsCount = (ledgerId: string) => {
+    return ledgerPaymentMethods.filter((method) => {
+      const explicit = ledgers.find((l) => l.active && l.payment_methods?.includes(method.id));
+      if (explicit) return explicit.id === ledgerId;
+      return defaultLedger?.id === ledgerId;
+    }).length;
+  };
+
+  return (
+    <div className="ledgers-settings-container">
+      {/* Tarjeta 1: Registros de ventas */}
+      <div className="store-settings-card">
+        <div className="store-settings-header">
+          <div className="store-settings-header-icon icon-ledgers">
+            <Receipt size={22} />
+          </div>
+          <div className="store-settings-header-text">
+            <h3>Registros de ventas</h3>
+            <p>Agrupaciones para clasificar tus ventas. Todas integran el total general y descuentan existencias.</p>
+          </div>
+        </div>
+
+        <div className="location-card-body">
+          {/* Badges de estado general */}
+          <div className="team-summary-badges">
+            <span className="location-pill-badge active">
+              {activeCount} {activeCount === 1 ? 'registro activo' : 'registros activos'}
+            </span>
+            {defaultLedger && (
+              <span className="location-pill-badge active">
+                <Star size={11} /> Principal: {defaultLedger.name}
+              </span>
+            )}
+          </div>
+
+          {/* Banner si faltan los registros estándar */}
+          {(!hasGeneral || !hasPruebas) && (
+            <div className="ledger-prepare-banner">
+              <div className="ledger-prepare-text">
+                <div className="ledger-prepare-title">
+                  <Sparkles size={16} />
+                  <strong>Registros estándar recomendados</strong>
+                </div>
+                <p>Configurá General como principal y Pruebas para ventas reales de prueba con un clic.</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button ledger-prepare-btn"
+                disabled={busy}
+                onClick={() =>
+                  void run(
+                    () => retail.prepareSalesLedgers(storeId),
+                    'Registros preparados. General es el principal.'
+                  )
+                }
+              >
+                Preparar General y Pruebas
+              </button>
+            </div>
+          )}
+
+          {/* Nota informativa */}
+          <div className="ledger-info-box">
+            <Info size={15} />
+            <span>
+              <strong>General</strong> y <strong>Pruebas</strong> registran ventas reales: ambos descuentan stock y afectan caja. Pruebas no es un entorno de simulación.
+            </span>
+          </div>
+
+          {/* Lista de registros */}
+          <div className="location-items-list">
+            {ledgers.map((l) => {
+              const isEditing = editingId === l.id;
+              if (isEditing) {
+                return (
+                  <form
+                    key={l.id}
+                    className="location-inline-edit"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const f = new FormData(e.currentTarget);
+                      const success = await run(
+                        () => retail.saveLedger(storeId, String(f.get('name')), l.id, l.active),
+                        'Registro actualizado'
+                      );
+                      if (success) setEditingId(null);
+                    }}
+                  >
+                    <div className="store-field-group">
+                      <label className="store-field-label" htmlFor={`ledger-name-${l.id}`}>
+                        Nombre del registro
+                      </label>
+                      <input
+                        id={`ledger-name-${l.id}`}
+                        name="name"
+                        required
+                        maxLength={80}
+                        defaultValue={l.name}
+                        placeholder="Ej. Ventas mayoristas"
+                        className="store-text-input"
+                      />
+                    </div>
+                    <div className="location-edit-actions">
+                      {!l.is_default && (
+                        <button
+                          type="button"
+                          className="text-button text-button-danger"
+                          disabled={busy}
+                          onClick={async () => {
+                            const ok = await run(
+                              () => retail.saveLedger(storeId, l.name, l.id, !l.active),
+                              l.active ? 'Registro desactivado' : 'Registro reactivado'
+                            );
+                            if (ok) setEditingId(null);
+                          }}
+                        >
+                          {l.active ? 'Desactivar registro' : 'Reactivar registro'}
+                        </button>
+                      )}
+                      <div className="location-edit-actions-right">
+                        <button
+                          type="button"
+                          className="text-button"
+                          disabled={busy}
+                          onClick={() => setEditingId(null)}
+                        >
+                          <RotateCcw size={14} /> Cancelar
+                        </button>
+                        <button className="primary-button" disabled={busy}>
+                          <Check size={15} /> Guardar
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                );
+              }
+
+              const assignedCount = getAssignedMethodsCount(l.id);
+              return (
+                <div key={l.id} className="location-item-row">
+                  <div className="location-item-left">
+                    <div className="location-item-icon icon-ledger">
+                      <Receipt size={18} />
+                    </div>
+                    <div className="location-item-info">
+                      <strong className="location-item-name">{l.name}</strong>
+                      <div className="location-item-meta">
+                        {l.is_default && (
+                          <span className="location-pill-badge active">
+                            <Star size={11} /> Principal
+                          </span>
+                        )}
+                        <span className={`location-pill-badge ${l.active ? 'active' : ''}`}>
+                          {l.active ? 'Activo' : 'Inactivo'}
+                        </span>
+                        {assignedCount > 0 && (
+                          <span className="location-pill-badge">
+                            {assignedCount} {assignedCount === 1 ? 'medio asignado' : 'medios asignados'}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="location-item-actions">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={busy}
+                      onClick={() => {
+                        setEditingId(l.id);
+                        setIsAdding(false);
+                      }}
+                      title={`Editar ${l.name}`}
+                    >
+                      <Pencil size={13} /> Editar
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+
+            {!ledgers.length && (
+              <div className="location-empty-notice">
+                <Receipt size={24} />
+                <p>No tenés registros de ventas configurados. Creá uno nuevo o prepará los registros estándar.</p>
+              </div>
+            )}
+          </div>
+
+          {/* Sección Agregar Registro */}
+          <div className="location-add-section">
+            <div className="location-add-header">
+              <div className="location-add-title">
+                <Plus size={16} />
+                <span>Nuevo registro</span>
+              </div>
+              {ledgers.length > 0 && (
+                <button
+                  type="button"
+                  className="text-button"
+                  onClick={() => setIsAdding((v) => !v)}
+                >
+                  {isAdding ? 'Cerrar' : '+ Agregar'}
+                </button>
+              )}
+            </div>
+
+            {isAdding && (
+              <form
+                className="location-add-form"
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  const form = e.currentTarget;
+                  const f = new FormData(form);
+                  const name = String(f.get('name') || '').trim();
+                  if (!name) return;
+                  const ok = await run(
+                    () => retail.saveLedger(storeId, name),
+                    'Registro de ventas agregado'
+                  );
+                  if (ok) {
+                    form.reset();
+                    setIsAdding(false);
+                  }
+                }}
+              >
+                <div className="store-field-group">
+                  <label className="store-field-label" htmlFor="new-ledger-name">
+                    Nombre del registro
+                  </label>
+                  <div className="location-add-row">
+                    <input
+                      id="new-ledger-name"
+                      name="name"
+                      required
+                      maxLength={80}
+                      placeholder="Ej. Ventas mayoristas, Eventos"
+                      className="store-text-input"
+                    />
+                    <button className="primary-button" disabled={busy}>
+                      <Plus size={15} /> Crear registro
+                    </button>
+                  </div>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Tarjeta 2: Ruteo por medio de pago */}
+      <div className="store-settings-card">
+        <div className="store-settings-header">
+          <div className="store-settings-header-icon">
+            <SlidersHorizontal size={22} />
+          </div>
+          <div className="store-settings-header-text">
+            <h3>Ruteo por medio de pago</h3>
+            <p>Configurá a qué registro se imputa automáticamente cada cobro al realizar una venta.</p>
+          </div>
+        </div>
+
+        <div className="location-card-body">
+          <form
+            className="routing-form"
+            onSubmit={async (event) => {
+              event.preventDefault();
+              const fields = new FormData(event.currentTarget);
+              const rules = Object.fromEntries(
+                ledgerPaymentMethods
+                  .map((method) => [method.id, String(fields.get(method.id) || '')])
+                  .filter(([, value]) => value)
+              );
+              await run(
+                () => retail.saveLedgerRouting(storeId, String(fields.get('default')), rules),
+                'Reglas de ruteo guardadas correctamente'
+              );
+            }}
+          >
+            {/* Registro Principal */}
+            <div className="routing-default-section">
+              <label className="store-field-label" htmlFor="default-ledger-select">
+                Registro principal predeterminado
+              </label>
+              <div className="routing-default-row">
+                <select
+                  id="default-ledger-select"
+                  name="default"
+                  required
+                  defaultValue={ledgers.find((l) => l.is_default)?.id || ''}
+                  disabled={busy}
+                  className="store-select-field routing-default-select"
+                >
+                  <option value="" disabled>Elegí un registro principal</option>
+                  {ledgers.filter((l) => l.active).map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <p className="routing-helper-text">
+                Si un medio de pago no tiene una regla específica definida abajo, se utilizará este registro.
+              </p>
+            </div>
+
+            <hr className="account-divider" />
+
+            {/* Lista de reglas por medio de pago */}
+            <div className="routing-methods-list">
+              <span className="store-field-label">Reglas individuales por medio de pago</span>
+              {ledgerPaymentMethods.map((method) => {
+                const currentTarget = ledgers.find(
+                  (l) => l.active && l.payment_methods?.includes(method.id)
+                )?.id || '';
+
+                const methodIcon = {
+                  Efectivo: <Banknote size={16} />,
+                  QR: <QrCode size={16} />,
+                  Transferencia: <ArrowRightLeft size={16} />,
+                  Debito: <CreditCard size={16} />,
+                  Credito: <CreditCard size={16} />,
+                  Mixto: <Receipt size={16} />,
+                }[method.id] || <Coins size={16} />;
+
+                return (
+                  <div key={method.id} className="routing-method-row">
+                    <div className="routing-method-info">
+                      <div className="routing-method-icon">
+                        {methodIcon}
+                      </div>
+                      <strong className="routing-method-label">{method.label}</strong>
+                    </div>
+                    <div className="routing-method-target">
+                      <select
+                        name={method.id}
+                        disabled={busy}
+                        defaultValue={currentTarget}
+                        className="store-select-field routing-method-select"
+                        aria-label={`Registro para ${method.label}`}
+                      >
+                        <option value="">Usar registro principal</option>
+                        {ledgers.filter((l) => l.active).map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Aviso sobre Pago mixto */}
+            <div className="ledger-info-box">
+              <Info size={15} />
+              <span>
+                En <strong>Pago mixto</strong> se envía la venta completa al registro asignado, sin dividir el ticket. Siempre podés cambiar el registro manualmente al cobrar en <strong>Vender</strong>.
+              </span>
+            </div>
+
+            <button className="primary-button routing-save-btn" disabled={busy}>
+              <Check size={16} /> Guardar reglas de cobro
+            </button>
+          </form>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export function PriceListSettings({ storeId, lists, overrides, products, branches = [], run, busy, expanded = false }: { storeId: string; lists: PriceList[]; overrides: PriceOverride[]; products: Product[]; branches?: Branch[]; run: Run; busy: boolean; expanded?: boolean }) {

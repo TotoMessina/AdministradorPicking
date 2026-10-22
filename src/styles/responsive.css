@@ -8,14 +8,12 @@
 
 @media (max-width: 960px) {
   .app-shell { display: block; }
-  .app-sidebar { position: relative; height: auto; padding: 16px 24px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--tone-border); display: grid; grid-template-columns: 1fr auto; gap: 14px; }
+  .app-sidebar { position: relative; height: auto; padding: 16px 24px; overflow: visible; border-right: 0; border-bottom: 1px solid var(--tone-border); display: flex; flex-direction: column; gap: 14px; }
   .brand { padding: 0; }
-  .mobile-account-toggle { display: inline-flex; }
-  .app-sidebar nav { grid-column: 1 / -1; flex-direction: row; gap: 6px; }
+  .mobile-account-toggle { display: none !important; }
+  .app-sidebar nav { width: 100%; flex-direction: row; gap: 6px; }
   .nav-item { justify-content: center; padding: 10px; }
   .store-switch, .sidebar-bottom { display: none; }
-  .mobile-account-open .store-switch { display: grid; grid-column: 1 / -1; margin: 0; }
-  .mobile-account-open .sidebar-bottom { display: flex; grid-column: 1 / -1; padding: 0; }
   .account-info { padding: 12px 0; }
   .main-content { padding: 24px; }
   .sale-panel { top: 16px; }

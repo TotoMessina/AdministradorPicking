@@ -26,6 +26,6 @@ export function CashierAccess({ storeId, targetId, email, branchId, registerId, 
         <option key={r.id} value={r.id} disabled={!r.active}>{!branch ? `${branches.find(b => b.id === r.branch_id)?.name} · ` : ''}{r.name}{!r.active ? ' (inactiva)' : ''}</option>)}
     </select></label>
     <button type="submit" className="secondary-button" disabled={busy || !changed}>Guardar asignación</button>
-    <small>{register ? 'Solo podrá trabajar en esta caja.' : branch ? 'Podrá elegir una caja de esta sucursal.' : 'Podrá elegir cualquier sucursal y caja.'} Siempre verá únicamente sus propias ventas y movimientos.</small>
+    <small>{register ? 'Solo podrá trabajar en esta caja.' : branch ? 'Podrá elegir una caja de esta sucursal.' : 'Podrá elegir cualquier sucursal y caja.'} Los movimientos de otras personas siguen siendo privados. Consultar otras ventas requiere que su perfil lo habilite y respeta esta asignación.</small>
   </form>;
 }

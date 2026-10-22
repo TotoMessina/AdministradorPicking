@@ -9,12 +9,12 @@ import {
   LogOut,
   RefreshCw,
   CircleHelp,
-  Menu,
   X,
   Camera,
   Tag,
   BookOpen,
   ChevronDown,
+  MapPin,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useToast } from "../../context/ToastContext";
@@ -44,8 +44,11 @@ import { PriceListSettings } from './BusinessSettings';
 import { SalesOverview } from './SalesOverview';
 import { SaleLedgerControl } from './SaleLedgerControl';
 import { resolveSaleLedger } from './ledgerRouting';
+import { QuickProducts } from './QuickProducts';
+import type { Permission } from './permissions';
 import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
+import { hasComposition } from '../../services/productComposition';
 import { disconnectPushOnLogout, initialPushIntent, readPushIntent } from './push';
 import { PushWelcome } from './PushWelcome';
 import { useMobileScreenMotion } from './useMobileExperience';
@@ -229,6 +232,7 @@ function Workspace({
 }) {
   const { notify } = useToast();
   const [role, setRole] = useState<Role>("cashier");
+  const [permissions, setPermissions] = useState<Permission[]>([]);
   const [pushEntry] = useState(() => {
     const intent = initialPushIntent();
     return intent?.storeId === store.id ? intent : null;
@@ -247,7 +251,6 @@ function Workspace({
     setGuideReady(ready); setGuiding(visible);
     if (visible) onPushWelcomeDone();
   }, [onPushWelcomeDone]);
-  const [mobileAccountOpen, setMobileAccountOpen] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [registers, setRegisters] = useState<Register[]>([]);
@@ -274,12 +277,22 @@ function Workspace({
   const saleInProgress = useRef(false);
   saleInProgress.current = cart.length > 0;
   const [posMobileView, setPosMobileView] = useState<"catalog" | "checkout">("catalog");
+  const [branchDrawerOpen, setBranchDrawerOpen] = useState(false);
   const [ticket, setTicket] = useState<KioscoSale | null>(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [ledgerLoading, setLedgerLoading] = useState(false);
+
+  useEffect(() => {
+    if (!branchDrawerOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setBranchDrawerOpen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [branchDrawerOpen]);
   const checkoutRequest = useRef({ signature: "", id: "" });
   const running = useRef(false);
   const generation = useRef(0);
@@ -290,6 +303,9 @@ function Workspace({
   const register = registers.find((r) => r.id === registerId);
   const occupiedByOther = !shift && availability.some(r => r.register_id === registerId && r.occupied);
   const manager = role === "owner" || role === "admin";
+  const can = (action: Permission) => manager || permissions.includes(action);
+  const canReviewSales = can('view_sales');
+  const canOpenCatalog = manager || can('replenish_stock') || can('edit_prices') || can('manage_quick_products');
   const pendingRemitos = usePendingReplenishments(store.id, manager);
   const branchPricing = useBranchPriceList(store.id, branchId, priceLists, manager, cart.length > 0);
   const priceListId = branchPricing.priceListId;
@@ -304,12 +320,16 @@ function Workspace({
   const ledgerName = automaticLedger ? 'Automático por medio de pago' : ledgers.find(l => l.id === ledgerId)?.name || 'Sin registro disponible';
   const canChooseList = manager && saleLists.some(l => l.active);
   const canChooseLedger = saleLedgers.filter(l => l.active).length > 1 || saleLedgers.some(l => l.id === ledgerId && !l.active);
-  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings'] : ['remito'])];
+  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings'] : [...(canOpenCatalog ? ['catalog'] : []), ...(can('submit_remito') ? ['remito'] : [])])];
   const canOperate =
     !!shift && !!register?.active && (manager || shift.opened_by === session.user.id);
   useEffect(() => {
-    if (!loading && !manager && ['catalog', 'settings', 'ai'].includes(tab)) setTab('pos');
-  }, [loading, manager, tab]);
+    if (!loading && !manager && (['settings', 'ai'].includes(tab) || (tab === 'catalog' && !canOpenCatalog))) setTab('pos');
+  }, [loading, manager, canOpenCatalog, tab]);
+  useEffect(() => {
+    if (!loading && tab === 'remito' && !manager && !permissions.includes('submit_remito')) setTab('cash');
+    if (!loading && cashView === 'overview' && !manager && !permissions.includes('view_sales')) setCashView('shift');
+  }, [loading, manager, permissions, tab, cashView]);
   const previousPricing = useRef({ branch: '', id: '' });
   useEffect(() => {
     if (branchPricing.loading || branchPricing.error || !branchId) return;
@@ -323,12 +343,12 @@ function Workspace({
     const next = ledgers.find(l => l.active && l.is_default) || ledgers.find(l => l.active);
     if (next) {
       setLedgerId(next.id);
-      if (ledgerId) notify('info', `El registro anterior ya no está disponible. La próxima venta usará ${next.name}.`);
+      if (ledgerId && !automaticLedger) notify('info', `El registro anterior ya no está disponible. La próxima venta usará ${next.name}.`);
     }
-  }, [loading, busy, cart.length, ledgers, ledgerId, notify]);
+  }, [loading, busy, cart.length, ledgers, ledgerId, automaticLedger, notify]);
   const refresh = useCallback(async () => {
     const turn = ++generation.current;
-    const [nextRole, cats, regs, nextShifts, nextBranches, lists, overrides, nextLedgers, nextAvailability] = await Promise.all([
+    const [nextRole, cats, regs, nextShifts, nextBranches, lists, overrides, nextLedgers, nextAvailability, nextPermissions] = await Promise.all([
       retail.role(store.id, session.user.id),
       retail.categories(store.id),
       retail.registers(store.id),
@@ -338,15 +358,17 @@ function Workspace({
       retail.priceOverrides(store.id),
       retail.ledgers(store.id),
       retail.registerAvailability(store.id),
+      retail.permissions(store.id),
     ]);
     const [prods, team, pending, storeSales] = await Promise.all([
       retail.products(store.id, cats),
-      nextRole !== "cashier" ? retail.members(store.id) : Promise.resolve([]),
-      nextRole !== "cashier" ? retail.invitations(store.id) : Promise.resolve([]),
-      nextRole !== "cashier" ? retail.allSales(store.id).catch(() => []) : Promise.resolve([]),
+      nextRole === 'owner' || nextRole === 'admin' ? retail.members(store.id) : Promise.resolve([]),
+      nextRole === 'owner' || nextRole === 'admin' ? retail.invitations(store.id) : Promise.resolve([]),
+      nextRole === 'owner' || nextRole === 'admin' ? retail.allSales(store.id).catch(() => []) : Promise.resolve([]),
     ]);
     if (!alive.current || turn !== generation.current) return;
     setRole(nextRole);
+    setPermissions(nextPermissions);
     setCategories(cats);
     setRegisters(regs);
     setAvailability(nextAvailability);
@@ -393,7 +415,7 @@ function Workspace({
   const prevLowStockIdsRef = useRef<Set<string> | null>(null);
   useEffect(() => {
     if (!products.length) return;
-    const currentLowStock = products.filter((p) => p.active && p.stock <= p.minStock);
+    const currentLowStock = products.filter((p) => p.active && !hasComposition(p) && p.stock <= p.minStock);
 
     if (prevLowStockIdsRef.current === null) {
       // Inicialización silenciosa al cargar el comercio
@@ -525,7 +547,15 @@ function Workspace({
       storePhone: store.phone,
       receiptMessage: store.receipt_message,
     });
+  const handleSaleLedgerChange = (saved: KioscoSale) => {
+    const update = (sale: KioscoSale) => sale.id === saved.id ? { ...sale, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : sale;
+    setLastSale(previous => previous ? update(previous) : previous);
+    setSales(previous => previous.map(update));
+    setAllStoreSales(previous => previous.map(update));
+    setTicket(previous => previous ? update(previous) : previous);
+  };
   const completeSale = async (sale: KioscoSale) => {
+    if (!can('sell')) throw new Error('Tu perfil no permite vender. Pedile a administración que revise tus permisos.');
     if (branchPricing.loading || branchPricing.error) throw new Error(branchPricing.error || 'Esperá a que se apliquen los precios de la sucursal.');
     const destination = ledgerForPayment(sale.paymentMethod);
     if (!destination || !ledgers.some(l => l.id === destination.id && l.active)) throw new Error('El registro asignado ya no está activo. Pedile al administrador que lo reactive o revisá el registro antes de volver a cargar la venta.');
@@ -588,7 +618,7 @@ function Workspace({
       if (intent.view === 'settings') setSettingsView('app');
       if (intent.view === 'catalog') {
         setCatalogView('products');
-        const low = products.filter((p) => p.active && p.stock <= p.minStock);
+        const low = products.filter((p) => p.active && !hasComposition(p) && p.stock <= p.minStock);
         if (low.length > 0) {
           const list = low
             .slice(0, 3)
@@ -606,25 +636,6 @@ function Workspace({
     navigator.serviceWorker.addEventListener('message', openNotice);
     return () => navigator.serviceWorker.removeEventListener('message', openNotice);
   }, [store.id, manager, busy, cart.length, guiding, notify, products]);
-  const contextPickers = <>
-    {branches.length > 1 && <label>Sucursal
-      <select disabled={busy || loading || cart.length > 0} value={branchId} onChange={e => {
-        branchSelection.current = e.target.value;
-        setBranchId(e.target.value);
-        const available = registers.filter(r => r.active && r.branch_id === e.target.value);
-        setRegisterId(available.find(r => !availability.some(a => a.register_id === r.id && a.occupied))?.id || available[0]?.id || '');
-      }}>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select>
-      <small>Elegís el local y sus cajas disponibles.</small>
-    </label>}
-    {branchRegisters.length > 1 && <label>Caja
-      <select disabled={busy || loading || cart.length > 0} value={registerId} onChange={e => setRegisterId(e.target.value)}>
-        {branchRegisters.map(r => <option key={r.id} value={r.id}>
-          {r.name}{availability.some(a => a.register_id === r.id && a.occupied) && !shifts.some(s => s.register_id === r.id && !s.closed_at && s.opened_by === session.user.id) ? ' · En uso por otra persona' : ''}
-        </option>)}
-      </select>
-      <small>Elegís el puesto donde vas a cobrar.</small>
-    </label>}
-  </>;
   const posStationControls = canOperate ? (
     <div className="pos-station-buttons" role="toolbar" aria-label="Opciones de venta">
       {canChooseList ? (
@@ -725,7 +736,128 @@ function Workspace({
       </a>
       {manager && !loading && guideReady && !guiding && !pushWelcomeDone && tab === 'settings' && settingsView === 'app' && !isAiOpen && !busy && !cart.length && <PushWelcome
         storeId={store.id} storeName={store.name} userId={session.user.id} onDone={onPushWelcomeDone} />}
-      <header className={`app-sidebar${mobileAccountOpen ? " mobile-account-open" : ""}`}>
+      {branches.length > 1 && (
+        <>
+          <div
+            className={`branch-drawer-backdrop${branchDrawerOpen ? " open" : ""}`}
+            onClick={() => setBranchDrawerOpen(false)}
+            aria-hidden={!branchDrawerOpen}
+          />
+          <aside
+            className={`branch-drawer-panel${branchDrawerOpen ? " open" : ""}`}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Cambiar sucursal o caja"
+            aria-hidden={!branchDrawerOpen}
+          >
+            <div className="branch-drawer-header">
+              <div className="branch-drawer-title">
+                <MapPin size={18} className="branch-drawer-icon" aria-hidden="true" />
+                <div>
+                  <h3>Sucursal y Caja</h3>
+                  <p>Elegí dónde vas a operar</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                className="branch-drawer-close"
+                onClick={() => setBranchDrawerOpen(false)}
+                aria-label="Cerrar panel"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="branch-drawer-body">
+              {cart.length > 0 && (
+                <div className="branch-drawer-alert" role="alert">
+                  Terminá o vaciá la venta actual para poder cambiar de sucursal o caja.
+                </div>
+              )}
+
+              <div className="branch-drawer-controls">
+                <label className="branch-drawer-field">
+                  <span className="branch-drawer-field-label">Sucursal</span>
+                  <select
+                    disabled={busy || loading || cart.length > 0}
+                    value={branchId}
+                    onChange={(e) => {
+                      branchSelection.current = e.target.value;
+                      setBranchId(e.target.value);
+                      const available = registers.filter(
+                        (r) => r.active && r.branch_id === e.target.value,
+                      );
+                      setRegisterId(
+                        available.find(
+                          (r) =>
+                            !availability.some(
+                              (a) => a.register_id === r.id && a.occupied,
+                            ),
+                        )?.id ||
+                          available[0]?.id ||
+                          "",
+                      );
+                    }}
+                    className="branch-drawer-select"
+                  >
+                    {branches.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="branch-drawer-field-hint">
+                    Elegís el local y sus cajas disponibles.
+                  </span>
+                </label>
+
+                {branchRegisters.length > 0 && (
+                  <label className="branch-drawer-field">
+                    <span className="branch-drawer-field-label">Caja</span>
+                    <select
+                      disabled={busy || loading || cart.length > 0}
+                      value={registerId}
+                      onChange={(e) => setRegisterId(e.target.value)}
+                      className="branch-drawer-select"
+                    >
+                      {branchRegisters.map((r) => (
+                        <option key={r.id} value={r.id}>
+                          {r.name}
+                          {availability.some(
+                            (a) => a.register_id === r.id && a.occupied,
+                          ) &&
+                          !shifts.some(
+                            (s) =>
+                              s.register_id === r.id &&
+                              !s.closed_at &&
+                              s.opened_by === session.user.id,
+                          )
+                            ? " · En uso por otra persona"
+                            : ""}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="branch-drawer-field-hint">
+                      Elegís el puesto donde vas a cobrar.
+                    </span>
+                  </label>
+                )}
+              </div>
+            </div>
+
+            <div className="branch-drawer-footer">
+              <button
+                type="button"
+                className="primary-button branch-drawer-done-btn"
+                onClick={() => setBranchDrawerOpen(false)}
+              >
+                Listo
+              </button>
+            </div>
+          </aside>
+        </>
+      )}
+      <header className="app-sidebar">
         <div className="brand">
           <span className="brand-mark">
             <StoreIcon size={22} />
@@ -735,35 +867,24 @@ function Workspace({
               <span className="store-brand-text">{store.name}</span>
               <OfflineStatus />
             </span>
+            {branches.length > 1 && (
+              <button
+                type="button"
+                className="branch-slide-trigger"
+                onClick={() => setBranchDrawerOpen(true)}
+                title={`Cambiar sucursal o caja (${branches.find((b) => b.id === branchId)?.name || 'Sucursal'})`}
+                aria-label={`Cambiar sucursal o caja. Sucursal actual: ${branches.find((b) => b.id === branchId)?.name || 'Sucursal'}`}
+              >
+                <MapPin size={11} aria-hidden="true" />
+                <span className="branch-slide-name">
+                  {branches.find((b) => b.id === branchId)?.name || 'Sucursal'}
+                </span>
+                <ChevronDown size={11} aria-hidden="true" />
+              </button>
+            )}
             <span className="brand-sub">MI NEGOCIO</span>
           </span>
         </div>
-        <button
-          type="button"
-          className="mobile-account-toggle icon-button"
-          aria-label={mobileAccountOpen ? "Cerrar menú de cuenta" : "Abrir menú de cuenta"}
-          aria-expanded={mobileAccountOpen}
-          aria-controls="store-switcher account-actions"
-          onClick={() => setMobileAccountOpen((open) => !open)}
-        >
-          {mobileAccountOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
-        <label id="store-switcher" className="store-switch">
-          Comercio
-          <select
-            disabled={busy || guiding}
-            value={store.id}
-            onChange={(e) => {
-              if (confirmLeave()) setSelected(e.target.value);
-            }}
-          >
-            {stores.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </label>
         <nav aria-label="Navegación principal" style={{ '--nav-count': mobileTabs.length, '--nav-index': Math.max(0, mobileTabs.indexOf(tab)) } as React.CSSProperties}>
           {(
             [
@@ -778,7 +899,7 @@ function Workspace({
                     },
                     { id: "settings", label: "Mi comercio", icon: Settings2 },
                   ]
-                : [{ id: 'remito', label: 'Remito', icon: Camera }]),
+                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <button
@@ -791,7 +912,6 @@ function Workspace({
                 setTab(id as Tab);
                 setIsAiOpen(false);
                 setPosMobileView("catalog");
-                setMobileAccountOpen(false);
                 if (window.matchMedia("(max-width: 760px)").matches) window.scrollTo(0, 0);
               }}
             >
@@ -805,7 +925,7 @@ function Workspace({
         <div id="account-actions" className="sidebar-bottom">
           <details>
             <summary><CircleHelp size={16} aria-hidden="true" /> Ayuda</summary>
-            <button type="button" className="text-button" disabled={busy || guiding} onClick={() => { setIsAiOpen(true); setMobileAccountOpen(false); }}>Consultar al asistente</button>
+            <button type="button" className="text-button" disabled={busy || guiding} onClick={() => setIsAiOpen(true)}>Consultar al asistente</button>
           </details>
           <div className="account-info">
             <strong>
@@ -813,6 +933,7 @@ function Workspace({
                 {
                   owner: "Propietario",
                   admin: "Administrador",
+                  supervisor: "Supervisor",
                   cashier: "Cajero",
                 }[role]
               }
@@ -859,29 +980,11 @@ function Workspace({
           onSell={() => setTab('pos')} onSettings={() => { setSettingsView('locations'); setTab('settings'); }} onRefresh={refreshAll} />}
         <div hidden={guiding}>
         {lastSale && tab === 'pos' && <div className="last-sale"><span>Última venta: ${lastSale.total.toLocaleString('es-AR')}</span><button type="button" className="text-button" onClick={() => showTicket(sales.find(s => s.id === lastSale.id) || lastSale)}>Ver último ticket</button>
-          <SaleLedgerControl key={lastSale.id} storeId={store.id} sale={sales.find(s => s.id === lastSale.id) || lastSale} ledgers={ledgers} disabled={busy}
-            onMoved={saved => {
-              setLastSale(previous => previous?.id === saved.id ? saved : previous);
-              setSales(previous => previous.map(sale => sale.id === saved.id ? { ...sale, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : sale));
-              setTicket(previous => previous?.id === saved.id ? { ...previous, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : previous);
-              setRevision(value => value + 1);
-            }} />
+          <SaleLedgerControl key={lastSale.id} storeId={store.id} sale={sales.find(s => s.id === lastSale.id) || lastSale} ledgers={ledgers} disabled={busy} canMove={can('move_sale_ledger')}
+            onMoved={handleSaleLedgerChange} />
         </div>}
         <div className="page-heading">
           <div>
-            <span className="eyebrow">
-              {store.name} /{" "}
-              {
-                {
-                  pos: "MOSTRADOR",
-                  cash: "CAJAS",
-                  catalog: "CATÁLOGO",
-                  settings: "CONFIGURACIÓN",
-                  ai: "ASISTENTE",
-                  remito: 'REMITOS',
-                }[tab]
-              }
-            </span>
             <h1>
               <span className="desktop-page-title">
               {
@@ -910,16 +1013,6 @@ function Workspace({
             </button>
           </div>
         </div>
-        {!loading && (tab === 'pos' || tab === 'cash') && <div className="workspace-context">
-          <span className={`status-pill ${canOperate ? 'status-open' : 'status-closed'}`}><span aria-hidden="true" />{canOperate ? 'Turno abierto' : shift || occupiedByOther ? 'Caja en uso por otra persona' : 'Turno cerrado'}</span>
-          <span>{branches.find(b => b.id === branchId)?.name} <span aria-hidden="true">/</span> {register?.name || 'Sin caja seleccionada'}</span>
-          {(branches.length > 1 || branchRegisters.length > 1) && <details className="context-change">
-            <summary>Cambiar sucursal o caja</summary>
-            <div className="business-controls">{contextPickers}</div>
-          </details>}
-          {cart.length > 0 && (branches.length > 1 || branchRegisters.length > 1) && <small>Terminá o vaciá la venta para cambiar de sucursal o caja.</small>}
-          {tab === 'pos' && canOperate && <button className="text-button" disabled={busy} onClick={() => { setCloseRequest(value => value + 1); setCashView('shift'); setTab('cash'); }}>Cerrar turno</button>}
-        </div>}
         {(error || branchPricing.error) && (
           <div className="error-banner" role="alert">
             {error || branchPricing.error}
@@ -968,12 +1061,14 @@ function Workspace({
                   </button>
                 </section>
               ) : (
-                <PosTab
-                  active={tab === 'pos' && !guiding && !isAiOpen}
+                <>
+                {!can('sell') && <p role="status">Tu perfil no habilita vender. Podés operar las acciones de Caja que tengas asignadas.</p>}
+                <div hidden={!can('sell')}><PosTab
+                  active={tab === 'pos' && !guiding && !isAiOpen && can('sell')}
                   isLoading={branchPricing.loading || !!branchPricing.error}
                   storeId={store.id}
                   branchId={branchId}
-                  canCustomizeQuick={manager}
+                  canCustomizeQuick={can('manage_quick_products')}
                   key={shift?.id}
                   storeName={store.name}
                   products={productsForList(products, priceLists.find(l => l.id === priceListId), priceOverrides)}
@@ -989,25 +1084,27 @@ function Workspace({
                   stationControls={posStationControls}
                   mobilePosView={posMobileView}
                   onMobilePosViewChange={setPosMobileView}
-                />
+                /></div></>
               )}
             </div>
             <div hidden={tab !== 'cash'}>
-                {manager && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Ver ventas' }]} />}
-                {manager && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} />
+                {canReviewSales && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Ver ventas' }]} />}
+                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
                   <details className="retail-panel"><summary>Explicar estos resultados</summary><AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} /></details>
                 </div>}
-                <div hidden={manager && cashView !== 'shift'} role={manager ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={manager ? 'cash-tab-shift' : undefined}>
+                <div hidden={canReviewSales && cashView !== 'shift'} role={canReviewSales ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={canReviewSales ? 'cash-tab-shift' : undefined}>
                 {ledgerLoading && <div role="status">Cargando movimientos…</div>}
                 <div hidden={ledgerLoading}>
                   <CashDesk
-                    active={tab === 'cash' && !guiding && !ledgerLoading && (!manager || cashView === 'shift')}
+                    active={tab === 'cash' && !guiding && !ledgerLoading && (!canReviewSales || cashView === 'shift')}
                     openFromSale={openFromSale}
                     closeRequest={closeRequest}
                     onCloseRequestHandled={() => setCloseRequest(0)}
                     hasPendingSale={cart.length > 0}
                     onOpened={() => { if (openFromSale) setTab('pos'); setOpenFromSale(false); }}
                     cashierMode={!manager}
+                    allowIncome={can('cash_income')}
+                    allowWithdrawal={can('cash_withdrawal')}
                     occupiedByOther={occupiedByOther}
                     onSell={() => setTab('pos')}
                     key={registerId + shift?.id}
@@ -1052,6 +1149,13 @@ function Workspace({
               </div>
               </div>
             )}
+            {!manager && canOpenCatalog && <div hidden={tab !== 'catalog'}>
+              {can('manage_quick_products') && branchId && <section className="retail-panel"><p>Sucursal de la botonera: <strong>{branches.find(branch => branch.id === branchId)?.name}</strong></p>
+                <QuickProducts storeId={store.id} branchId={branchId} products={products} manager onAdd={() => {}} disabled={busy} editorOnly />
+              </section>}
+              <CatalogEditor store={store} products={products} categories={categories} role={role} run={run} busy={busy}
+                active={!guiding && tab === 'catalog'} allowRestock={can('replenish_stock')} allowPriceEdit={can('edit_prices')} />
+            </div>}
             {manager && <div hidden={tab !== 'settings'}>
               <StoreSettings
                 view={settingsView}
@@ -1068,6 +1172,24 @@ function Workspace({
                 userId={session.user.id}
                 run={run}
                 busy={busy}
+                stores={stores}
+                onSelectStore={(storeId) => {
+                  if (confirmLeave()) setSelected(storeId);
+                }}
+                onCreateStore={() => {
+                  if (!guiding && confirmLeave()) onCreate();
+                }}
+                onRefreshAccess={() =>
+                  void run(async () => {
+                    await retail.acceptInvitations();
+                  }, "Accesos actualizados")
+                }
+                onSignOut={() => {
+                  if (confirmLeave())
+                    void onSignOut().catch((e) => notify("error", errorMessage(e)));
+                }}
+                userEmail={session.user.email}
+                onOpenAi={() => setIsAiOpen(true)}
               />
             </div>}
             {tab === "ai" && manager && (
@@ -1084,7 +1206,7 @@ function Workspace({
             )}
           </>
         )}
-        {!manager && !loading && <div hidden={tab !== 'remito'}><QuickRemito key={store.id} store={store.id} branches={branches} branchId={branchId} products={products} run={run} busy={busy} /></div>}
+        {!manager && !loading && <div hidden={tab !== 'remito' || !can('submit_remito')}><QuickRemito key={store.id} store={store.id} branches={branches} branchId={branchId} products={products} run={run} busy={busy} /></div>}
         </div>
       </main>
       <ThermalReceiptModal

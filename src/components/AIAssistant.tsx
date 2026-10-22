@@ -25,6 +25,7 @@ import { detectAnomalies } from '../services/anomalyDetectionService';
 import { predictStockLevels, type StockPrediction } from '../services/stockPredictionService';
 import { analyzeCapital } from '../services/capitalAnalysisService';
 import { replenishmentService } from '../services/replenishmentService';
+import { hasComposition, inventorySaleUnits } from '../services/productComposition';
 
 export interface AIAssistantProps {
   store: Store;
@@ -381,7 +382,7 @@ export function AIAssistant({
     const mesAnterior = computeMetrics(salesLastMonth, products);
     const historico = computeMetrics(activeSales, products);
 
-    const criticalStock = products.filter((p) => p.stock <= p.minStock).length;
+    const criticalStock = products.filter((p) => !hasComposition(p) && p.stock <= p.minStock).length;
     const activeShift = shifts.find((s) => !s.closed_at);
 
     return {
@@ -444,13 +445,14 @@ export function AIAssistant({
     for (const s of activeSales) {
       for (const item of (s.items || [])) {
         if (item.productId) soldProductIds.add(item.productId);
+        for (const physical of inventorySaleUnits(item)) soldProductIds.add(physical.productId);
         if (item.name) soldProductNames.add(item.name.toLowerCase().trim());
       }
     }
     const productosSinVentas = products
       .filter(
         (p) =>
-          p.active &&
+          p.active && !hasComposition(p) &&
           p.stock > 0 &&
           !soldProductIds.has(p.id) &&
           !soldProductNames.has(p.name.toLowerCase().trim()),
@@ -490,7 +492,7 @@ export function AIAssistant({
 
     // Critical stock items
     const criticalProducts = products
-      .filter((p) => p.stock <= p.minStock)
+      .filter((p) => !hasComposition(p) && p.stock <= p.minStock)
       .slice(0, 15)
       .map((p) => ({
         nombre: p.name,

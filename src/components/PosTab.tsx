@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
   Barcode,
@@ -32,6 +32,7 @@ import { AiAssistantWidget } from "./AiAssistantWidget";
 import { QuickProducts } from '../features/retail/QuickProducts';
 import { cents } from '../features/retail/payments';
 import { formatPackStock, unitsPerPack } from '../services/inventoryUnits';
+import { availableForCart, cartStockError } from '../services/productComposition';
 interface Props {
   active?: boolean;
   products: KioscoProduct[];
@@ -69,6 +70,110 @@ const methods: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { id: "Debito", label: "Débito", icon: CreditCard },
   { id: "Credito", label: "Crédito", icon: CreditCard },
 ];
+
+function CartQuantityInput({
+  item,
+  availableStock,
+  disabled,
+  onUpdateQty,
+  onNotify,
+}: {
+  item: KioscoCartItem;
+  availableStock: number;
+  disabled?: boolean;
+  onUpdateQty: (qty: number) => void;
+  onNotify?: (msg: string) => void;
+}) {
+  const [text, setText] = useState(String(item.qty));
+  const isFocused = useRef(false);
+  const isManual = item.product.code === "MANUAL";
+  const maxStock = isManual ? 999999 : Math.max(1, availableStock);
+
+  useEffect(() => {
+    if (!isFocused.current) {
+      setText(String(item.qty));
+    }
+  }, [item.qty]);
+
+  const commitValue = (val: number) => {
+    let finalQty = val;
+    if (isNaN(finalQty) || finalQty < 1) {
+      finalQty = 1;
+    } else if (!isManual && finalQty > maxStock) {
+      finalQty = maxStock;
+      onNotify?.(`Stock máximo disponible para ${item.product.name}: ${maxStock} u.`);
+    }
+    setText(String(finalQty));
+    onUpdateQty(finalQty);
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/\D/g, "");
+    if (!raw) {
+      setText("");
+      return;
+    }
+    const num = parseInt(raw, 10);
+    if (!isManual && num > maxStock) {
+      commitValue(maxStock);
+      return;
+    }
+    setText(raw);
+    if (num >= 1) {
+      onUpdateQty(num);
+    }
+  };
+
+  const handleBlur = () => {
+    isFocused.current = false;
+    const num = parseInt(text, 10);
+    commitValue(num);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      e.stopPropagation();
+      const num = parseInt(text, 10);
+      commitValue(num);
+      e.currentTarget.blur();
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      setText(String(item.qty));
+      e.currentTarget.blur();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      const current = parseInt(text, 10) || item.qty;
+      commitValue(current + 1);
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      const current = parseInt(text, 10) || item.qty;
+      commitValue(Math.max(1, current - 1));
+    }
+  };
+
+  return (
+    <input
+      type="text"
+      inputMode="numeric"
+      pattern="[0-9]*"
+      disabled={disabled}
+      className="cart-qty-input"
+      value={text}
+      title="Hacé clic para escribir la cantidad con el teclado"
+      aria-label={`Cantidad de ${item.product.name}`}
+      onFocus={(e) => {
+        isFocused.current = true;
+        e.currentTarget.select();
+      }}
+      onChange={handleInputChange}
+      onBlur={handleBlur}
+      onKeyDown={handleKeyDown}
+    />
+  );
+}
+
 export function PosTab({
   active = true,
   products,
@@ -111,6 +216,9 @@ export function PosTab({
   const [internalAiOpen, setInternalAiOpen] = useState(false);
   const handleOpenAi = onOpenAi || (() => setInternalAiOpen(true));
   const searchRef = useRef<HTMLInputElement>(null);
+  const cartItemsRef = useRef<HTMLDivElement>(null);
+  const shouldScrollToBottom = useRef(true);
+  const prevCartLength = useRef(cart.length);
   const submitting = useRef(false);
   const activeRef = useRef(active);
   activeRef.current = active;
@@ -122,6 +230,23 @@ export function PosTab({
   const splitValue = cents(Number(splitAmount)) / 100;
   const splitValid = Number.isFinite(splitValue) && splitValue > 0 && cents(splitValue) < cents(total) && splitFirst !== splitSecond;
   const confirmed = confirmedPayment === paymentSignature;
+
+  useLayoutEffect(() => {
+    const isNewItem = cart.length > prevCartLength.current;
+    prevCartLength.current = cart.length;
+
+    if ((shouldScrollToBottom.current || isNewItem) && cart.length > 0 && cartItemsRef.current) {
+      cartItemsRef.current.scrollTop = cartItemsRef.current.scrollHeight;
+      const raf = requestAnimationFrame(() => {
+        if (cartItemsRef.current) {
+          cartItemsRef.current.scrollTop = cartItemsRef.current.scrollHeight;
+        }
+      });
+      shouldScrollToBottom.current = false;
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [cart]);
+
   useEffect(() => {
     if (!active) return;
     const focus = (e: KeyboardEvent) => {
@@ -136,23 +261,42 @@ export function PosTab({
   const add = (p: KioscoProduct) => {
     if (busy || isLoading || !active) return;
     const existing = cart.find((i) => i.product.id === p.id);
-    if (p.code !== "MANUAL" && (existing?.qty || 0) >= p.stock) {
-      notify("warning", "No quedan más unidades disponibles de este producto.");
+    if (p.code !== "MANUAL" && (existing?.qty || 0) >= availableForCart(p, cart, products)) {
+      notify("warning", "No alcanza el stock compartido para agregar otra unidad. Revisá los productos y combos del carrito.");
       return;
     }
+    shouldScrollToBottom.current = true;
     setCart((prev) => {
-      if (p.code !== 'MANUAL' && (prev.find(i => i.product.id === p.id)?.qty || 0) >= p.stock) return prev;
-      return prev.some(i => i.product.id === p.id)
-        ? prev.map((i) =>
-            i.product.id === p.id
-              ? { ...i, qty: i.qty + 1, subtotal: (i.qty + 1) * p.price }
-              : i,
-          )
-        : [...prev, { product: p, qty: 1, subtotal: p.price }];
+      if (p.code !== 'MANUAL' && (prev.find(i => i.product.id === p.id)?.qty || 0) >= availableForCart(p, prev, products)) return prev;
+      const found = prev.find((i) => i.product.id === p.id);
+      if (found) {
+        const updated = { ...found, qty: found.qty + 1, subtotal: (found.qty + 1) * p.price };
+        return [...prev.filter((i) => i.product.id !== p.id), updated];
+      }
+      return [...prev, { product: p, qty: 1, subtotal: p.price }];
     });
     setClearPending(false);
     playScannerBeep();
     onTriggerChecklist("scanner");
+  };
+  const updateItemQty = (productId: string, newQty: number) => {
+    const product = cart.find(item => item.product.id === productId)?.product;
+    if (!product || newQty > availableForCart(product, cart, products)) {
+      notify('warning', 'No alcanza el stock compartido. Revisá las cantidades del carrito.');
+      return;
+    }
+    shouldScrollToBottom.current = false;
+    setCart((prev) =>
+      newQty > availableForCart(product, prev, products) ? prev : prev.map((i) =>
+        i.product.id === productId
+          ? {
+              ...i,
+              qty: newQty,
+              subtotal: newQty * i.product.price,
+            }
+          : i,
+      ),
+    );
   };
   const searchMatches = useMemo(() => {
     const qTrim = query.trim();
@@ -188,6 +332,8 @@ export function PosTab({
         : (!shortcut && !confirmed) || (chosen === 'Mixto' && !splitValid))
     )
       return;
+    const stockError = cartStockError(cart, products);
+    if (stockError) { setCheckoutError(stockError); return; }
     submitting.current = true;
     setBusy(true);
     setCheckoutError('');
@@ -207,6 +353,7 @@ export function PosTab({
         subtotal: i.subtotal,
         marginGroup: i.product.margin_group ?? 'standard',
         unitCost: i.product.cost && i.product.cost > 0 ? i.product.cost : null,
+        stockComponents: i.product.stock_components?.map(component => ({ ...component })) || [],
       })),
       total,
       paymentMethod: chosen,
@@ -252,6 +399,9 @@ export function PosTab({
     setMobilePosView('checkout');
     requestAnimationFrame(() => {
       if (!activeRef.current) return;
+      if (cartItemsRef.current) {
+        cartItemsRef.current.scrollTop = cartItemsRef.current.scrollHeight;
+      }
       const panel = document.getElementById('pos-sale-panel');
       panel?.focus({ preventScroll: true });
       panel?.scrollIntoView({ behavior: 'auto', block: 'start' });
@@ -319,7 +469,6 @@ export function PosTab({
         </button>
       </div>
       <section className="catalog" aria-label="Botonera de venta">
-        <div className="catalog-step"><span className="step-number">1</span><h2>Agregá productos</h2></div>
         <form className="search-box" onSubmit={search}>
           <Search size={21} />
           <input
@@ -373,7 +522,7 @@ export function PosTab({
                     <button
                       key={p.id}
                       type="button"
-                      disabled={busy || p.stock <= qty}
+                      disabled={busy || availableForCart(p, cart, products) <= qty}
                       className={`pos-search-item ${qty ? "in-cart" : ""}`}
                       onClick={() => {
                         add(p);
@@ -420,7 +569,7 @@ export function PosTab({
             <span>Productos</span>
           </button>
           <div className="pos-mobile-checkout-title">
-            <h2>2 · Revisá tu venta</h2>
+            <h2>Carrito</h2>
             <span className="pos-mobile-item-badge">
               {count} {count === 1 ? "ítem" : "ítems"}
             </span>
@@ -439,7 +588,6 @@ export function PosTab({
         {stationControls && <div className="pos-cart-top-bar">{stationControls}</div>}
         <div className="sale-header">
           <div>
-            <span className="eyebrow">2 · REVISÁ LOS PRODUCTOS</span>
             <h2>
               Carrito <span>{count}</span>
             </h2>
@@ -470,7 +618,7 @@ export function PosTab({
             <button onClick={() => setClearPending(false)}>Cancelar</button>
           </div>
         )}
-        <div className="cart-items">
+        <div className="cart-items" ref={cartItemsRef}>
           {!cart.length ? (
             <div className="cart-empty">
               <span className="empty-icon">
@@ -498,11 +646,12 @@ export function PosTab({
                     className="icon-button"
                     aria-label={`Quitar ${item.product.name}`}
                     disabled={busy}
-                    onClick={() =>
+                    onClick={() => {
+                      shouldScrollToBottom.current = false;
                       setCart((prev) =>
                         prev.filter((i) => i.product.id !== item.product.id),
-                      )
-                    }
+                      );
+                    }}
                   >
                     <X size={15} />
                   </button>
@@ -512,7 +661,8 @@ export function PosTab({
                     <button
                       disabled={busy}
                       aria-label={`Restar una unidad de ${item.product.name}`}
-                      onClick={() =>
+                      onClick={() => {
+                        shouldScrollToBottom.current = false;
                         setCart((prev) =>
                           prev.flatMap((i) =>
                             i.product.id !== item.product.id
@@ -527,17 +677,23 @@ export function PosTab({
                                     },
                                   ],
                           ),
-                        )
-                      }
+                        );
+                      }}
                     >
                       <Minus size={14} />
                     </button>
-                    <span>{item.qty}</span>
+                    <CartQuantityInput
+                      item={item}
+                      availableStock={availableForCart(item.product, cart, products)}
+                      disabled={busy}
+                      onUpdateQty={(qty) => updateItemQty(item.product.id, qty)}
+                      onNotify={(msg) => notify("warning", msg)}
+                    />
                     <button
                       disabled={
                         busy ||
                         (item.product.code !== "MANUAL" &&
-                          item.qty >= item.product.stock)
+                          item.qty >= availableForCart(item.product, cart, products))
                       }
                       aria-label={`Sumar una unidad de ${item.product.name}`}
                       onClick={() => add(item.product)}
@@ -554,7 +710,6 @@ export function PosTab({
         </div>
         </section>
         <section className="checkout" aria-label="Total y cobro">
-          <div className="checkout-heading"><span className="step-number">3</span><h2>Cobrá la venta</h2></div>
           <div className="total-line">
             <span>
               Total a cobrar

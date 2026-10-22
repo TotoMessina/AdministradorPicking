@@ -1,5 +1,6 @@
 import type { Product } from "../features/retail/api";
 import { unitsPerPack } from './inventoryUnits';
+import { hasComposition } from './productComposition';
 
 export interface StockReplenishmentItem {
   productId: string;
@@ -272,6 +273,10 @@ export const replenishmentService = {
         continue;
       }
 
+      if (hasComposition(matchedProduct)) {
+        invalidRows.push({ rawCode, rawName, quantityAdded: cleanedQty, product: matchedProduct, status: 'invalid_qty', errorMessage: 'Este producto consume componentes. Reponé los productos de su composición, no el combo o paquete.' });
+        continue;
+      }
       const packSize = unitsPerPack(matchedProduct.pack_size);
       const interpretedAsPacks = packSize > 1 && cleanedQty < packSize * 0.8;
       const quantityAdded = cleanedQty * (interpretedAsPacks ? packSize : 1);

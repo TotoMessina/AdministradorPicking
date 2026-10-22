@@ -3,8 +3,10 @@ import type { Session } from '@supabase/supabase-js';
 import type { KioscoSale } from '../../types/kiosco';
 import type { Product, Shift, Register, Movement, Branch, PriceList, SalesLedger } from './api';
 import { cashInSale } from './payments';
+import type { Permission } from './permissions';
 import { movementDetails, voucherPath } from './vouchers';
 import { randomUUID } from '../../utils/uuid';
+import { consumeSaleStock, hasComposition, withAvailableStock } from '../../services/productComposition';
 
 type Operation = { id: string; kind: 'open' | 'sale' | 'movement' | 'close' | 'stock'; store: string; at: string; shift?: string; [key: string]: unknown };
 export type PendingOperation = { operation: Operation; error?: string };
@@ -16,6 +18,12 @@ let syncing = false;
 let database: Promise<IDBDatabase> | undefined;
 const fresh = (): State => ({ cache: {}, queue: [], revision: 0 });
 const key = (method: string, args: unknown[]) => JSON.stringify([method, args]);
+function updateProductCaches(state: State, store: string, products: Product[]) {
+  for (const cacheKey of Object.keys(state.cache)) {
+    const [method, args] = JSON.parse(cacheKey);
+    if (method === 'products' && args[0] === store) state.cache[cacheKey] = products;
+  }
+}
 const event = () => window.dispatchEvent(new Event('retail-local-change'));
 export const offlineSupported = () => typeof indexedDB !== 'undefined';
 export function configureOffline(user: string) { activeUser = user; }
@@ -60,8 +68,11 @@ async function transaction<T>(user: string, mutate: (state: State) => T, write =
     tx.onabort = tx.onerror = () => reject(failure || new Error('No se pudo guardar en este dispositivo. Revisá el espacio disponible; la venta no se confirmó.'));
   });
 }
-const reads = new Set(['stores', 'role', 'categories', 'registers', 'shifts', 'branches', 'priceLists', 'branchPriceRule', 'priceOverrides', 'ledgers', 'products', 'sales', 'movements', 'shiftBalance', 'registerAvailability', 'quickProducts', 'popularProducts', 'members', 'invitations', 'allSales', 'reportSales']);
+const reads = new Set(['stores', 'role', 'permissions', 'permissionProfiles', 'categories', 'registers', 'shifts', 'branches', 'priceLists', 'branchPriceRule', 'priceOverrides', 'ledgers', 'products', 'sales', 'movements', 'shiftBalance', 'registerAvailability', 'quickProducts', 'popularProducts', 'members', 'invitations', 'allSales', 'reportSales']);
 const operational = new Set(['openShift', 'closeShift', 'addMovement', 'checkout', 'replenishProductStock', 'replenishStockBatch']);
+// These records have no optimistic edits. Refresh authorization even if another
+// operation is pending, without replacing optimistic sales, stock or balances.
+const permissionReads = new Set(['permissions', 'permissionProfiles', 'role', 'members', 'invitations']);
 // These remito calls never change stock/catalog permissions. Polling a badge or
 // signing a thumbnail must not trigger the configuration-wide cache refresh.
 const remitoOnline = new Set(['pendingReplenishments', 'getRemitoUrl', 'uploadRemito', 'submitPendingReplenishment', 'rejectPendingReplenishment']);
@@ -76,7 +87,7 @@ async function remoteRead(user: string, method: string, args: unknown[]) {
   let changed = false;
   await transaction(user, state => {
     // A request started before a local sale must never overwrite its optimistic stock/balance.
-    if (state.queue.length || state.revision !== revision) return;
+    if (!permissionReads.has(method) && (state.queue.length || state.revision !== revision)) return;
     changed = JSON.stringify(state.cache[cacheKey]) !== JSON.stringify(value);
     state.cache[cacheKey] = value;
   }, true);
@@ -157,24 +168,41 @@ function findCached<T>(s: State, method: string, store: string): T | undefined {
 function need<T>(value: T | undefined): T { if (value === undefined) throw new Error('Prepará esta caja con conexión antes de operar offline. Abrí su turno y actualizá los datos.'); return value; }
 function put(s: State, method: string, args: unknown[], value: unknown) { s.cache[key(method, args)] = value; }
 function amount(value: unknown) { const n = Number(value); if (!Number.isFinite(n) || n < 0) throw new Error('Importe inválido'); return Math.round(n * 100) / 100; }
+function requireCachedPermission(state: State, store: string, user: string, permission: Permission) {
+  const role = state.cache[key('role', [store, user])];
+  if (role === 'owner' || role === 'admin') return;
+  const permissions = need(state.cache[key('permissions', [store])] as Permission[] | undefined);
+  if (!permissions.includes(permission)) throw new Error('Tu perfil no permite esta acción. Pedile a administración que revise tus permisos.');
+}
 async function localWrite(user: string, method: string, args: unknown[]) {
   const result = await transaction(user, s => {
     const at = new Date().toISOString();
     let store = String(args[0]); let shiftId = ''; let shift: Shift | undefined;
     if (method === 'replenishProductStock' || method === 'replenishStockBatch') {
-      if (!['owner', 'admin'].includes(String(s.cache[key('role', [store, user])]))) throw new Error('Solo el administrador puede registrar stock');
+      requireCachedPermission(s, store, user, 'replenish_stock');
+      const manager = ['owner', 'admin'].includes(String(s.cache[key('role', [store, user])]));
       const products = need(findCached<Product[]>(s, 'products', store));
       const rows = (method === 'replenishProductStock' ? [{ id: args[1], newStock: args[2], newCost: args[3], quantityAdded: args[4] }] : args[1]) as { id: string; newStock: number; newCost?: number; quantityAdded?: number }[];
       if (!rows.length || rows.length > 10000 || new Set(rows.map(r => r.id)).size !== rows.length) throw new Error('La reposición debe contener productos distintos');
+      const request = method === 'replenishProductStock' ? args[5] as { id: string; at: string } | undefined : undefined;
+      const prior = request?.id && s.queue.find(entry => entry.operation.id === request.id)?.operation;
+      if (prior) {
+        const expected = rows.map(row => ({ product: row.id, delta: row.quantityAdded, cost: row.newCost ?? null }));
+        if (prior.kind !== 'stock' || prior.store !== store || prior.at !== request?.at || JSON.stringify(prior.items) !== JSON.stringify(expected)) throw new Error('La solicitud corresponde a otra reposición. Revisá los datos.');
+        return rows.map(row => ({ id: row.id }));
+      }
       const items = rows.map(row => {
         const product = products.find(p => p.id === row.id); if (!product) throw new Error('Producto no disponible en este dispositivo');
+        if (hasComposition(product)) throw new Error(`Reponé los componentes de ${product.name}; su disponibilidad se calcula con ese stock.`);
         const delta = row.quantityAdded ?? row.newStock - product.stock;
         if (!Number.isInteger(delta) || Math.abs(delta) > 1000000 || product.stock + delta < 0) throw new Error('Cantidad de stock inválida');
+        if (!manager && (delta <= 0 || row.newCost !== undefined)) throw new Error('Tu permiso permite sumar stock sin modificar costos.');
         product.stock += delta;
         if (row.newCost !== undefined) product.cost = amount(row.newCost);
         return { product: product.id, delta, cost: row.newCost ?? null };
       });
-      s.revision++; s.queue.push({ operation: { id: randomUUID(), kind: 'stock', store, at, items } });
+      updateProductCaches(s, store, withAvailableStock(products));
+      s.revision++; s.queue.push({ operation: { id: request?.id || randomUUID(), kind: 'stock', store, at: request?.at || at, items } });
       return rows.map(row => ({ id: row.id }));
     }
     if (method === 'checkout') shiftId = String(args[1]);
@@ -209,35 +237,38 @@ async function localWrite(user: string, method: string, args: unknown[]) {
       if (method === 'checkout') {
         const sale = structuredClone(args[2]) as KioscoSale;
         const previous = sales.find(saleRow => saleRow.id === sale.id); if (previous) return previous;
+        requireCachedPermission(s, store, user, 'sell');
         const products = need(findCached<Product[]>(s, 'products', store));
         for (const item of sale.items) {
           if (!Number.isInteger(item.qty) || item.qty <= 0 || item.unitPrice <= 0 || !Number.isFinite(item.unitPrice)) throw new Error('Producto o importe inválido');
           if (item.productId) {
             const product = products.find(p => p.id === item.productId);
-            if (!product || product.stock < item.qty) throw new Error(`Stock local insuficiente: ${item.name}`);
+            if (!product) throw new Error(`Producto no disponible: ${item.name}`);
             item.marginGroup = product.margin_group ?? 'standard';
             item.unitCost = product.cost > 0 ? product.cost : null;
-            product.stock -= item.qty;
           } else {
             item.marginGroup = 'standard'; item.unitCost = null;
           }
         }
+        updateProductCaches(s, store, consumeSaleStock(products, sale.items));
         const register = regs.find(r => r.id === shift!.register_id)!;
         const branch = need(findCached<Branch[]>(s, 'branches', store)).find(b => b.id === register.branch_id);
         const list = findCached<PriceList[]>(s, 'priceLists', store)?.find(l => l.id === sale.priceListId);
         if (sale.priceListId && (!list || !list.active || (list.branch_id && list.branch_id !== register.branch_id))) throw new Error('La lista de precios no está disponible para esta sucursal');
         const defaultList = findCached<PriceList[]>(s, 'priceLists', store)?.find(l => l.active && l.branch_id === register.branch_id)?.id || null;
-        if (role === 'cashier' && (sale.priceListId || null) !== defaultList) throw new Error('Usá la lista de precios asignada a esta sucursal. Actualizá los datos antes de cobrar');
-        const ledger = need(findCached<SalesLedger[]>(s, 'ledgers', store)).find(l => l.id === sale.ledgerId || (!sale.ledgerId && l.is_default));
+        if (role !== 'owner' && role !== 'admin' && (sale.priceListId || null) !== defaultList) throw new Error('Usá la lista de precios asignada a esta sucursal. Actualizá los datos antes de cobrar');
+        const ledger = need(findCached<SalesLedger[]>(s, 'ledgers', store)).find(l => l.active && (l.id === sale.ledgerId || (!sale.ledgerId && l.is_default)));
+        if (!ledger) throw new Error('El registro de ventas ya no está activo. Actualizá los registros con conexión antes de cobrar.');
         Object.assign(sale, { store_id: store, shift_id: shiftId, created_by: user, register_id: register.id, ticketNumber: `L-${sale.id.slice(0, 8).toUpperCase()}`, syncStatus: 'pending', createdAt: at, created_at: at, branchId: branch?.id, branchName: branch?.name, registerName: register.name, priceListName: list?.name || 'Lista madre', ledgerId: ledger?.id, ledgerName: ledger?.name });
         sales.unshift(sale); put(s, 'shiftBalance', [shiftId], Math.round((balance + cashInSale(sale)) * 100) / 100);
         for (const [cacheKey, value] of Object.entries(s.cache)) {
           const [method, params] = JSON.parse(cacheKey);
           if (params[0] === store && (method === 'allSales' || (method === 'reportSales' && at >= params[1] && at < params[2]))) (value as KioscoSale[]).unshift(sale);
         }
-        op = { id: sale.id, kind: 'sale', store, shift: shiftId, at, method: sale.paymentMethod, paid: sale.amountPaid, payments: sale.payments || [{ method: sale.paymentMethod, amount: sale.total }], items: sale.items.map(i => ({ product_id: i.productId || null, name: i.name, qty: i.qty, unit_price: i.unitPrice })), priceList: sale.priceListId || null, ledger: ledger?.id || null }; output = sale;
+        op = { id: sale.id, kind: 'sale', store, shift: shiftId, at, method: sale.paymentMethod, paid: sale.amountPaid, payments: sale.payments || [{ method: sale.paymentMethod, amount: sale.total }], items: sale.items.map(i => ({ product_id: i.productId || null, name: i.name, qty: i.qty, unit_price: i.unitPrice, stock_components: i.stockComponents || [] })), priceList: sale.priceListId || null, ledger: ledger?.id || null }; output = sale;
       } else if (method === 'addMovement') {
         const id = String(args[4]); if (moves.some(m => m.id === id)) return id;
+        requireCachedPermission(s, store, user, args[1] === 'INGRESO' ? 'cash_income' : 'cash_withdrawal');
         const value = amount(args[2]); if (!value || !['INGRESO', 'RETIRO'].includes(String(args[1])) || !String(args[3]).trim()) throw new Error('Completá el importe y motivo');
         const details = movementDetails(String(args[1]), args[5] == null ? 'general' : String(args[5]), args[6] as string | null | undefined, args[7] as string | null | undefined);
         if (details.voucherUrl) voucherPath(store, shiftId, details.voucherUrl);
@@ -273,6 +304,7 @@ export function withOffline<T extends Remote>(source: T): T {
       }
       if (property === 'moveSaleLedger') {
         if (navigator.onLine === false) throw new Error('Conectate para cambiar el registro de una venta terminada.');
+        await transaction(user, state => requireCachedPermission(state, String(args[0]), user, 'move_sale_ledger'));
         const pending = await transaction(user, state => state.queue.some(entry => entry.operation.kind === 'sale' && entry.operation.id === args[1]));
         if (pending) throw new Error('Esperá a que esta venta se sincronice antes de cambiar su registro.');
         const moved = await original(...args as never[]) as KioscoSale;
@@ -312,15 +344,23 @@ export function withOffline<T extends Remote>(source: T): T {
           });
         }
         const cached = await transaction(user, s => ({ value: s.cache[key(property, args)], pending: s.queue.length > 0 }));
-        if (cached.value !== undefined) { if (!cached.pending) backgroundRead(user, property, args); return cached.value; }
+        if (cached.value !== undefined) { if (!cached.pending || permissionReads.has(property)) backgroundRead(user, property, args); return cached.value; }
         if (navigator.onLine === false) throw new Error('Estos datos todavía no están disponibles en este dispositivo. Conectate para prepararlos.');
         return remoteRead(user, property, args);
       }
       if (navigator.onLine === false) throw new Error('Esta configuración necesita conexión. Podés seguir vendiendo desde tu caja.');
+      if (property === 'saveProductComposition' || property === 'enableLooseCigarettes') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de configurar combos o sueltos. El borrador se conserva.');
+      });
       const result = await original(...args as never[]);
       // Configuration is online-only. Refresh cached catalog/permissions after changes.
       const state = await transaction(user, s => s);
-      if (!state.queue.length) await Promise.all(Object.keys(state.cache).map(k => { const [m, a] = JSON.parse(k); return remoteRead(user, m, a).catch(() => {}); }));
+      const permissionChange = property === 'savePermissionProfile' || property === 'setStaffProfile';
+      if (!state.queue.length || permissionChange) await Promise.all(Object.keys(state.cache).map(k => {
+        const [m, a] = JSON.parse(k);
+        if (state.queue.length && !permissionReads.has(m)) return Promise.resolve();
+        return remoteRead(user, m, a).catch(() => {});
+      }));
       return result;
     };
   } });

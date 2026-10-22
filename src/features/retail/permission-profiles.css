@@ -1,0 +1,34 @@
+.permission-profiles .settings-editor { margin-block: 12px; }
+.permission-profiles .settings-editor .team-row small { display: block; margin-top: 4px; color: var(--tone-muted); }
+.permission-form .permission-form-heading { display: flex; align-items: end; gap: 16px; flex-wrap: wrap; }
+.permission-form-heading > label { flex: 1 1 180px; }
+.permission-role { align-self: center; padding: 6px 12px; border-radius: 999px; background: var(--tone-soft); color: var(--tone-accent); font-size: 12px; font-weight: 600; }
+.permission-section-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.permission-section-heading > span { color: var(--tone-muted); font-size: 12px; }
+.permission-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.permission-form .permission-group { min-width: 0; margin: 0; padding: 6px 14px 10px; border: 1px solid var(--tone-border); border-radius: 14px; background: var(--tone-surface); }
+.permission-group > legend { padding: 0 6px; color: var(--tone-muted); font-size: 12px; font-weight: 600; }
+.permission-form label.permission-switch { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; margin: 0; cursor: pointer; }
+.permission-switch + .permission-switch { border-top: 1px solid var(--tone-border); }
+.permission-switch-label { color: var(--tone-text); font-size: 13px; line-height: 1.4; }
+.permission-switch-control { position: relative; display: inline-flex; flex: 0 0 44px; width: 44px; height: 26px; }
+.permission-form .permission-switch input[type='checkbox'] { position: absolute; inset: 0; z-index: 1; width: 44px; height: 26px; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
+.permission-switch-track { display: block; width: 44px; height: 26px; border: 1px solid var(--tone-muted); border-radius: 999px; background: var(--tone-canvas); transition: background-color 150ms ease; }
+.permission-switch-track::before { content: ''; position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--tone-muted); transition: transform 150ms ease, background-color 150ms ease; }
+.permission-switch input:checked + .permission-switch-track { border-color: var(--tone-accent); background: var(--tone-accent); }
+.permission-switch input:checked + .permission-switch-track::before { transform: translateX(18px); background: var(--tone-surface); }
+.permission-switch input:focus-visible + .permission-switch-track { outline: 3px solid var(--tone-accent); outline-offset: 4px; }
+.permission-switch input:disabled { cursor: wait; }
+.permission-switch input:disabled + .permission-switch-track { opacity: .5; }
+.permission-help { color: var(--tone-muted); font-size: 13px; }
+.permission-help > summary { display: list-item; width: fit-content; min-height: 44px; padding-block: 12px; cursor: pointer; }
+.permission-help > summary:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 3px; border-radius: 4px; }
+.permission-help ul { padding-left: 20px; line-height: 1.8; }
+.permission-form .permission-save-note { margin: 0; font-size: 12px; }
+@media (max-width: 640px) {
+  .permission-groups { grid-template-columns: minmax(0, 1fr); gap: 12px; }
+  .permission-form .primary-button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .permission-switch-track, .permission-switch-track::before { transition: none; }
+}

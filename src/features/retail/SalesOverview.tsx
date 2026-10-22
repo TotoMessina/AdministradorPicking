@@ -10,7 +10,7 @@ import { SaleLedgerControl } from './SaleLedgerControl';
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-export function SalesOverview({ storeId, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void }) {
+export function SalesOverview({ storeId, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canMoveSale }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canMoveSale?: (s: KioscoSale) => boolean }) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [period, setPeriod] = useState({ from: today(), to: today() });
@@ -33,20 +33,20 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, p
   const visible = rows.filter(s => (!branch || s.branchId === branch) && (!ledger || s.ledgerId === ledger) && (!invoice || (invoice === 'yes') === !!s.invoiceReference));
   const exportAll = () => {
     const url = URL.createObjectURL(new Blob([salesCsv(rows)], { type: 'text/csv;charset=utf-8' }));
-    const link = document.createElement('a'); link.href = url; link.download = `ventas-completas-${period.from}-${period.to}.csv`; link.click();
+    const link = document.createElement('a'); link.href = url; link.download = `ventas-${canManage ? 'completas' : 'disponibles'}-${period.from}-${period.to}.csv`; link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
-  return <section className="retail-panel sales-overview"><h2>Resumen del comercio</h2>
-    <p>Consultá todas las sucursales y los registros de ventas. El archivo incluye todas las operaciones del período, con su estado de comprobante.</p>
+  return <section className="retail-panel sales-overview"><h2>{canManage ? 'Resumen del comercio' : 'Ventas disponibles'}</h2>
+    <p>{canManage ? 'Consultá todas las sucursales y los registros de ventas. El archivo incluye todas las operaciones del período, con su estado de comprobante.' : 'Consultá las ventas que tus permisos y asignaciones permiten ver, incluida tu actividad propia. El archivo incluye esas ventas del período; no representa necesariamente todo el comercio.'}</p>
     <form className="business-controls" onSubmit={e => { e.preventDefault(); if (from <= to) setPeriod({ from, to }); }}>
       <label>Desde<input type="date" required value={from} max={to} onChange={e => setFrom(e.target.value)} /></label>
       <label>Hasta<input type="date" required value={to} min={from} onChange={e => setTo(e.target.value)} /></label>
       <button className="secondary-button" disabled={loading || busy}>Consultar</button>
-      <button type="button" className="secondary-button" disabled={loading || !!error || !rows.length || busy} onClick={exportAll}>Exportar período completo (CSV)</button>
+      <button type="button" className="secondary-button" disabled={loading || !!error || !rows.length || busy} onClick={exportAll}>{canManage ? 'Exportar período completo (CSV)' : 'Exportar ventas disponibles (CSV)'}</button>
     </form>
     <p>Período consultado: {period.from} al {period.to} · Hora de Argentina.</p>
     {loading ? <p role="status">Cargando todas las ventas del período…</p> : error ? <p role="alert">{error}</p> : <>
-      <div className="cash-metrics"><div><small>Total del comercio</small><strong>{money(rows.reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div></div>
+      <div className="cash-metrics"><div><small>{canManage ? 'Total del comercio' : 'Total de ventas disponibles'}</small><strong>{money(rows.reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div></div>
       <MarginSummary summary={summarizeMargins(rows, products)} />
       <div className="table-scroll"><table><thead><tr><th>Sucursal</th><th>Cajas activas</th><th>Turnos abiertos</th><th>Ventas del período</th></tr></thead><tbody>{branches.map(b => <Fragment key={b.id}><tr><td>{b.name}</td><td>{registers.filter(r => r.branch_id === b.id && r.active).length}</td><td>{shifts.filter(s => !s.closed_at && registers.some(r => r.id === s.register_id && r.branch_id === b.id)).length}</td><td>{money(rows.filter(s => s.branchId === b.id).reduce((n, s) => n + s.total, 0))}</td></tr><tr><td colSpan={3}>Ventas excluyendo bajo margen · {b.name}</td><td>{money(summarizeMargins(rows.filter(s => s.branchId === b.id), products).standard.revenue)}</td></tr></Fragment>)}</tbody></table></div>
       {shifts.some(s => s.closed_at) && (
@@ -119,7 +119,17 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, p
       </div>
       <p>{visible.length} ventas en la consulta · {money(visible.reduce((n, s) => n + s.total, 0))}</p>
       <div className="table-scroll"><table><thead><tr><th>Venta</th><th>Sucursal / caja</th><th>Lista / registro</th><th>Total</th><th>Comprobante externo</th></tr></thead><tbody>
-        {visible.slice(0, limit).map(s => <tr key={s.id}><td><button className="text-button" onClick={() => onTicket(s)}>{s.ticketNumber}</button><small>{s.date} {s.timestamp}</small></td><td>{s.branchName}<small>{s.registerName}</small></td><td>{s.priceListName}<small>{s.ledgerName}</small></td><td>{money(s.total)}</td><td>{s.invoiceReference || <details><summary>Sin comprobante · Asociar</summary><form className="retail-form" onSubmit={e => { e.preventDefault(); const reference = String(new FormData(e.currentTarget).get('reference')); void run(() => retail.attachInvoice(s.id, reference), 'Comprobante asociado'); }}><label>Referencia del comprobante ya emitido<input name="reference" required maxLength={120} placeholder="Tipo, punto de venta y número" /></label><p>Se guarda la referencia y quién la asoció. Esta acción no emite ni valida una factura.</p><button className="secondary-button" disabled={busy}>Asociar comprobante</button></form></details>}</td></tr>)}
+        {visible.slice(0, limit).map(s => <tr key={s.id}>
+          <td><button className="text-button" onClick={() => onTicket(s)}>{s.ticketNumber}</button><small>{s.date} {s.timestamp}</small></td>
+          <td>{s.branchName}<small>{s.registerName}</small></td>
+          <td>{s.priceListName}<SaleLedgerControl storeId={storeId} sale={s} ledgers={ledgers} disabled={busy} showHistory={canManage || !!canMoveSale?.(s)} canMove={canMoveSale ? canMoveSale(s) : canManage}
+            onMoved={saved => {
+              setRows(previous => previous.map(sale => sale.id === saved.id ? { ...sale, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : sale));
+              onSaleMoved?.(saved);
+            }} /></td>
+          <td>{money(s.total)}</td>
+          <td>{s.invoiceReference || (canManage ? <details><summary>Sin comprobante · Asociar</summary><form className="retail-form" onSubmit={e => { e.preventDefault(); const reference = String(new FormData(e.currentTarget).get('reference')); void run(() => retail.attachInvoice(s.id, reference), 'Comprobante asociado'); }}><label>Referencia del comprobante ya emitido<input name="reference" required maxLength={120} placeholder="Tipo, punto de venta y número" /></label><p>Se guarda la referencia y quién la asoció. Esta acción no emite ni valida una factura.</p><button className="secondary-button" disabled={busy}>Asociar comprobante</button></form></details> : 'Sin comprobante asociado')}</td>
+        </tr>)}
         {!visible.length && <tr><td colSpan={5}>No hay ventas para esta consulta.</td></tr>}
       </tbody></table></div>
       {visible.length > limit && <button className="secondary-button" onClick={() => setLimit(n => n + 50)}>Ver más ventas</button>}

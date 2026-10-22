@@ -513,3 +513,67 @@ No había navegadores disponibles en la sesión; no se evaluó la interfaz rende
 ### Observación propuesta — no realizada
 
 Pedir a una persona nueva, en datos de prueba: «Creá este producto, cambiá su precio y guardalo». No señalar botones ni explicar la navegación. Registrar dónde se detiene, qué intenta pulsar, si distingue crear de editar, dónde busca Guardar y qué textos no entiende. Al final preguntar qué esperaba de los controles confusos. Esta observación pendiente permitirá evaluar la intuitividad que la revisión de código no puede demostrar.
+
+## Mi comercio: accesos únicos — 22 de octubre de 2026
+
+La revisión del estado real encontró dos grupos de tarjetas hacia los mismos destinos, un botón adicional de datos y botones para volver al resumen en cada sección. Esta entrega reemplaza esa combinación por una única barra compacta, reutilizando `SectionNav`: **Datos del comercio**, **Locales y cajas**, **Personas con acceso** y **Más opciones**. Seleccionar una sección ya activa la mantiene abierta; no lleva a otro resumen. Las vistas vacías o antiguas no reconocidas muestran Datos del comercio, sin cambiar los identificadores de las vistas existentes.
+
+| Antes del ajuste | Después |
+| --- | --- |
+| En el resumen: cuatro tarjetas superiores, cuatro tarjetas equivalentes y otro acceso a datos. | Una barra de cuatro secciones, sin tarjetas duplicadas ni resumen intermedio. |
+| Cada sección mostraba Volver al resumen y una etiqueta adicional de sección abierta. | La barra indica la sección seleccionada; no hay un segundo recorrido hacia los mismos lugares. |
+| Más opciones mostraba botones destacados y texto introductorio. | Lista de tres accesos: Listas de precios, Registros de ventas y App y avisos. Categorías conserva su desplegable. |
+
+Los editores siguen montados al cambiar de sección, y Cancelar conserva su alcance sobre el borrador propio. Se mantienen el resumen de una sola sucursal/caja con Administrar locales y cajas, las acciones de creación por intención, los perfiles con interruptores y las restricciones de roles. Listas de precios sigue abriendo su editor principal en Productos. App y avisos mantiene la entrada directa desde PWA y Volver a Más opciones con devolución del foco. No cambia datos, contratos, permisos ni migraciones.
+
+### Guía de Pruebas — pendiente manual
+
+En **http://localhost:3001/**, con un administrador y datos de prueba:
+
+1. Entrar a Mi comercio: esperar una sola barra de cuatro secciones y Datos del comercio visible, sin el grupo adicional de tarjetas. Pulsar la sección activa: debe seguir abierta.
+2. Recorrer las secciones con clic y con flechas/Home/End sobre la barra: esperar sección y foco coordinados, con los controles ocultos fuera de Tab. Repetir en móvil: dos columnas de navegación y texto legible.
+3. Empezar Editar datos, escribir sin guardar, ir a Personas con acceso y volver: esperar el borrador intacto. Cancelar otro editor no debe borrar el primero.
+4. Más opciones: abrir Registros y volver; abrir App y avisos y volver. Esperar una única lista de accesos y foco devuelto al origen. Desde Listas de precios, esperar el editor existente en Productos; Categorías debe seguir disponible.
+5. Repetir con una y varias sucursales: esperar acceso a editar/agregar sucursales y cajas, conservando asignaciones. Probar una entrada desde aviso PWA: App y avisos debe abrirse directamente.
+6. Entrar como cajero: Mi comercio debe seguir inaccesible. Verificar también perfiles de supervisor, sin conceder administración por este cambio visual.
+
+No se realizó una evaluación visual en navegador ni móvil, ni una prueba con personas. Quedan pendientes los recorridos, foco real, borradores y entrada desde PWA descritos arriba. No se aplicaron migraciones ni se agregaron dependencias.
+
+Comprobación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, finalizó sin errores (salida 0). No se ejecutaron builds ni otras pruebas automatizadas.
+
+### Ajuste posterior: contenido directo al entrar
+
+Se retiró el encabezado adicional «Mi comercio / nombre del comercio». La navegación mantiene sus destinos e identificadores, ahora con pestañas subrayadas y sin contenedores de botón. **Datos del comercio** muestra directamente sus campos y Guardar cambios/Cancelar; ya no exige pulsar Editar datos. El nombre sigue disponible como campo editable, sin repetirse como título o resumen. **Locales y cajas** muestra directamente las sucursales y cajas existentes, sin el paso Administrar locales y cajas, incluso con un único local. Crear y editar cada entidad sigue siendo una acción explícita, sin abrir todos sus formularios.
+
+El formulario de datos permanece montado al navegar. Cancelar restablece solo sus campos a los valores guardados; no afecta borradores de otros editores. Guardar conserva la RPC y el mensaje de confirmación existentes. Si falla, los campos no se reinician. Sin cambios en permisos, asignaciones, datos ni migraciones. Las entradas avanzadas y PWA se conservan.
+
+**Guía de Pruebas pendiente en http://localhost:3001/**:
+
+1. Entrar como administrador a Mi comercio: esperar pestañas y campos de datos directamente, sin el encabezado adicional ni Editar datos del comercio. El nombre debe seguir editable en su campo.
+2. Cambiar un dato, navegar a Personas y volver: esperar el borrador intacto. Cancelar: esperar los valores guardados, sin modificar otros borradores. Guardar en un comercio de prueba: esperar confirmación y persistencia al recargar; con fallo de red, esperar error y borrador intacto para reintentar.
+3. Entrar a Locales y cajas con uno y varios locales: esperar las entidades y sus acciones directamente, sin Administrar locales y cajas. Editar y Agregar siguen abriendo solo el formulario elegido.
+4. Repetir con teclado y ancho móvil: esperar foco visible, una columna de campos en móvil y botones al pie sin superponerse. Verificar acceso avanzado, aviso PWA y ausencia de Mi comercio para cajero/supervisor.
+
+La evaluación visual en navegador/móvil y los recorridos anteriores quedan pendientes. No se realizaron pruebas con personas ni comprobaciones de backend en este ajuste.
+
+Comprobación ejecutada para este ajuste: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). No se ejecutaron builds ni otras pruebas automatizadas.
+
+### Productos: combos fijos y paquete/suelto
+
+Se agrega **Composición** como acción secundaria por producto para administración. Abre un editor en la zona principal, conservando el catálogo y los demás borradores montados. Permite que una venta consuma unidades de otros productos: pancho = 1 pan + 1 salchicha; paquete = 20 cigarrillos del producto suelto. Los productos mantienen precios independientes. No se agregan elecciones de ingredientes a la caja ni se requiere IA.
+
+Los compuestos muestran disponibilidad calculada y la indicación Stock compartido por componentes. Reponer se limita a los productos con stock propio, y el carrito controla el consumo conjunto de paquetes, sueltos y combos. La guía de configuración, compatibilidad, migración local y recorridos manuales está en [Combos y sueltos](combos-y-sueltos.md). Esta ampliación requiere `202610220001_product_compositions.sql`, preparada sin ejecutar SQL remoto; no convierte stocks anteriores ni cambia la configuración existente. Quedan pendientes navegador/móvil, backend, concurrencia, dispositivos y sincronización real.
+
+**Corrección de acceso:** el nombre Composición en una fila no permitía descubrir fácilmente la función. Productos ahora muestra **Crear combo o paquete** junto a Agregar producto, para administración. Su formulario indica **Nuevo combo o paquete**, fija stock propio 0 y **Crear y elegir componentes** guarda usando la creación existente y abre la configuración del mismo ID devuelto. No crea un segundo producto al guardar componentes. El producto ya creado se puede dejar con **Configurar después** y retomar desde **Combo / sueltos**, nuevo nombre visible de la acción por fila. Cancelar antes del primer guardado no crea nada. No se agregan rutas, permisos ni migraciones en este ajuste.
+
+Guía manual en **http://localhost:3001/**: como administrador, entrar a Productos → Catálogo y stock y ubicar Crear combo o paquete; completar un producto de prueba y esperar la apertura directa de sus componentes; guardar una receta y verificar disponibilidad. Cancelar un alta antes de guardar no debe crear filas; Configurar después debe conservar un único producto con stock 0 y permitir retomarlo desde Combo / sueltos. Repetir en móvil y comprobar que cajeros/supervisores no obtengan el acceso administrativo. Queda pendiente ejecución en navegador y backend.
+
+Comprobación del ajuste de acceso: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). No se ejecutaron builds, otras pruebas automatizadas ni migraciones remotas.
+
+### Cigarrillos: stock individual y reposición por atados
+
+La explicación genérica de consumo por componentes permitía invertir la relación. Se agrega **Combo / sueltos del atado → Configurar cigarrillos sueltos desde este atado**: pide cuántos trae, permite crear/reutilizar el producto suelto, muestra la conversión de stock y confirma precio/costo por cigarrillo. El atado consume 10/20 cigarrillos, mientras el suelto consume 1. La reposición se realiza sobre el suelto por bultos del tamaño indicado. No se introducen fracciones de atado ni se modifica el pancho.
+
+La conversión es explícita, administrativa, online y atómica. Puede corregir un suelto inversamente vinculado al mismo atado sin duplicarlo. Conserva precio/costo del atado; registra cantidades anteriores/resultantes y movimientos de stock, valida cambios concurrentes y conserva el identificador de reintento. Se prepara `202610220002_loose_cigarettes.sql` para aplicar después de la 001 ya utilizada por las composiciones; no se ejecuta SQL remoto ni se convierte ningún dato al instalarla. Las recetas y el checkout existentes no se reemplazan. Las condiciones y recorridos manuales en **http://localhost:3001/** están en [Combos y sueltos](combos-y-sueltos.md#conversión-de-atados-a-cigarrillos--pendiente-manual). La revisión visual, SQL/RLS, concurrencia y sincronización real quedan pendientes.
+
+Comprobación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0. No se ejecutaron builds ni otras pruebas automatizadas. El alcance del ajuste comprende el editor específico, su acceso desde componentes, API/caché de configuración y la migración local nueva; conserva los demás cambios del repositorio.

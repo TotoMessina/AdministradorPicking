@@ -1,6 +1,7 @@
 import type { Product } from '../features/retail/api';
 import type { KioscoSale } from '../types/kiosco';
 import type { StockReplenishment } from './replenishmentService';
+import { hasComposition, inventorySaleUnits } from './productComposition';
 
 export interface CapitalAlert {
   productId: string;
@@ -116,7 +117,7 @@ export function analyzeCapital(
     const saleTime = parseSaleTimestamp(sale);
     if (saleTime === null || saleTime > nowMs || !Number.isFinite(sale.total) || sale.total <= 0 || !Array.isArray(sale.items)) continue;
 
-    for (const item of sale.items || []) {
+    for (const item of sale.items.flatMap(inventorySaleUnits)) {
       if (item?.productId && Number.isFinite(item.qty) && item.qty > 0) {
         const current = lastSaleByProductId.get(item.productId);
         if (current === undefined || saleTime > current) {
@@ -148,7 +149,7 @@ export function analyzeCapital(
 
   for (const p of products) {
     // Filtro a: Solo activos con stock > 0 y costo > 0
-    if (p.active === false || !Number.isFinite(p.stock) || p.stock <= 0 || !Number.isFinite(p.cost) || p.cost <= 0 || !Number.isFinite(p.cost * p.stock)) {
+    if (hasComposition(p) || p.active === false || !Number.isFinite(p.stock) || p.stock <= 0 || !Number.isFinite(p.cost) || p.cost <= 0 || !Number.isFinite(p.cost * p.stock)) {
       continue;
     }
 

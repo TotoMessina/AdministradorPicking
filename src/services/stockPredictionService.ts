@@ -1,6 +1,7 @@
 import type { Product } from '../features/retail/api';
 import type { KioscoSale } from '../types/kiosco';
 import { unitsPerPack } from './inventoryUnits';
+import { hasComposition, inventorySaleUnits } from './productComposition';
 
 export interface StockPrediction {
   productId: string;
@@ -67,7 +68,7 @@ export function predictStockLevels(
   const coverage = finite(options.coverageDays) && options.coverageDays > 0 ? options.coverageDays : 10;
   const threshold = finite(options.weekdayThreshold) && options.weekdayThreshold >= 0 ? options.weekdayThreshold : 0.2;
   const catalog = [...new Map(products.map(p => [p.id, p])).values()];
-  const eligible = catalog.filter(p => p.active && finite(p.stock) && p.stock > 0);
+  const eligible = catalog.filter(p => !hasComposition(p) && p.active && finite(p.stock) && p.stock > 0);
   const daily = new Map(eligible.map(p => [p.id, Array<number>(14).fill(0)]));
   // Legacy names only match an unambiguous catalog name, never an invented/manual item.
   const byName = new Map<string, string[]>();
@@ -89,8 +90,10 @@ export function predictStockLevels(
         const matches = byName.get(name);
         if (!/^(varios|producto manual)(\b|$)/.test(name) && matches?.length === 1) id = matches[0];
       }
-      const counts = daily.get(id);
-      if (counts) counts[age - 1] += item.qty;
+      for (const physical of inventorySaleUnits({ ...item, productId: id })) {
+        const counts = daily.get(physical.productId);
+        if (counts) counts[age - 1] += physical.qty;
+      }
     }
   }
 

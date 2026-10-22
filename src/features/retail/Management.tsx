@@ -4,6 +4,10 @@ import { SectionNav } from './SectionNav';
 import { PushSettings } from './PushSettings';
 import { StaffAccessForm } from './StaffAccessForm';
 import { CashierAccess } from './CashierAccess';
+import { PermissionProfileSettings, StaffProfileAssignment, usePermissionProfiles } from './PermissionProfiles';
+import { ProductPriceEditor } from './ProductPriceEditor';
+import { ProductCompositionEditor } from './ProductCompositionEditor';
+import { hasComposition } from '../../services/productComposition';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
 import {
   AlertCircle,
@@ -27,6 +31,30 @@ import {
   Tag,
   Upload,
   X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
+  MapPin,
+  Receipt,
+  RotateCcw,
+  Building2,
+  Users,
+  SlidersHorizontal,
+  Monitor,
+  Pencil,
+  Plus,
+  Trash2,
+  Store as StoreIcon,
+  UserCheck,
+  ShieldCheck,
+  Clock,
+  Mail,
+  ArrowLeft,
+  Smartphone,
+  FolderTree,
+  LogOut,
+  RefreshCw,
 } from "lucide-react";
 import { groqChat } from "../../services/groqService";
 import { unitsPerPack } from '../../services/inventoryUnits';
@@ -133,6 +161,8 @@ export function CatalogEditor({
   onReviewedRemito = () => {},
   guided = false,
   active = true,
+  allowRestock = false,
+  allowPriceEdit = false,
 }: {
   store: Store;
   categories: Category[];
@@ -148,11 +178,14 @@ export function CatalogEditor({
   onReviewedRemito?: (id: string) => void;
   guided?: boolean;
   active?: boolean;
+  allowRestock?: boolean;
+  allowPriceEdit?: boolean;
 }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [adding, setAdding] = useState(guided);
   const [query, setQuery] = useState("");
-  const [visibleCount, setVisibleCount] = useState(50);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
   const [stockFilter, setStockFilter] = useState(false);
   const [lowMarginFilter, setLowMarginFilter] = useState(false);
   const editorRef = useRef<HTMLFormElement>(null);
@@ -252,6 +285,19 @@ export function CatalogEditor({
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
   const isManager = !role || role === "owner" || role === "admin";
+  const canRestock = isManager || allowRestock;
+  const [priceTarget, setPriceTarget] = useState<Product | null>(null);
+  const [compositionTarget, setCompositionTarget] = useState<Product | null>(null);
+  const [creatingComposition, setCreatingComposition] = useState(false);
+  const [newCompositionProduct, setNewCompositionProduct] = useState(false);
+  const compositionEditing = isManager && !!compositionTarget;
+  const closeCompositionEditor = () => {
+    setCompositionTarget(null);
+    requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); });
+  };
+  const priceEditing = !isManager && allowPriceEdit && !!priceTarget;
+  const closePriceEditor = () => { setPriceTarget(null); requestAnimationFrame(() => editorTrigger.current?.focus()); };
+  const restockRequest = useRef({ signature: '', id: '', at: '' });
 
   const availableCatalogTags = useMemo(() => {
     const set = new Set<string>();
@@ -429,7 +475,8 @@ export function CatalogEditor({
     };
   } | null>(null);
 
-  const startAdd = () => {
+  const startAdd = (asComposition = false) => {
+    setCreatingComposition(asComposition);
     invalidateProductSuggestions();
     setProductOptionsOpen(false);
     setEditing(null);
@@ -459,6 +506,7 @@ export function CatalogEditor({
   };
 
   const startEdit = (p: Product) => {
+    setCreatingComposition(false);
     invalidateProductSuggestions();
     setProductOptionsOpen(false);
     setAdding(false);
@@ -488,6 +536,7 @@ export function CatalogEditor({
   };
 
   const cancelEdit = () => {
+    setCreatingComposition(false);
     invalidateProductSuggestions();
     setProductOptionsOpen(false);
     setEditing(null);
@@ -521,6 +570,8 @@ export function CatalogEditor({
   const [expandedRecordId, setExpandedRecordId] = useState<string | null>(null);
 
   const startReplenish = (p: Product) => {
+    if (!canRestock) return;
+    restockRequest.current = { signature: '', id: '', at: '' };
     setReplenishTarget(p);
     setReplenishQty(12);
     setReplenishByPack(false);
@@ -531,11 +582,13 @@ export function CatalogEditor({
 
   const handleConfirmUnitaryReplenish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replenishTarget || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000) return;
+    if (!canRestock || !replenishTarget || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000) return;
 
     const newStock = replenishTarget.stock + replenishmentUnits;
     const numCost = parseFloat(replenishCost);
-    const validCost = !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
+    const validCost = isManager && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
+    const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null]);
+    if (restockRequest.current.signature !== signature) restockRequest.current = { signature, id: randomUUID(), at: new Date().toISOString() };
 
     const success = await run(
       () =>
@@ -545,6 +598,7 @@ export function CatalogEditor({
           newStock,
           validCost,
           replenishmentUnits,
+          restockRequest.current,
         ),
       `Reposición registrada: +${replenishmentUnits} u. de ${replenishTarget.name}`,
     );
@@ -658,7 +712,7 @@ export function CatalogEditor({
 
   // Feature: AI Stock Analysis states and handlers
   const criticalProducts = useMemo(
-    () => products.filter((p) => p.stock <= p.minStock),
+    () => products.filter((p) => !hasComposition(p) && p.stock <= p.minStock),
     [products],
   );
   const [isAnalyzingStock, setIsAnalyzingStock] = useState(false);
@@ -1094,15 +1148,20 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     expiry_date?: string | null;
     last_restocked_at?: string | null;
   }) => {
+    const configureAfterSave = creatingComposition && !editing;
+    let savedId = '';
     if (
       await run(
-        () =>
-          retail.saveProduct(
+        async () => {
+          const saved = await retail.saveProduct(
             store.id,
-            productToSave,
+            { ...productToSave, stock_components: editing?.stock_components },
             !!editing,
-            editing?.stock,
-          ),
+            editing && hasComposition(editing) ? 0 : editing?.stock,
+          );
+          savedId = saved.id;
+          return saved;
+        },
         "Producto guardado",
       )
     ) {
@@ -1125,6 +1184,10 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       }
 
       cancelEdit();
+      if (configureAfterSave) {
+        setNewCompositionProduct(true);
+        setCompositionTarget({ ...productToSave, id: savedId, stock: 0, stock_components: [], category: categories.find(category => category.id === productToSave.categoryId)?.name || 'Sin categoría' });
+      }
     }
   };
 
@@ -1140,7 +1203,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       name: formData.name.trim(),
       price: Number(formData.price),
       cost: Number(formData.cost),
-      stock: Number(formData.stock),
+      stock: creatingComposition ? 0 : Number(formData.stock),
       minStock: Number(formData.min),
       emoji: formData.emoji.trim() || "📦",
       active: true,
@@ -1270,9 +1333,28 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       (!q || (p.name + " " + p.code + " " + p.category).toLowerCase().includes(q)),
     );
   }, [products, stockFilter, lowMarginFilter, query]);
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const currentPage = Math.min(Math.max(1, page), totalPages);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = Math.min(startIndex + pageSize, filtered.length);
+  const paginatedProducts = filtered.slice(startIndex, endIndex);
+
+  const pageNumbers = useMemo(() => {
+    if (totalPages <= 7) {
+      return Array.from({ length: totalPages }, (_, i) => i + 1);
+    }
+    if (currentPage <= 4) {
+      return [1, 2, 3, 4, 5, "...", totalPages];
+    }
+    if (currentPage >= totalPages - 3) {
+      return [1, "...", totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages];
+    }
+    return [1, "...", currentPage - 1, currentPage, currentPage + 1, "...", totalPages];
+  }, [currentPage, totalPages]);
   return (
     <div className="retail-panel" ref={panelRef}>
-      <div className="section-heading" hidden={!guided && (adding || !!editing)}>
+      <div className="section-heading" hidden={!guided && (adding || !!editing || priceEditing || compositionEditing)}>
         <div>
           <h2>{guided ? 'Tus productos' : 'Productos e inventario'}</h2>
           <p>
@@ -1282,7 +1364,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
         <div className="catalog-actions-row">
           {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={() => setIsCsvModalOpen(true)}>Importar desde CSV / Excel</button>}
-          {!guided && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
+          {!guided && isManager && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
           <button
             type="button"
             className="secondary-button"
@@ -1327,11 +1409,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </button>
           )}
           </div></details>}
+          {!guided && isManager && <button type="button" className="secondary-button" disabled={busy || !categories.length}
+            onClick={event => { editorTrigger.current = event.currentTarget; startAdd(true); }}>Crear combo o paquete</button>}
           <button
             type="button"
             className="primary-button"
             disabled={busy || !categories.length}
-            hidden={adding || !!editing}
+            hidden={!isManager || adding || !!editing}
             onClick={event => { editorTrigger.current = event.currentTarget; startAdd(); }}
           >
             + Agregar producto
@@ -1339,7 +1423,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
       </div>
 
-      {(adding || editing) && (
+      {priceEditing && priceTarget && <ProductPriceEditor key={priceTarget.id} storeId={store.id} product={priceTarget} busy={busy} run={run} active={active} onClose={closePriceEditor} />}
+      {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} product={compositionTarget} products={products} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} />}
+      {isManager && (adding || editing) && (
         <form
           key={editing?.id || "new"}
           ref={editorRef}
@@ -1371,8 +1457,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             }
           }}
         >
-          <h3>{editing ? `Editar ${editing.name}` : "Nuevo producto"}</h3>
-          <p className="product-editor-intro">Completá los datos del producto y guardá los cambios. Los demás atributos están en Más opciones.</p>
+          <h3>{editing ? `Editar ${editing.name}` : creatingComposition ? 'Nuevo combo o paquete' : 'Nuevo producto'}</h3>
+          <p className="product-editor-intro">{creatingComposition ? 'Guardá sus datos y precio. Después elegís los componentes, por ejemplo pan + salchicha o 20 cigarrillos sueltos. El stock se calcula con esas existencias.' : 'Completá los datos del producto y guardá los cambios. Los demás atributos están en Más opciones.'}</p>
 
           {/* Feature A: Suggestion loading state */}
           {isSuggesting && (
@@ -1710,6 +1796,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <input
                 name="stock"
                 type="number"
+                disabled={creatingComposition || (!!editing && hasComposition(editing))}
                 min="0"
                 step="1"
                 required
@@ -1718,6 +1805,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   setFormData((prev) => ({ ...prev, stock: e.target.value }))
                 }
               />
+              {(creatingComposition || (editing && hasComposition(editing))) && <small>Disponibilidad calculada por componentes. Reponelos desde el listado.</small>}
             </label>
           </div>
           </fieldset>
@@ -1922,7 +2010,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               className="primary-button"
               disabled={busy}
             >
-              Guardar producto
+              {creatingComposition ? 'Crear y elegir componentes' : 'Guardar producto'}
             </button>
             <button
               type="button"
@@ -1997,7 +2085,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       )}
 
       {/* Modal 1: Reposición Unitaria de Stock */}
-      {replenishTarget && (
+      {replenishTarget && canRestock && (
         <div
           className="ai-modal-backdrop"
           role="dialog"
@@ -2095,12 +2183,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   {replenishByPack && <small aria-live="polite">= {replenishmentUnits.toLocaleString('es-AR')} unidades individuales</small>}
                 </label>
                 <label>
-                  Nuevo costo unitario ($) <small>(opcional)</small>
+                  Nuevo costo unitario ($) <small>{isManager ? '(opcional)' : '(reservado a administración)'}</small>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={replenishCost}
+                    disabled={!isManager}
                     onChange={(e) => setReplenishCost(e.target.value)}
                     placeholder="0.00"
                   />
@@ -2956,17 +3045,17 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         />
       )}
 
-      <div className="catalog-list" hidden={guided || adding || !!editing}>
+      <div className="catalog-list" hidden={guided || adding || !!editing || priceEditing || compositionEditing}>
       <div className="catalog-search-toolbar"><label className="filter-label">
         Buscar productos
         <input
           value={query}
-          onChange={(e) => { setQuery(e.target.value); setVisibleCount(50); }}
+          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
           placeholder="Nombre, código o categoría"
         />
       </label>
-      <button className="secondary-button" aria-pressed={stockFilter} onClick={() => { setStockFilter(!stockFilter); setVisibleCount(50); }}><Filter size={16} />{stockFilter ? 'Mostrando stock bajo' : 'Ver stock bajo'}</button>
-      <button className="secondary-button" aria-pressed={lowMarginFilter} onClick={() => { setLowMarginFilter(!lowMarginFilter); setVisibleCount(50); }}><Filter size={16} />{lowMarginFilter ? 'Mostrando bajo margen' : 'Ver solo bajo margen'}</button>
+      <button className="secondary-button" aria-pressed={stockFilter} onClick={() => { setStockFilter(!stockFilter); setPage(1); }}><Filter size={16} />{stockFilter ? 'Mostrando stock bajo' : 'Ver stock bajo'}</button>
+      <button className="secondary-button" aria-pressed={lowMarginFilter} onClick={() => { setLowMarginFilter(!lowMarginFilter); setPage(1); }}><Filter size={16} />{lowMarginFilter ? 'Mostrando bajo margen' : 'Ver solo bajo margen'}</button>
       <span className="result-count" role="status">{filtered.length} productos</span></div>
       <div className="table-scroll">
         <table>
@@ -2980,7 +3069,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </tr>
           </thead>
           <tbody>
-            {filtered.slice(0, visibleCount).map((p) => (
+            {paginatedProducts.map((p) => (
               <tr key={p.id}>
                 <td>
                   <strong>
@@ -2988,13 +3077,14 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   </strong>
                   <small>{p.code}</small>
                   {unitsPerPack(p.pack_size) > 1 && <small className="pack-size-badge">Pack ×{p.pack_size}</small>}
+                  {hasComposition(p) && <small>Stock compartido por componentes</small>}
                   {p.margin_group === 'low_margin' && <small className="low-margin-badge">↓ Margen bajo</small>}
                 </td>
                 <td data-label="Categoría">{p.category}</td>
                 <td data-label="Precio">${p.price.toLocaleString("es-AR")}</td>
                 <td data-label="Stock">
                   <span className={p.stock <= p.minStock ? "stock-low" : ""}>
-                    {p.stock} {p.stock <= p.minStock && "· Reponer"}
+                    {p.stock} {p.stock <= p.minStock && (hasComposition(p) ? '· Revisar componentes' : '· Reponer')}
                   </span>
                 </td>
                 <td>
@@ -3003,6 +3093,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       className="secondary-button"
                       disabled={busy}
                       onClick={() => startReplenish(p)}
+                      hidden={!canRestock || hasComposition(p)}
                       aria-label={`Reponer ${p.name}`}
                       title="Reponer stock de este producto"
                     >
@@ -3012,12 +3103,16 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       className="secondary-button"
                       disabled={busy}
                       onClick={event => { editorTrigger.current = event.currentTarget; startEdit(p); }}
+                      hidden={!isManager}
                       aria-label={`Editar ${p.name}`}
                     >
                       Editar
                     </button>
+                    {isManager && <button type="button" className="secondary-button" disabled={busy} aria-label={`Combo / sueltos de ${p.name}: configurar componentes`} onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositionProduct(false); setCompositionTarget(p); }}>Combo / sueltos</button>}
+                    {!isManager && allowPriceEdit && <button type="button" className="secondary-button" disabled={busy} onClick={event => { editorTrigger.current = event.currentTarget; setPriceTarget(p); }}>Editar precio</button>}
                     <button
                       className="text-button danger-text"
+                      hidden={!isManager}
                       disabled={busy}
                       onClick={() => {
                         if (
@@ -3049,12 +3144,104 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           </tbody>
         </table>
       </div>
-      {filtered.length > visibleCount && <div className="load-more"><span>{visibleCount} de {filtered.length} productos</span><button className="secondary-button" onClick={() => setVisibleCount(n => n + 50)}>Ver más productos</button></div>}
+      {filtered.length > 0 && (
+        <div className="catalog-pagination" role="navigation" aria-label="Paginación de inventario">
+          <div className="pagination-info">
+            <span>
+              Mostrando <strong>{startIndex + 1}–{endIndex}</strong> de <strong>{filtered.length}</strong> productos
+            </span>
+            <label className="pagination-size-select">
+              <span>Por página:</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setPage(1);
+                }}
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </label>
+          </div>
+
+          {totalPages > 1 && (
+            <div className="pagination-controls">
+              <button
+                type="button"
+                className="secondary-button pagination-nav-btn"
+                disabled={currentPage <= 1 || busy}
+                onClick={() => setPage(1)}
+                title="Primera página"
+                aria-label="Primera página"
+              >
+                <ChevronsLeft size={15} />
+              </button>
+              <button
+                type="button"
+                className="secondary-button pagination-nav-btn"
+                disabled={currentPage <= 1 || busy}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                title="Página anterior"
+                aria-label="Página anterior"
+              >
+                <ChevronLeft size={15} />
+                <span>Anterior</span>
+              </button>
+
+              <div className="pagination-pages">
+                {pageNumbers.map((p, idx) =>
+                  p === "..." ? (
+                    <span key={`ellipsis-${idx}`} className="pagination-ellipsis">
+                      …
+                    </span>
+                  ) : (
+                    <button
+                      key={`page-${p}`}
+                      type="button"
+                      className={`pagination-page-btn ${p === currentPage ? "active" : ""}`}
+                      onClick={() => setPage(Number(p))}
+                      disabled={busy}
+                      aria-current={p === currentPage ? "page" : undefined}
+                    >
+                      {p}
+                    </button>
+                  ),
+                )}
+              </div>
+
+              <button
+                type="button"
+                className="secondary-button pagination-nav-btn"
+                disabled={currentPage >= totalPages || busy}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                title="Página siguiente"
+                aria-label="Página siguiente"
+              >
+                <span>Siguiente</span>
+                <ChevronRight size={15} />
+              </button>
+              <button
+                type="button"
+                className="secondary-button pagination-nav-btn"
+                disabled={currentPage >= totalPages || busy}
+                onClick={() => setPage(totalPages)}
+                title="Última página"
+                aria-label="Última página"
+              >
+                <ChevronsRight size={15} />
+              </button>
+            </div>
+          )}
+        </div>
+      )}
       </div>
-      <div hidden={guided || adding || !!editing}>
+      <div hidden={guided || adding || !!editing || priceEditing || compositionEditing}>
       {!guided && isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
       {/* AI Critical Stock Replenishment Card */}
-      {!guided && criticalProducts.length > 0 && (
+      {!guided && isManager && criticalProducts.length > 0 && (
         <section
           className="stock-ai-card"
           aria-label="Análisis de stock con IA"
@@ -3211,79 +3398,637 @@ function RenameRow({
     </form>
   );
 }
-function RegisterRow({
-  register,
-  onSave,
-  onDelete,
+function RegistersSettings({
+  storeId,
+  registers,
+  branches,
+  run,
   busy,
 }: {
-  register: Register;
-  onSave: (name: string) => Promise<boolean>;
-  onDelete: () => Promise<boolean>;
+  storeId: string;
+  registers: Register[];
+  branches: Branch[];
+  run: Run;
   busy: boolean;
 }) {
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [editingRegisterId, setEditingRegisterId] = useState<string | null>(null);
+  const [deletingRegisterId, setDeletingRegisterId] = useState<string | null>(null);
+  const activeRegisters = registers.filter((r) => r.active);
+
   return (
-    <SettingsEditor busy={busy} label={`Editar ${register.name}`} summary={<strong>{register.name}</strong>} onClose={() => setConfirmDelete(false)}>
-      {close => <div className="register-row">
-      <form
-        className="inline-form"
-        style={{ flex: 1 }}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (await onSave(String(new FormData(e.currentTarget).get('name')))) close();
-        }}
-      >
-        <input
-          aria-label={`Nombre de caja ${register.name}`}
-          name="name"
-          defaultValue={register.name}
-          required
-          maxLength={80}
-        />
-        <button className="secondary-button" disabled={busy}>
-          Guardar
-        </button>
-      </form>
-      {!confirmDelete ? (
-        <button
-          type="button"
-          className="danger-button-outline"
-          title="Eliminar caja"
-          disabled={busy}
-          onClick={() => setConfirmDelete(true)}
-          style={{ marginLeft: 8, whiteSpace: 'nowrap' }}
-        >
-          🗑️ Eliminar
-        </button>
-      ) : (
-        <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginLeft: 8 }}>
-          <span style={{ fontSize: 12, color: '#dc2626', whiteSpace: 'nowrap' }}>¿Confirmar?</span>
-          <button
-            type="button"
-            className="danger-button"
-            disabled={busy}
-            onClick={async () => {
-              await onDelete();
-              setConfirmDelete(false);
-            }}
-          >
-            Sí, eliminar
-          </button>
-          <button
-            type="button"
-            className="secondary-button"
-            disabled={busy}
-            onClick={() => setConfirmDelete(false)}
-          >
-            Cancelar
-          </button>
+    <div className="store-settings-card">
+      <div className="store-settings-header">
+        <div className="store-settings-header-icon">
+          <Monitor size={22} />
         </div>
-      )}
-    </div>}
-    </SettingsEditor>
+        <div className="store-settings-header-text">
+          <h3>Cajas de cobro</h3>
+          <p>Puestos de atención y venta. Cada caja pertenece a un local y tiene sus turnos.</p>
+        </div>
+      </div>
+
+      <div className="location-card-body">
+        {/* Lista de cajas */}
+        <div className="location-items-list">
+          {activeRegisters.map((r) => {
+            const branch = branches.find((b) => b.id === r.branch_id);
+            const isEditing = editingRegisterId === r.id;
+            const isDeleting = deletingRegisterId === r.id;
+
+            if (isEditing) {
+              return (
+                <form
+                  key={r.id}
+                  className="location-inline-edit"
+                  onSubmit={async (e) => {
+                    e.preventDefault();
+                    const f = new FormData(e.currentTarget);
+                    const newName = String(f.get('name')).trim();
+                    const newBranch = String(f.get('branch_id') || '');
+                    if (!newName) return;
+                    const success = await run(
+                      () => retail.saveRegister(storeId, r.id, newName, newBranch || null),
+                      'Caja actualizada',
+                    );
+                    if (success) setEditingRegisterId(null);
+                  }}
+                >
+                  <div className="store-field-group">
+                    <label className="store-field-label" htmlFor={`register-name-${r.id}`}>
+                      Nombre de la caja
+                    </label>
+                    <input
+                      id={`register-name-${r.id}`}
+                      name="name"
+                      required
+                      maxLength={80}
+                      defaultValue={r.name}
+                      className="store-text-input"
+                      autoFocus
+                    />
+                  </div>
+                  {branches.length > 0 && (
+                    <div className="store-field-group">
+                      <label className="store-field-label" htmlFor={`register-branch-${r.id}`}>
+                        Sucursal asignada
+                      </label>
+                      <select
+                        id={`register-branch-${r.id}`}
+                        name="branch_id"
+                        defaultValue={r.branch_id || ''}
+                        className="store-text-input"
+                      >
+                        <option value="">Sin sucursal asignada</option>
+                        {branches.map((b) => (
+                          <option key={b.id} value={b.id}>
+                            {b.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  <div className="location-edit-actions">
+                    <button
+                      type="button"
+                      className="text-button"
+                      disabled={busy}
+                      onClick={() => setEditingRegisterId(null)}
+                    >
+                      <RotateCcw size={14} /> Cancelar
+                    </button>
+                    <button className="primary-button" disabled={busy}>
+                      <Check size={15} /> Guardar cambios
+                    </button>
+                  </div>
+                </form>
+              );
+            }
+
+            if (isDeleting) {
+              return (
+                <div key={r.id} className="location-confirm-box">
+                  <span>
+                    ¿Desactivar la caja <strong>"{r.name}"</strong>? (No borra el historial de turnos).
+                  </span>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="danger-button"
+                      disabled={busy}
+                      onClick={async () => {
+                        await run(
+                          () => retail.deleteRegister(storeId, r.id),
+                          `Caja "${r.name}" eliminada`,
+                        );
+                        setDeletingRegisterId(null);
+                      }}
+                    >
+                      Sí, desactivar
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      disabled={busy}
+                      onClick={() => setDeletingRegisterId(null)}
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <div key={r.id} className="location-item-row">
+                <div className="location-item-left">
+                  <div className="location-item-icon">
+                    <Monitor size={18} />
+                  </div>
+                  <div className="location-item-info">
+                    <strong className="location-item-name">{r.name}</strong>
+                    <div className="location-item-meta">
+                      <span className="location-pill-badge">
+                        <Building2 size={11} /> {branch?.name || 'Sin sucursal'}
+                      </span>
+                      <span className="location-pill-badge active">Activa</span>
+                    </div>
+                  </div>
+                </div>
+                <div className="location-item-actions">
+                  <button
+                    type="button"
+                    className="secondary-button"
+                    disabled={busy}
+                    onClick={() => {
+                      setEditingRegisterId(r.id);
+                      setDeletingRegisterId(null);
+                    }}
+                    title={`Editar ${r.name}`}
+                  >
+                    <Pencil size={13} /> Editar
+                  </button>
+                  <button
+                    type="button"
+                    className="danger-button-outline"
+                    disabled={busy}
+                    onClick={() => {
+                      setDeletingRegisterId(r.id);
+                      setEditingRegisterId(null);
+                    }}
+                    title={`Eliminar ${r.name}`}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+          {!activeRegisters.length && branches.length > 0 && (
+            <div className="location-empty-notice">
+              <Monitor size={24} />
+              <p>No tenés cajas registradas en este comercio. Creá la primera caja para comenzar a vender.</p>
+            </div>
+          )}
+
+          {!branches.length && (
+            <div className="location-empty-notice warning">
+              <AlertTriangle size={24} />
+              <p>Agregá primero una sucursal en el panel de la izquierda para poder habilitar cajas.</p>
+            </div>
+          )}
+        </div>
+
+        {/* Sección Agregar Caja */}
+        {branches.length > 0 && (
+          <div className="location-add-section">
+            <div className="location-add-header">
+              <div className="location-add-title">
+                <Plus size={16} />
+                <span>Nueva caja de cobro</span>
+              </div>
+            </div>
+
+            <form
+              className="location-add-form"
+              onSubmit={async (e) => {
+                e.preventDefault();
+                const f = new FormData(e.currentTarget);
+                const formEl = e.currentTarget;
+                const name = String(f.get('name')).trim();
+                const branch = String(f.get('branch'));
+                if (!name || !branch) return;
+                const success = await run(
+                  () => retail.addRegister(storeId, name, branch),
+                  'Caja agregada',
+                );
+                if (success) formEl.reset();
+              }}
+            >
+              <div className="store-fields-2col">
+                <div className="store-field-group">
+                  <label className="store-field-label" htmlFor="new-register-name">
+                    Nombre de la caja
+                  </label>
+                  <input
+                    id="new-register-name"
+                    name="name"
+                    required
+                    maxLength={80}
+                    placeholder="Ej. Mostrador 2"
+                    className="store-text-input"
+                  />
+                </div>
+
+                <div className="store-field-group">
+                  <label className="store-field-label" htmlFor="new-register-branch">
+                    Sucursal asignada
+                  </label>
+                  {branches.length === 1 ? (
+                    <div className="location-single-branch-info">
+                      <span>{branches[0].name}</span>
+                      <input type="hidden" name="branch" value={branches[0].id} />
+                    </div>
+                  ) : (
+                    <select
+                      id="new-register-branch"
+                      name="branch"
+                      required
+                      className="store-select-input"
+                      defaultValue={branches[0]?.id}
+                    >
+                      {branches.map((b) => (
+                        <option key={b.id} value={b.id}>
+                          {b.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
+                </div>
+              </div>
+
+              <div className="location-add-footer">
+                <button className="primary-button" disabled={busy || !branches.length}>
+                  <Plus size={16} /> Agregar caja
+                </button>
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
+
+function StoreGeneralSettingsForm({
+  store,
+  busy,
+  run,
+}: {
+  store: Store;
+  busy: boolean;
+  run: Run;
+}) {
+  const [name, setName] = useState(store.name);
+  const [address, setAddress] = useState(store.address || '');
+  const [phone, setPhone] = useState(store.phone || '');
+  const [message, setMessage] = useState(store.receipt_message || '');
+  const [color, setColor] = useState(store.accent_color || '#2563eb');
+  const [isDirty, setIsDirty] = useState(false);
+
+  useEffect(() => {
+    setName(store.name);
+    setAddress(store.address || '');
+    setPhone(store.phone || '');
+    setMessage(store.receipt_message || '');
+    setColor(store.accent_color || '#2563eb');
+    setIsDirty(false);
+  }, [store]);
+
+  const handleReset = () => {
+    setName(store.name);
+    setAddress(store.address || '');
+    setPhone(store.phone || '');
+    setMessage(store.receipt_message || '');
+    setColor(store.accent_color || '#2563eb');
+    setIsDirty(false);
+  };
+
+  const PRESET_COLORS = [
+    { name: 'Azul clásico', hex: '#2563eb' },
+    { name: 'Índigo moderno', hex: '#6366f1' },
+    { name: 'Esmeralda', hex: '#10b981' },
+    { name: 'Ámbar cálido', hex: '#f59e0b' },
+    { name: 'Rosa intenso', hex: '#e11d48' },
+    { name: 'Púrpura', hex: '#8b5cf6' },
+    { name: 'Pizarra', hex: '#475569' },
+  ];
+
+  return (
+    <form
+      className="retail-form store-settings-container"
+      onSubmit={async (e) => {
+        e.preventDefault();
+        const f = new FormData(e.currentTarget);
+        const success = await run(
+          () =>
+            retail.updateStore(store.id, {
+              name: String(f.get("name")).trim(),
+              address: String(f.get("address")),
+              phone: String(f.get("phone")),
+              receipt_message: String(f.get("message")),
+              accent_color: String(f.get("color")),
+            }),
+          "Comercio actualizado",
+        );
+        if (success) {
+          setIsDirty(false);
+        }
+      }}
+    >
+      <div className="store-settings-card">
+        <div className="store-settings-header">
+          <div
+            className="store-settings-header-icon"
+            style={{ backgroundColor: `color-mix(in srgb, ${color} 15%, transparent)`, color }}
+          >
+            <StoreIcon size={22} />
+          </div>
+          <div className="store-settings-header-text">
+            <h3>Datos del comercio</h3>
+            <p>Configurá la identidad visual, datos de contacto y el comprobante de tus ventas.</p>
+          </div>
+        </div>
+
+        <fieldset disabled={busy} className="store-settings-body">
+          {/* SECCIÓN 1: IDENTIDAD Y MARCA */}
+          <section className="store-settings-section">
+            <div className="store-section-header">
+              <div className="store-section-header-title">
+                <Sparkles size={16} className="store-section-icon" />
+                <h4>Identidad y marca</h4>
+              </div>
+              <p className="store-section-desc">Nombre comercial y color característico de tu negocio.</p>
+            </div>
+
+            <div className="store-section-fields">
+              <div className="store-field-group">
+                <label className="store-field-label" htmlFor="store-name">
+                  Nombre
+                </label>
+                <div className="store-input-wrapper">
+                  <input
+                    id="store-name"
+                    name="name"
+                    required
+                    maxLength={100}
+                    placeholder="Nombre de tu comercio"
+                    value={name}
+                    onChange={(e) => {
+                      setName(e.target.value);
+                      setIsDirty(true);
+                    }}
+                  />
+                </div>
+                <p className="store-field-hint">
+                  Se muestra en la barra superior, en las pantallas de cobro y como encabezado en cada ticket.
+                </p>
+              </div>
+
+              <div className="store-field-group">
+                <label className="store-field-label" htmlFor="store-color-hex">
+                  Color de marca
+                </label>
+                <div className="store-color-section">
+                  <div className="store-color-controls">
+                    <div
+                      className="store-color-preview-swatch"
+                      style={{ backgroundColor: color }}
+                      title="Hacé clic para elegir un color personalizado"
+                    >
+                      <input
+                        id="store-color-picker"
+                        type="color"
+                        name="color"
+                        className="store-color-native-input"
+                        value={color}
+                        onChange={(e) => {
+                          setColor(e.target.value);
+                          setIsDirty(true);
+                        }}
+                      />
+                    </div>
+                    <input
+                      id="store-color-hex"
+                      type="text"
+                      className="store-color-hex-input"
+                      maxLength={7}
+                      value={color}
+                      onChange={(e) => {
+                        setColor(e.target.value);
+                        setIsDirty(true);
+                      }}
+                    />
+                    <span className="store-field-hint" style={{ margin: 0 }}>
+                      Personaliza botones, detalles y recibos
+                    </span>
+                  </div>
+                  <div className="store-color-palette" role="group" aria-label="Colores recomendados">
+                    {PRESET_COLORS.map((preset) => (
+                      <button
+                        key={preset.hex}
+                        type="button"
+                        className={`store-color-dot ${color.toLowerCase() === preset.hex.toLowerCase() ? 'active' : ''}`}
+                        style={{ backgroundColor: preset.hex }}
+                        title={preset.name}
+                        onClick={() => {
+                          setColor(preset.hex);
+                          setIsDirty(true);
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* SECCIÓN 2: UBICACIÓN Y CONTACTO */}
+          <section className="store-settings-section">
+            <div className="store-section-header">
+              <div className="store-section-header-title">
+                <MapPin size={16} className="store-section-icon" />
+                <h4>Ubicación y contacto</h4>
+              </div>
+              <p className="store-section-desc">Información del local para que tus clientes sepan dónde encontrarte o comunicarse.</p>
+            </div>
+
+            <div className="store-section-fields store-fields-2col">
+              <div className="store-field-group">
+                <label className="store-field-label" htmlFor="store-address">
+                  Dirección
+                </label>
+                <div className="store-input-wrapper">
+                  <input
+                    id="store-address"
+                    name="address"
+                    maxLength={300}
+                    placeholder="Ej. Av. Corrientes 1234, CABA"
+                    value={address}
+                    onChange={(e) => {
+                      setAddress(e.target.value);
+                      setIsDirty(true);
+                    }}
+                  />
+                </div>
+                <p className="store-field-hint">
+                  Domicilio del local principal. Se imprime en el encabezado del ticket.
+                </p>
+              </div>
+
+              <div className="store-field-group">
+                <label className="store-field-label" htmlFor="store-phone">
+                  Teléfono
+                </label>
+                <div className="store-input-wrapper">
+                  <input
+                    id="store-phone"
+                    name="phone"
+                    maxLength={60}
+                    placeholder="Ej. 11 5566-7788"
+                    value={phone}
+                    onChange={(e) => {
+                      setPhone(e.target.value);
+                      setIsDirty(true);
+                    }}
+                  />
+                </div>
+                <p className="store-field-hint">
+                  Teléfono de contacto o WhatsApp de atención al cliente.
+                </p>
+              </div>
+            </div>
+          </section>
+
+          {/* SECCIÓN 3: PERSONALIZACIÓN DEL TICKET */}
+          <section className="store-settings-section">
+            <div className="store-section-header">
+              <div className="store-section-header-title">
+                <Receipt size={16} className="store-section-icon" />
+                <h4>Mensaje del ticket</h4>
+              </div>
+              <p className="store-section-desc">Frase de cortesía o agradecimiento que se imprime al pie de cada comprobante.</p>
+            </div>
+
+            <div className="store-section-fields">
+              <div className="store-field-group">
+                <label className="store-field-label" htmlFor="store-message">
+                  Mensaje personalizado
+                </label>
+                <div className="store-input-wrapper">
+                  <input
+                    id="store-message"
+                    name="message"
+                    maxLength={300}
+                    placeholder="Ej. ¡Gracias por su compra! Vuelva pronto."
+                    value={message}
+                    onChange={(e) => {
+                      setMessage(e.target.value);
+                      setIsDirty(true);
+                    }}
+                  />
+                </div>
+                <p className="store-field-hint">
+                  Aparece centrado y entre comillas al final de cada ticket emitido.
+                </p>
+              </div>
+            </div>
+          </section>
+        </fieldset>
+
+        <div className="store-settings-footer">
+          <div className="store-settings-footer-left">
+            <span>Moneda: <strong>Pesos Argentinos (ARS)</strong></span>
+            {isDirty && (
+              <span className="store-dirty-badge">
+                ● Cambios sin guardar
+              </span>
+            )}
+          </div>
+          <div className="store-settings-footer-actions">
+            <button
+              type="button"
+              className="text-button"
+              disabled={busy || !isDirty}
+              onClick={handleReset}
+            >
+              <RotateCcw size={14} /> Cancelar
+            </button>
+            <button className="primary-button" disabled={busy}>
+              {busy ? <Loader2 size={16} className="spin" /> : <Check size={16} />}
+              Guardar cambios
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="store-preview-wrapper">
+        <div className="store-preview-header">
+          <div className="store-preview-header-title">
+            <Receipt size={16} className="store-preview-header-icon" />
+            <h4>Vista previa del ticket</h4>
+          </div>
+          <span className="store-preview-badge">Térmica 58/80mm</span>
+        </div>
+
+        <div className="thermal-ticket-card" style={{ '--store-accent': color } as React.CSSProperties}>
+          <div className="thermal-ticket-accent-bar" style={{ backgroundColor: color }} />
+          <div className="thermal-ticket-header">
+            <h4 className="thermal-ticket-title">{name || 'MI COMERCIO'}</h4>
+            <p className="thermal-ticket-meta">
+              {address || 'Dirección de ejemplo 123'}
+              <br />
+              {phone ? `TEL: ${phone}` : 'TEL: 11 0000-0000'}
+            </p>
+          </div>
+
+          <div className="thermal-ticket-body">
+            <div className="thermal-ticket-row">
+              <span>1x Café expreso</span>
+              <strong>$ 1.500,00</strong>
+            </div>
+            <div className="thermal-ticket-row">
+              <span>2x Medialunas</span>
+              <strong>$ 1.600,00</strong>
+            </div>
+            <hr className="thermal-ticket-divider" />
+            <div className="thermal-ticket-row thermal-ticket-total">
+              <span>TOTAL</span>
+              <span>$ 3.100,00</span>
+            </div>
+            <div className="thermal-ticket-row" style={{ color: '#78716c', fontSize: '11px' }}>
+              <span>PAGO: EFECTIVO</span>
+              <span>$ 3.100,00</span>
+            </div>
+          </div>
+
+          <div className="thermal-ticket-footer">
+            <p className="thermal-ticket-message">
+              "{message || '¡Gracias por su compra!'}"
+            </p>
+          </div>
+          <div className="thermal-ticket-bottom-scallop" />
+        </div>
+
+        <div className="preview-helper-badge">
+          <Sparkles size={15} />
+          <span>Actualización en tiempo real con los datos y el color seleccionado.</span>
+        </div>
+      </div>
+    </form>
+  );
+}
+
 export function StoreSettings({
   store,
   categories,
@@ -3296,9 +4041,16 @@ export function StoreSettings({
   userId,
   run,
   busy,
-  view,
+  view: requestedView,
   onViewChange,
   onOpenPrices,
+  stores,
+  onSelectStore,
+  onCreateStore,
+  onRefreshAccess,
+  onSignOut,
+  userEmail,
+  onOpenAi,
 }: {
   store: Store;
   categories: Category[];
@@ -3314,9 +4066,17 @@ export function StoreSettings({
   view: string;
   onViewChange: (view: string) => void;
   onOpenPrices: () => void;
+  stores?: Store[];
+  onSelectStore?: (storeId: string) => void;
+  onCreateStore?: () => void;
+  onRefreshAccess?: () => void;
+  onSignOut?: () => void;
+  userEmail?: string;
+  onOpenAi?: () => void;
 }) {
+  const view = ['general', 'locations', 'team', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
-  const [manageLocations, setManageLocations] = useState(false);
+  const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
   const morePanelRef = useRef<HTMLDivElement>(null);
   const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
   const openMoreSection = (next: 'app' | 'ledgers', trigger: HTMLButtonElement) => {
@@ -3337,288 +4097,735 @@ export function StoreSettings({
   };
   const [appVisited, setAppVisited] = useState(view === 'app');
   useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
-  const activeRegisters = registers.filter(r => r.active);
-  const singleLocation = branches.length === 1 && activeRegisters.length === 1;
-  const primaryView = ['general', 'locations', 'team'].includes(view) ? view : 'more';
-  const openLocations = () => { setManageLocations(true); setView('locations'); };
+  const isDirectPrimary = ['general', 'locations', 'team'].includes(view);
+  const isMoreSub = ['more', 'app', 'ledgers'].includes(view);
+  const primaryView = isDirectPrimary ? view : (isMoreSub ? 'more' : '');
+  const registerCountsByBranch = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const r of registers) {
+      if (r.active) counts[r.branch_id] = (counts[r.branch_id] || 0) + 1;
+    }
+    return counts;
+  }, [registers]);
   if (role !== 'owner' && role !== 'admin') return null;
   return (
-    <SettingsEditorGroup><div className="settings-workspace">
-      <div className="settings-intro"><h2>Mi comercio · {store.name}</h2><p>Consultá la configuración o elegí qué querés cambiar.</p></div>
-      <SectionNav name="settings" label="Secciones de configuración" value={primaryView} onChange={setView} disabled={busy} sections={[
-        { id: 'general', label: 'Datos del comercio', description: 'Nombre, contacto y ticket' },
-        { id: 'locations', label: 'Locales y cajas', description: singleLocation ? `${branches[0].name} · ${activeRegisters[0].name}` : `${branches.length} sucursales · ${activeRegisters.length} cajas de cobro` },
-        { id: 'team', label: 'Personas con acceso', description: `${members.length} ${members.length === 1 ? 'persona' : 'personas'} · Roles y asignaciones` },
-        { id: 'more', label: 'Más opciones', description: 'Precios, registros, categorías y app' },
-      ]} />
-      <div ref={morePanelRef} hidden={primaryView !== 'more'} role="tabpanel" id="settings-panel-more" aria-labelledby="settings-tab-more">
-        <button type="button" className="text-button" hidden={view === 'more'} disabled={busy} onClick={returnToMore}>Volver a Más opciones</button>
-        <section className="retail-panel" hidden={view !== 'more'}>
-          <h2>Más opciones</h2>
-          <div className="business-controls">
-            <button type="button" className="secondary-button" disabled={busy} onClick={onOpenPrices}>Listas de precios · Abrir en Productos</button>
-            <button type="button" className="secondary-button" disabled={busy} onClick={event => openMoreSection('ledgers', event.currentTarget)}>Registros de ventas</button>
-            <button type="button" className="secondary-button" disabled={busy} onClick={event => openMoreSection('app', event.currentTarget)}>App y avisos</button>
+    <SettingsEditorGroup><div className="settings-workspace settings-workspace-compact">
+      <SectionNav name="settings" label="Secciones de Mi comercio" value={primaryView} onChange={setView} disabled={busy}
+        sections={[
+          { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
+          { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
+          { id: 'team', label: 'Personas con acceso', icon: <Users size={16} /> },
+          { id: 'more', label: 'Más opciones', icon: <SlidersHorizontal size={16} /> },
+        ]} />
+      <div
+        ref={morePanelRef}
+        hidden={primaryView !== 'more'}
+        role="tabpanel"
+        id="settings-panel-more"
+        aria-labelledby="settings-tab-more"
+      >
+        {view !== 'more' && (
+          <div className="more-subview-header">
+            <button
+              type="button"
+              className="secondary-button more-back-button"
+              disabled={busy}
+              onClick={returnToMore}
+            >
+              <ArrowLeft size={16} /> Volver a Más opciones
+            </button>
+            <div className="more-subview-breadcrumb">
+              <span>Más opciones</span>
+              <ChevronRight size={14} />
+              <strong>{view === 'ledgers' ? 'Registros de ventas' : 'App y avisos'}</strong>
+            </div>
           </div>
-          <p>Organizá precios y ventas, instalá la app o elegí qué notificaciones recibir.</p>
-        </section>
-      <section className="retail-panel" hidden={view !== 'more'}>
-        <details className="settings-categories"><summary>Categorías propias · Ver y administrar</summary>
-        <p>Organizá el catálogo según tu actividad.</p>
-        {categories.map((c) => (
-          <SettingsEditor key={c.id} label={`Editar ${c.name}`} summary={<strong>{c.name}</strong>} busy={busy}>{close => <RenameRow
-            name={c.name}
-            busy={busy}
-            onSave={async (name) => {
-              const saved = await run(
-                () => retail.renameCategory(store.id, c.id, name),
-                "Categoría actualizada",
-              );
-              if (saved) close();
-              return saved;
-            }}
-          />}</SettingsEditor>
-        ))}
-        <SettingsEditor label="Agregar categoría" busy={busy}>{close => <form
-          className="inline-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const name = String(new FormData(form).get("name"));
-            if (
-              await run(
-                () => retail.addCategory(store.id, name),
-                "Categoría agregada",
-              )
-            )
-              close();
-          }}
+        )}
+
+        {view === 'more' && (
+          <div className="more-settings-container">
+            {/* Columna Izquierda: Opciones y herramientas + Cuenta y comercios */}
+            <div className="more-settings-column">
+              {/* Tarjeta 1: Opciones y herramientas */}
+              <div className="store-settings-card">
+                <div className="store-settings-header">
+                  <div className="store-settings-header-icon">
+                    <SlidersHorizontal size={22} />
+                  </div>
+                  <div className="store-settings-header-text">
+                    <h3>Opciones y herramientas</h3>
+                    <p>Módulos complementarios para listas de precios, registros contables e instalación de la app.</p>
+                  </div>
+                </div>
+
+                <div className="location-card-body">
+                  <div className="more-nav-cards-list">
+                    <button
+                      type="button"
+                      className="more-nav-card"
+                      disabled={busy}
+                      onClick={onOpenPrices}
+                    >
+                      <div className="more-nav-card-icon icon-prices">
+                        <Tag size={20} />
+                      </div>
+                      <div className="more-nav-card-info">
+                        <div className="more-nav-card-top">
+                          <strong>Listas de precios</strong>
+                          <span className="location-pill-badge">En Productos</span>
+                        </div>
+                        <small>Configurá precios diferenciales por mayorista, sucursal o cliente.</small>
+                      </div>
+                      <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="more-nav-card"
+                      disabled={busy}
+                      onClick={(event) => openMoreSection('ledgers', event.currentTarget)}
+                    >
+                      <div className="more-nav-card-icon icon-ledgers">
+                        <Receipt size={20} />
+                      </div>
+                      <div className="more-nav-card-info">
+                        <div className="more-nav-card-top">
+                          <strong>Registros de ventas</strong>
+                          <span className="location-pill-badge active">
+                            {ledgers.filter((l) => l.active).length} {ledgers.filter((l) => l.active).length === 1 ? 'activo' : 'activos'}
+                          </span>
+                        </div>
+                        <small>Agrupaciones de ventas, medios de pago principales y reglas de imputación.</small>
+                      </div>
+                      <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
+                    </button>
+
+                    <button
+                      type="button"
+                      className="more-nav-card"
+                      disabled={busy}
+                      onClick={(event) => openMoreSection('app', event.currentTarget)}
+                    >
+                      <div className="more-nav-card-icon icon-app">
+                        <Smartphone size={20} />
+                      </div>
+                      <div className="more-nav-card-info">
+                        <div className="more-nav-card-top">
+                          <strong>App y avisos</strong>
+                          <span className="location-pill-badge">PWA & Notificaciones</span>
+                        </div>
+                        <small>Instalación en tu dispositivo, notificaciones push y alertas de stock bajo.</small>
+                      </div>
+                      <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Tarjeta 2: Cuenta y comercios */}
+              <div className="store-settings-card account-settings-card">
+                <div className="store-settings-header">
+                  <div className="store-settings-header-icon icon-account">
+                    <UserCheck size={22} />
+                  </div>
+                  <div className="store-settings-header-text">
+                    <h3>Cuenta y comercios</h3>
+                    <p>Cambiá de comercio, gestioná accesos o cerrá tu sesión de trabajo.</p>
+                  </div>
+                </div>
+
+                <div className="location-card-body account-settings-body">
+                  {/* Selector / Indicador de comercio */}
+                  <div className="account-store-section">
+                    <span className="store-field-label">Comercio activo</span>
+                    <div className="account-store-row">
+                      {stores && stores.length > 1 ? (
+                        <div className="account-select-wrap">
+                          <StoreIcon size={16} className="account-select-icon" aria-hidden="true" />
+                          <select
+                            id="more-store-select"
+                            className="store-select-field account-store-select"
+                            disabled={busy}
+                            value={store.id}
+                            onChange={(e) => onSelectStore?.(e.target.value)}
+                            aria-label="Seleccionar comercio"
+                          >
+                            {stores.map((s) => (
+                              <option key={s.id} value={s.id}>
+                                {s.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      ) : (
+                        <div className="account-store-info">
+                          <span className="account-store-name">
+                            <StoreIcon size={15} /> {store.name}
+                          </span>
+                          <span className="location-pill-badge active">Activo</span>
+                        </div>
+                      )}
+
+                      {onCreateStore && (
+                        <button
+                          type="button"
+                          className="secondary-button account-btn-create"
+                          disabled={busy}
+                          onClick={onCreateStore}
+                        >
+                          <Plus size={15} /> Crear otro comercio
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  <hr className="account-divider" />
+
+                  {/* Perfil de usuario y rol */}
+                  <div className="account-user-card">
+                    <div className="account-avatar" aria-hidden="true">
+                      {(userEmail ? userEmail.charAt(0) : 'U').toUpperCase()}
+                    </div>
+                    <div className="account-user-details">
+                      <div className="account-user-role-row">
+                        <span className="account-role-badge">
+                          <ShieldCheck size={13} />
+                          {{
+                            owner: 'Propietario',
+                            admin: 'Administrador',
+                            supervisor: 'Supervisor',
+                            cashier: 'Cajero',
+                          }[role] || role}
+                        </span>
+                      </div>
+                      <span className="account-user-email" title={userEmail}>
+                        {userEmail || 'Usuario'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Botones de acción */}
+                  <div className="account-actions-list">
+                    {onRefreshAccess && (
+                      <button
+                        type="button"
+                        className="account-action-btn"
+                        disabled={busy}
+                        onClick={onRefreshAccess}
+                      >
+                        <RefreshCw size={16} />
+                        <span>Actualizar accesos</span>
+                      </button>
+                    )}
+
+                    {onOpenAi && (
+                      <button
+                        type="button"
+                        className="account-action-btn"
+                        disabled={busy}
+                        onClick={onOpenAi}
+                      >
+                        <Sparkles size={16} />
+                        <span>Consultar al asistente</span>
+                      </button>
+                    )}
+
+                    {onSignOut && (
+                      <button
+                        type="button"
+                        className="account-action-btn logout-btn"
+                        disabled={busy}
+                        onClick={onSignOut}
+                      >
+                        <LogOut size={16} />
+                        <span>Cerrar sesión</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Columna Derecha: Categorías propias */}
+            <div className="more-settings-column">
+              <div className="store-settings-card">
+              <div className="store-settings-header">
+                <div className="store-settings-header-icon">
+                  <FolderTree size={22} />
+                </div>
+                <div className="store-settings-header-text">
+                  <h3>Categorías propias</h3>
+                  <p>Organizá el catálogo de productos según los rubros y actividades de tu comercio.</p>
+                </div>
+              </div>
+
+              <div className="location-card-body">
+                <div className="team-summary-badges">
+                  <span className="location-pill-badge active">
+                    <Tag size={12} /> {categories.length} {categories.length === 1 ? 'categoría' : 'categorías'}
+                  </span>
+                </div>
+
+                <div className="location-items-list more-categories-list">
+                  {categories.length === 0 ? (
+                    <div className="location-empty-notice">
+                      <Tag size={24} />
+                      <p>No tenés categorías propias. Creá la primera categoría para organizar tus productos.</p>
+                    </div>
+                  ) : (
+                    categories.map((c) => (
+                      <div key={c.id} className="category-item-card">
+                        <SettingsEditor
+                          label={`Editar ${c.name}`}
+                          summary={
+                            <div className="category-summary-row">
+                              <span className="category-pill-icon"><Tag size={13} /></span>
+                              <strong>{c.name}</strong>
+                            </div>
+                          }
+                          busy={busy}
+                        >
+                          {(close) => (
+                            <RenameRow
+                              name={c.name}
+                              busy={busy}
+                              onSave={async (name) => {
+                                const saved = await run(
+                                  () => retail.renameCategory(store.id, c.id, name),
+                                  'Categoría actualizada',
+                                );
+                                if (saved) close();
+                                return saved;
+                              }}
+                            />
+                          )}
+                        </SettingsEditor>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="location-add-section">
+                  <div className="location-add-header">
+                    <div className="location-add-title">
+                      <Plus size={16} />
+                      <span>Nueva categoría</span>
+                    </div>
+                  </div>
+
+                  <form
+                    className="location-add-form"
+                    onSubmit={async (e) => {
+                      e.preventDefault();
+                      const form = e.currentTarget;
+                      const name = String(new FormData(form).get('name')).trim();
+                      if (!name) return;
+                      const ok = await run(
+                        () => retail.addCategory(store.id, name),
+                        'Categoría agregada',
+                      );
+                      if (ok) form.reset();
+                    }}
+                  >
+                    <div className="store-field-group">
+                      <label className="store-field-label" htmlFor="new-category-name">
+                        Nombre de la categoría
+                      </label>
+                      <div className="category-add-row">
+                        <input
+                          id="new-category-name"
+                          name="name"
+                          aria-label="Nueva categoría"
+                          placeholder="Ej. Panadería, Bebidas, Golosinas"
+                          required
+                          maxLength={80}
+                          className="store-text-input"
+                        />
+                        <button className="primary-button" disabled={busy}>
+                          <Plus size={15} /> Agregar
+                        </button>
+                      </div>
+                    </div>
+                  </form>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+        <div
+          hidden={view !== 'app'}
+          data-settings-view="app"
+          tabIndex={-1}
+          role="region"
+          aria-label="App y avisos"
+          className="more-subview-panel"
         >
-          <input
-            name="name"
-            aria-label="Nueva categoría"
-            placeholder="Ej. Panadería"
-            required
-            maxLength={80}
-          />
-          <button className="primary-button" disabled={busy}>
-            Agregar
-          </button>
-        </form>}</SettingsEditor>
-        </details>
-      </section>
-      <div hidden={view !== 'app'} data-settings-view="app" tabIndex={-1} role="region" aria-label="App y avisos">
-        {(appVisited || view === 'app') && <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />}
-      </div>
-      <div hidden={view !== 'ledgers'} data-settings-view="ledgers" tabIndex={-1} role="region" aria-label="Registros de ventas"><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>
-      </div>
-      <div className="settings-data" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
-      <section className="retail-panel">
-        <h2>Datos del comercio</h2>
-        <p><strong>{store.name}</strong>{store.address && <> · {store.address}</>}{store.phone && <> · {store.phone}</>}</p>
-        <SettingsEditor label="Editar datos del comercio" busy={busy}>
-        {close => <form
-          className="retail-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const f = new FormData(e.currentTarget);
-            if (await run(
-              () =>
-                retail.updateStore(store.id, {
-                  name: String(f.get("name")).trim(),
-                  address: String(f.get("address")),
-                  phone: String(f.get("phone")),
-                  receipt_message: String(f.get("message")),
-                  accent_color: String(f.get("color")),
-                }),
-              "Comercio actualizado",
-            )) close();
-          }}
+          {(appVisited || view === 'app') && (
+            <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />
+          )}
+        </div>
+        <div
+          hidden={view !== 'ledgers'}
+          data-settings-view="ledgers"
+          tabIndex={-1}
+          role="region"
+          aria-label="Registros de ventas"
+          className="more-subview-panel"
         >
-          <label>
-            Nombre
-            <input
-              name="name"
-              required
-              maxLength={100}
-              defaultValue={store.name}
-            />
-          </label>
-          <label>
-            Dirección
-            <input
-              name="address"
-              maxLength={300}
-              defaultValue={store.address}
-            />
-          </label>
-          <label>
-            Teléfono
-            <input name="phone" maxLength={60} defaultValue={store.phone} />
-          </label>
-          <label>
-            Mensaje del ticket
-            <input
-              name="message"
-              maxLength={300}
-              defaultValue={store.receipt_message}
-            />
-          </label>
-          <label>
-            Color de marca
-            <input
-              name="color"
-              type="color"
-              defaultValue={store.accent_color}
-            />
-          </label>
-          <p>Moneda: pesos argentinos (ARS).</p>
-          <button className="primary-button" disabled={busy}>
-            Guardar cambios
-          </button>
-        </form>}
-        </SettingsEditor>
-      </section>
+          <LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} />
+        </div>
+      </div>
+      <div className="settings-data settings-data-wide" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
+        <StoreGeneralSettingsForm store={store} busy={busy} run={run} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
-      {singleLocation && !manageLocations && <section className="retail-panel">
-        <h2>Locales y cajas</h2><p>{branches[0].name} · {activeRegisters[0].name}</p>
-        <p>Podés editar este local o agregar otra sucursal y más cajas.</p>
-        <button type="button" className="secondary-button" disabled={busy} onClick={openLocations}>Administrar locales y cajas</button>
-      </section>}
-      <div className="settings-grid" hidden={singleLocation && !manageLocations}>
-      <BranchSettings storeId={store.id} branches={branches} run={run} busy={busy} />
-      <section className="retail-panel">
-        <h2>Cajas de cobro</h2>
-        <p>Los puestos desde donde atendés. Cada caja pertenece a una sucursal y tiene sus propios turnos. Eliminar una caja la desactiva sin borrar el historial.</p>
-        {registers.filter(r => r.active).map((r) => (
-          <div key={r.id}><small>{branches.find(b => b.id === r.branch_id)?.name}</small>
-          <RegisterRow
-            key={r.id}
-            register={r}
-            busy={busy}
-            onSave={(name) =>
-              run(
-                () => retail.saveRegister(store.id, r.id, name),
-                "Caja actualizada",
-              )
-            }
-            onDelete={() =>
-              run(
-                () => retail.deleteRegister(store.id, r.id),
-                `Caja "${r.name}" eliminada`,
-              )
-            }
-          />
-          </div>
-        ))}
-        {!branches.length && <p>Agregá una sucursal para poder crear una caja.</p>}
-        <SettingsEditor label="Agregar caja" busy={busy || !branches.length}>{close => <form
-          className="inline-form"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            const form = e.currentTarget;
-            const name = String(new FormData(form).get("name"));
-            if (
-              await run(
-                () => retail.addRegister(store.id, name, String(new FormData(form).get('branch'))),
-                "Caja agregada",
-              )
-            )
-              close();
-          }}
-        >
-          <label>Nombre de la caja<input
-            name="name"
-            aria-label="Nueva caja"
-            placeholder="Ej. Mostrador 2"
-            required
-            maxLength={80}
-          /></label>
-          {branches.length === 1 ? <span>Sucursal: {branches[0].name}<input type="hidden" name="branch" value={branches[0].id} /></span> : <label>Sucursal<select name="branch" required>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>}
-          <button className="primary-button" disabled={busy}>
-            Agregar
-          </button>
-        </form>}</SettingsEditor>
-      </section>
-      </div>
+        <div className="locations-settings-container">
+          <BranchSettings storeId={store.id} branches={branches} run={run} busy={busy} registerCounts={registerCountsByBranch} />
+          <RegistersSettings storeId={store.id} registers={registers} branches={branches} run={run} busy={busy} />
+        </div>
       </div>
       {(role === "owner" || role === "admin") && (
-        <section className="retail-panel" hidden={view !== 'team'} role="tabpanel" id="settings-panel-team" aria-labelledby="settings-tab-team">
-          <h2>Personas con acceso</h2>
-          <p>{members.length} personas con acceso · {invitations.length} pendientes. Son quienes pueden entrar a este comercio. Si trabajás por tu cuenta, no necesitás agregar personas.</p>
-          <p>Asigná a cada cajero la sucursal y la caja donde puede trabajar. La caja es el puesto desde donde cobra; el registro de ventas agrupa las ventas.</p>
-          {role === 'owner' ? <SettingsEditor label="Agregar persona" busy={busy}>{() => <StaffAccessForm storeId={store.id} run={run} busy={busy} />}</SettingsEditor> : <p>El propietario puede agregar personas. Vos podés administrar las asignaciones de los cajeros.</p>}
-          <h3>Accesos pendientes</h3>
-          {invitations.length ? (
-            invitations.map((i) => (
-              <div className="staff-member" key={i.id}>
-              <div className="team-row">
-                <span>
-                  {i.email}
-                  <small>
-                    {i.role === "admin" ? "Administrador" : "Cajero"}
-                  </small>
-                </span>
-                {role === 'owner' && <button
-                  disabled={busy}
-                  className="text-button danger-text"
-                  onClick={() =>
-                    void run(
-                      () => retail.revokeInvite(store.id, i.id),
-                      "Acceso pendiente eliminado",
-                    )
-                  }
-                >
-                  Revocar
-                </button>}
+        <div
+          hidden={view !== 'team'}
+          role="tabpanel"
+          id="settings-panel-team"
+          aria-labelledby="settings-tab-team"
+        >
+          <div className="team-settings-container">
+            {/* Tarjeta Izquierda: Equipo y accesos */}
+            <div className="store-settings-card">
+              <div className="store-settings-header">
+                <div className="store-settings-header-icon">
+                  <Users size={22} />
+                </div>
+                <div className="store-settings-header-text">
+                  <h3>Personas con acceso</h3>
+                  <p>Colaboradores que pueden ingresar al comercio. Si trabajás por tu cuenta, no necesitás agregar personas.</p>
+                </div>
               </div>
-              {i.role === 'cashier' && <SettingsEditor label={`Editar asignación de ${i.email}`} summary={<small>{branches.find(b => b.id === i.branch_id)?.name || 'Todas las sucursales'} · {registers.find(r => r.id === i.register_id)?.name || 'Todas las cajas permitidas'}</small>} busy={busy}>{() => <CashierAccess storeId={store.id} targetId={i.id} email={i.email} branchId={i.branch_id} registerId={i.register_id} branches={branches} registers={registers} pending busy={busy} run={run} />}</SettingsEditor>}
-              </div>
-            ))
-          ) : (
-            <p>No hay accesos pendientes.</p>
-          )}
-          <h3>Miembros</h3>
-          {members.map((m) => (
-            <div className="staff-member" key={m.user_id}>
-            <div className="team-row">
-              <span>
-                {m.email || 'Email no disponible'}{m.user_id === userId ? ' · Vos' : ''}
-                <small>
-                  {
-                    {
-                      owner: "Propietario",
-                      admin: "Administrador",
-                      cashier: "Cajero",
-                    }[m.role]
-                  }
-                </small>
-              </span>
-              {role === 'owner' && m.role !== "owner" && (
-                <button
-                  disabled={busy}
-                  className="text-button danger-text"
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "¿Quitar el acceso de este usuario al comercio?",
-                      )
-                    )
-                      void run(
-                        () => retail.removeMember(store.id, m.user_id),
-                        "Acceso revocado",
+
+              <div className="location-card-body">
+                {/* Resumen de badges */}
+                <div className="team-summary-badges">
+                  <span className="location-pill-badge active">
+                    <UserCheck size={12} /> {members.length} {members.length === 1 ? 'miembro activo' : 'miembros activos'}
+                  </span>
+                  {invitations.length > 0 && (
+                    <span className="location-pill-badge" style={{ borderColor: 'var(--tone-warning-border, #fef08a)', background: 'var(--tone-warning-bg, #fefce8)', color: 'var(--tone-warning-text, #854d0e)' }}>
+                      <Clock size={12} /> {invitations.length} {invitations.length === 1 ? 'pendiente' : 'pendientes'}
+                    </span>
+                  )}
+                </div>
+
+                {/* Alta de nueva persona */}
+                {role === 'owner' ? (
+                  <div className="team-add-member-wrapper">
+                    <SettingsEditor
+                      label="Agregar persona"
+                      busy={busy || staffProfiles.loading || !!staffProfiles.error}
+                    >
+                      {() => (
+                        <div className="team-add-form-container">
+                          <StaffAccessForm
+                            storeId={store.id}
+                            run={run}
+                            busy={busy}
+                            profiles={staffProfiles.profiles}
+                          />
+                        </div>
+                      )}
+                    </SettingsEditor>
+                  </div>
+                ) : (
+                  <div className="team-helper-notice">
+                    <ShieldCheck size={16} />
+                    <span>El propietario puede agregar personas. Vos podés administrar perfiles y asignaciones de cajeros y supervisores.</span>
+                  </div>
+                )}
+
+                {/* Invitaciones pendientes */}
+                {invitations.length > 0 && (
+                  <div className="team-section-block">
+                    <div className="team-section-header">
+                      <Clock size={15} />
+                      <h4>Invitaciones pendientes ({invitations.length})</h4>
+                    </div>
+                    <div className="team-members-list">
+                      {invitations.map((i) => {
+                        const branchName = branches.find((b) => b.id === i.branch_id)?.name;
+                        const registerName = registers.find((r) => r.id === i.register_id)?.name;
+                        const profileName = staffProfiles.profiles.find((p) => p.id === i.profile_id)?.name;
+                        const roleLabel = i.role === 'admin' ? 'Administrador' : i.role === 'supervisor' ? 'Supervisor' : 'Cajero';
+
+                        return (
+                          <div className="team-member-item" key={i.id}>
+                            <div className="team-member-main">
+                              <div className="team-avatar team-avatar-pending">
+                                <Mail size={16} />
+                              </div>
+                              <div className="team-member-details">
+                                <div className="team-member-email-row">
+                                  <strong className="team-member-email">{i.email}</strong>
+                                  <span className="team-role-badge role-pending">Pendiente</span>
+                                  <span className={`team-role-badge role-${i.role}`}>{roleLabel}</span>
+                                </div>
+                                <div className="team-member-meta">
+                                  {(i.role === 'cashier' || i.role === 'supervisor') && (
+                                    <span className="team-sub-badge">
+                                      <Building2 size={11} /> {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas'}
+                                    </span>
+                                  )}
+                                  {profileName && (
+                                    <span className="team-sub-badge">
+                                      <ShieldCheck size={11} /> {profileName}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                              {role === 'owner' && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  className="danger-button-outline"
+                                  onClick={() =>
+                                    void run(
+                                      () => retail.revokeInvite(store.id, i.id),
+                                      'Acceso pendiente eliminado',
+                                    )
+                                  }
+                                  title={`Revocar acceso de ${i.email}`}
+                                >
+                                  Revocar
+                                </button>
+                              )}
+                            </div>
+
+                            {(i.role === 'cashier' || i.role === 'supervisor') && (
+                              <div className="team-member-editors">
+                                <SettingsEditor
+                                  label={`Rol y perfil de ${i.email}`}
+                                  summary={<small>{profileName || 'Permisos habituales del rol'}</small>}
+                                  busy={busy || staffProfiles.loading || !!staffProfiles.error}
+                                >
+                                  {(close) => (
+                                    <StaffProfileAssignment
+                                      storeId={store.id}
+                                      targetId={i.id}
+                                      role={i.role as 'cashier' | 'supervisor'}
+                                      profileId={i.profile_id}
+                                      profiles={staffProfiles.profiles}
+                                      pending
+                                      busy={busy}
+                                      run={run}
+                                      close={close}
+                                    />
+                                  )}
+                                </SettingsEditor>
+                                <SettingsEditor
+                                  label={`Editar asignación de ${i.email}`}
+                                  summary={
+                                    <small>
+                                      {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas permitidas'}
+                                    </small>
+                                  }
+                                  busy={busy}
+                                >
+                                  {() => (
+                                    <CashierAccess
+                                      storeId={store.id}
+                                      targetId={i.id}
+                                      email={i.email}
+                                      branchId={i.branch_id}
+                                      registerId={i.register_id}
+                                      branches={branches}
+                                      registers={registers}
+                                      pending
+                                      busy={busy}
+                                      run={run}
+                                    />
+                                  )}
+                                </SettingsEditor>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Miembros activos */}
+                <div className="team-section-block">
+                  <div className="team-section-header">
+                    <UserCheck size={15} />
+                    <h4>Miembros del comercio ({members.length})</h4>
+                  </div>
+                  <div className="team-members-list">
+                    {members.map((m) => {
+                      const branchName = branches.find((b) => b.id === m.branch_id)?.name;
+                      const registerName = registers.find((r) => r.id === m.register_id)?.name;
+                      const profileName = staffProfiles.profiles.find((p) => p.id === m.profile_id)?.name;
+                      const roleLabel = {
+                        owner: 'Propietario',
+                        admin: 'Administrador',
+                        supervisor: 'Supervisor',
+                        cashier: 'Cajero',
+                      }[m.role] || m.role;
+
+                      const emailDisplay = m.email || 'Email no disponible';
+                      const initial = (emailDisplay[0] || 'U').toUpperCase();
+                      const isCurrentUser = m.user_id === userId;
+
+                      return (
+                        <div className="team-member-item" key={m.user_id}>
+                          <div className="team-member-main">
+                            <div className={`team-avatar avatar-${m.role}`}>
+                              {initial}
+                            </div>
+                            <div className="team-member-details">
+                              <div className="team-member-email-row">
+                                <strong className="team-member-email">{emailDisplay}</strong>
+                                {isCurrentUser && (
+                                  <span className="team-you-badge">Vos</span>
+                                )}
+                                <span className={`team-role-badge role-${m.role}`}>{roleLabel}</span>
+                              </div>
+                              <div className="team-member-meta">
+                                {(m.role === 'cashier' || m.role === 'supervisor') && (
+                                  <span className="team-sub-badge">
+                                    <Building2 size={11} /> {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas'}
+                                  </span>
+                                )}
+                                {profileName && (
+                                  <span className="team-sub-badge">
+                                    <ShieldCheck size={11} /> {profileName}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {role === 'owner' && m.role !== 'owner' && (
+                              <button
+                                type="button"
+                                disabled={busy}
+                                className="danger-button-outline"
+                                onClick={() => {
+                                  if (
+                                    window.confirm(
+                                      '¿Quitar el acceso de este usuario al comercio?',
+                                    )
+                                  )
+                                    void run(
+                                      () => retail.removeMember(store.id, m.user_id),
+                                      'Acceso revocado',
+                                    );
+                                }}
+                                title={`Quitar acceso a ${m.email}`}
+                              >
+                                Quitar
+                              </button>
+                            )}
+                          </div>
+
+                          {(m.role === 'cashier' || m.role === 'supervisor') && (
+                            <div className="team-member-editors">
+                              <SettingsEditor
+                                label={`Rol y perfil de ${m.email}`}
+                                summary={<small>{profileName || 'Permisos habituales del rol'}</small>}
+                                busy={busy || staffProfiles.loading || !!staffProfiles.error}
+                              >
+                                {(close) => (
+                                  <StaffProfileAssignment
+                                    storeId={store.id}
+                                    targetId={m.user_id}
+                                    role={m.role as 'cashier' | 'supervisor'}
+                                    profileId={m.profile_id}
+                                    profiles={staffProfiles.profiles}
+                                    busy={busy}
+                                    run={run}
+                                    close={close}
+                                  />
+                                )}
+                              </SettingsEditor>
+                              <SettingsEditor
+                                label={`Editar asignación de ${m.email}`}
+                                summary={
+                                  <small>
+                                    {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas permitidas'}
+                                  </small>
+                                }
+                                busy={busy}
+                              >
+                                {() => (
+                                  <CashierAccess
+                                    storeId={store.id}
+                                    targetId={m.user_id}
+                                    email={m.email}
+                                    branchId={m.branch_id}
+                                    registerId={m.register_id}
+                                    branches={branches}
+                                    registers={registers}
+                                    busy={busy}
+                                    run={run}
+                                  />
+                                )}
+                              </SettingsEditor>
+                            </div>
+                          )}
+                        </div>
                       );
-                  }}
-                >
-                  Quitar
-                </button>
-              )}
+                    })}
+                  </div>
+                </div>
+              </div>
             </div>
-            {m.role === 'cashier' && <SettingsEditor label={`Editar asignación de ${m.email}`} summary={<small>{branches.find(b => b.id === m.branch_id)?.name || 'Todas las sucursales'} · {registers.find(r => r.id === m.register_id)?.name || 'Todas las cajas permitidas'}</small>} busy={busy}>{() => <CashierAccess storeId={store.id} targetId={m.user_id} email={m.email} branchId={m.branch_id} registerId={m.register_id} branches={branches} registers={registers} busy={busy} run={run} />}</SettingsEditor>}
+
+            {/* Tarjeta Derecha: Perfiles y permisos */}
+            <div className="store-settings-card">
+              <div className="store-settings-header">
+                <div className="store-settings-header-icon">
+                  <ShieldCheck size={22} />
+                </div>
+                <div className="store-settings-header-text">
+                  <h3>Perfiles y permisos</h3>
+                  <p>Definí qué acciones pueden realizar los cajeros y supervisores en el sistema.</p>
+                </div>
+              </div>
+
+              <div className="location-card-body team-profiles-body">
+                <div className="team-helper-notice" style={{ marginBottom: 4 }}>
+                  <ShieldCheck size={16} />
+                  <span>Asigná a cada cajero o supervisor un perfil. El perfil define sus acciones; la asignación limita su sucursal y caja.</span>
+                </div>
+
+                {staffProfiles.loading && (
+                  <div className="location-empty-state">
+                    <Loader2 className="spinning-icon" size={20} />
+                    <span>Cargando perfiles…</span>
+                  </div>
+                )}
+                {staffProfiles.error && (
+                  <div className="location-confirm-box">
+                    <span role="alert">{staffProfiles.error}</span>
+                    <button type="button" className="secondary-button" onClick={staffProfiles.reload}>
+                      <RotateCcw size={14} /> Reintentar
+                    </button>
+                  </div>
+                )}
+                {!staffProfiles.loading && !staffProfiles.error && (
+                  <PermissionProfileSettings
+                    storeId={store.id}
+                    profiles={staffProfiles.profiles}
+                    busy={busy}
+                    run={run}
+                    onSaved={staffProfiles.reload}
+                  />
+                )}
+              </div>
             </div>
-          ))}
-        </section>
+          </div>
+        </div>
       )}
     </div></SettingsEditorGroup>
   );

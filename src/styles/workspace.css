@@ -3,10 +3,10 @@
 .app-sidebar { position: sticky; top: 0; height: 100dvh; display: flex; flex-direction: column; padding: 24px 16px 16px; border-right: 1px solid var(--tone-border); background: var(--tone-surface); overflow-y: auto; }
 .brand { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 4px; }
 .brand-mark { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 10px; color: white; background: var(--tone-accent); flex-shrink: 0; }
-.store-brand-name { min-width: 0; font-size: 16px; font-weight: 700; overflow-wrap: anywhere; line-height: 1.3; }
-.store-brand-title { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; vertical-align: middle; }
-.store-brand-text { min-width: 0; overflow-wrap: anywhere; }
-.brand-sub { display: block; font-size: 9px; font-weight: 500; color: var(--tone-muted); letter-spacing: 1.4px; margin-top: 5px; }
+.store-brand-name { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; font-size: 15px; font-weight: 700; line-height: 1.3; }
+.store-brand-title { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; }
+.store-brand-text { min-width: 0; overflow-wrap: break-word; }
+.brand-sub { display: block; font-size: 9px; font-weight: 500; color: var(--tone-muted); letter-spacing: 1.4px; margin-top: 3px; }
 .store-switch { display: grid; gap: 7px; font-size: 11px; color: var(--tone-muted); margin: 28px 0 20px; }
 .store-switch select { width: 100%; font-size: 13px; color: var(--tone-ink); background: var(--tone-canvas); border-color: var(--tone-border); }
 .app-sidebar nav { display: flex; flex-direction: column; gap: 5px; }
