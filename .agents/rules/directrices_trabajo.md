@@ -2,28 +2,66 @@
 trigger: always_on
 ---
 
-# Directrices de Trabajo y Operación
+# Directrices de trabajo — AdministradorKiosco
 
-Aplica a todas las interacciones, tareas y prompts de desarrollo en este repositorio:
+## Cómo trabajar
 
-## 1. 🧪 Guía de Pruebas Obligatoria al Finalizar
-Al concluir cada tarea o prompt, debes incluir siempre una sección final clara, concisa y práctica titulada **"Guía de Pruebas"** o **"Cómo Probar"**, que contenga:
-- Ruta o URL local a visitar en el navegador o endpoint a probar.
-- Pasos de acción reproducibles (qué botones presionar, qué inputs llenar o qué comando ejecutar).
-- Comportamiento y resultado esperado para confirmar que todo funciona correctamente.
+- Trabajar sobre el estado real del repositorio. Leer estas reglas antes de editar y consultar las guías desde README.md; no asumir que un paso anterior quedó perfecto.
+- Preservar cambios locales ajenos al pedido, incluidos archivos sin seguimiento. No limpiar trabajo con reset/checkout ni restauraciones masivas.
+- Buscar con `rg` y lecturas acotadas. Evitar volcados grandes y reescrituras innecesarias. Una consolidación explícitamente pedida autoriza generar su resultado desde las fuentes, sin imprimirlo entero.
+- Reutilizar componentes, servicios y flujos existentes. Cambios acotados, sin dependencias ni rediseños globales innecesarios.
+- Avanzar con criterio dentro del alcance autorizado. Consultar si falta una decisión funcional importante; no pedir confirmación por cada ajuste reversible.
+- Ante un fallo, identificar la causa antes de actuar. No repetir a ciegas el mismo comando ni ocultar errores. Pedir ayuda si el bloqueo exige información o autorización del usuario.
+- No delegar en subagentes salvo pedido explícito. El usuario realiza las comprobaciones manuales: no automatizar navegador/dispositivo para chequear sin que lo pida.
+- Comunicar avances breves en español y limitaciones reales. No afirmar pruebas, despliegues ni mediciones que no ocurrieron.
 
-## 2. ⚠️ Gestión y Consulta de Consumo de Tokens
-- Si una operación requiere inspeccionar, leer o generar grandes volúmenes de código/archivos que disparen el consumo de tokens (ej. volcados masivos, reescritura innecesaria de archivos enormes sin diffs específicos), **consulta primero al usuario**.
-- Propón alternativas más ligeras y eficientes (ej. análisis de secciones específicas con ripgrep/grep_search o ediciones específicas con replace_file_content) antes de proceder con lecturas o reescrituras masivas.
+## Verificación permitida
 
-## 3. 🛑 Prevención de Bucles e Iteraciones Repetitivas
-- No intentes la misma solución fallida repetidamente. Si una corrección, compilación o comando falla o no produce el efecto esperado tras un intento:
-  - Detén el ciclo inmediatamente.
-  - Explica al usuario la causa raíz del bloqueo o comportamiento inesperado.
-  - Plantea las alternativas viables y pide confirmación antes de continuar.
+- Única comprobación de código: `npx tsc --noEmit -p tsconfig.app.json`.
+- No ejecutar builds (`npm run build`, `next build` u otros), lint, suites automatizadas ni comprobaciones adicionales de código. No reiniciar ni interrumpir el servidor de desarrollo sin necesidad y autorización.
+- No crear ventas, movimientos ni otros datos ficticios en producción para probar.
+- Si solo cambia documentación/SQL y no TypeScript, no hace falta TypeScript; tampoco valida SQL, RLS ni apariencia.
+- Generar schema con el script local es empaquetado de archivos, no aplicación de SQL ni prueba contra una base.
 
-No uses modo agente para hacer los chequeos, esos los hago yo
+## Base de datos y seguridad
 
-## 4. 🚫 Prohibido ejecutar `npm run build` en verificaciones de desarrollo
-- **No ejecutes `npm run build` o `next build`** para verificar cambios rutinarios. Al hacerlo se sobrescribe la carpeta `.next/`, lo que rompe la sesión de `npm run dev` que el usuario tiene corriendo en su terminal (causando errores 404 en chunks estáticos y bloqueos de archivos `EINVAL`).
-- Para verificar tipado, sintaxis, JSX e imports utiliza **exclusivamente `npx tsc --noEmit`**, el cual valida el 100% del código sin tocar el directorio `.next/` ni interferir con el servidor local.
+- No aplicar migraciones remotas, borrar datos ni ejecutar reparación por iniciativa propia. Preparar SQL local y explicar su aplicación y efectos.
+- Entrada SQL: `supabase/schema.sql`, generada con `node scripts/generate-schema.mjs` desde `supabase/migrations/`. Regenerar tras agregar una migración; no editar bloques generados a mano.
+- Conservar migraciones originales como historial/fuente. Corregir una migración registrada mediante una nueva, no editándola. No ignorar errores ni agregar `CASCADE` para forzar instalación.
+- Schema usa historial privado, checksums y una transacción. En bases manuales exige baseline confirmado; no inferirlo solo por columnas o productos existentes. El baseline confirmado el 23/10/2026 llega a `202610230002_ingredients_and_composition_costs.sql`: no avanzarlo automáticamente al agregar archivos ni asumir que vale para otro entorno.
+- Excluir del instalador `maintenance/`, `tests/` y `push-schedule.sql`. La tarea push requiere despliegue y Vault; reparar otro proyecto es una operación aparte.
+- Verificar el proyecto destino en acciones autorizadas. Hay antecedentes de SQL ejecutado en otro proyecto. No exponer `.env.local`, `.env.push.local`, tokens, claves privadas ni `service_role`.
+- Ocultar controles no reemplaza permisos efectivos: conservar RLS, membresías, asignaciones, privacidad de movimientos/comprobantes y arqueo a ciegas del cajero.
+- Perfiles de cajero/supervisor no equivalen a administrador. Mantener límites de delegación y evitar autoampliación de permisos.
+- Mantener idempotencia, IDs de reintento y validaciones de concurrencia. Un error no debe marcar avance, duplicar operaciones ni descartar pendientes.
+
+## Operación y reglas del producto
+
+- No cambiar cálculos, facturación, precios, stock ni estados para simplificar una pantalla. Un cambio funcional expresamente pedido debe ser coherente en interfaz, backend y offline.
+- Conservar lector/foco de venta, F1–F4, pagos mixtos, importe manual, botonera, carrito y protección al cambiar sucursal/lista/registro.
+- Mantener borradores al navegar, importaciones y reposiciones en curso. Cancelar afecta solo al editor correspondiente.
+- Conservar stock compartido por comercio, bulto/unidad, recetas, listas por sucursal, remitos pendientes, transferencias y comprobantes privados.
+- Insumos: pueden tener stock/costo sin precio de venta, sin venta directa. Compuestos: consumen componentes, sin segundo stock físico; costo = cantidades × costos. No convertir ni borrar existencias por una opción visual.
+- Cigarrillos: stock en unidades individuales, paquete/suelto con precios independientes y reposición por atados con una sola conversión.
+- Bajo margen automático sobre `(precio − costo) / precio`, límite inicial 10% configurable. Costo 0 es desconocido; mantener separación estándar/bajo margen e instantáneas históricas.
+- Caja = puesto de cobro. Turno = período de trabajo abierto con efectivo y cerrado contando efectivo. Registro de ventas = agrupación; no es caja ni define condición fiscal.
+- Conservar PWA, avisos, caché por cuenta y sincronización. No prometer configuración offline si requiere backend ni borrar colas para resolver errores.
+- IA secundaria y voluntaria: no bloquea vender, guardar producto, registrar movimiento ni confirmar cierre. Fallos de Groq quedan en la herramienta; no simular respuestas. Conservar `llama-3.1-8b-instant` y configuración por entorno.
+- No modificar `invoicePricingService.ts` ni `InvoicePriceProposal.tsx` salvo pedido posterior que incluya explícitamente esos módulos.
+
+## UX/UI y accesibilidad
+
+- Español claro, pocas decisiones simultáneas y acciones descriptivas. Mantener paleta y separación de secciones, con estilo sobrio.
+- Jerarquía por agrupación, espacio y prioridad. Evitar botones duplicados, botones que llevan a otro menú de botones y encabezados/contextos redundantes.
+- Distinguir consultar, crear y editar. Formularios por intención, títulos claros y Guardar/Cancelar alcanzables en móvil. Opciones avanzadas descubribles, sin competir con tareas habituales.
+- Etiquetas, teclado y foco visible. Controles ocultos sin foco ni validaciones invisibles; pantallas ocultas sin listeners que interfieran. Un error plegado debe revelar y enfocar su campo.
+- Respetar movimiento reducido, teclado virtual y áreas seguras. IA, instalación y avisos no deben cubrir Cobrar ni otras acciones principales.
+- No exigir selecciones ya resueltas por asignaciones o por una única opción válida. Contexto compacto y selecciones protegidas en ventas en curso.
+
+## Documentación y entrega
+
+- Mantener guías vigentes por tema e índice en README.md. No crear un `.md` por cada ajuste. Consolidar información útil antes de retirar archivos y actualizar enlaces.
+- `docs/ux-simplificacion-plan.md` conserva decisiones actuales, recorridos verificables y pendientes, sin historial interminable de intervenciones.
+- Finalizar con cambios, comprobaciones ejecutadas y pendientes reales; indicar SQL preparado sin aplicar. Distinguir explícitamente pruebas ejecutadas de las propuestas.
+- Incluir siempre **Guía de Pruebas** con **http://localhost:3001/**, acciones y resultado esperado. Añadir SQL Editor, móvil u otro dispositivo si corresponde, sin afirmar que se probaron.
+- Una revisión de código no es una prueba de usabilidad con personas. Si se propone observar a alguien nuevo, registrar dónde se detiene y qué texto no entiende, sin inventar resultados.

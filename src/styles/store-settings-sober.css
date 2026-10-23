@@ -1,0 +1,136 @@
+/* Mi comercio: visual treatment only. Keep existing sections and layouts. */
+.retail-app .settings-workspace.settings-workspace-sober > .section-nav {
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--tone-border);
+  gap: 6px;
+  padding-bottom: 12px;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober > .section-nav > button {
+  min-height: 44px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--tone-muted);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: none;
+  transform: none;
+  transition: color 120ms ease, background-color 120ms ease;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober > .section-nav > button:hover:not(:disabled):not([aria-selected='true']) {
+  background: var(--tone-canvas);
+  color: var(--tone-text);
+  box-shadow: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober > .section-nav > button[aria-selected='true'] {
+  background: var(--tone-surface);
+  border-color: var(--tone-border);
+  border-bottom-color: var(--tone-accent);
+  color: var(--tone-accent);
+  font-weight: 650;
+  box-shadow: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.store-settings-card, .more-subview-panel .retail-panel, .permission-group, .margin-threshold-settings) {
+  border: 1px solid var(--tone-border);
+  border-radius: 10px;
+  box-shadow: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .store-settings-header {
+  padding: 18px 20px;
+  gap: 12px;
+  background: var(--tone-surface);
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .store-settings-header-text h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.store-settings-header-icon, .more-nav-card-icon, .location-item-icon, .category-pill-icon, .team-avatar, .account-avatar) {
+  background: var(--tone-canvas);
+  color: var(--tone-muted);
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.store-settings-header-icon, .more-nav-card-icon) {
+  width: 36px;
+  height: 36px;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .location-card-body {
+  padding: 18px 20px 20px;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.location-item-row, .team-member-item, .category-item-card, .more-nav-card, .account-user-card, .account-store-info, .team-add-member-wrapper .settings-editor) {
+  border: 1px solid var(--tone-border);
+  border-radius: 6px;
+  background: var(--tone-surface);
+  box-shadow: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.location-item-row, .team-member-item, .category-item-card, .more-nav-card, .account-action-btn, .team-add-member-wrapper .settings-editor):hover {
+  box-shadow: none;
+  transform: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .more-nav-card:hover:not(:disabled) {
+  background: var(--tone-canvas);
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.primary-button, .secondary-button, .account-action-btn) {
+  min-height: 44px;
+  border-radius: 6px;
+  box-shadow: none;
+  transform: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(.primary-button, .secondary-button, .account-action-btn):hover:not(:disabled) {
+  box-shadow: none;
+  transform: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .team-role-badge {
+  background: var(--tone-canvas);
+  border: 1px solid var(--tone-border);
+  border-radius: 4px;
+  color: var(--tone-text);
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .location-pill-badge {
+  border-radius: 4px;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .settings-editor-open {
+  border-radius: 6px;
+  box-shadow: none;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober .ledger-prepare-banner {
+  background: var(--tone-canvas);
+  border-color: var(--tone-border);
+  border-radius: 6px;
+}
+
+.retail-app .settings-workspace.settings-workspace-sober :is(button, a, summary, input, select, textarea):focus-visible {
+  outline: 2px solid var(--tone-accent);
+  outline-offset: 3px;
+}
+
+@media (max-width: 640px) {
+  .retail-app .settings-workspace.settings-workspace-sober :is(.store-settings-header, .location-card-body) {
+    padding: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .retail-app .settings-workspace.settings-workspace-sober :is(button, a, summary, .store-settings-card, .location-item-row, .team-member-item) {
+    transition: none;
+  }
+}

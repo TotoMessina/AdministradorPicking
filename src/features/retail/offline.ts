@@ -1,12 +1,13 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase';
 import type { Session } from '@supabase/supabase-js';
 import type { KioscoSale } from '../../types/kiosco';
-import type { Product, Shift, Register, Movement, Branch, PriceList, SalesLedger } from './api';
+import type { Product, Store, Shift, Register, Movement, Branch, PriceList, SalesLedger } from './api';
 import { cashInSale } from './payments';
 import type { Permission } from './permissions';
 import { movementDetails, voucherPath } from './vouchers';
 import { randomUUID } from '../../utils/uuid';
 import { consumeSaleStock, hasComposition, withAvailableStock } from '../../services/productComposition';
+import { productMargin } from '../../services/productMarginService';
 
 type Operation = { id: string; kind: 'open' | 'sale' | 'movement' | 'close' | 'stock'; store: string; at: string; shift?: string; [key: string]: unknown };
 export type PendingOperation = { operation: Operation; error?: string };
@@ -179,8 +180,8 @@ async function localWrite(user: string, method: string, args: unknown[]) {
     const at = new Date().toISOString();
     let store = String(args[0]); let shiftId = ''; let shift: Shift | undefined;
     if (method === 'replenishProductStock' || method === 'replenishStockBatch') {
-      requireCachedPermission(s, store, user, 'replenish_stock');
-      const manager = ['owner', 'admin'].includes(String(s.cache[key('role', [store, user])]));
+      const manager = ['owner', 'admin'].includes(String(s.cache[key('role', [store, user])])) || (findCached<Permission[]>(s, 'permissions', store) || []).includes('manage_products');
+      if (!manager) requireCachedPermission(s, store, user, 'replenish_stock');
       const products = need(findCached<Product[]>(s, 'products', store));
       const rows = (method === 'replenishProductStock' ? [{ id: args[1], newStock: args[2], newCost: args[3], quantityAdded: args[4] }] : args[1]) as { id: string; newStock: number; newCost?: number; quantityAdded?: number }[];
       if (!rows.length || rows.length > 10000 || new Set(rows.map(r => r.id)).size !== rows.length) throw new Error('La reposición debe contener productos distintos');
@@ -199,9 +200,15 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         if (!manager && (delta <= 0 || row.newCost !== undefined)) throw new Error('Tu permiso permite sumar stock sin modificar costos.');
         product.stock += delta;
         if (row.newCost !== undefined) product.cost = amount(row.newCost);
+        if (row.newCost !== undefined) {
+          const cachedStore = (s.cache[key('stores', [])] as Store[] | undefined)?.find(entry => entry.id === store);
+          product.margin_group = productMargin(product.price, product.cost, cachedStore?.low_margin_threshold).group;
+        }
         return { product: product.id, delta, cost: row.newCost ?? null };
       });
-      updateProductCaches(s, store, withAvailableStock(products));
+      const cachedStore = (s.cache[key('stores', [])] as Store[] | undefined)?.find(entry => entry.id === store);
+      updateProductCaches(s, store, withAvailableStock(products).map(product => hasComposition(product)
+        ? { ...product, margin_group: productMargin(product.price, product.cost, cachedStore?.low_margin_threshold).group } : product));
       s.revision++; s.queue.push({ operation: { id: request?.id || randomUUID(), kind: 'stock', store, at: request?.at || at, items } });
       return rows.map(row => ({ id: row.id }));
     }
@@ -298,6 +305,14 @@ export function withOffline<T extends Remote>(source: T): T {
       const user = activeUser;
       if (!user || !offlineSupported()) return original(...args as never[]);
       if (operational.has(property)) return localWrite(user, property, args);
+      if (property === 'managementLocations') {
+        if (navigator.onLine === false) throw new Error('Conectate para administrar locales y cajas. Podés seguir vendiendo en tu caja preparada.');
+        return original(...args as never[]);
+      }
+      if (property === 'productDeletionHistory') {
+        if (navigator.onLine === false) throw new Error('Conectate para consultar los productos eliminados.');
+        return original(...args as never[]);
+      }
       if (property === 'saleLedgerHistory') {
         if (navigator.onLine === false) throw new Error('Conectate para consultar el historial de registros.');
         return original(...args as never[]);
@@ -349,6 +364,18 @@ export function withOffline<T extends Remote>(source: T): T {
         return remoteRead(user, property, args);
       }
       if (navigator.onLine === false) throw new Error('Esta configuración necesita conexión. Podés seguir vendiendo desde tu caja.');
+      if (property === 'saveMarginThreshold') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar el límite de bajo margen. El porcentaje ingresado se conserva.');
+      });
+      if (property === 'archiveProduct' || property === 'restoreProduct') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de eliminar o restaurar productos.');
+      });
+      if (property === 'saveProduct') await transaction(user, state => {
+        const product = args[1] as Product;
+        const previous = findCached<Product[]>(state, 'products', String(args[0]))?.find(row => row.id === product.id);
+        if (state.queue.length && product.sellable !== undefined && product.sellable !== (previous?.sellable !== false))
+          throw new Error('Sincronizá las operaciones pendientes antes de cambiar si un producto se vende o es solo insumo. El borrador se conserva.');
+      });
       if (property === 'saveProductComposition' || property === 'enableLooseCigarettes') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de configurar combos o sueltos. El borrador se conserva.');
       });

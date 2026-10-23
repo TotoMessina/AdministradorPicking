@@ -10,7 +10,7 @@ import { SaleLedgerControl } from './SaleLedgerControl';
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-export function SalesOverview({ storeId, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canMoveSale }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canMoveSale?: (s: KioscoSale) => boolean }) {
+export function SalesOverview({ storeId, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canAttachInvoice = canManage, canMoveSale }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canAttachInvoice?: boolean; canMoveSale?: (s: KioscoSale) => boolean }) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [period, setPeriod] = useState({ from: today(), to: today() });
@@ -128,7 +128,7 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, p
               onSaleMoved?.(saved);
             }} /></td>
           <td>{money(s.total)}</td>
-          <td>{s.invoiceReference || (canManage ? <details><summary>Sin comprobante · Asociar</summary><form className="retail-form" onSubmit={e => { e.preventDefault(); const reference = String(new FormData(e.currentTarget).get('reference')); void run(() => retail.attachInvoice(s.id, reference), 'Comprobante asociado'); }}><label>Referencia del comprobante ya emitido<input name="reference" required maxLength={120} placeholder="Tipo, punto de venta y número" /></label><p>Se guarda la referencia y quién la asoció. Esta acción no emite ni valida una factura.</p><button className="secondary-button" disabled={busy}>Asociar comprobante</button></form></details> : 'Sin comprobante asociado')}</td>
+          <td>{s.invoiceReference || (canAttachInvoice ? <details><summary>Sin comprobante · Asociar</summary><form className="retail-form" onSubmit={e => { e.preventDefault(); const reference = String(new FormData(e.currentTarget).get('reference')); void run(() => retail.attachInvoice(s.id, reference), 'Comprobante asociado'); }}><label>Referencia del comprobante ya emitido<input name="reference" required maxLength={120} placeholder="Tipo, punto de venta y número" /></label><p>Se guarda la referencia y quién la asoció. Esta acción no emite ni valida una factura.</p><button className="secondary-button" disabled={busy}>Asociar comprobante</button></form></details> : 'Sin comprobante asociado')}</td>
         </tr>)}
         {!visible.length && <tr><td colSpan={5}>No hay ventas para esta consulta.</td></tr>}
       </tbody></table></div>

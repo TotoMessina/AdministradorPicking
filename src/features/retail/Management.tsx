@@ -6,8 +6,14 @@ import { StaffAccessForm } from './StaffAccessForm';
 import { CashierAccess } from './CashierAccess';
 import { PermissionProfileSettings, StaffProfileAssignment, usePermissionProfiles } from './PermissionProfiles';
 import { ProductPriceEditor } from './ProductPriceEditor';
+import { CategoryLabelEditor } from './CategoryLabelEditor';
+import { ProductMarginStatus } from './ProductMarginStatus';
+import { MarginThresholdSettings } from './MarginThresholdSettings';
+import { productMargin } from '../../services/productMarginService';
+import { ProductDeletionEditor, DeletedProducts } from './ProductDeletionTools';
 import { ProductCompositionEditor } from './ProductCompositionEditor';
-import { hasComposition } from '../../services/productComposition';
+import { compositionCost, hasComposition } from '../../services/productComposition';
+import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
 import {
   AlertCircle,
@@ -44,7 +50,10 @@ import {
   Monitor,
   Pencil,
   Plus,
+  PackagePlus,
+  Layers,
   Trash2,
+  Search,
   Store as StoreIcon,
   UserCheck,
   ShieldCheck,
@@ -146,6 +155,71 @@ function extractJson<T>(raw: string): T | null {
   return null;
 }
 
+export type CatalogColumnId =
+  | 'product'
+  | 'code'
+  | 'category'
+  | 'brand'
+  | 'supplier'
+  | 'cost'
+  | 'price'
+  | 'margin'
+  | 'stock'
+  | 'minStock'
+  | 'expiry';
+
+export interface CatalogColumnDef {
+  id: CatalogColumnId;
+  label: string;
+  defaultVisible: boolean;
+}
+
+export const CATALOG_COLUMNS: CatalogColumnDef[] = [
+  { id: 'product', label: 'Producto', defaultVisible: true },
+  { id: 'code', label: 'Código', defaultVisible: false },
+  { id: 'category', label: 'Categoría', defaultVisible: true },
+  { id: 'brand', label: 'Marca', defaultVisible: false },
+  { id: 'supplier', label: 'Proveedor', defaultVisible: false },
+  { id: 'cost', label: 'Costo', defaultVisible: false },
+  { id: 'price', label: 'Precio', defaultVisible: true },
+  { id: 'margin', label: '% Rentabilidad', defaultVisible: false },
+  { id: 'stock', label: 'Stock', defaultVisible: true },
+  { id: 'minStock', label: 'Stock mínimo', defaultVisible: false },
+  { id: 'expiry', label: 'Vencimiento', defaultVisible: false },
+];
+
+export const DEFAULT_VISIBLE_COLUMNS: Record<CatalogColumnId, boolean> = {
+  product: true,
+  code: false,
+  category: true,
+  brand: false,
+  supplier: false,
+  cost: false,
+  price: true,
+  margin: false,
+  stock: true,
+  minStock: false,
+  expiry: false,
+};
+
+function getStoredCatalogColumns(storeId: string): Record<CatalogColumnId, boolean> {
+  try {
+    const raw = localStorage.getItem(`kiosco_catalog_columns_${storeId}`);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed && typeof parsed === 'object') {
+        return {
+          ...DEFAULT_VISIBLE_COLUMNS,
+          ...parsed,
+        };
+      }
+    }
+  } catch {
+    // fallback a valores por defecto
+  }
+  return { ...DEFAULT_VISIBLE_COLUMNS };
+}
+
 export function CatalogEditor({
   store,
   categories,
@@ -163,6 +237,7 @@ export function CatalogEditor({
   active = true,
   allowRestock = false,
   allowPriceEdit = false,
+  permissions = [],
 }: {
   store: Store;
   categories: Category[];
@@ -180,6 +255,7 @@ export function CatalogEditor({
   active?: boolean;
   allowRestock?: boolean;
   allowPriceEdit?: boolean;
+  permissions?: import('./permissions').Permission[];
 }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [adding, setAdding] = useState(guided);
@@ -187,6 +263,54 @@ export function CatalogEditor({
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
   const [stockFilter, setStockFilter] = useState(false);
+  const tableScrollRef = useRef<HTMLDivElement>(null);
+  const [visibleColumns, setVisibleColumns] = useState<Record<CatalogColumnId, boolean>>(() =>
+    getStoredCatalogColumns(store.id)
+  );
+  const columnsDetailsRef = useRef<HTMLDetailsElement>(null);
+
+  useEffect(() => {
+    setVisibleColumns(getStoredCatalogColumns(store.id));
+  }, [store.id]);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (columnsDetailsRef.current?.open && !columnsDetailsRef.current.contains(e.target as Node)) {
+        columnsDetailsRef.current.removeAttribute('open');
+      }
+    };
+    document.addEventListener('click', handleOutsideClick);
+    return () => document.removeEventListener('click', handleOutsideClick);
+  }, []);
+
+  const handleToggleColumn = (colId: CatalogColumnId) => {
+    setVisibleColumns((prev) => {
+      const checkedCount = Object.values(prev).filter(Boolean).length;
+      if (prev[colId] && checkedCount <= 1) {
+        return prev;
+      }
+      const next = { ...prev, [colId]: !prev[colId] };
+      try {
+        localStorage.setItem(`kiosco_catalog_columns_${store.id}`, JSON.stringify(next));
+      } catch {
+        // storage fallback
+      }
+      return next;
+    });
+  };
+
+  const handleResetColumns = () => {
+    setVisibleColumns({ ...DEFAULT_VISIBLE_COLUMNS });
+    try {
+      localStorage.removeItem(`kiosco_catalog_columns_${store.id}`);
+    } catch {
+      // storage fallback
+    }
+  };
+
+  useEffect(() => {
+    tableScrollRef.current?.scrollTo({ top: 0, behavior: "smooth" });
+  }, [page]);
   const [lowMarginFilter, setLowMarginFilter] = useState(false);
   const editorRef = useRef<HTMLFormElement>(null);
   const editorTrigger = useRef<HTMLButtonElement | null>(null);
@@ -221,9 +345,10 @@ export function CatalogEditor({
   const [formData, setFormData] = useState({
     name: "",
     code: "",
-    categoryId: categories[0]?.id || "",
+    categoryId: defaultProductCategory(categories),
     emoji: "📦",
     price: "",
+    sellable: true,
     cost: "0",
     stock: "0",
     min: "4",
@@ -233,17 +358,22 @@ export function CatalogEditor({
     tags: [] as string[],
     unitType: "unit" as "unit" | "kg" | "lt" | "pack" | "box",
     packSize: '',
-    marginGroup: 'standard' as 'standard' | 'low_margin',
     expiryDate: '',
   });
+  useEffect(() => {
+    const fallback = defaultProductCategory(categories);
+    if (!formData.categoryId && fallback) setFormData(previous => previous.categoryId ? previous : { ...previous, categoryId: fallback });
+  }, [categories, formData.categoryId]);
   const [tagInput, setTagInput] = useState("");
   const latestProductDraft = useRef(formData);
   latestProductDraft.current = formData;
   const saleUnit = { unit: 'unidad', kg: 'kg', lt: 'litro', pack: 'pack', box: 'caja' }[formData.unitType];
+  const editingRecipeCost = editing && hasComposition(editing) ? compositionCost(editing.stock_components!, products) : null;
+  const draftMargin = productMargin(Number(formData.price), editingRecipeCost?.cost ?? Number(formData.cost), store.low_margin_threshold);
   const productOptionsSummary = [
     formData.unitType !== 'unit' ? `Venta por ${saleUnit}` : '',
     Number(formData.packSize) > 1 ? `Bulto de ${formData.packSize}` : '',
-    formData.marginGroup === 'low_margin' ? 'Bajo margen' : '',
+    formData.sellable && draftMargin.group === 'low_margin' ? 'Bajo margen automático' : '',
     formData.brand.trim(),
     formData.supplier.trim(),
   ].filter(Boolean).join(' · ');
@@ -284,18 +414,34 @@ export function CatalogEditor({
   const [bulkProgress, setBulkProgress] = useState(0);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
 
-  const isManager = !role || role === "owner" || role === "admin";
-  const canRestock = isManager || allowRestock;
+  const canEditCatalog = !role || role === "owner" || role === "admin" || permissions.includes('manage_products');
+  const isManager = !role || role === 'owner' || role === 'admin';
+  const can = (action: import('./permissions').Permission) => isManager || permissions.includes(action);
+  const canRestock = canEditCatalog || allowRestock;
+  const canCompose = can('manage_compositions');
+  const canDelete = can('delete_products');
+  const productEditing = canEditCatalog && (adding || !!editing);
+  const [deletionTarget, setDeletionTarget] = useState<Product | null>(null);
+  const [deletionHistoryOpen, setDeletionHistoryOpen] = useState(false);
+  const deletionEditing = canDelete && (!!deletionTarget || deletionHistoryOpen);
+  const catalogSearch = useRef<HTMLInputElement>(null);
+  const closeDeletion = () => {
+    setDeletionTarget(null); setDeletionHistoryOpen(false);
+    requestAnimationFrame(() => {
+      if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus();
+      else if (catalogSearch.current?.getClientRects().length) catalogSearch.current.focus();
+    });
+  };
   const [priceTarget, setPriceTarget] = useState<Product | null>(null);
   const [compositionTarget, setCompositionTarget] = useState<Product | null>(null);
   const [creatingComposition, setCreatingComposition] = useState(false);
   const [newCompositionProduct, setNewCompositionProduct] = useState(false);
-  const compositionEditing = isManager && !!compositionTarget;
+  const compositionEditing = canCompose && !!compositionTarget;
   const closeCompositionEditor = () => {
     setCompositionTarget(null);
     requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); });
   };
-  const priceEditing = !isManager && allowPriceEdit && !!priceTarget;
+  const priceEditing = !canEditCatalog && allowPriceEdit && !!priceTarget;
   const closePriceEditor = () => { setPriceTarget(null); requestAnimationFrame(() => editorTrigger.current?.focus()); };
   const restockRequest = useRef({ signature: '', id: '', at: '' });
 
@@ -313,6 +459,7 @@ export function CatalogEditor({
 
   const bulkMatchedProducts = useMemo(() => {
     return products.filter((p) => {
+      if (p.sellable === false) return false;
       if (bulkFilterCategory && p.categoryId !== bulkFilterCategory) return false;
       if (
         bulkFilterBrand.trim() &&
@@ -460,6 +607,7 @@ export function CatalogEditor({
       code: string;
       name: string;
       price: number;
+      sellable: boolean;
       cost: number;
       stock: number;
       minStock: number;
@@ -488,9 +636,10 @@ export function CatalogEditor({
     setFormData({
       name: "",
       code: "",
-      categoryId: categories[0]?.id || "",
+      categoryId: defaultProductCategory(categories),
       emoji: "📦",
       price: "",
+      sellable: true,
       cost: "0",
       stock: "0",
       min: "4",
@@ -500,7 +649,6 @@ export function CatalogEditor({
       tags: [],
       unitType: "unit",
       packSize: '',
-      marginGroup: 'standard',
       expiryDate: '',
     });
   };
@@ -521,6 +669,7 @@ export function CatalogEditor({
       categoryId: p.categoryId,
       emoji: p.emoji || "📦",
       price: String(p.price),
+      sellable: p.sellable !== false,
       cost: String(p.cost || 0),
       stock: String(p.stock),
       min: String(p.minStock),
@@ -530,7 +679,6 @@ export function CatalogEditor({
       tags: p.tags ? [...p.tags] : [],
       unitType: (p.unitType as "unit" | "kg" | "lt" | "pack" | "box") || "unit",
       packSize: p.pack_size == null ? '' : String(p.pack_size),
-      marginGroup: p.margin_group ?? 'standard',
       expiryDate: p.expiry_date || '',
     });
   };
@@ -586,7 +734,7 @@ export function CatalogEditor({
 
     const newStock = replenishTarget.stock + replenishmentUnits;
     const numCost = parseFloat(replenishCost);
-    const validCost = isManager && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
+    const validCost = canEditCatalog && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
     const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null]);
     if (restockRequest.current.signature !== signature) restockRequest.current = { signature, id: randomUUID(), at: new Date().toISOString() };
 
@@ -964,7 +1112,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
   // Optional price review, requested by the user rather than by leaving an input.
   const reviewProductPrice = async () => {
     const priceNum = parseFloat(formData.price);
-    const costNum = parseFloat(formData.cost);
+    const costNum = editingRecipeCost?.cost ?? parseFloat(formData.cost);
 
     // Solo si tiene cost cargado (> 0) y price válido (> 0)
     if (isNaN(priceNum) || priceNum <= 0 || isNaN(costNum) || costNum <= 0) {
@@ -993,7 +1141,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
 
     try {
       const categoryName =
-        categories.find((c) => c.id === formData.categoryId)?.name || "General";
+        categories.find((c) => c.id === formData.categoryId)?.name || "Varios";
 
       const payload = {
         productName: formData.name.trim() || "Producto",
@@ -1057,18 +1205,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     } else if (field === "emoji" && suggestion.emoji) {
       setFormData((prev) => ({ ...prev, emoji: suggestion.emoji }));
     } else if (field === "category" && suggestion.category) {
-      const matched =
-        categories.find(
-          (c) => c.name.toLowerCase() === suggestion.category.toLowerCase(),
-        ) ||
-        categories.find(
-          (c) =>
-            c.name.toLowerCase().includes(suggestion.category.toLowerCase()) ||
-            suggestion.category.toLowerCase().includes(c.name.toLowerCase()),
-        );
-      if (matched) {
-        setFormData((prev) => ({ ...prev, categoryId: matched.id }));
-      }
+      setFormData((prev) => ({ ...prev, categoryId: resolveProductCategory(categories, suggestion.category, suggestion.name || prev.name) }));
     } else if (field === "brand" && suggestion.brand) {
       setFormData((prev) => ({ ...prev, brand: suggestion.brand || prev.brand }));
     } else if (field === "supplier" && suggestion.supplier) {
@@ -1097,15 +1234,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
         setFormData((prev) => ({ ...prev, cost: String(numCost) }));
       }
     } else if (field === "all") {
-      const matched =
-        categories.find(
-          (c) => c.name.toLowerCase() === suggestion.category.toLowerCase(),
-        ) ||
-        categories.find(
-          (c) =>
-            c.name.toLowerCase().includes(suggestion.category.toLowerCase()) ||
-            suggestion.category.toLowerCase().includes(c.name.toLowerCase()),
-        );
+      const categoryId = resolveProductCategory(categories, suggestion.category, suggestion.name || formData.name);
       const numPrice = cleanSuggestionNumber(suggestion.estimatedPrice);
       const numCost = cleanSuggestionNumber(suggestion.estimatedCost);
       const mergedTags = suggestion.tags
@@ -1116,7 +1245,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
         ...prev,
         name: suggestion.name || prev.name,
         emoji: suggestion.emoji || prev.emoji,
-        categoryId: matched ? matched.id : prev.categoryId,
+        categoryId,
         price: numPrice ? String(numPrice) : prev.price,
         cost: numCost ? String(numCost) : prev.cost,
         brand: suggestion.brand || prev.brand,
@@ -1133,6 +1262,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     code: string;
     name: string;
     price: number;
+    sellable: boolean;
     cost: number;
     stock: number;
     minStock: number;
@@ -1172,7 +1302,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
 
       if (!editing && isNumericEan && !isInternalCode) {
         const categoryName =
-          categories.find((c) => c.id === productToSave.categoryId)?.name || "";
+          categories.find((c) => c.id === productToSave.categoryId)?.canonicalName || categories.find((c) => c.id === productToSave.categoryId)?.name || "Varios";
         void retail.contributeCatalog(
           cleanCode,
           productToSave.name,
@@ -1202,7 +1332,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       code: formData.code.trim(),
       name: formData.name.trim(),
       price: Number(formData.price),
-      cost: Number(formData.cost),
+      sellable: formData.sellable,
+      cost: editingRecipeCost?.cost ?? (creatingComposition ? 0 : Number(formData.cost)),
       stock: creatingComposition ? 0 : Number(formData.stock),
       minStock: Number(formData.min),
       emoji: formData.emoji.trim() || "📦",
@@ -1213,7 +1344,6 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       tags: formData.tags,
       unitType: formData.unitType,
       pack_size: formData.packSize.trim() ? Number(formData.packSize) : null,
-      margin_group: formData.marginGroup,
       expiry_date: formData.expiryDate ? formData.expiryDate : null,
     };
 
@@ -1354,7 +1484,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
   }, [currentPage, totalPages]);
   return (
     <div className="retail-panel" ref={panelRef}>
-      <div className="section-heading" hidden={!guided && (adding || !!editing || priceEditing || compositionEditing)}>
+      <div className="section-heading" hidden={!guided && (productEditing || priceEditing || compositionEditing || deletionEditing)}>
         <div>
           <h2>{guided ? 'Tus productos' : 'Productos e inventario'}</h2>
           <p>
@@ -1364,7 +1494,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
         <div className="catalog-actions-row">
           {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={() => setIsCsvModalOpen(true)}>Importar desde CSV / Excel</button>}
-          {!guided && isManager && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
+          {!guided && (canEditCatalog || canRestock || can('edit_prices')) && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
           <button
             type="button"
             className="secondary-button"
@@ -1380,12 +1510,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             className="secondary-button"
             disabled={busy || !categories.length}
             onClick={() => setIsCsvModalOpen(true)}
+            hidden={!canRestock}
             title="Cargar stock masivo desde archivo CSV / Excel"
           >
             <FileSpreadsheet size={16} />
             <span>Carga masiva (CSV)</span>
           </button>
-          {isManager && (
+          {can('edit_prices') && (
             <button
               type="button"
               className="secondary-button"
@@ -1396,7 +1527,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <Coins size={16} /> Ajustar precios
             </button>
           )}
-          {isManager && (
+          {canEditCatalog && (
             <button
               type="button"
               className="secondary-button"
@@ -1409,13 +1540,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </button>
           )}
           </div></details>}
-          {!guided && isManager && <button type="button" className="secondary-button" disabled={busy || !categories.length}
+          {!guided && canEditCatalog && canCompose && <button type="button" className="secondary-button" disabled={busy || !categories.length}
             onClick={event => { editorTrigger.current = event.currentTarget; startAdd(true); }}>Crear combo o paquete</button>}
           <button
             type="button"
             className="primary-button"
             disabled={busy || !categories.length}
-            hidden={!isManager || adding || !!editing}
+            hidden={!canEditCatalog || adding || !!editing}
             onClick={event => { editorTrigger.current = event.currentTarget; startAdd(); }}
           >
             + Agregar producto
@@ -1423,9 +1554,11 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
       </div>
 
-      {priceEditing && priceTarget && <ProductPriceEditor key={priceTarget.id} storeId={store.id} product={priceTarget} busy={busy} run={run} active={active} onClose={closePriceEditor} />}
+      {priceEditing && priceTarget && <ProductPriceEditor key={priceTarget.id} storeId={store.id} product={priceTarget} threshold={store.low_margin_threshold} busy={busy} run={run} active={active} onClose={closePriceEditor} />}
+      {canDelete && deletionTarget && <ProductDeletionEditor key={deletionTarget.id} storeId={store.id} product={deletionTarget} busy={busy} run={run} active={active} onClose={closeDeletion} />}
+      {canDelete && deletionHistoryOpen && <DeletedProducts storeId={store.id} busy={busy} run={run} active={active} onClose={closeDeletion} />}
       {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} product={compositionTarget} products={products} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} />}
-      {isManager && (adding || editing) && (
+      {canEditCatalog && (adding || editing) && (
         <form
           key={editing?.id || "new"}
           ref={editorRef}
@@ -1458,7 +1591,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           }}
         >
           <h3>{editing ? `Editar ${editing.name}` : creatingComposition ? 'Nuevo combo o paquete' : 'Nuevo producto'}</h3>
-          <p className="product-editor-intro">{creatingComposition ? 'Guardá sus datos y precio. Después elegís los componentes, por ejemplo pan + salchicha o 20 cigarrillos sueltos. El stock se calcula con esas existencias.' : 'Completá los datos del producto y guardá los cambios. Los demás atributos están en Más opciones.'}</p>
+          <p className="product-editor-intro">{creatingComposition ? 'Guardá nombre, código y precio. Después elegís los componentes: el stock y el costo se calculan con ellos.' : 'Completá los datos del producto y guardá los cambios. Los demás atributos están en Más opciones.'}</p>
 
           {/* Feature A: Suggestion loading state */}
           {isSuggesting && (
@@ -1685,15 +1818,24 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 placeholder="Escaneá o ingresá el código EAN"
               />
             </label>
-            <label className="retail-price-field">
+            {!creatingComposition && <label>
+              Uso del producto
+              <select value={formData.sellable ? 'sale' : 'ingredient'} onChange={e => setFormData(prev => ({ ...prev, sellable: e.target.value === 'sale' }))}>
+                <option value="sale">Para vender</option>
+                <option value="ingredient">Solo insumo</option>
+              </select>
+              {!formData.sellable && <small>Se repone y se usa en combos. No aparece en Vender ni necesita precio de venta.</small>}
+            </label>}
+            <label className="retail-price-field" hidden={!formData.sellable}>
               Precio de venta por {saleUnit} ($)
               <input
                 name="price"
+                disabled={!formData.sellable}
                 type="number"
                 min="0.01"
                 max="9999999999"
                 step="0.01"
-                required
+                required={formData.sellable}
                 value={formData.price}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, price: e.target.value }))
@@ -1768,17 +1910,21 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               Costo por {saleUnit} ($)
               <input
                 name="cost"
+                disabled={creatingComposition || (!!editing && hasComposition(editing))}
                 type="number"
                 min="0"
                 step="0.01"
                 required
-                value={formData.cost}
+                value={editingRecipeCost?.cost ?? (creatingComposition ? '' : formData.cost)}
                 onChange={(e) =>
                   setFormData((prev) => ({ ...prev, cost: e.target.value }))
                 }
                 placeholder="0.00"
               />
+              {(creatingComposition || (editing && hasComposition(editing))) && <small>Se calcula sumando el costo de los componentes. Para cambiarlo, editá el costo de los insumos.</small>}
+              {!!editingRecipeCost?.missing.length && <small role="status">Falta cargar el costo de: {editingRecipeCost.missing.join(', ')}.</small>}
             </label>
+            {formData.sellable && !creatingComposition && <ProductMarginStatus price={Number(formData.price)} cost={editingRecipeCost?.cost ?? Number(formData.cost)} threshold={store.low_margin_threshold} />}
             <label>
               Fecha de vencimiento (opcional)
               <input
@@ -1813,7 +1959,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             <button type="button" className="text-button" disabled={busy || isSuggesting || (formData.name.trim().length < 2 && !formData.code.trim())} onClick={() => void suggestProductDetails()}>
               <Sparkles size={14} aria-hidden="true" /> Sugerir datos
             </button>
-            <button type="button" className="text-button" disabled={busy || isCheckingPrice} onClick={() => void reviewProductPrice()}>
+            <button type="button" className="text-button" disabled={busy || isCheckingPrice || !formData.sellable || creatingComposition} onClick={() => void reviewProductPrice()}>
               Revisar precio
             </button>
             <button type="button" className="text-button" disabled={busy || isCheckingAnomalies} onClick={e => { if (editorRef.current?.reportValidity()) void handleSubmit(e, true); }}>
@@ -1980,13 +2126,6 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               Unidades por bulto/pack
               <input name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onChange={e => setFormData(prev => ({ ...prev, packSize: e.target.value }))} />
               <small>El precio, el costo y el stock se expresan por {saleUnit}. El bulto se usa para convertir cantidades al reponer.</small>
-            </label>
-            <label>Grupo de margen
-              <select name="margin_group" value={formData.marginGroup} onChange={e => setFormData(prev => ({ ...prev, marginGroup: e.target.value as 'standard' | 'low_margin' }))}>
-                <option value="standard">Estándar</option>
-                <option value="low_margin">Bajo margen (Cigarrillos, Cargas, etc.)</option>
-              </select>
-              <small>Separa estos productos del análisis principal de rentabilidad.</small>
             </label>
             <label>
               Avisar cuando queden
@@ -2183,17 +2322,18 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   {replenishByPack && <small aria-live="polite">= {replenishmentUnits.toLocaleString('es-AR')} unidades individuales</small>}
                 </label>
                 <label>
-                  Nuevo costo unitario ($) <small>{isManager ? '(opcional)' : '(reservado a administración)'}</small>
+                  Nuevo costo unitario ($) <small>{canEditCatalog ? '(opcional)' : '(reservado a administración)'}</small>
                   <input
                     type="number"
                     min="0"
                     step="0.01"
                     value={replenishCost}
-                    disabled={!isManager}
+                    disabled={!canEditCatalog}
                     onChange={(e) => setReplenishCost(e.target.value)}
                     placeholder="0.00"
                   />
                 </label>
+                <ProductMarginStatus price={replenishTarget.price} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />
               </div>
 
               <div className="replenish-input-grid">
@@ -3045,96 +3185,244 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         />
       )}
 
-      <div className="catalog-list" hidden={guided || adding || !!editing || priceEditing || compositionEditing}>
-      <div className="catalog-search-toolbar"><label className="filter-label">
-        Buscar productos
-        <input
-          value={query}
-          onChange={(e) => { setQuery(e.target.value); setPage(1); }}
-          placeholder="Nombre, código o categoría"
-        />
-      </label>
-      <button className="secondary-button" aria-pressed={stockFilter} onClick={() => { setStockFilter(!stockFilter); setPage(1); }}><Filter size={16} />{stockFilter ? 'Mostrando stock bajo' : 'Ver stock bajo'}</button>
-      <button className="secondary-button" aria-pressed={lowMarginFilter} onClick={() => { setLowMarginFilter(!lowMarginFilter); setPage(1); }}><Filter size={16} />{lowMarginFilter ? 'Mostrando bajo margen' : 'Ver solo bajo margen'}</button>
-      <span className="result-count" role="status">{filtered.length} productos</span></div>
-      <div className="table-scroll">
+      <div className="catalog-list" hidden={guided || productEditing || priceEditing || compositionEditing || deletionEditing}>
+      <div className="catalog-search-toolbar">
+        <label className="filter-label catalog-search-input-wrap">
+          <Search size={15} className="catalog-search-icon" aria-hidden="true" />
+          <input
+            ref={catalogSearch}
+            value={query}
+            onChange={(e) => { setQuery(e.target.value); setPage(1); }}
+            placeholder="Buscar por nombre, código o categoría…"
+            aria-label="Buscar productos por nombre, código o categoría"
+          />
+        </label>
+        <button className="secondary-button" aria-pressed={stockFilter} onClick={() => { setStockFilter(!stockFilter); setPage(1); }}><Filter size={15} />{stockFilter ? 'Mostrando stock bajo' : 'Stock bajo'}</button>
+        <button className="secondary-button" aria-pressed={lowMarginFilter} onClick={() => { setLowMarginFilter(!lowMarginFilter); setPage(1); }}><Filter size={15} />{lowMarginFilter ? 'Mostrando bajo margen' : 'Bajo margen'}</button>
+        {canDelete && <button type="button" className="secondary-button" disabled={busy} title="Ver productos eliminados" onClick={event => { editorTrigger.current = event.currentTarget; setDeletionHistoryOpen(true); }}><Trash2 size={13} aria-hidden="true" /><span>Eliminados</span></button>}
+        <details className="catalog-columns-picker" ref={columnsDetailsRef}>
+          <summary className="secondary-button" title="Configurar columnas visibles en la tabla">
+            <SlidersHorizontal size={14} aria-hidden="true" />
+            <span>Columnas</span>
+          </summary>
+          <div className="catalog-columns-dropdown" role="menu">
+            <div className="catalog-columns-dropdown-header">
+              <span>Columnas visibles</span>
+              <button
+                type="button"
+                className="text-button-subtle"
+                onClick={handleResetColumns}
+                title="Restablecer columnas por defecto"
+              >
+                <RotateCcw size={11} aria-hidden="true" />
+                <span>Restablecer</span>
+              </button>
+            </div>
+            <div className="catalog-columns-list">
+              {CATALOG_COLUMNS.map((col) => (
+                <label key={col.id} className="catalog-column-option">
+                  <input
+                    type="checkbox"
+                    checked={!!visibleColumns[col.id]}
+                    onChange={() => handleToggleColumn(col.id)}
+                  />
+                  <span>{col.label}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        </details>
+        <span className="result-count" role="status">{filtered.length} productos</span>
+      </div>
+      <div className="table-scroll catalog-table-scroll" ref={tableScrollRef}>
         <table>
           <thead>
             <tr>
-              <th>Producto</th>
-              <th>Categoría</th>
-              <th>Precio</th>
-              <th>Stock</th>
-              <th>Acciones</th>
+              {visibleColumns.product && <th className="th-product">Producto</th>}
+              {visibleColumns.code && <th className="th-code">Código</th>}
+              {visibleColumns.category && <th className="th-category">Categoría</th>}
+              {visibleColumns.brand && <th className="th-brand">Marca</th>}
+              {visibleColumns.supplier && <th className="th-supplier">Proveedor</th>}
+              {visibleColumns.cost && <th className="th-cost">Costo</th>}
+              {visibleColumns.price && <th className="th-price">Precio</th>}
+              {visibleColumns.margin && <th className="th-margin">% Rentabilidad</th>}
+              {visibleColumns.stock && <th className="th-stock">Stock</th>}
+              {visibleColumns.minStock && <th className="th-minstock">Stock mín.</th>}
+              {visibleColumns.expiry && <th className="th-expiry">Vencimiento</th>}
+              <th className="th-actions">Acciones</th>
             </tr>
           </thead>
           <tbody>
-            {paginatedProducts.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <strong>
-                    {p.emoji} {p.name}
-                  </strong>
-                  <small>{p.code}</small>
-                  {unitsPerPack(p.pack_size) > 1 && <small className="pack-size-badge">Pack ×{p.pack_size}</small>}
-                  {hasComposition(p) && <small>Stock compartido por componentes</small>}
-                  {p.margin_group === 'low_margin' && <small className="low-margin-badge">↓ Margen bajo</small>}
-                </td>
-                <td data-label="Categoría">{p.category}</td>
-                <td data-label="Precio">${p.price.toLocaleString("es-AR")}</td>
-                <td data-label="Stock">
-                  <span className={p.stock <= p.minStock ? "stock-low" : ""}>
-                    {p.stock} {p.stock <= p.minStock && (hasComposition(p) ? '· Revisar componentes' : '· Reponer')}
-                  </span>
-                </td>
-                <td>
+            {paginatedProducts.map((p) => {
+              const effectiveCost = hasComposition(p)
+                ? (compositionCost(p.stock_components || [], products).cost || undefined)
+                : p.cost;
+              const marginData = productMargin(p.price, effectiveCost, store.low_margin_threshold);
+              return (
+                <tr key={p.id}>
+                  {visibleColumns.product && (
+                    <td className="product-col">
+                      <div className="product-title-wrap">
+                        <span className="product-emoji" aria-hidden="true">{p.emoji || "📦"}</span>
+                        <strong className="product-name-text">{p.name}</strong>
+                      </div>
+                      <div className="product-meta-row">
+                        {!visibleColumns.code && <small className="product-code">{p.code}</small>}
+                        {unitsPerPack(p.pack_size) > 1 && <small className="pack-size-badge">Pack ×{p.pack_size}</small>}
+                        {hasComposition(p) && <small className="pack-size-badge">Stock compartido</small>}
+                        {p.sellable === false && <small className="pack-size-badge">Solo insumo</small>}
+                        {p.margin_group === 'low_margin' && <small className="low-margin-badge">↓ Margen bajo</small>}
+                      </div>
+                    </td>
+                  )}
+                  {visibleColumns.code && (
+                    <td data-label="Código" className="code-col">
+                      <code className="code-badge">{p.code || '—'}</code>
+                    </td>
+                  )}
+                  {visibleColumns.category && (
+                    <td data-label="Categoría" className="category-col">{p.category}</td>
+                  )}
+                  {visibleColumns.brand && (
+                    <td data-label="Marca" className="brand-col">
+                      {p.brand ? p.brand : <span className="text-muted">—</span>}
+                    </td>
+                  )}
+                  {visibleColumns.supplier && (
+                    <td data-label="Proveedor" className="supplier-col">
+                      {p.supplier ? (
+                        <span title={p.supplierCode ? `Cód. Prov: ${p.supplierCode}` : undefined}>
+                          {p.supplier}
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                  )}
+                  {visibleColumns.cost && (
+                    <td data-label="Costo" className="cost-col">
+                      {typeof effectiveCost === 'number' && effectiveCost > 0 ? (
+                        `$${effectiveCost.toLocaleString("es-AR")}`
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                  )}
+                  {visibleColumns.price && (
+                    <td data-label="Precio" className="price-col">
+                      {p.sellable === false ? 'Solo insumo' : `$${p.price.toLocaleString("es-AR")}`}
+                    </td>
+                  )}
+                  {visibleColumns.margin && (
+                    <td data-label="% Rentabilidad" className="margin-col">
+                      {marginData.percent !== null ? (
+                        <span
+                          className={`margin-badge ${
+                            marginData.belowCost
+                              ? 'margin-badge-loss'
+                              : marginData.group === 'low_margin'
+                              ? 'margin-badge-warning'
+                              : 'margin-badge-good'
+                          }`}
+                          title={
+                            marginData.belowCost
+                              ? 'Venta bajo costo'
+                              : marginData.group === 'low_margin'
+                              ? 'Margen inferior al umbral configurado'
+                              : 'Rentabilidad bruta'
+                          }
+                        >
+                          {marginData.percent > 0 ? '+' : ''}{Math.round(marginData.percent)}%
+                        </span>
+                      ) : (
+                        <span className="text-muted">—</span>
+                      )}
+                    </td>
+                  )}
+                  {visibleColumns.stock && (
+                    <td data-label="Stock" className="stock-col">
+                      <span className={p.stock <= p.minStock ? "stock-low" : "stock-pill"}>
+                        {p.stock} {p.stock <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
+                      </span>
+                    </td>
+                  )}
+                  {visibleColumns.minStock && (
+                    <td data-label="Stock mín." className="minstock-col">
+                      {typeof p.minStock === 'number' ? p.minStock : '—'}
+                    </td>
+                  )}
+                  {visibleColumns.expiry && (
+                    <td data-label="Vencimiento" className="expiry-col">
+                      {p.expiry_date ? p.expiry_date : <span className="text-muted">—</span>}
+                    </td>
+                  )}
+                <td className="actions-col">
                   <div className="button-row">
                     <button
-                      className="secondary-button"
+                      type="button"
+                      className="action-icon-btn action-btn-replenish"
                       disabled={busy}
                       onClick={() => startReplenish(p)}
                       hidden={!canRestock || hasComposition(p)}
-                      aria-label={`Reponer ${p.name}`}
-                      title="Reponer stock de este producto"
+                      aria-label={`Reponer stock de ${p.name}`}
+                      title="Reponer stock"
                     >
-                      + Reponer
+                      <PackagePlus size={15} aria-hidden="true" />
                     </button>
                     <button
-                      className="secondary-button"
+                      type="button"
+                      className="action-icon-btn action-btn-edit"
                       disabled={busy}
                       onClick={event => { editorTrigger.current = event.currentTarget; startEdit(p); }}
-                      hidden={!isManager}
+                      hidden={!canEditCatalog}
                       aria-label={`Editar ${p.name}`}
+                      title="Editar producto"
                     >
-                      Editar
+                      <Pencil size={14} aria-hidden="true" />
                     </button>
-                    {isManager && <button type="button" className="secondary-button" disabled={busy} aria-label={`Combo / sueltos de ${p.name}: configurar componentes`} onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositionProduct(false); setCompositionTarget(p); }}>Combo / sueltos</button>}
-                    {!isManager && allowPriceEdit && <button type="button" className="secondary-button" disabled={busy} onClick={event => { editorTrigger.current = event.currentTarget; setPriceTarget(p); }}>Editar precio</button>}
+                    {canCompose && (
+                      <button
+                        type="button"
+                        className="action-icon-btn action-btn-combo"
+                        disabled={busy}
+                        aria-label={`Combo / sueltos de ${p.name}: configurar componentes`}
+                        title="Configurar combo o componentes sueltos"
+                        onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositionProduct(false); setCompositionTarget(p); }}
+                      >
+                        <Layers size={14} aria-hidden="true" />
+                      </button>
+                    )}
+                    {!canEditCatalog && allowPriceEdit && p.sellable !== false && (
+                      <button
+                        type="button"
+                        className="action-icon-btn action-btn-price"
+                        disabled={busy}
+                        onClick={event => { editorTrigger.current = event.currentTarget; setPriceTarget(p); }}
+                        title="Editar precio"
+                        aria-label={`Editar precio de ${p.name}`}
+                      >
+                        <DollarSign size={14} aria-hidden="true" />
+                      </button>
+                    )}
                     <button
-                      className="text-button danger-text"
-                      hidden={!isManager}
+                      type="button"
+                      className="action-icon-btn action-btn-delete"
+                      hidden={!canDelete}
                       disabled={busy}
-                      onClick={() => {
-                        if (
-                          window.confirm(
-                            `¿Archivar ${p.name}? Las ventas anteriores se conservan.`,
-                          )
-                        )
-                          void run(
-                            () => retail.archiveProduct(store.id, p.id),
-                            "Producto archivado",
-                          );
-                      }}
+                      aria-label={`Eliminar ${p.name} del catálogo`}
+                      title="Eliminar producto"
+                      onClick={event => { editorTrigger.current = event.currentTarget; setDeletionTarget(p); }}
                     >
-                      Archivar
+                      <Trash2 size={14} aria-hidden="true" />
                     </button>
                   </div>
                 </td>
               </tr>
-            ))}
+            );
+          })}
             {!filtered.length && (
               <tr>
-                <td colSpan={5} className="table-empty">
+                <td colSpan={CATALOG_COLUMNS.filter(c => visibleColumns[c.id]).length + 1} className="table-empty">
                   {products.length
                     ? "No hay coincidencias."
                     : "Agregá tu primer producto para empezar a vender."}
@@ -3188,7 +3476,6 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 aria-label="Página anterior"
               >
                 <ChevronLeft size={15} />
-                <span>Anterior</span>
               </button>
 
               <div className="pagination-pages">
@@ -3220,7 +3507,6 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 title="Página siguiente"
                 aria-label="Página siguiente"
               >
-                <span>Siguiente</span>
                 <ChevronRight size={15} />
               </button>
               <button
@@ -3238,10 +3524,10 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
       )}
       </div>
-      <div hidden={guided || adding || !!editing || priceEditing || compositionEditing}>
-      {!guided && isManager && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
+      <div hidden={guided || productEditing || priceEditing || compositionEditing || deletionEditing}>
+      {!guided && can('review_remitos') && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
       {/* AI Critical Stock Replenishment Card */}
-      {!guided && isManager && criticalProducts.length > 0 && (
+      {!guided && can('use_ai') && criticalProducts.length > 0 && (
         <section
           className="stock-ai-card"
           aria-label="Análisis de stock con IA"
@@ -3367,38 +3653,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
     </div>
   );
 }
-function RenameRow({
-  name,
-  onSave,
-  busy,
-}: {
-  name: string;
-  onSave: (name: string) => Promise<boolean>;
-  busy: boolean;
-}) {
-  const [value, setValue] = useState(name);
-  return (
-    <form
-      className="inline-form"
-      onSubmit={(e) => {
-        e.preventDefault();
-        void onSave(value);
-      }}
-    >
-      <input
-        aria-label={`Nombre de ${name}`}
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        required
-        maxLength={80}
-      />
-      <button className="secondary-button" disabled={busy || value === name}>
-        Guardar
-      </button>
-    </form>
-  );
-}
-function RegistersSettings({
+export function RegistersSettings({
   storeId,
   registers,
   branches,
@@ -3680,7 +3935,7 @@ function RegistersSettings({
   );
 }
 
-function StoreGeneralSettingsForm({
+export function StoreGeneralSettingsForm({
   store,
   busy,
   run,
@@ -3703,7 +3958,7 @@ function StoreGeneralSettingsForm({
     setMessage(store.receipt_message || '');
     setColor(store.accent_color || '#2563eb');
     setIsDirty(false);
-  }, [store]);
+  }, [store.id, store.name, store.address, store.phone, store.receipt_message, store.accent_color]);
 
   const handleReset = () => {
     setName(store.name);
@@ -4109,7 +4364,7 @@ export function StoreSettings({
   }, [registers]);
   if (role !== 'owner' && role !== 'admin') return null;
   return (
-    <SettingsEditorGroup><div className="settings-workspace settings-workspace-compact">
+    <SettingsEditorGroup><div className="settings-workspace settings-workspace-compact settings-workspace-sober">
       <SectionNav name="settings" label="Secciones de Mi comercio" value={primaryView} onChange={setView} disabled={busy}
         sections={[
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
@@ -4346,7 +4601,7 @@ export function StoreSettings({
               </div>
             </div>
 
-            {/* Columna Derecha: Categorías propias */}
+            {/* Categorías de consulta: provistas por la base de datos. */}
             <div className="more-settings-column">
               <div className="store-settings-card">
               <div className="store-settings-header">
@@ -4354,8 +4609,8 @@ export function StoreSettings({
                   <FolderTree size={22} />
                 </div>
                 <div className="store-settings-header-text">
-                  <h3>Categorías propias</h3>
-                  <p>Organizá el catálogo de productos según los rubros y actividades de tu comercio.</p>
+                  <h3>Categorías de productos</h3>
+                  <p>Vienen incluidas. Podés personalizar sus nombres para tu comercio.</p>
                 </div>
               </div>
 
@@ -4370,84 +4625,23 @@ export function StoreSettings({
                   {categories.length === 0 ? (
                     <div className="location-empty-notice">
                       <Tag size={24} />
-                      <p>No tenés categorías propias. Creá la primera categoría para organizar tus productos.</p>
+                      <p>No se cargaron las categorías. Actualizá los datos y verificá la migración de categorías estándar.</p>
                     </div>
                   ) : (
                     categories.map((c) => (
                       <div key={c.id} className="category-item-card">
-                        <SettingsEditor
-                          label={`Editar ${c.name}`}
-                          summary={
-                            <div className="category-summary-row">
-                              <span className="category-pill-icon"><Tag size={13} /></span>
-                              <strong>{c.name}</strong>
-                            </div>
-                          }
-                          busy={busy}
-                        >
-                          {(close) => (
-                            <RenameRow
-                              name={c.name}
-                              busy={busy}
-                              onSave={async (name) => {
-                                const saved = await run(
-                                  () => retail.renameCategory(store.id, c.id, name),
-                                  'Categoría actualizada',
-                                );
-                                if (saved) close();
-                                return saved;
-                              }}
-                            />
-                          )}
+                        <SettingsEditor label="Cambiar nombre" busy={busy} summary={<div className="category-summary-row">
+                          <span className="category-pill-icon"><Tag size={13} /></span>
+                          <strong>{c.name}</strong>
+                          {c.canonicalName && c.canonicalName !== c.name && <small>{c.canonicalName}</small>}
+                        </div>}>
+                          {close => <CategoryLabelEditor storeId={store.id} category={c} busy={busy} run={run} close={close} />}
                         </SettingsEditor>
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="location-add-section">
-                  <div className="location-add-header">
-                    <div className="location-add-title">
-                      <Plus size={16} />
-                      <span>Nueva categoría</span>
-                    </div>
-                  </div>
-
-                  <form
-                    className="location-add-form"
-                    onSubmit={async (e) => {
-                      e.preventDefault();
-                      const form = e.currentTarget;
-                      const name = String(new FormData(form).get('name')).trim();
-                      if (!name) return;
-                      const ok = await run(
-                        () => retail.addCategory(store.id, name),
-                        'Categoría agregada',
-                      );
-                      if (ok) form.reset();
-                    }}
-                  >
-                    <div className="store-field-group">
-                      <label className="store-field-label" htmlFor="new-category-name">
-                        Nombre de la categoría
-                      </label>
-                      <div className="category-add-row">
-                        <input
-                          id="new-category-name"
-                          name="name"
-                          aria-label="Nueva categoría"
-                          placeholder="Ej. Panadería, Bebidas, Golosinas"
-                          required
-                          maxLength={80}
-                          className="store-text-input"
-                        />
-                        <button className="primary-button" disabled={busy}>
-                          <Plus size={15} /> Agregar
-                        </button>
-                      </div>
-                    </div>
-                  </form>
-                </div>
               </div>
             </div>
           </div>
@@ -4479,6 +4673,7 @@ export function StoreSettings({
       </div>
       <div className="settings-data settings-data-wide" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
         <StoreGeneralSettingsForm store={store} busy={busy} run={run} />
+        <MarginThresholdSettings key={store.id} store={store} busy={busy} run={run} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
         <div className="locations-settings-container">
@@ -4520,7 +4715,7 @@ export function StoreSettings({
                 </div>
 
                 {/* Alta de nueva persona */}
-                {role === 'owner' ? (
+                {(role === 'owner' || role === 'admin') ? (
                   <div className="team-add-member-wrapper">
                     <SettingsEditor
                       label="Agregar persona"
@@ -4533,6 +4728,7 @@ export function StoreSettings({
                             run={run}
                             busy={busy}
                             profiles={staffProfiles.profiles}
+                            allowAdmin={role === 'owner'}
                           />
                         </div>
                       )}
@@ -4822,6 +5018,7 @@ export function StoreSettings({
                     onSaved={staffProfiles.reload}
                   />
                 )}
+                <button type="button" className="text-button" disabled={busy || staffProfiles.loading} onClick={staffProfiles.reload}>Actualizar perfiles</button>
               </div>
             </div>
           </div>

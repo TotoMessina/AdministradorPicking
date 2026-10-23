@@ -260,6 +260,7 @@ export function PosTab({
   }, [active]);
   const add = (p: KioscoProduct) => {
     if (busy || isLoading || !active) return;
+    if (p.sellable === false) { notify('warning', 'Este producto es solo un insumo. Elegí el combo para venderlo.'); return; }
     const existing = cart.find((i) => i.product.id === p.id);
     if (p.code !== "MANUAL" && (existing?.qty || 0) >= availableForCart(p, cart, products)) {
       notify("warning", "No alcanza el stock compartido para agregar otra unidad. Revisá los productos y combos del carrito.");
@@ -303,14 +304,14 @@ export function PosTab({
     if (!qTrim) return [];
     const qNorm = normalize(qTrim);
     return products.filter(
-      (p) => p.code.includes(qTrim) || normalize(p.name).includes(qNorm)
+      (p) => p.sellable !== false && (p.code.includes(qTrim) || normalize(p.name).includes(qNorm))
     );
   }, [products, query]);
   const search = (e: React.FormEvent) => {
     e.preventDefault();
     const qTrim = query.trim();
     if (!qTrim) return;
-    const exact = products.find((p) => p.code === qTrim);
+    const exact = products.find((p) => p.sellable !== false && p.code === qTrim);
     const match = exact || (searchMatches.length === 1 ? searchMatches[0] : undefined);
     if (match) {
       add(match);

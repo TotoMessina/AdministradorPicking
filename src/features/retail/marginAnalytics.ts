@@ -57,7 +57,7 @@ export function summarizeMargins(sales: KioscoSale[], products: KioscoProduct[])
 }
 
 export function marginPrompt(summary: MarginSummary): string {
-  return `Analizá el margen real del negocio excluyendo del cálculo principal los rubros de bajo margen (cigarrillos, cargas y similares) que pueden inflar la facturación. No supongas un porcentaje fijo ni costos faltantes.
+  return `Analizá el margen real del negocio usando la separación por renglón recibida entre standard y low_margin, respetando el grupo histórico cuando existe. Los productos actuales se clasifican automáticamente según costo, precio base y límite del comercio; no deduzcas el grupo por su rubro ni supongas un porcentaje fijo o costos faltantes. Si legacyItems es mayor a cero, hay líneas sin clasificación histórica guardada: no presentes su agrupación como verificable al momento de la venta.
 Separación calculada por renglón, independiente del registro de ventas: ${JSON.stringify(summary)}.
 La facturación, ticket promedio, ranking y margen principales son del grupo standard. Un ticket mixto cuenta una vez en cada grupo; no sumes sus contadores como si fueran tickets distintos. La contribución del bajo margen es su ganancia bruta dividida por la ganancia bruta total, no su margen sobre ventas.
 Si profit o marginPercent son null, faltan costos: informá que no se puede determinar la rentabilidad, sin asumir costo cero. El margen observado del rubro bajo margen es ${summary.lowMargin.marginPercent === null ? 'no disponible por costos faltantes' : `${summary.lowMargin.marginPercent.toFixed(2)}%`}. Ganancia bruta no es ganancia neta.`;

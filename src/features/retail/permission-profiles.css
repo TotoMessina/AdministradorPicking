@@ -18,7 +18,7 @@
 .permission-switch input:checked + .permission-switch-track { border-color: var(--tone-accent); background: var(--tone-accent); }
 .permission-switch input:checked + .permission-switch-track::before { transform: translateX(18px); background: var(--tone-surface); }
 .permission-switch input:focus-visible + .permission-switch-track { outline: 3px solid var(--tone-accent); outline-offset: 4px; }
-.permission-switch input:disabled { cursor: wait; }
+.permission-switch input:disabled { cursor: not-allowed; }
 .permission-switch input:disabled + .permission-switch-track { opacity: .5; }
 .permission-help { color: var(--tone-muted); font-size: 13px; }
 .permission-help > summary { display: list-item; width: fit-content; min-height: 44px; padding-block: 12px; cursor: pointer; }

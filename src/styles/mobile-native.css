@@ -59,12 +59,14 @@
   .product-editor-actions > button { min-height: 48px; white-space: normal; }
   .catalog-list table, .catalog-list tbody { display: block; width: 100%; }
   .catalog-list thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
-  .catalog-list tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 12px; border-bottom: 1px solid var(--tone-border); }
+  .catalog-table-scroll { max-height: calc(100dvh - 260px); min-height: 220px; }
+  .catalog-list tbody tr { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); padding: 8px 10px; gap: 4px; border-bottom: 1px solid var(--tone-border); }
   .catalog-list tbody tr:last-child { border-bottom: 0; }
-  .catalog-list td { min-width: 0; padding: 6px; border: 0; overflow-wrap: anywhere; }
+  .catalog-list td { min-width: 0; padding: 2px 4px; border: 0; overflow-wrap: anywhere; }
   .catalog-list td:first-child, .catalog-list td:last-child { grid-column: 1 / -1; }
-  .catalog-list td[data-label]::before { content: attr(data-label); display: block; color: var(--tone-muted); font-size: 11px; margin-bottom: 4px; }
-  .catalog-list td button { min-height: 44px; }
+  .catalog-list td[data-label]::before { content: attr(data-label); display: block; color: var(--tone-muted); font-size: 10px; margin-bottom: 2px; }
+  .catalog-list .actions-col .button-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .catalog-list .action-icon-btn { width: 34px; height: 34px; min-width: 34px; border-radius: 8px; }
   .pos-mobile-view-tabs { border-radius: 14px; }
   .pos-mobile-tab-btn { border-radius: 11px; }
   .pos-mobile-tab-badge { display: inline-grid; place-items: center; min-width: 19px; min-height: 19px; border-radius: 50%; background: var(--tone-accent); color: white; }

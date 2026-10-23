@@ -2,10 +2,11 @@ import { useEffect, useState } from 'react';
 import type { KioscoProduct } from '../../types/kiosco';
 import { retail, errorMessage } from './api';
 import { formatPackStock, unitsPerPack } from '../../services/inventoryUnits';
-export function QuickProducts({ storeId, branchId, products, manager, onAdd, onOpenManual, disabled, editorOnly = false }: {
+export function QuickProducts({ storeId, branchId, products: inventory, manager, onAdd, onOpenManual, disabled, editorOnly = false }: {
   storeId: string; branchId: string; products: KioscoProduct[]; manager: boolean; onAdd: (p: KioscoProduct) => void; onOpenManual?: () => void; disabled: boolean;
   editorOnly?: boolean;
 }) {
+  const products = inventory.filter(product => product.sellable !== false);
   const [pinned, setPinned] = useState<string[]>([]);
   const [popular, setPopular] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);

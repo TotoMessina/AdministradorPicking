@@ -39,13 +39,14 @@ import {
   type Branch, type PriceList, type PriceOverride, type SalesLedger,
 } from "./api";
 import { CatalogEditor, StoreSettings, type Run } from "./Management";
+import { DelegatedSettings } from './DelegatedSettings';
 import { CashDesk } from "./CashDesk";
 import { PriceListSettings } from './BusinessSettings';
 import { SalesOverview } from './SalesOverview';
 import { SaleLedgerControl } from './SaleLedgerControl';
 import { resolveSaleLedger } from './ledgerRouting';
 import { QuickProducts } from './QuickProducts';
-import type { Permission } from './permissions';
+import { catalogPermissions, settingsPermissions, type Permission } from './permissions';
 import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
 import { hasComposition } from '../../services/productComposition';
@@ -304,9 +305,14 @@ function Workspace({
   const occupiedByOther = !shift && availability.some(r => r.register_id === registerId && r.occupied);
   const manager = role === "owner" || role === "admin";
   const can = (action: Permission) => manager || permissions.includes(action);
-  const canReviewSales = can('view_sales');
-  const canOpenCatalog = manager || can('replenish_stock') || can('edit_prices') || can('manage_quick_products');
-  const pendingRemitos = usePendingReplenishments(store.id, manager);
+  const canReviewSales = can('view_sales') || can('attach_invoice');
+  const canOpenCatalog = manager || catalogPermissions.some(can);
+  const canOpenSettings = manager || settingsPermissions.some(can);
+  const [managementLocations, setManagementLocations] = useState<{ branches: Branch[]; registers: Register[] } | null>(null);
+  const [managementLocationError, setManagementLocationError] = useState('');
+  const configurationBranches = !manager && managementLocations ? managementLocations.branches : branches;
+  const configurationRegisters = !manager && managementLocations ? managementLocations.registers : registers;
+  const pendingRemitos = usePendingReplenishments(store.id, can('review_remitos'));
   const branchPricing = useBranchPriceList(store.id, branchId, priceLists, manager, cart.length > 0);
   const priceListId = branchPricing.priceListId;
   const branchRegisters = registers.filter(r => r.active && r.branch_id === branchId);
@@ -320,15 +326,15 @@ function Workspace({
   const ledgerName = automaticLedger ? 'Automático por medio de pago' : ledgers.find(l => l.id === ledgerId)?.name || 'Sin registro disponible';
   const canChooseList = manager && saleLists.some(l => l.active);
   const canChooseLedger = saleLedgers.filter(l => l.active).length > 1 || saleLedgers.some(l => l.id === ledgerId && !l.active);
-  const mobileTabs = ['pos', 'cash', ...(manager ? ['catalog', 'settings'] : [...(canOpenCatalog ? ['catalog'] : []), ...(can('submit_remito') ? ['remito'] : [])])];
+  const mobileTabs = ['pos', 'cash', ...(canOpenCatalog ? ['catalog'] : []), ...(canOpenSettings ? ['settings'] : []), ...(!manager && can('submit_remito') ? ['remito'] : [])];
   const canOperate =
     !!shift && !!register?.active && (manager || shift.opened_by === session.user.id);
   useEffect(() => {
-    if (!loading && !manager && (['settings', 'ai'].includes(tab) || (tab === 'catalog' && !canOpenCatalog))) setTab('pos');
-  }, [loading, manager, canOpenCatalog, tab]);
+    if (!loading && ((tab === 'settings' && !canOpenSettings) || (tab === 'ai' && !can('use_ai')) || (tab === 'catalog' && !canOpenCatalog))) setTab('pos');
+  }, [loading, manager, canOpenCatalog, canOpenSettings, permissions, tab]);
   useEffect(() => {
     if (!loading && tab === 'remito' && !manager && !permissions.includes('submit_remito')) setTab('cash');
-    if (!loading && cashView === 'overview' && !manager && !permissions.includes('view_sales')) setCashView('shift');
+    if (!loading && cashView === 'overview' && !manager && !permissions.includes('view_sales') && !permissions.includes('attach_invoice')) setCashView('shift');
   }, [loading, manager, permissions, tab, cashView]);
   const previousPricing = useRef({ branch: '', id: '' });
   useEffect(() => {
@@ -360,14 +366,19 @@ function Workspace({
       retail.registerAvailability(store.id),
       retail.permissions(store.id),
     ]);
-    const [prods, team, pending, storeSales] = await Promise.all([
+    const [prods, team, pending, storeSales, metadata] = await Promise.all([
       retail.products(store.id, cats),
-      nextRole === 'owner' || nextRole === 'admin' ? retail.members(store.id) : Promise.resolve([]),
-      nextRole === 'owner' || nextRole === 'admin' ? retail.invitations(store.id) : Promise.resolve([]),
-      nextRole === 'owner' || nextRole === 'admin' ? retail.allSales(store.id).catch(() => []) : Promise.resolve([]),
+      nextRole === 'owner' || nextRole === 'admin' || nextPermissions.includes('manage_staff') ? retail.members(store.id) : Promise.resolve([]),
+      nextRole === 'owner' || nextRole === 'admin' || nextPermissions.includes('manage_staff') ? retail.invitations(store.id) : Promise.resolve([]),
+      nextRole === 'owner' || nextRole === 'admin' || nextPermissions.includes('view_sales') || nextPermissions.includes('use_ai') ? retail.allSales(store.id).catch(() => []) : Promise.resolve([]),
+      nextRole !== 'owner' && nextRole !== 'admin' && nextPermissions.some(action => ['manage_locations', 'manage_staff', 'manage_transfers', 'manage_price_lists', 'review_remitos'].includes(action))
+        ? retail.managementLocations(store.id).then(value => ({ value, error: '' })).catch(e => ({ value: null, error: errorMessage(e) }))
+        : Promise.resolve({ value: null, error: '' }),
     ]);
     if (!alive.current || turn !== generation.current) return;
     setRole(nextRole);
+    setManagementLocations(metadata.value);
+    setManagementLocationError(metadata.error);
     setPermissions(nextPermissions);
     setCategories(cats);
     setRegisters(regs);
@@ -866,23 +877,22 @@ function Workspace({
             <span className="store-brand-title">
               <span className="store-brand-text">{store.name}</span>
               <OfflineStatus />
+              {branches.length > 1 && (
+                <button
+                  type="button"
+                  className="branch-slide-trigger"
+                  onClick={() => setBranchDrawerOpen(true)}
+                  title={`Cambiar sucursal o caja (${branches.find((b) => b.id === branchId)?.name || 'Sucursal'})`}
+                  aria-label={`Cambiar sucursal o caja. Sucursal actual: ${branches.find((b) => b.id === branchId)?.name || 'Sucursal'}`}
+                >
+                  <MapPin size={11} aria-hidden="true" />
+                  <span className="branch-slide-name">
+                    {branches.find((b) => b.id === branchId)?.name || 'Sucursal'}
+                  </span>
+                  <ChevronDown size={11} aria-hidden="true" />
+                </button>
+              )}
             </span>
-            {branches.length > 1 && (
-              <button
-                type="button"
-                className="branch-slide-trigger"
-                onClick={() => setBranchDrawerOpen(true)}
-                title={`Cambiar sucursal o caja (${branches.find((b) => b.id === branchId)?.name || 'Sucursal'})`}
-                aria-label={`Cambiar sucursal o caja. Sucursal actual: ${branches.find((b) => b.id === branchId)?.name || 'Sucursal'}`}
-              >
-                <MapPin size={11} aria-hidden="true" />
-                <span className="branch-slide-name">
-                  {branches.find((b) => b.id === branchId)?.name || 'Sucursal'}
-                </span>
-                <ChevronDown size={11} aria-hidden="true" />
-              </button>
-            )}
-            <span className="brand-sub">MI NEGOCIO</span>
           </span>
         </div>
         <nav aria-label="Navegación principal" style={{ '--nav-count': mobileTabs.length, '--nav-index': Math.max(0, mobileTabs.indexOf(tab)) } as React.CSSProperties}>
@@ -899,7 +909,7 @@ function Workspace({
                     },
                     { id: "settings", label: "Mi comercio", icon: Settings2 },
                   ]
-                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
+                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(canOpenSettings ? [{ id: 'settings', label: 'Mi comercio', icon: Settings2 }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <button
@@ -1089,7 +1099,7 @@ function Workspace({
             </div>
             <div hidden={tab !== 'cash'}>
                 {canReviewSales && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Ver ventas' }]} />}
-                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
+                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canAttachInvoice={can('attach_invoice')} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
                   <details className="retail-panel"><summary>Explicar estos resultados</summary><AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} /></details>
                 </div>}
                 <div hidden={canReviewSales && cashView !== 'shift'} role={canReviewSales ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={canReviewSales ? 'cash-tab-shift' : undefined}>
@@ -1123,9 +1133,9 @@ function Workspace({
                 </div>
                 </div>
             </div>
-            {manager && <div hidden={tab !== 'catalog'}>
-              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, { id: 'prices', label: 'Listas de precios' }, { id: 'transfers', label: 'Transferencias' }]} />
-              <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={branches} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>
+            {canOpenCatalog && <div hidden={tab !== 'catalog'}>
+              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, ...(can('manage_price_lists') ? [{ id: 'prices', label: 'Listas de precios' }] : []), ...(can('manage_transfers') ? [{ id: 'transfers', label: 'Transferencias' }] : [])]} />
+              {can('manage_price_lists') && <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={configurationBranches} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>}
             </div>}
             {manager && (
               <div hidden={tab !== 'catalog'}>
@@ -1150,11 +1160,16 @@ function Workspace({
               </div>
             )}
             {!manager && canOpenCatalog && <div hidden={tab !== 'catalog'}>
+              {managementLocationError && <p role="alert">{managementLocationError}</p>}
+              {can('manage_transfers') && <div hidden={catalogView !== 'transfers'}><StockTransfers storeId={store.id} branches={configurationBranches} products={products} run={run} busy={busy} active={!guiding && tab === 'catalog' && catalogView === 'transfers'} /></div>}
+              <div hidden={catalogView !== 'products'}>
               {can('manage_quick_products') && branchId && <section className="retail-panel"><p>Sucursal de la botonera: <strong>{branches.find(branch => branch.id === branchId)?.name}</strong></p>
                 <QuickProducts storeId={store.id} branchId={branchId} products={products} manager onAdd={() => {}} disabled={busy} editorOnly />
               </section>}
               <CatalogEditor store={store} products={products} categories={categories} role={role} run={run} busy={busy}
-                active={!guiding && tab === 'catalog'} allowRestock={can('replenish_stock')} allowPriceEdit={can('edit_prices')} />
+                active={!guiding && tab === 'catalog' && catalogView === 'products'} allowRestock={can('replenish_stock')} allowPriceEdit={can('edit_prices')} permissions={permissions}
+                pendingRemitos={pendingRemitos.records} pendingRemitoError={pendingRemitos.error} branches={configurationBranches} onRefreshRemitos={() => void pendingRemitos.refresh()} onReviewedRemito={pendingRemitos.reviewed} />
+              </div>
             </div>}
             {manager && <div hidden={tab !== 'settings'}>
               <StoreSettings
@@ -1192,7 +1207,8 @@ function Workspace({
                 onOpenAi={() => setIsAiOpen(true)}
               />
             </div>}
-            {tab === "ai" && manager && (
+            {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
+            {tab === "ai" && can('use_ai') && (
               <AIAssistant
                 store={store}
                 members={members}
@@ -1226,7 +1242,7 @@ function Workspace({
         role={role}
         isOpen={isAiOpen}
         onToggle={setIsAiOpen}
-        onOpenFull={manager ? () => { setIsAiOpen(false); setTab('ai'); } : undefined}
+        onOpenFull={can('use_ai') ? () => { setIsAiOpen(false); setTab('ai'); } : undefined}
       />}
     </div>
   );

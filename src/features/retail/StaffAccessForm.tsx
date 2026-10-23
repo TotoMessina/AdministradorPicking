@@ -3,7 +3,7 @@ import { authorizeStaff, createStaffAccount, type StaffRole, type StaffAccountRe
 import type { Run } from './Management';
 import type { PermissionProfile } from './permissions';
 
-export function StaffAccessForm({ storeId, run, busy, profiles = [] }: { storeId: string; run: Run; busy: boolean; profiles?: PermissionProfile[] }) {
+export function StaffAccessForm({ storeId, run, busy, profiles = [], allowAdmin = true }: { storeId: string; run: Run; busy: boolean; profiles?: PermissionProfile[]; allowAdmin?: boolean }) {
   const [staffRole, setStaffRole] = useState<StaffRole>('cashier');
   const [profileId, setProfileId] = useState('');
   const [existingAccount, setExistingAccount] = useState(false);
@@ -51,7 +51,7 @@ export function StaffAccessForm({ storeId, run, busy, profiles = [] }: { storeId
     }}>
       <fieldset disabled={busy || saving} className="staff-fields">
         <label>Email del colaborador<input name="email" type="email" autoComplete="off" required maxLength={254} /></label>
-        <label>Rol<select name="role" value={staffRole} onChange={event => { setStaffRole(event.target.value as StaffRole); setProfileId(''); }}><option value="cashier">Cajero: ventas y caja</option><option value="supervisor">Supervisor: operación y consulta de ventas asignadas</option><option value="admin">Administrador: catálogo y configuración</option></select></label>
+        <label>Rol<select name="role" value={staffRole} onChange={event => { setStaffRole(event.target.value as StaffRole); setProfileId(''); }}><option value="cashier">Cajero: ventas y caja</option><option value="supervisor">Supervisor: operación y consulta de ventas asignadas</option>{allowAdmin && <option value="admin">Administrador: catálogo y configuración</option>}</select></label>
         {staffRole !== 'admin' && <label>Perfil de acciones<select value={profileId} onChange={event => setProfileId(event.target.value)}>
           <option value="">Permisos habituales del rol</option>{profiles.filter(profile => profile.base_role === staffRole).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
         </select></label>}

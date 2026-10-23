@@ -1,0 +1,8 @@
+.product-margin-status { grid-column: 1 / -1; padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.product-margin-status strong, .product-margin-status small { display: block; }
+.product-margin-status small { margin-top: 4px; color: var(--tone-muted); }
+.product-margin-low { border-color: #9a4c00; background: #fff4e6; color: #9a4c00; }
+.product-margin-loss { border-color: var(--tone-danger); color: var(--tone-danger); }
+.margin-threshold-settings { margin-block: 20px; padding: 16px; border: 1px solid var(--tone-border); border-radius: 10px; }
+.margin-threshold-settings > summary { cursor: pointer; font-weight: 600; }
+.margin-threshold-settings > summary:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 4px; }

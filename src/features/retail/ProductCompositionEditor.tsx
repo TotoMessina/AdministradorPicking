@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { retail, errorMessage, type Product } from './api';
 import type { Run } from './Management';
-import { compositionKey, hasComposition, withAvailableStock } from '../../services/productComposition';
+import { compositionCost, compositionKey, hasComposition, withAvailableStock } from '../../services/productComposition';
 import { LooseCigaretteEditor } from './LooseCigaretteEditor';
 
 export function ProductCompositionEditor({ storeId, product, products, active, busy, run, onClose, newProduct = false }: {
@@ -20,6 +20,7 @@ export function ProductCompositionEditor({ storeId, product, products, active, b
   const components = linked ? rows.map(row => ({ product_id: row.product_id, quantity: Number(row.quantity) })).sort((a, b) => a.product_id.localeCompare(b.product_id)) : [];
   const available = withAvailableStock(products.map(row => row.id === product.id ? { ...row, stock_components: components } : row)).find(row => row.id === product.id)?.stock || 0;
   const hasOwnStock = !hasComposition(product) && product.stock > 0;
+  const calculatedCost = compositionCost(components, products);
   return <section><div hidden={loose}>
     {!hasComposition(product) && <button type="button" className="secondary-button" disabled={busy} onClick={() => { setLooseVisited(true); setLoose(true); }}>Configurar cigarrillos sueltos desde este atado</button>}
     <form className="retail-form product-editor" onSubmit={async event => {
@@ -51,14 +52,24 @@ export function ProductCompositionEditor({ storeId, product, products, active, b
           {products.filter(candidate => candidate.id !== product.id && !hasComposition(candidate)).map(candidate => <option key={candidate.id} value={candidate.id} disabled={rows.some((value, position) => position !== index && value.product_id === candidate.id)}>{candidate.name} · {candidate.stock} u.</option>)}
         </select></label>
         <label>Unidades<input type="number" required min="1" max="1000000" step="1" value={row.quantity} onChange={event => setRows(previous => previous.map((value, position) => position === index ? { ...value, quantity: event.target.value } : value))} /></label>
+        <small>{(() => {
+          const source = products.find(candidate => candidate.id === row.product_id);
+          const quantity = Number(row.quantity);
+          return source && source.cost > 0 && Number.isInteger(quantity) && quantity > 0
+            ? `${quantity} × $${source.cost.toLocaleString('es-AR')} = $${(Math.round(source.cost * 100) * quantity / 100).toLocaleString('es-AR')}`
+            : 'Cargá el costo del componente para calcular el total.';
+        })()}</small>
         <button type="button" className="text-button" disabled={rows.length === 1} aria-label={`Quitar componente ${index + 1}`} onClick={() => setRows(previous => previous.filter((_, position) => position !== index))}>Quitar</button>
       </div>)}
       <button type="button" className="secondary-button" disabled={rows.length >= 30} onClick={() => setRows(previous => [...previous, { product_id: '', quantity: '1' }])}>Agregar componente</button>
       <p>Disponibles con el stock actual: <strong>{available}</strong>. Reponé los componentes, no este producto.</p>
+      <p aria-live="polite"><strong>Costo por unidad: {calculatedCost.missing.length ? 'pendiente' : `$${calculatedCost.cost.toLocaleString('es-AR')}`}</strong>
+        {calculatedCost.missing.length > 0 && <small> · Falta costo o selección: {calculatedCost.missing.join(', ')}. Hasta completarlos no se informa un margen calculado con costos parciales.</small>}
+      </p>
     </fieldset>
     {linked && hasOwnStock && <p role="alert">Tiene {product.stock} unidades de stock propio. No se trasladan ni se borran al vincular. Usá un producto nuevo con stock 0.</p>}
     {!linked && hasComposition(product) && <p>Al desvincular queda con stock propio 0. Las existencias de sus componentes se conservan.</p>}
-    <small>Necesitás conexión para configurar. Precio y costo se mantienen; las ventas usan la composición guardada.</small>
+    <small>Necesitás conexión para configurar. El precio de venta se conserva; el costo se calcula con los componentes y se actualiza al cambiar sus costos.</small>
     {error && <p role="alert">{error}</p>}
     <div className="product-editor-actions button-row">
       <button className="primary-button" disabled={busy || (linked && hasOwnStock) || compositionKey(components) === compositionKey(product.stock_components)}>Guardar composición</button>

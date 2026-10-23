@@ -3,7 +3,7 @@ import type { PriceList, PriceOverride, Product } from './api';
 export function productsForList(products: Product[], list: PriceList | undefined, overrides: PriceOverride[]): Product[] {
   if (!list) return products;
   const fixed = new Map(overrides.filter(o => o.list_id === list.id).map(o => [o.product_id, Number(o.price)]));
-  return products.map(p => ({ ...p, price: fixed.get(p.id) ?? Math.max(0.01, Math.round(Math.round(p.price * 100) * (10000 + Math.round(Number(list.adjustment) * 100)) / 10000) / 100) }));
+  return products.map(p => p.sellable === false ? p : ({ ...p, price: fixed.get(p.id) ?? Math.max(0.01, Math.round(Math.round(p.price * 100) * (10000 + Math.round(Number(list.adjustment) * 100)) / 10000) / 100) }));
 }
 
 export function salesCsv(rows: import('../../types/kiosco').KioscoSale[]): string {

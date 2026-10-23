@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { randomUUID } from '../../utils/uuid';
 import { retail, errorMessage } from './api';
 import { defaultPermissions, permissionOptions, type PermissionProfile, type Permission, type StaffBaseRole } from './permissions';
 import type { Run } from './Management';
@@ -15,11 +16,28 @@ const shortLabels: Record<Permission, string> = {
   replenish_stock: 'Reponer stock',
   edit_prices: 'Editar precios',
   manage_quick_products: 'Personalizar botonera',
+  manage_products: 'Crear y editar productos',
+  manage_compositions: 'Combos y sueltos',
+  delete_products: 'Eliminar y restaurar',
+  manage_price_lists: 'Listas de precios',
+  review_remitos: 'Revisar remitos',
+  manage_transfers: 'Transferencias',
+  attach_invoice: 'Asociar comprobantes',
+  manage_store: 'Datos, ticket y margen',
+  manage_locations: 'Locales y cajas',
+  manage_categories: 'Nombres de categorías',
+  manage_ledgers: 'Configurar registros',
+  manage_staff: 'Personas y asignaciones',
+  manage_profiles: 'Perfiles de permisos',
+  use_ai: 'Análisis con IA',
 };
 
 const permissionGroups: { label: string; permissions: Permission[] }[] = [
-  { label: 'Caja y ventas', permissions: ['sell', 'cash_income', 'cash_withdrawal', 'move_sale_ledger', 'view_sales'] },
-  { label: 'Productos', permissions: ['replenish_stock', 'edit_prices', 'manage_quick_products', 'submit_remito'] },
+  { label: 'Caja y ventas', permissions: ['sell', 'cash_income', 'cash_withdrawal', 'move_sale_ledger', 'view_sales', 'attach_invoice'] },
+  { label: 'Productos y stock', permissions: ['manage_products', 'replenish_stock', 'edit_prices', 'manage_compositions', 'delete_products', 'manage_quick_products', 'manage_price_lists'] },
+  { label: 'Mercadería', permissions: ['submit_remito', 'review_remitos', 'manage_transfers'] },
+  { label: 'Mi comercio', permissions: ['manage_store', 'manage_locations', 'manage_categories', 'manage_ledgers'] },
+  { label: 'Personas y análisis', permissions: ['manage_staff', 'manage_profiles', 'use_ai'] },
 ];
 
 export function usePermissionProfiles(storeId: string, active: boolean) {
@@ -38,17 +56,24 @@ export function usePermissionProfiles(storeId: string, active: boolean) {
   return { profiles, error, loading, reload };
 }
 
-function ProfileForm({ storeId, profile, busy, run, onSaved }: { storeId: string; profile?: PermissionProfile; busy: boolean; run: Run; onSaved: () => void }) {
+function ProfileForm({ storeId, profile, busy, run, onSaved, grantable }: { storeId: string; profile?: PermissionProfile; busy: boolean; run: Run; onSaved: () => void; grantable?: Permission[] }) {
+  const [snapshot] = useState(profile);
+  const requestId = useRef(profile?.id || randomUUID());
+  const saving = useRef(false);
   const [role, setRole] = useState<StaffBaseRole>(profile?.base_role || 'cashier');
-  const [permissions, setPermissions] = useState<Permission[]>(profile?.permissions || defaultPermissions(role));
+  const [permissions, setPermissions] = useState<Permission[]>(profile?.permissions || defaultPermissions(role).filter(action => !grantable || grantable.includes(action)));
   return <form className="retail-form permission-form" onSubmit={async event => {
     event.preventDefault(); const name = String(new FormData(event.currentTarget).get('name') || '');
-    if (await run(() => retail.savePermissionProfile(storeId, { name, base_role: role, permissions }, profile?.id), 'Perfil guardado')) onSaved();
+    if (busy || saving.current) return;
+    saving.current = true;
+    try {
+      if (await run(() => retail.savePermissionProfile(storeId, { name, base_role: role, permissions }, snapshot?.id, requestId.current, snapshot?.revision ?? 0), 'Perfil guardado')) onSaved();
+    } finally { saving.current = false; }
   }}>
     <div className="permission-form-heading">
     <label>Nombre del perfil<input name="name" required disabled={busy} maxLength={80} defaultValue={profile?.name} placeholder="Ej. Cajero repositor" /></label>
     {profile ? <span className="permission-role">{role === 'supervisor' ? 'Supervisor' : 'Cajero'}</span> : <label>Rol<select disabled={busy} value={role} onChange={event => {
-      const next = event.target.value as StaffBaseRole; setRole(next); setPermissions(defaultPermissions(next));
+      setRole(event.target.value as StaffBaseRole);
     }}><option value="cashier">Cajero</option><option value="supervisor">Supervisor</option></select></label>}
     </div>
     <div className="permission-section-heading"><strong>Permisos</strong><span>{permissions.length} de {permissionOptions.length} activos</span></div>
@@ -59,6 +84,7 @@ function ProfileForm({ storeId, profile, busy, run, onSaved }: { storeId: string
           <span className="permission-switch-label">{shortLabels[id]}</span>
           <span className="permission-switch-control">
             <input type="checkbox" role="switch" aria-label={`${shortLabels[id]}: ${permissionOptions.find(option => option.id === id)?.label}`}
+              disabled={!!grantable && !grantable.includes(id) && !permissions.includes(id)}
               checked={permissions.includes(id)} onChange={event => {
                 const enabled = event.target.checked;
                 setPermissions(previous => enabled ? [...previous, id] : previous.filter(value => value !== id));
@@ -72,20 +98,22 @@ function ProfileForm({ storeId, profile, busy, run, onSaved }: { storeId: string
     <details className="permission-help"><summary>Alcance de los permisos</summary>
       <p>Abrir y cerrar el turno propio y consultar su actividad siempre está disponible. El cajero cierra contando el efectivo, sin ver el esperado. Los movimientos de otras personas siguen siendo privados.</p>
       <p>Ver ventas respeta las sucursales y cajas asignadas. La botonera se limita a las sucursales asignadas. Cambiar registro se limita a ventas propias. Los remitos se envían para revisión.</p>
-      <p>Stock y precios base son compartidos por todo el comercio. Reponer suma unidades o bultos sin cambiar el costo. La configuración del comercio sigue reservada a administración.</p>
+      <p>Crear y editar productos incluye alta manual, importación de facturas/CSV y edición de atributos, costos y stock. Combos, eliminación, listas y transferencias tienen permisos separados. El stock y los precios base son compartidos por el comercio.</p>
+      <p>Personas y perfiles son permisos sensibles. Una persona delegada solo puede conceder permisos que ya tiene y no puede cambiar su propio acceso ni el de administradores. El titular conserva sus atribuciones exclusivas.</p>
+      <p>Abrir/cerrar el turno propio, tickets, búsqueda/lector, pagos, sincronización, instalación y preferencias personales de avisos no requieren un permiso adicional. No se delega el efectivo esperado del arqueo ni la consulta de movimientos privados de otras personas.</p>
       <p>Sin perfil se usan los permisos habituales del rol. Para recibir cambios, cada persona debe actualizar sus datos. Las operaciones offline se vuelven a validar al sincronizar.</p>
     </details>
     <button className="primary-button" disabled={busy}>Guardar perfil</button>
   </form>;
 }
 
-export function PermissionProfileSettings({ storeId, profiles, busy, run, onSaved }: { storeId: string; profiles: PermissionProfile[]; busy: boolean; run: Run; onSaved: () => void }) {
+export function PermissionProfileSettings({ storeId, profiles, busy, run, onSaved, grantable }: { storeId: string; profiles: PermissionProfile[]; busy: boolean; run: Run; onSaved: () => void; grantable?: Permission[] }) {
   return <section className="permission-profiles"><h3>Perfiles de permisos</h3>
-    <p>Elegí qué pueden hacer tus cajeros y supervisores.</p>
+    <p>Creá un perfil o elegí Editar para cambiar uno existente.</p>
     <SettingsEditorGroup>{[...profiles, undefined].map(profile => <SettingsEditor key={profile?.id || 'new'} busy={busy}
       label={profile ? `Editar ${profile.name}` : 'Crear perfil'}
       summary={profile && <><strong>{profile.name}</strong><small>{profile.base_role === 'supervisor' ? 'Supervisor' : 'Cajero'} · {profile.permissions.length} acciones</small></>}>
-      {close => <ProfileForm storeId={storeId} profile={profile} busy={busy} run={run} onSaved={() => { close(); onSaved(); }} />}
+      {close => <ProfileForm storeId={storeId} profile={profile} busy={busy} run={run} grantable={grantable} onSaved={() => { close(); onSaved(); }} />}
     </SettingsEditor>)}</SettingsEditorGroup>
   </section>;
 }

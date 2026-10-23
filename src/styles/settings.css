@@ -737,11 +737,10 @@
 .branch-slide-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  height: 24px;
-  padding: 2px 9px;
-  margin-top: 6px;
-  margin-bottom: 2px;
+  gap: 4px;
+  height: 22px;
+  padding: 1px 8px;
+  margin: 0;
   border-radius: 999px;
   border: 1px solid var(--tone-border);
   background: var(--tone-canvas, #f3f4f6);
@@ -755,6 +754,7 @@
   line-height: 1;
   transition: all 0.15s ease-in-out;
   outline: none;
+  flex-shrink: 0;
 }
 
 .branch-slide-trigger:hover {

@@ -1,6 +1,21 @@
 import type { KioscoCartItem, KioscoProduct, KioscoSale, StockComponent } from '../types/kiosco';
 
 export const hasComposition = (product: Pick<KioscoProduct, 'stock_components'>) => !!product.stock_components?.length;
+/** Zero cost means unknown, as in margin analytics. Never show a partial recipe as a complete cost. */
+export function compositionCost(components: StockComponent[], products: KioscoProduct[] | ReadonlyMap<string, KioscoProduct>) {
+  const byId = Array.isArray(products) ? new Map(products.map(product => [product.id, product])) : products;
+  const missing: string[] = [];
+  let cents = 0n;
+  for (const component of components) {
+    const source = byId.get(component.product_id);
+    if (!source || !(Number(source.cost) > 0) || !Number.isFinite(source.cost) || !Number.isInteger(component.quantity) || component.quantity < 1) {
+      missing.push(source?.name || 'Componente sin elegir');
+      continue;
+    }
+    cents += BigInt(Math.round(source.cost! * 100)) * BigInt(component.quantity);
+  }
+  return { cost: missing.length ? 0 : Number(cents) / 100, missing };
+}
 export const compositionKey = (components: StockComponent[] = []) => JSON.stringify(
   components.map(({ product_id, quantity }) => ({ product_id, quantity })).sort((a, b) => a.product_id.localeCompare(b.product_id)),
 );
@@ -19,7 +34,7 @@ export function inventorySaleUnits(item: Pick<KioscoSale['items'][number], 'prod
 /** A composed product has availability, never a second physical stock. No nested recipes. */
 export function withAvailableStock<T extends KioscoProduct>(products: T[]): T[] {
   const byId = new Map(products.map(product => [product.id, product]));
-  return products.map(product => !hasComposition(product) ? product : { ...product, stock: Math.max(0, Math.min(
+  return products.map(product => !hasComposition(product) ? product : { ...product, cost: compositionCost(product.stock_components!, byId).cost, stock: Math.max(0, Math.min(
     ...product.stock_components!.map(component => {
       const source = byId.get(component.product_id);
       return source && !hasComposition(source) && Number.isInteger(component.quantity) && component.quantity > 0
@@ -36,6 +51,7 @@ export function cartStockError(cart: Pick<KioscoCartItem, 'product' | 'qty'>[], 
     if (line.product.code === 'MANUAL') continue;
     const current = byId.get(line.product.id);
     if (!current) return `${line.product.name} ya no está disponible. Retiralo de la venta y actualizá el catálogo.`;
+    if (current.sellable === false) return `${current.name} es solo un insumo. Retiralo de la venta; podés vender el combo que lo utiliza.`;
     if (compositionKey(current.stock_components) !== compositionKey(line.product.stock_components))
       return `Cambió la composición de ${current.name}. Retiralo de la venta y volvé a agregarlo.`;
     for (const component of stockRequirements(current)) {
@@ -57,7 +73,7 @@ export function availableForCart(product: KioscoProduct, cart: KioscoCartItem[],
   if (product.code === 'MANUAL') return 999999;
   const byId = new Map(products.map(row => [row.id, row]));
   const current = byId.get(product.id);
-  if (!current || compositionKey(current.stock_components) !== compositionKey(product.stock_components)) return 0;
+  if (!current || current.sellable === false || compositionKey(current.stock_components) !== compositionKey(product.stock_components)) return 0;
   const used = new Map<string, number>();
   for (const line of cart) {
     if (line.product.id === product.id) continue;

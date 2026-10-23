@@ -18,11 +18,13 @@ export interface Store {
   receipt_message: string;
   accent_color: string;
   currency: string;
+  low_margin_threshold?: number;
 }
 export interface Category {
   id: string;
   store_id: string;
   name: string;
+  canonicalName?: string;
 }
 export interface Register {
   id: string;
@@ -74,6 +76,18 @@ export interface Product extends KioscoProduct {
   margin_group?: 'standard' | 'low_margin' | null;
   expiry_date?: string | null;
   last_restocked_at?: string | null;
+}
+export interface ProductDeletionRecord {
+  id: string;
+  product_id: string;
+  product_name: string;
+  product_code: string;
+  event_type: 'deleted' | 'restored' | 'prior';
+  occurred_at: string | null;
+  recorded_at: string;
+  actor_email: string | null;
+  reason: string | null;
+  currentActive: boolean | null;
 }
 export interface Movement {
   shift_id?: string;
@@ -138,6 +152,12 @@ export interface EanLookupResult {
 }
 export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
+  if (['PGRST204', '42703'].includes(e?.code || '') && /sellable/.test(e.message || ''))
+    return 'Falta habilitar insumos y costos de combos en Supabase. Aplicá 202610230002_ingredients_and_composition_costs.sql después de las migraciones anteriores, actualizá el catálogo y reintentá. El borrador se conserva.';
+  if (['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /retail_set_margin_threshold|low_margin_threshold/.test(e.message || ''))
+    return 'Falta habilitar el margen automático. Aplicá 202610230001_automatic_margin_groups.sql después de las migraciones anteriores y actualizá los datos.';
+  if ((['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /retail_save_permission_profile|retail_management_locations|retail_write_branch|retail_write_register|revision/.test(e.message || '')) || (e?.code === '23514' && e.message?.includes('retail_permission_profiles_permissions_check')))
+    return 'Falta ampliar los perfiles en Supabase. Aplicá 202610220006_complete_permission_profiles.sql después de las migraciones anteriores y actualizá los datos.';
   if ((e?.code === '23514' && e.message?.includes('retail_permission_profiles_permissions_check'))
     || (e?.code === 'PGRST202' && e.message?.includes('retail_update_product_price')))
     return 'Falta habilitar las acciones delegadas de productos. Aplicá la migración 202610210004_delegated_catalog_actions.sql y actualizá los permisos antes de reintentar.';
@@ -152,6 +172,12 @@ export function errorMessage(error: unknown): string {
     return 'Falta habilitar la conversión de atados en Supabase. Aplicá 202610220002_loose_cigarettes.sql después de la migración de composiciones y reintentá. No se convirtió el stock.';
   if (['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /stock_components|retail_save_product_composition/.test(e.message || ''))
     return 'Falta habilitar combos y sueltos en Supabase. Aplicá la migración 202610220001_product_compositions.sql, actualizá el catálogo y reintentá.';
+  if (['PGRST202', 'PGRST205', '42P01'].includes(e?.code || '') && /retail_set_product_active|retail_product_deletions/.test(e.message || ''))
+    return 'Falta habilitar el historial de productos en Supabase. Aplicá la migración 202610220003_product_deletion_history.sql y reintentá.';
+  if (['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /display_name|retail_rename_category/.test(e.message || ''))
+    return 'Falta habilitar los nombres de categorías. Aplicá 202610220005_category_labels.sql y actualizá los datos.';
+  if (['PGRST204', 'PGRST205', '42703', '42P01'].includes(e?.code || '') && /catalog_name|retail_category_catalog/.test(e.message || ''))
+    return 'Falta actualizar las categorías en Supabase. Aplicá 202610220004_standard_categories.sql y actualizá los datos. No hace falta crear categorías.';
   if (e?.code === '23505' && e.message?.includes('retail_one_active_price_list_per_branch'))
     return 'Esta sucursal ya tiene una lista activa. Desactivala o cambiala a global antes de asignar otra.';
   if (e?.code === 'PGRST204' || e?.code === '42703') {
@@ -283,8 +309,10 @@ const remoteRetail = {
     return result<SalesLedger[]>(supabase.from('retail_ledgers').select('*').eq('store_id', store).order('is_default', { ascending: false }).order('name'));
   },
   async saveBranch(store: string, name: string, address: string, id?: string) {
-    const query = supabase.from('retail_branches');
-    return result(id ? query.update({ name: name.trim(), address }).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, name: name.trim(), address }));
+    return result(supabase.rpc('retail_write_branch', { p_store: store, p_name: name.trim(), p_address: address, p_id: id || null }));
+  },
+  async managementLocations(store: string) {
+    return result<{ branches: Branch[]; registers: Register[] }>(supabase.rpc('retail_management_locations', { p_store: store }));
   },
   async savePriceList(store: string, name: string, adjustment: number, id?: string, active = true, branchId?: string | null) {
     const query = supabase.from('retail_price_lists');
@@ -343,13 +371,18 @@ const remoteRetail = {
     return data.role;
   },
   async categories(store: string) {
-    return result<Category[]>(
+    const rows = await result<(Category & { catalog_name: string; display_name?: string | null })[]>(
       supabase
         .from("retail_categories")
         .select("*")
         .eq("store_id", store)
+        .not("catalog_name", "is", null)
         .order("name"),
     );
+    return rows.map(category => ({ ...category, name: category.display_name || category.catalog_name, canonicalName: category.catalog_name }));
+  },
+  async renameCategory(store: string, category: Category, name: string) {
+    return result(supabase.rpc('retail_rename_category', { p_store: store, p_category: category.id, p_name: name, p_expected: category.name }));
   },
   async registers(store: string) {
     return result<Register[]>(
@@ -382,6 +415,7 @@ const remoteRetail = {
       expiry_date?: string | null;
       last_restocked_at?: string | null;
       stock_components?: StockComponent[];
+      sellable?: boolean;
     }>((from, to) =>
       supabase
         .from("retail_products")
@@ -396,7 +430,7 @@ const remoteRetail = {
       id: p.id,
       categoryId: p.category_id,
       category:
-        categories.find((c) => c.id === p.category_id)?.name || "Sin categoría",
+        categories.find((c) => c.id === p.category_id)?.name || "Varios",
       code: p.code,
       name: p.name,
       price: Number(p.price),
@@ -415,6 +449,7 @@ const remoteRetail = {
       expiry_date: p.expiry_date ?? null,
       last_restocked_at: p.last_restocked_at ?? null,
       stock_components: p.stock_components || [],
+      sellable: p.sellable !== false,
     })));
   },
   async shifts(store: string) {
@@ -481,7 +516,7 @@ const remoteRetail = {
   ) {
     if (p.pack_size != null && (!Number.isInteger(p.pack_size) || p.pack_size < 1 || p.pack_size > 2147483647)) throw new Error('Las unidades por bulto deben ser un número entero mayor o igual a 1.');
     const values: Record<string, unknown> = {
-      category_id: p.categoryId,
+      category_id: p.categoryId || null,
       code: p.code.trim(),
       name: p.name.trim(),
       price: p.price,
@@ -490,13 +525,13 @@ const remoteRetail = {
       min_stock: p.minStock,
       emoji: p.emoji,
       active: true,
+      ...(p.sellable !== undefined ? { sellable: p.sellable } : {}),
       brand: p.brand?.trim() || null,
       supplier: p.supplier?.trim() || null,
       supplier_code: p.supplierCode?.trim() || null,
       tags: p.tags || [],
       unit_type: p.unitType || "unit",
       pack_size: p.pack_size ?? null,
-      margin_group: p.margin_group ?? 'standard',
       // Older callers that only edit prices must not clear optional metadata.
       ...(p.expiry_date !== undefined ? { expiry_date: p.expiry_date || null } : {}),
       ...(p.last_restocked_at !== undefined ? { last_restocked_at: p.last_restocked_at || null } : {}),
@@ -508,6 +543,7 @@ const remoteRetail = {
           .update(values)
           .eq("store_id", store)
           .eq("id", p.id)
+          .eq("active", true)
           .eq("stock", expectedStock ?? p.stock)
           .select("id")
           .single(),
@@ -520,16 +556,32 @@ const remoteRetail = {
         .single(),
     );
   },
-  async archiveProduct(store: string, id: string) {
-    return result(
-      supabase
-        .from("retail_products")
-        .update({ active: false })
-        .eq("store_id", store)
-        .eq("id", id)
-        .select("id")
-        .single(),
-    );
+  async archiveProduct(store: string, id: string, request?: { id: string; reason?: string; product?: Product }) {
+    const p = request?.product;
+    return result(supabase.rpc('retail_set_product_active', {
+      p_store: store, p_product: id, p_active: false, p_request: request?.id || randomUUID(),
+      p_reason: request?.reason?.trim() || null,
+      p_expected: p ? { name: p.name, code: p.code, stock: hasComposition(p) ? 0 : p.stock, components: p.stock_components || [] } : null,
+    }));
+  },
+  async restoreProduct(store: string, id: string, request: string) {
+    return result(supabase.rpc('retail_set_product_active', {
+      p_store: store, p_product: id, p_active: true, p_request: request, p_reason: null, p_expected: null,
+    }));
+  },
+  async productDeletionHistory(store: string, search = '', cursor?: { recorded_at: string; id: string }) {
+    let query = supabase.from('retail_product_deletions')
+      .select('id,product_id,product_name,product_code,event_type,occurred_at,recorded_at,actor_email,reason')
+      .eq('store_id', store).order('recorded_at', { ascending: false }).order('id', { ascending: false }).limit(50);
+    if (search.trim()) query = query.ilike('search_text', `%${search.trim().replace(/[\\%_]/g, '\\$&')}%`);
+    if (cursor) {
+      if (!isValidUUID(cursor.id) || !Number.isFinite(Date.parse(cursor.recorded_at)) || !/^[\dT:.+Z-]+$/.test(cursor.recorded_at)) throw new Error('Actualizá el historial para continuar.');
+      query = query.or(`recorded_at.lt.${cursor.recorded_at},and(recorded_at.eq.${cursor.recorded_at},id.lt.${cursor.id})`);
+    }
+    const rows = await result<Omit<ProductDeletionRecord, 'currentActive'>[]>(query);
+    if (!rows.length) return [];
+    const states = await result<{ id: string; active: boolean }[]>(supabase.from('retail_products').select('id,active').eq('store_id', store).in('id', [...new Set(rows.map(row => row.product_id))]));
+    return rows.map(row => ({ ...row, currentActive: states.find(p => p.id === row.product_id)?.active ?? null }));
   },
   async replenishProductStock(
     store: string,
@@ -588,57 +640,17 @@ const remoteRetail = {
     }
     return results;
   },
-  async addCategory(store: string, name: string) {
-    return result<{ id: string }>(
-      supabase
-        .from("retail_categories")
-        .insert({ store_id: store, name: name.trim() }).select('id').single(),
-    );
-  },
-  async renameCategory(store: string, id: string, name: string) {
-    return result(
-      supabase
-        .from("retail_categories")
-        .update({ name: name.trim() })
-        .eq("store_id", store)
-        .eq("id", id)
-        .select("id")
-        .single(),
-    );
-  },
   async addRegister(store: string, name: string, branch?: string) {
-    return result(
-      supabase
-        .from("retail_registers")
-        .insert({ store_id: store, name: name.trim(), ...(branch ? { branch_id: branch } : {}) }),
-    );
+    return result(supabase.rpc('retail_write_register', { p_store: store, p_name: name.trim(), p_branch: branch || null, p_id: null, p_active: true }));
   },
   async saveRegister(store: string, id: string, name: string, branchId?: string | null) {
-    const updatePayload: Record<string, unknown> = { name: name.trim() };
-    if (branchId !== undefined) {
-      updatePayload.branch_id = branchId || null;
-    }
-    return result(
-      supabase
-        .from("retail_registers")
-        .update(updatePayload)
-        .eq("store_id", store)
-        .eq("id", id)
-        .select("id")
-        .single(),
-    );
+    return result(supabase.rpc('retail_write_register', { p_store: store, p_name: name.trim(), p_branch: branchId || null, p_id: id, p_active: null }));
   },
   async deleteRegister(store: string, id: string) {
-    // Soft-delete: marca la caja como inactiva para preservar historial de turnos y ventas
-    return result(
-      supabase
-        .from("retail_registers")
-        .update({ active: false })
-        .eq("store_id", store)
-        .eq("id", id)
-        .select("id")
-        .single(),
-    );
+    return result(supabase.rpc('retail_write_register', { p_store: store, p_name: null, p_branch: null, p_id: id, p_active: false }));
+  },
+  async saveMarginThreshold(store: string, threshold: number, expected: number) {
+    return result(supabase.rpc('retail_set_margin_threshold', { p_store: store, p_threshold: threshold, p_expected: expected }));
   },
   async updateStore(
     store: string,
@@ -668,9 +680,8 @@ const remoteRetail = {
   async updateProductPrice(store: string, product: string, price: number, expected: number) {
     return result(supabase.rpc('retail_update_product_price', { p_store: store, p_product: product, p_price: price, p_expected: expected }));
   },
-  async savePermissionProfile(store: string, profile: Omit<PermissionProfile, 'id' | 'store_id'>, id?: string) {
-    return result(id ? supabase.from('retail_permission_profiles').update({ name: profile.name.trim(), permissions: profile.permissions }).eq('store_id', store).eq('id', id).select('id').single()
-      : supabase.from('retail_permission_profiles').insert({ ...profile, name: profile.name.trim(), store_id: store }).select('id').single());
+  async savePermissionProfile(store: string, profile: Omit<PermissionProfile, 'id' | 'store_id'>, id?: string, requestId?: string, revision = 0) {
+    return result(supabase.rpc('retail_save_permission_profile', { p_store: store, p_id: id || requestId || randomUUID(), p_name: profile.name.trim(), p_role: profile.base_role, p_permissions: profile.permissions, p_revision: revision }));
   },
   async setStaffProfile(store: string, target: string, role: StaffBaseRole, profile: string, pending = false) {
     return result(supabase.rpc('retail_set_staff_profile', { p_store: store, p_target: target, p_role: role, p_profile: profile || null, p_pending: pending }));
@@ -709,13 +720,7 @@ const remoteRetail = {
     );
   },
   async removeMember(store: string, user: string) {
-    return result(
-      supabase
-        .from("retail_members")
-        .delete()
-        .eq("store_id", store)
-        .eq("user_id", user),
-    );
+    return result(supabase.rpc('retail_remove_staff', { p_store: store, p_target: user }));
   },
   async openShift(store: string, register: string, opening: number) {
     return result<string>(

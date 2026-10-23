@@ -6,4 +6,5 @@ import './settings.css';
 import './tools.css';
 import './responsive.css';
 import './mobile-native.css';
+import './store-settings-sober.css';
 import './print.css';

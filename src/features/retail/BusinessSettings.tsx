@@ -665,7 +665,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, branche
       <label>Buscar producto<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nombre o código" /></label>
     </div>
     <SettingsEditorGroup><div className="table-scroll"><table><thead><tr><th>Producto</th><th>Precio del catálogo</th><th>Precio de la lista</th>{list && <th>Precio fijo opcional</th>}</tr></thead><tbody>
-      {priced.filter(p => `${p.name} ${p.code}`.toLowerCase().includes(query.toLowerCase())).slice(0, 50).map(p => {
+      {priced.filter(p => p.sellable !== false && `${p.name} ${p.code}`.toLowerCase().includes(query.toLowerCase())).slice(0, 50).map(p => {
         const fixed = overrides.find(o => o.list_id === selected && o.product_id === p.id);
         return <tr key={p.id}><td>{p.name}<small>{p.code}</small></td><td>${products.find(base => base.id === p.id)?.price.toLocaleString('es-AR')}</td><td>${p.price.toLocaleString('es-AR')}</td>{list && <td><SettingsEditor key={selected + p.id} busy={busy} label={`Editar precio de ${p.name}`} summary={fixed ? `$${Number(fixed.price).toLocaleString('es-AR')}` : 'Usa el porcentaje de la lista'}>{close => <form className="inline-form" onSubmit={async e => {
           e.preventDefault(); const value = String(new FormData(e.currentTarget).get('price'));

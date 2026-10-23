@@ -21,7 +21,7 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
   useEffect(() => { if (active) first.current?.focus(); }, [active]);
   const perPacket = Number(units);
   const expectedUnits = packet.stock * perPacket;
-  const eligible = products.filter(product => product.id !== packet.id && product.active &&
+  const eligible = products.filter(product => product.id !== packet.id && product.active && product.sellable !== false &&
     ((!hasComposition(product) && product.stock === 0) || (product.stock_components?.length === 1 && product.stock_components[0].product_id === packet.id)));
   const candidates = target && !eligible.some(product => product.id === target.id) ? [...eligible, target] : eligible;
   const unitCost = cost.trim() ? Number(cost) : target?.cost ?? Math.round(packet.cost / perPacket * 100) / 100;
@@ -64,7 +64,7 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
     <div className="composition-fields" aria-live="polite">
       <strong>{validUnits ? `${packet.stock} atados × ${perPacket} = ${expectedUnits} cigarrillos` : 'Revisá cuántos cigarrillos trae el atado.'}</strong>
       <p>Guardar convierte esas existencias una sola vez. El atado pasa a descontar {validUnits ? perPacket : 'sus'} cigarrillos por venta; un suelto descuenta 1.</p>
-      <p>El precio y costo del atado se conservan. La reposición se carga sobre el suelto, por atados{validUnits ? ` de ${perPacket} cigarrillos` : ''}.</p>
+      <p>El precio del atado se conserva. Su costo se calcula como {validUnits ? perPacket : 'las unidades'} × costo por cigarrillo{validUnits && Number.isFinite(unitCost) && unitCost > 0 ? `: $${(Math.round(unitCost * 100) * perPacket / 100).toLocaleString('es-AR')}` : ' (pendiente si falta ese costo)'}. La reposición se carga sobre el suelto, por atados{validUnits ? ` de ${perPacket} cigarrillos` : ''}.</p>
       {target && hasComposition(target) && <p>Se reemplaza la vinculación inversa de {target.name} con este atado. No se cambian ventas anteriores.</p>}
     </div>
     <small>Con conexión y sin operaciones pendientes. Sincronizá los otros dispositivos antes de convertir el stock.</small>

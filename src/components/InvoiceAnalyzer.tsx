@@ -31,6 +31,7 @@ import { migrateLocalMappings, normalizeSupplierText, saveMapping, type Supplier
 import { invoiceCostIncrease, type InvoiceCostChange } from '../services/invoicePricingService';
 import { InvoicePriceProposal } from './InvoicePriceProposal';
 import { SupplierAliasPanel } from './SupplierAliasPanel';
+import { defaultProductCategory, resolveProductCategory } from '../services/productCategoryService';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -263,184 +264,14 @@ function detectPackUnits(rawName: string): number {
 
 /**
  * Resuelve y empareja de forma inteligente la categoría sugerida o detectada
- * con las categorías reales registradas en el kiosco del usuario.
+ * con las categorías estándar cargadas desde la base de datos.
  */
 function resolveCategory(
   suggestedCategory: string | undefined,
   productName: string,
   availableCategories: Category[],
 ): string {
-  if (!availableCategories.length) return "";
-
-  const cleanSuggested = (suggestedCategory || "").trim().toLowerCase();
-  const cleanName = productName.toLowerCase();
-
-  // 1. Coincidencia directa o parcial con la categoría devuelta por IA
-  if (cleanSuggested) {
-    const exact = availableCategories.find(
-      (c) => c.name.trim().toLowerCase() === cleanSuggested,
-    );
-    if (exact) return exact.id;
-
-    const partial = availableCategories.find(
-      (c) =>
-        c.name.toLowerCase().includes(cleanSuggested) ||
-        cleanSuggested.includes(c.name.toLowerCase()),
-    );
-    if (partial) return partial.id;
-  }
-
-  // 2. Mapeo semántico por palabras clave típicas de rubros de kiosco
-  const KEYWORD_MAP: { keywords: string[]; categoryTerms: string[] }[] = [
-    {
-      keywords: [
-        "alfajor",
-        "chicle",
-        "caramelo",
-        "chupetin",
-        "beldent",
-        "bubbaloo",
-        "milka",
-        "bon o bon",
-        "chocolate",
-        "confite",
-        "gomitas",
-        "pastillas",
-        "turron",
-        "oblea",
-        "shot",
-        "mentoplus",
-        "halls",
-        "block",
-        "cofler",
-        "aguila",
-        "marroc",
-        "rocklets",
-        "moritas",
-        "yapa",
-      ],
-      categoryTerms: ["golosina", "dulce", "kiosco", "chocolate", "candy", "alfajor"],
-    },
-    {
-      keywords: [
-        "coca",
-        "pepsi",
-        "sprite",
-        "fanta",
-        "agua",
-        "soda",
-        "jugo",
-        "clight",
-        "tang",
-        "aquarius",
-        "levite",
-        "villavicencio",
-        "speed",
-        "monster",
-        "red bull",
-        "cerveza",
-        "vino",
-        "fernet",
-        "gaseosa",
-        "branca",
-        "quilmes",
-        "brahma",
-        "heineken",
-        "corona",
-        "gatorade",
-        "powerade",
-      ],
-      categoryTerms: ["bebida", "gaseosa", "jugo", "agua", "cerveza", "alcohol", "fresco"],
-    },
-    {
-      keywords: [
-        "galletita",
-        "galleta",
-        "oreo",
-        "pepa",
-        "rumba",
-        "chocolina",
-        "merengada",
-        "don satur",
-        "bizcocho",
-        "tostada",
-        "crackers",
-        "traviata",
-        "opera",
-        "criollitas",
-        "terrabusi",
-        "bagley",
-        "pepitos",
-        "sonrisas",
-      ],
-      categoryTerms: ["galletita", "galleta", "bizcocho", "panaderia", "snack"],
-    },
-    {
-      keywords: [
-        "papas",
-        "lays",
-        "doritos",
-        "cheetos",
-        "chizitos",
-        "mani",
-        "snack",
-        "palitos",
-        "saladix",
-        "pehuamar",
-        "nachos",
-        "twistos",
-        "krachitos",
-      ],
-      categoryTerms: ["snack", "salado", "copetin"],
-    },
-    {
-      keywords: [
-        "marlboro",
-        "philip",
-        "chesterfield",
-        "camel",
-        "lucky",
-        "cigarrillo",
-        "tabaco",
-        "encendedor",
-        "sedas",
-        "papelillo",
-        "filtros",
-        "clipper",
-        "bic",
-      ],
-      categoryTerms: ["cigarrillo", "tabaco", "fumador"],
-    },
-    {
-      keywords: [
-        "leche",
-        "yogur",
-        "queso",
-        "manteca",
-        "crema",
-        "dulce de leche",
-        "postre",
-        "serenisima",
-        "sancor",
-        "ilolay",
-      ],
-      categoryTerms: ["lacteo", "fresco", "refrigerado"],
-    },
-  ];
-
-  for (const group of KEYWORD_MAP) {
-    const matchesName = group.keywords.some((kw) => cleanName.includes(kw));
-    if (matchesName) {
-      const matchedCat = availableCategories.find((c) => {
-        const cName = c.name.toLowerCase();
-        return group.categoryTerms.some((term) => cName.includes(term));
-      });
-      if (matchedCat) return matchedCat.id;
-    }
-  }
-
-  // 3. Fallback a la primera categoría disponible
-  return availableCategories[0].id;
+  return resolveProductCategory(availableCategories, suggestedCategory, productName);
 }
 
 function buildParsePrompt(invoiceText: string, categories: Category[] = [], products: Product[] = []): string {
@@ -449,7 +280,7 @@ function buildParsePrompt(invoiceText: string, categories: Category[] = [], prod
     categoryNames.length > 0
       ? `CATEGORÍAS EXISTENTES EN EL KIOSCO (Elegí la más adecuada para cada producto):
 ${JSON.stringify(categoryNames)}
-- Asigná a cada producto el nombre EXACTO de la categoría que mejor corresponda de esa lista en el campo "category".`
+- Asigná a cada producto el nombre EXACTO de la categoría que mejor corresponda de esa lista en el campo "category". Si ninguna corresponde, usá "Varios".`
       : "";
 
   return `Sos un extractor de facturas y remitos de distribuidoras mayoristas para un kiosco.
@@ -756,7 +587,7 @@ export function InvoiceAnalyzer({
             : rawCost;
           const qty = rawQty * unitsPerPack;
 
-          // Categorización automática en las categorías del usuario
+          // Categorización entre las opciones provistas por la base de datos.
           const assignedCategoryId = resolveCategory(it.category || undefined, cleanCommercialName || rawInvoiceLine, localCategories);
 
           const hasMatch = !!matchedProduct;
@@ -845,6 +676,10 @@ export function InvoiceAnalyzer({
     setError(null);
 
     try {
+      // Validate category availability before applying any stock/cost changes.
+      let fallbackCatId = defaultProductCategory(localCategories);
+      if (toCreate.length && !fallbackCatId) fallbackCatId = defaultProductCategory(await retail.categories(storeId));
+      if (toCreate.length && !fallbackCatId) throw new Error('No se cargó la categoría Varios. Actualizá los datos y verificá la migración de categorías estándar antes de importar.');
       const importedCosts = new Map<string, InvoiceCostChange>();
       // 1. Actualización de productos existentes
       if (toUpdate.length > 0) {
@@ -868,17 +703,6 @@ export function InvoiceAnalyzer({
 
       // 2. Alta de productos nuevos en catálogo
       if (toCreate.length > 0) {
-        let fallbackCatId = localCategories[0]?.id || "";
-        if (!fallbackCatId) {
-          const cats = await retail.categories(storeId);
-          if (cats && cats.length > 0) {
-            fallbackCatId = cats[0].id;
-          } else {
-            const newCat = await retail.addCategory(storeId, "Varios");
-            fallbackCatId = newCat.id;
-          }
-        }
-
         const usedCodes = new Set(
           products.map((p) => p.code?.trim().toLowerCase()).filter(Boolean),
         );

@@ -2,7 +2,7 @@
 
 ## Activación
 
-1. En Supabase, ejecutar las migraciones pendientes en orden, incluidas `202610150001_cashier_access.sql`, `202610160001_offline_pos.sql` y `202610160002_offline_queue.sql`. No repetir las ya aplicadas.
+1. Preparar la base con [supabase/schema.sql](supabase/schema.sql) según [SUPABASE_SETUP.md](SUPABASE_SETUP.md). Incluye caja/offline y registra lo aplicado; no repetir migraciones individuales.
 2. Publicar el código en Vercel. Cerrar todas las ventanas de la PWA anterior y volver a abrir con conexión para que se instale el nuevo service worker.
 3. En cada dispositivo, iniciar sesión con la cuenta que va a usar esa caja. Elegir el comercio, sucursal y caja; dejar cargar el catálogo y abrir/consultar el turno. Cada cuenta tiene sus datos locales separados. Un dispositivo o una cuenta nuevos necesitan conexión para prepararse.
 4. Probar sin conexión antes de comenzar la jornada. La PWA publicada guarda HTML, JavaScript, estilos e iconos. El servidor de desarrollo no precachea Vite/HMR: la recarga completa offline se prueba en la versión publicada.
@@ -28,7 +28,7 @@ Pago mixto reparte el total entre dos medios distintos (efectivo, QR, transferen
 
 ## Botonera por sucursal
 
-En **Nueva venta → Venta rápida → Personalizar**, propietarios y administradores eligen hasta 20 productos del catálogo. Se muestran primero en el orden de selección y se completan con los más vendidos de esa sucursal durante los últimos 30 días. Para cambiar el orden, quitar y volver a seleccionar. Un cajero puede usar la botonera, pero no editarla.
+En **Vender → Venta rápida → Personalizar**, administración o un perfil con `manage_quick_products` elige hasta 20 productos vendibles. Si hay favoritos se muestran en su orden; si no, se usan los más vendidos disponibles de la sucursal. Para cambiar orden, quitar y volver a seleccionar. Un cajero sin ese permiso puede usarlos, pero no editarlos. Los insumos no se ofrecen para venta directa.
 
 Para café, panchos, cargas u otros productos sin etiqueta, crear el producto con un código interno (por ejemplo `CAFE`) y fijarlo en la botonera. Sigue usando el precio de la lista seleccionada y el stock del catálogo. La personalización se comparte en la sucursal y se guarda con conexión; después puede usarse offline. Las sugerencias incluyen únicamente cantidades agregadas por producto, sin mostrar movimientos ni tickets de otros cajeros.
 
@@ -57,4 +57,4 @@ No borrar datos del sitio, desinstalar la PWA ni usar navegación privada mientr
 4. Cerrar y volver a abrir la PWA sin conexión: deben conservarse los datos y operaciones. Reconectar y esperar a que la cola quede vacía. Confirmar una sola venta/movimiento por operación en Supabase y que el cierre mixto suma solo el efectivo.
 5. Para probar un conflicto en datos de prueba, cambiar el precio o agotar el stock desde otro dispositivo mientras el primero está offline. Al reconectar, debe mostrarse el error y mantenerse el respaldo local, sin borrar ni duplicar operaciones.
 
-Pruebas automatizadas: `npm run test:db`, `npm run test:ui`, `npm run test:offline`, `npm run test:push` y `npx tsc --noEmit -p tsconfig.app.json`. No ejecutan un build ni modifican el proyecto remoto.
+Única comprobación de código autorizada: `npx tsc --noEmit -p tsconfig.app.json`. No ejecutar builds ni otras pruebas automatizadas. Los recorridos anteriores son comprobaciones manuales pendientes, no pruebas realizadas.

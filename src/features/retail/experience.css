@@ -274,13 +274,19 @@ button, summary { user-select: none; }
 .password-input button { position: absolute; right: 5px; top: 5px; height: 38px; width: 38px; }
 @media screen and (min-width: 1001px) {
   .retail-app .app-sidebar { background: var(--tone-accent); width: 232px; padding: 28px 18px 22px; border: 0; }
-  .retail-app .app-sidebar .brand { color: white; padding: 0 5px; }
-  .retail-app .brand-sub { color: var(--tone-border-strong); font-size: 9px; letter-spacing: 2px; margin-top: 7px; }
+  .retail-app .app-sidebar .brand { color: white; padding: 0 5px; margin-bottom: 20px; }
+  .retail-app .brand-sub { display: none; }
   .retail-app .store-brand-name { font-size: 17px; }
   .retail-app .app-sidebar .brand-mark { width: 40px; height: 42px; flex-shrink: 0; box-shadow: none; }
-  .retail-app .app-sidebar .store-switch { color: var(--tone-border-strong); margin: 32px 0 26px; font-size: 11px; }
-  .retail-app .app-sidebar .store-switch select { background: color-mix(in srgb, var(--tone-surface) 3.53%, transparent); border-color: color-mix(in srgb, var(--tone-surface) 12.55%, transparent); color: var(--tone-soft); border-radius: 9px; min-height: 42px; }
-  .retail-app .store-switch option { color: var(--tone-accent); background: white; }
+  .retail-app .app-sidebar .branch-slide-trigger {
+    background: color-mix(in srgb, var(--tone-surface) 12%, transparent);
+    border-color: color-mix(in srgb, var(--tone-surface) 22%, transparent);
+    color: white;
+  }
+  .retail-app .app-sidebar .branch-slide-trigger:hover {
+    background: color-mix(in srgb, var(--tone-surface) 22%, transparent);
+    border-color: color-mix(in srgb, var(--tone-surface) 40%, transparent);
+  }
   .retail-app .app-sidebar .nav-item { color: var(--tone-border-strong); padding: 13px 12px; font-size: 12px; border-radius: 10px; min-height: 46px; }
   .retail-app .app-sidebar .nav-item.active { color: white; background: color-mix(in srgb, var(--tone-surface) 7.84%, transparent); box-shadow: inset 3px 0 0 var(--tone-border); }
   .retail-app .app-sidebar .nav-item:hover:not(:disabled) { background: color-mix(in srgb, var(--tone-surface) 5.1%, transparent); }
@@ -291,12 +297,9 @@ button, summary { user-select: none; }
   .retail-app .sidebar-bottom > .text-button { color: var(--tone-border-strong); font-size: 11px; margin-top: 6px; }
 }
 @media screen and (min-width: 761px) and (max-width: 1000px) {
-  .retail-app .app-sidebar { display: grid; grid-template-columns: minmax(0, 1fr) 44px; gap: 10px; padding: 18px 24px 0; }
-  .retail-app .mobile-account-toggle { display: inline-flex; }
-  .retail-app .app-sidebar nav { grid-column: 1 / -1; }
+  .retail-app .app-sidebar { display: flex; flex-direction: column; gap: 10px; padding: 18px 24px 0; }
+  .retail-app .app-sidebar nav { width: 100%; }
   .retail-app .store-switch, .retail-app .sidebar-bottom { display: none; }
-  .retail-app .mobile-account-open .store-switch { display: flex; grid-column: 1 / -1; margin: 8px 0; }
-  .retail-app .mobile-account-open .sidebar-bottom { display: flex; flex-wrap: wrap; grid-column: 1 / -1; gap: 12px; padding-bottom: 15px; }
   .retail-app .pos-layout { grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; }
 }
 @media screen and (max-width: 1100px) {
