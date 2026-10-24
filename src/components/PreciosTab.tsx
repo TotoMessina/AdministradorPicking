@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import React, { useState } from "react";
 import {
   Percent,
@@ -419,12 +420,12 @@ export const PreciosTab: React.FC<PreciosTabProps> = ({
                 >
                   Precio Venta ($) *
                 </label>
-                <input
+                <NumberInput
                   id="product-field-4"
                   type="number"
                   placeholder="Ej: 1500"
                   value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  onValueChange={(e) => setPrice(e)}
                   style={{
                     width: "100%",
                     padding: "0.6rem 0.75rem",
@@ -458,12 +459,12 @@ export const PreciosTab: React.FC<PreciosTabProps> = ({
                 >
                   Costo Compra ($)
                 </label>
-                <input
+                <NumberInput
                   id="product-field-5"
                   type="number"
                   placeholder="Opcional..."
                   value={cost}
-                  onChange={(e) => setCost(e.target.value)}
+                  onValueChange={(e) => setCost(e)}
                   style={{
                     width: "100%",
                     padding: "0.5rem 0.65rem",
@@ -485,12 +486,12 @@ export const PreciosTab: React.FC<PreciosTabProps> = ({
                 >
                   Stock Inicial
                 </label>
-                <input
+                <NumberInput
                   id="product-field-6"
                   type="number"
                   placeholder="20"
                   value={stock}
-                  onChange={(e) => setStock(e.target.value)}
+                  onValueChange={(e) => setStock(e)}
                   style={{
                     width: "100%",
                     padding: "0.5rem 0.65rem",
@@ -632,12 +633,12 @@ export const PreciosTab: React.FC<PreciosTabProps> = ({
                 >
                   Porcentaje %
                 </label>
-                <input
+                <NumberInput
                   id="product-field-8"
                   type="number"
                   value={increasePercentage}
-                  onChange={(e) =>
-                    setIncreasePercentage(parseFloat(e.target.value) || 0)
+                  onValueChange={(e) =>
+                    setIncreasePercentage(parseFloat(e) || 0)
                   }
                   style={{
                     width: "100%",
@@ -862,12 +863,12 @@ export const PreciosTab: React.FC<PreciosTabProps> = ({
                             alignItems: "center",
                           }}
                         >
-                          <input
+                          <NumberInput
                             type="number"
                             value={editPriceInput}
-                            onChange={(e) => setEditPriceInput(e.target.value)}
+                            onValueChange={(e) => setEditPriceInput(e)}
                             style={{
-                              width: "75px",
+                              width: "13ch",
                               padding: "2px 4px",
                               borderRadius: "4px",
                               border: "1px solid #6366f1",

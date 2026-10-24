@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowRight, Check, Loader2, Plus, RefreshCw, Search, Trash2, X } from 'lucide-react';
 import { errorMessage, retail, type Branch, type Product, type StockTransfer, type StockTransferItem } from './api';
@@ -130,7 +131,7 @@ export function StockTransfers({ storeId, branches, products, run, busy, active 
           {matches.length === 20 && <small>Se muestran hasta 20 coincidencias. Escribí más para ajustar la búsqueda.</small>}
         </div>}
         {items.length > 0 ? <div className="table-scroll"><table><caption>Productos a trasladar</caption><thead><tr><th>Producto</th><th>Cantidad (unidades)</th><th>Acción</th></tr></thead><tbody>
-          {items.map(item => { const product = byId.get(item.product_id); return <tr key={item.product_id}><td>{product?.name || 'Producto no disponible'}<small>{product?.code}</small></td><td><input type="number" min="1" max="1000000" step="1" required aria-label={`Cantidad de ${product?.name || 'producto no disponible'}`} value={item.qty || ''} onChange={event => setItems(previous => previous.map(row => row.product_id === item.product_id ? { ...row, qty: Number(event.target.value) } : row))} /></td><td><button type="button" className="secondary-button" aria-label={`Quitar ${product?.name || 'producto no disponible'}`} onClick={() => setItems(previous => previous.filter(row => row.product_id !== item.product_id))}><Trash2 size={15} /> Quitar</button></td></tr>; })}
+          {items.map(item => { const product = byId.get(item.product_id); return <tr key={item.product_id}><td>{product?.name || 'Producto no disponible'}<small>{product?.code}</small></td><td><NumberInput type="number" min="1" max="1000000" step="1" required aria-label={`Cantidad de ${product?.name || 'producto no disponible'}`} value={item.qty || ''} onValueChange={event => setItems(previous => previous.map(row => row.product_id === item.product_id ? { ...row, qty: Number(event) } : row))} /></td><td><button type="button" className="secondary-button" aria-label={`Quitar ${product?.name || 'producto no disponible'}`} onClick={() => setItems(previous => previous.filter(row => row.product_id !== item.product_id))}><Trash2 size={15} /> Quitar</button></td></tr>; })}
         </tbody></table></div> : <p className="stock-transfer-help"><Search size={16} /> Buscá y agregá los productos que vas a trasladar.</p>}
         <label>Notas (opcional)<textarea value={notes} maxLength={2000} rows={2} placeholder="Ej. Reposición para cubrir faltantes en sucursal Centro" onChange={event => setNotes(event.target.value)} /></label>
       </fieldset>

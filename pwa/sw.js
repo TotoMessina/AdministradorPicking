@@ -125,7 +125,14 @@ async function syncRetailOutbox() {
             if (entry.operation.kind === 'sale') for (const [key, value] of Object.entries(current.cache)) {
               if (Array.isArray(value) && JSON.parse(key)[0] === 'sales') current.cache[key] = value.map(sale => sale.id === entry.operation.id ? { ...sale, ticketNumber: result.ticketNumber, syncStatus: 'synced' } : sale);
             }
-          } else queued.error = result.message || 'Revisá la operación en la app';
+            if (['close', 'close_details'].includes(entry.operation.kind) && Number.isInteger(result.ticketCount)) for (const [key, value] of Object.entries(current.cache)) {
+              const [method, args] = JSON.parse(key);
+              if (method === 'shiftTicketCount' && args[0] === entry.operation.shift) current.cache[key] = result.ticketCount;
+              if (method === 'shifts' && Array.isArray(value)) value.forEach(shift => { if (shift.id === entry.operation.shift) shift.ticket_count = result.ticketCount; });
+            }
+          } else queued.error = entry.operation.kind === 'close_details' && result.message === 'Operación no admitida'
+            ? 'Actualizá schema.sql en Supabase para guardar el detalle de billetes y reintentá. El cierre sigue guardado en este dispositivo.'
+            : result.message || 'Revisá la operación en la app';
           store.put(current, auth.user);
         };
         tx.oncomplete = resolve; tx.onerror = tx.onabort = () => reject(tx.error);

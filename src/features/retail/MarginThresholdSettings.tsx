@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useEffect, useRef, useState } from 'react';
 import { retail, errorMessage, type Store } from './api';
 import { lowMarginThreshold } from '../../services/productMarginService';
@@ -28,7 +29,7 @@ export function MarginThresholdSettings({ store, busy, run }: { store: Store; bu
         if (ok) { setExpected(Number(value)); setDirty(false); }
       } finally { saving.current = false; }
     }}>
-      <label>Marcar como bajo margen si es menor a (%)<input type="number" required min="0" max="100" step="0.01" value={value} disabled={busy} onChange={event => { setValue(event.target.value); setDirty(true); }} /></label>
+      <label>Marcar como bajo margen si es menor a (%)<NumberInput type="number" required min="0" max="100" step="0.01" value={value} disabled={busy} onValueChange={event => { setValue(event); setDirty(true); }} /></label>
       <p>Margen = (precio − costo) ÷ precio × 100. Al guardar se reclasifican los productos actuales; no cambia precios ni importes/grupos ya guardados en ventas. Requiere conexión.</p>
       {error && <p role="alert">{error}</p>}
       <div className="button-row">

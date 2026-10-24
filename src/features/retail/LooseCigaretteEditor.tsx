@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useEffect, useRef, useState } from 'react';
 import { errorMessage, retail, type Product } from './api';
 import type { Run } from './Management';
@@ -48,7 +49,7 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
   }}>
     <h3>Vender cigarrillos sueltos</h3>
     <p>Atado: <strong>{packet.name}</strong>. El stock se contará en cigarrillos individuales.</p>
-    <label>Cigarrillos por atado<input ref={first} type="number" required min="2" max="1000" step="1" placeholder="Ej. 10 o 20" disabled={busy} value={units} onChange={event => setUnits(event.target.value)} /></label>
+    <label>Cigarrillos por atado<NumberInput ref={first} type="number" required min="2" max="1000" step="1" placeholder="Ej. 10 o 20" disabled={busy} value={units} onValueChange={event => setUnits(event)} /></label>
     <label>Producto suelto<select disabled={busy} value={target?.id || ''} onChange={event => {
       const selected = candidates.find(product => product.id === event.target.value);
       setTarget(selected ? structuredClone(selected) : null); setPrice(selected ? String(selected.price) : ''); setCost(selected ? String(selected.cost) : ''); setError('');
@@ -58,8 +59,8 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
       <label>Código interno del suelto<input required maxLength={100} value={code} onChange={event => setCode(event.target.value)} /></label>
     </fieldset>
     <div className="form-grid">
-      <label>Precio por cigarrillo ($)<input type="number" min="0.01" max="9999999999" step="0.01" required disabled={busy} value={price} onChange={event => setPrice(event.target.value)} /></label>
-      <label>Costo por cigarrillo ($)<input type="number" min="0" max="9999999999" step="0.01" disabled={busy} value={cost} placeholder={Number.isFinite(unitCost) ? String(unitCost) : ''} onChange={event => setCost(event.target.value)} /><small>{target ? 'Conserva el costo existente, salvo que lo edites.' : 'Si lo dejás vacío, usa el costo del atado dividido por sus cigarrillos, redondeado a centavos.'}</small></label>
+      <label>Precio por cigarrillo ($)<NumberInput type="number" min="0.01" max="9999999999" step="0.01" required disabled={busy} value={price} onValueChange={event => setPrice(event)} /></label>
+      <label>Costo por cigarrillo ($)<NumberInput type="number" min="0" max="9999999999" step="0.01" disabled={busy} value={cost} placeholder={Number.isFinite(unitCost) ? String(unitCost) : ''} onValueChange={event => setCost(event)} /><small>{target ? 'Conserva el costo existente, salvo que lo edites.' : 'Si lo dejás vacío, usa el costo del atado dividido por sus cigarrillos, redondeado a centavos.'}</small></label>
     </div>
     <div className="composition-fields" aria-live="polite">
       <strong>{validUnits ? `${packet.stock} atados × ${perPacket} = ${expectedUnits} cigarrillos` : 'Revisá cuántos cigarrillos trae el atado.'}</strong>

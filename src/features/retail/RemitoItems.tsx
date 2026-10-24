@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useMemo, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import type { Product, PendingReplenishmentItem } from './api';
@@ -29,7 +30,7 @@ export function RemitoItems({ items, products, onChange, disabled, linking = fal
           }}><option value="">— Elegí un producto —</option>{options.map(product => <option key={product.id} value={product.id}>{product.name} · {product.code}</option>)}</select></label>
           <small>Escribí para buscar en todo el catálogo. Hasta 40 coincidencias por búsqueda.</small>
         </div>}
-        <div className="remito-item-actions"><label>Cantidad (unidades)<input aria-label={`Cantidad de ${item.invoice_line}`} type="number" min="1" max="1000000" step="1" value={item.quantity || ''} disabled={disabled} onChange={event => update(index, { quantity: Number(event.target.value) })} /></label>
+        <div className="remito-item-actions"><label>Cantidad (unidades)<NumberInput aria-label={`Cantidad de ${item.invoice_line}`} type="number" min="1" max="1000000" step="1" value={item.quantity || ''} disabled={disabled} onValueChange={event => update(index, { quantity: Number(event) })} /></label>
           <button type="button" className="secondary-button" disabled={disabled} aria-label={`Quitar ${item.invoice_line}`} onClick={() => { onChange(items.filter((_, i) => i !== index)); setQueries({}); }}><Trash2 size={16} /> Quitar</button>
         </div>
       </div>;

@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   AlertTriangle,
@@ -1665,10 +1666,10 @@ export function InvoiceAnalyzer({
                                 <span>Se muestran hasta 60 resultados y las coincidencias aproximadas. Escribí para buscar en todo el catálogo.</span>
                               </label>
                               <label>Cantidad recibida (unidades)
-                                <input type="number" min="0.001" max="1000000" step="any" value={it.qty} onChange={e => updateItem(i, { qty: Number(e.target.value) })} />
+                                <NumberInput type="number" min="0.001" max="1000000" step="any" value={it.qty} onValueChange={e => updateItem(i, { qty: Number(e) })} />
                               </label>
                               <label>Costo por unidad individual ($)
-                                <input type="number" min="0" step="0.01" placeholder="No detectado" value={it.costKnown ? it.unitCost : ''} onChange={e => updateItem(i, { unitCost: e.target.value === '' ? NaN : Number(e.target.value) })} />
+                                <NumberInput type="number" min="0" step="0.01" placeholder="No detectado" value={it.costKnown ? it.unitCost : ''} onValueChange={e => updateItem(i, { unitCost: e === '' ? NaN : Number(e) })} />
                               </label>
                             </div>
                             <button type="button" className="primary-button" disabled={mappingBusy || !it.matchedProduct || !normalizeSupplierText(providerName)} onClick={() => void confirmMapping(i)}>
@@ -1707,12 +1708,12 @@ export function InvoiceAnalyzer({
                           ))}
                           <div className="inv-pack-custom">
                             <span>Otro:</span>
-                            <input
+                            <NumberInput
                               type="number"
                               min={1}
                               max={999}
                               value={it.unitsPerPack}
-                              onChange={(e) => handleUpdatePackUnits(i, Number(e.target.value))}
+                              onValueChange={(e) => handleUpdatePackUnits(i, Number(e))}
                               className="inv-pack-input"
                               title="Ingresar cantidad manual de unidades por caja o display"
                             />
@@ -1790,12 +1791,12 @@ export function InvoiceAnalyzer({
 
                                 <label>
                                   Unidades por Display / Caja
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={1}
                                     value={it.unitsPerPack}
-                                    onChange={(e) =>
-                                      handleUpdatePackUnits(i, Number(e.target.value))
+                                    onValueChange={(e) =>
+                                      handleUpdatePackUnits(i, Number(e))
                                     }
                                     title="Cantidad de unidades individuales por display o caja"
                                   />
@@ -1803,13 +1804,13 @@ export function InvoiceAnalyzer({
 
                                 <label>
                                   Stock inicial (unidades)
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={1}
                                     value={it.qty}
-                                    onChange={(e) =>
+                                    onValueChange={(e) =>
                                       updateItem(i, {
-                                        qty: Math.max(1, Number(e.target.value)),
+                                        qty: Math.max(1, Number(e)),
                                       })
                                     }
                                   />
@@ -1817,13 +1818,13 @@ export function InvoiceAnalyzer({
 
                                 <label>
                                   Costo unitario real ($)
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={0}
                                     step={0.01}
                                     value={it.unitCost}
-                                    onChange={(e) => {
-                                      const cost = Math.max(0, Number(e.target.value));
+                                    onValueChange={(e) => {
+                                      const cost = Math.max(0, Number(e));
                                       updateItem(i, {
                                         unitCost: cost,
                                         newPrice: Math.round(cost * 1.4) || 100,
@@ -1834,14 +1835,14 @@ export function InvoiceAnalyzer({
 
                                 <label>
                                   Precio de venta ($)
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={1}
                                     step={0.01}
                                     value={it.newPrice}
-                                    onChange={(e) =>
+                                    onValueChange={(e) =>
                                       updateItem(i, {
-                                        newPrice: Math.max(1, Number(e.target.value)),
+                                        newPrice: Math.max(1, Number(e)),
                                       })
                                     }
                                   />
@@ -1877,38 +1878,38 @@ export function InvoiceAnalyzer({
                               <div className="invoice-detail-fields">
                                 <label>
                                   Unidades por Display / Caja
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={1}
                                     value={it.unitsPerPack}
-                                    onChange={(e) =>
-                                      handleUpdatePackUnits(i, Number(e.target.value))
+                                    onValueChange={(e) =>
+                                      handleUpdatePackUnits(i, Number(e))
                                     }
                                   />
                                 </label>
                                 <label>
                                   Cantidad recibida (unidades)
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={1}
                                     value={it.qty}
-                                    onChange={(e) =>
+                                    onValueChange={(e) =>
                                       updateItem(i, {
-                                        qty: Math.max(1, Number(e.target.value)),
+                                        qty: Math.max(1, Number(e)),
                                       })
                                     }
                                   />
                                 </label>
                                 <label>
                                   Nuevo Costo unitario real ($)
-                                  <input
+                                  <NumberInput
                                     type="number"
                                     min={0}
                                     step={0.01}
                                     value={it.unitCost}
-                                    onChange={(e) =>
+                                    onValueChange={(e) =>
                                       updateItem(i, {
-                                        unitCost: Number(e.target.value),
+                                        unitCost: Number(e),
                                       })
                                     }
                                   />

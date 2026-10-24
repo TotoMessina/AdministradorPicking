@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useState } from 'react';
 import {
   Building2,
@@ -654,7 +655,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, branche
         if (await run(() => retail.savePriceList(storeId, String(f.get('name')), Number(f.get('adjustment')), l?.id, l?.active ?? true, String(f.get('branch')) || null), 'Lista guardada')) close();
       }}>
         <label>{l ? 'Lista' : 'Nueva lista'}<input name="name" required maxLength={80} defaultValue={l?.name} placeholder="Ej. Mayorista" /></label>
-        <label>Ajuste %<input name="adjustment" type="number" required step="0.01" min="-99.99" max="10000" defaultValue={l?.adjustment ?? 0} /></label>
+        <label>Ajuste %<NumberInput name="adjustment" type="number" required step="0.01" min="-99.99" max="10000" defaultValue={l?.adjustment ?? 0} /></label>
         <label>Sucursal<select name="branch" aria-label={l ? `Sucursal de la lista ${l.name}` : 'Sucursal de la nueva lista'} defaultValue={l?.branch_id || ''}><option value="">Todas las sucursales</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
         <button className="secondary-button" disabled={busy}>{l ? 'Guardar' : 'Crear lista'}</button>
         {l && <button type="button" className="text-button" disabled={busy} onClick={() => void run(() => retail.savePriceList(storeId, l.name, Number(l.adjustment), l.id, !l.active, l.branch_id || null), 'Lista actualizada')}>{l.active ? 'Desactivar' : 'Reactivar'}</button>}
@@ -670,7 +671,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, branche
         return <tr key={p.id}><td>{p.name}<small>{p.code}</small></td><td>${products.find(base => base.id === p.id)?.price.toLocaleString('es-AR')}</td><td>${p.price.toLocaleString('es-AR')}</td>{list && <td><SettingsEditor key={selected + p.id} busy={busy} label={`Editar precio de ${p.name}`} summary={fixed ? `$${Number(fixed.price).toLocaleString('es-AR')}` : 'Usa el porcentaje de la lista'}>{close => <form className="inline-form" onSubmit={async e => {
           e.preventDefault(); const value = String(new FormData(e.currentTarget).get('price'));
           if (await run(() => retail.savePriceOverride(storeId, list.id, p.id, value === '' ? null : Number(value)), value === '' ? 'Vuelve al cálculo de la lista' : 'Precio fijo guardado')) close();
-        }}><label>Precio fijo ($)<input name="price" type="number" min="0.01" max="999999999999.99" step="0.01" defaultValue={fixed?.price} placeholder="Usar porcentaje" /></label><button className="secondary-button" disabled={busy}>Guardar</button></form>}</SettingsEditor></td>}</tr>;
+        }}><label>Precio fijo ($)<NumberInput name="price" type="number" min="0.01" max="999999999999.99" step="0.01" defaultValue={fixed?.price} placeholder="Usar porcentaje" /></label><button className="secondary-button" disabled={busy}>Guardar</button></form>}</SettingsEditor></td>}</tr>;
       })}
     </tbody></table></div></SettingsEditorGroup><p>Se muestran hasta 50 coincidencias. Para quitar un precio fijo, dejá su campo vacío y guardá.</p>
     </details>

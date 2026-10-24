@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   Search,
@@ -107,8 +108,9 @@ function CartQuantityInput({
     onUpdateQty(finalQty);
   };
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const raw = e.target.value.replace(/\D/g, "");
+  const handleInputChange = (value: string) => {
+    if (!/^\d*$/.test(value)) return;
+    const raw = value;
     if (!raw) {
       setText("");
       return;
@@ -154,12 +156,13 @@ function CartQuantityInput({
   };
 
   return (
-    <input
-      type="text"
+    <NumberInput
+      type="number"
       inputMode="numeric"
-      pattern="[0-9]*"
+      step="1"
       disabled={disabled}
       className="cart-qty-input"
+      style={{ '--cart-qty-width': `${Math.max(3, Number(text || 0).toLocaleString('es-AR').length)}ch` } as React.CSSProperties}
       value={text}
       title="Hacé clic para escribir la cantidad con el teclado"
       aria-label={`Cantidad de ${item.product.name}`}
@@ -167,7 +170,7 @@ function CartQuantityInput({
         isFocused.current = true;
         e.currentTarget.select();
       }}
-      onChange={handleInputChange}
+      onValueChange={handleInputChange}
       onBlur={handleBlur}
       onKeyDown={handleKeyDown}
     />
@@ -738,7 +741,7 @@ export function PosTab({
             </div>
             {method === 'Mixto' && <div className="mixed-payment">
               <label>Primer medio<select value={splitFirst} onChange={e => { const next = e.target.value as typeof splitFirst; if (next === splitSecond) setSplitSecond(splitFirst); setSplitFirst(next); }}>{methods.filter(m => m.id !== 'Mixto').map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
-              <label>Importe del primer medio<input id="mixed-amount" type="number" min="0.01" step="0.01" value={splitAmount} onChange={e => setSplitAmount(e.target.value)} /></label>
+              <label>Importe del primer medio<NumberInput id="mixed-amount" type="number" min="0.01" step="0.01" value={splitAmount} onValueChange={e => setSplitAmount(e)} /></label>
               <label>Resto del pago<select value={splitSecond} onChange={e => setSplitSecond(e.target.value as typeof splitSecond)}>{methods.filter(m => m.id !== 'Mixto' && m.id !== splitFirst).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
               <strong>Restante: {money(Math.max(0, (cents(total) - cents(splitValue || 0)) / 100))}</strong>
               <small>Ingresá lo recibido por el primer medio. Enter o F4 confirma ambos pagos. El importe debe ser menor al total.</small>
@@ -758,7 +761,7 @@ export function PosTab({
                 </label>
                 <div className="cash-input">
                   <span>$</span>
-                  <input
+                  <NumberInput
                     id="cash-received"
                     type="number"
                     inputMode="decimal"
@@ -766,7 +769,7 @@ export function PosTab({
                     step="0.01"
                     placeholder="0"
                     value={cash}
-                    onChange={(e) => setCash(e.target.value)}
+                    onValueChange={(e) => setCash(e)}
                   />
                 </div>
                 <div className="quick-bills">
@@ -948,7 +951,7 @@ export function PosTab({
                 </label>
                 <div className="manual-amount-input-wrapper">
                   <span className="manual-currency-symbol">$</span>
-                  <input
+                  <NumberInput
                     id="manual-amount-input"
                     autoFocus
                     required
@@ -956,7 +959,7 @@ export function PosTab({
                     min="0.01"
                     step="0.01"
                     value={manualAmount}
-                    onChange={(e) => setManualAmount(e.target.value)}
+                    onValueChange={(e) => setManualAmount(e)}
                     placeholder="0.00"
                     className="manual-amount-input"
                   />

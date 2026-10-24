@@ -51,6 +51,7 @@ trigger: always_on
 
 ## UX/UI y accesibilidad
 
+- Campos de importes, cantidades, stock y porcentajes: usar `NumberInput`, con puntos de miles y coma decimal (`1.234.567,50`). Mantener valores canónicos sin separadores en cálculos, formularios y persistencia, sin redondeos nuevos. No aplicar formato numérico a códigos de barras, teléfonos, documentos ni otros identificadores.
 - Español claro, pocas decisiones simultáneas y acciones descriptivas. Mantener paleta y separación de secciones, con estilo sobrio.
 - Jerarquía por agrupación, espacio y prioridad. Evitar botones duplicados, botones que llevan a otro menú de botones y encabezados/contextos redundantes.
 - Distinguir consultar, crear y editar. Formularios por intención, títulos claros y Guardar/Cancelar alcanzables en móvil. Opciones avanzadas descubribles, sin competir con tareas habituales.

@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
 import { retail, type Product } from '../features/retail/api';
@@ -115,10 +116,10 @@ Evaluá si las terminaciones tienen sentido, priorizando precios fáciles de cob
     <p>Costos actualizados con subas mayores al 2%. El margen se calcula sobre el precio de venta. Revisá y elegí qué precios aplicar.</p>
     <div className="invoice-price-controls">
       <label>Margen objetivo (%)
-        <input type="number" min="0" max="99.99" step="0.1" value={margin} disabled={saving} onChange={e => setMargin(e.target.value)} />
+        <NumberInput type="number" min="0" max="99.99" step="0.1" value={margin} disabled={saving} onValueChange={e => setMargin(e)} />
       </label>
       <label>Redondear hacia arriba a múltiplos de ($)
-        <input type="number" min="0.01" max="1000000" step="0.01" list="invoice-price-multiples" value={multiple} disabled={saving} onChange={e => setMultiple(e.target.value)} />
+        <NumberInput type="number" min="0.01" max="1000000" step="0.01" list="invoice-price-multiples" value={multiple} disabled={saving} onValueChange={e => setMultiple(e)} />
         <datalist id="invoice-price-multiples">{[1, 5, 10, 50, 100, 500].map(value => <option key={value} value={value} />)}</datalist>
       </label>
     </div>

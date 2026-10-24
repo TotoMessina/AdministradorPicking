@@ -94,7 +94,8 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
-end $retail_bootstrap$;
+end;
+$retail_bootstrap$;
 
 ${migrations.map(migration => `-- ${migration.order}/${migrations.length}: ${migration.name}
 do $retail_step_${migration.order}$
@@ -107,7 +108,8 @@ $${migration.tag}$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('${migration.name}','${migration.checksum}','schema');
  end if;
-end $retail_step_${migration.order}$;`).join('\n\n')}
+end;
+$retail_step_${migration.order}$;`).join('\n\n')}
 
 notify pgrst,'reload schema';
 commit;

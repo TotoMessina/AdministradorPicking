@@ -297,6 +297,6 @@ En **http://localhost:3001/**, usando un comercio de prueba y después de instal
 5. Abrir la eliminación, navegar a otra pantalla y volver: el motivo sigue escrito y no captura teclas fuera de Productos. Verificar foco, teclado y acciones en móvil. Cancelar vuelve al catálogo.
 6. Sin conexión, eliminar/restaurar/consultar historial muestra un error y no finge guardar. Con operaciones locales pendientes se pide sincronizar. Recuperar conexión y reintentar sin cambiar el formulario: un único evento, incluso si se perdió la respuesta anterior.
 7. Desde dos dispositivos, eliminar el mismo producto: solo uno realiza la baja; el otro recibe el estado actualizado/error. Una edición previa no puede reactivarlo. Validar las carreras con venta y stock sin ventas reales de producción.
-8. Como cajero/supervisor, incluso con permisos de stock/precios, no hay controles administrativos. Verificar también que el RPC y la consulta al historial se rechazan o no revelan filas; otro comercio no puede consultar el historial ajeno.
+8. Como cajero/supervisor sin `delete_products`, incluso con stock/precios, no debe poder eliminar/restaurar ni consultar su historial. Habilitar `delete_products` y comprobar las acciones delegadas dentro del comercio. Otro comercio no puede consultar el historial ajeno.
 9. Con más de 50 eventos, buscar y pulsar Ver más registros: deben respetarse orden y paginación. Actualizar tras cambios de otro administrador. Los archivados anteriores no muestran fechas/autores inventados.
 

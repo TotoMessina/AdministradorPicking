@@ -1,0 +1,140 @@
+/* Mi turno: operations first, one activity panel; scoped away from Vender. */
+.retail-app .cash-workspace-adaptive {
+  min-width: 0;
+  gap: 16px;
+  container: cash-workspace / inline-size;
+}
+.retail-app .cash-workspace-adaptive > .section-heading { align-items: center; gap: 10px; }
+.retail-app .cash-workspace-adaptive .section-heading p { font-size: 12px; }
+.retail-app .cash-workspace-adaptive .cash-turn-state {
+  padding: 6px 10px;
+  border: 1px solid var(--tone-border);
+  border-radius: 6px;
+  background: var(--tone-surface);
+  color: var(--tone-muted);
+  font-size: 12px;
+}
+.retail-app .cash-workspace-adaptive .cash-metrics {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+.retail-app .cash-workspace-adaptive .cash-metrics > div { padding: 12px 14px; border-radius: 8px; min-width: 0; }
+.retail-app .cash-workspace-adaptive .cash-metrics small { font-size: 11px; line-height: 1.4; }
+.retail-app .cash-workspace-adaptive .cash-metrics strong { margin-top: 5px; font-size: clamp(16px, 2vw, 22px); letter-spacing: -.3px; }
+.retail-app .cash-workspace-adaptive .cash-shift-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; }
+.retail-app .cash-workspace-adaptive .cash-operation,
+.retail-app .cash-workspace-adaptive .cash-activity { min-width: 0; }
+.retail-app .cash-workspace-adaptive .cash-operation-nav { margin-bottom: 12px; }
+.retail-app .cash-workspace-adaptive .section-nav {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  margin: 0 0 16px;
+  overflow: visible;
+  border: 1px solid var(--tone-border);
+  border-radius: 8px;
+  background: var(--tone-canvas);
+}
+.retail-app .cash-workspace-adaptive .section-nav > button {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 44px;
+  padding: 8px 10px;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.retail-app .cash-workspace-adaptive .section-nav > button[aria-selected='true'] {
+  background: var(--tone-surface);
+  border-color: var(--tone-border-strong);
+  color: var(--tone-accent);
+}
+.retail-app .cash-workspace-adaptive .cash-operation-nav .section-nav { margin: 0; }
+.retail-app .cash-workspace-adaptive .cash-task-panel,
+.retail-app .cash-workspace-adaptive .cash-opening,
+.retail-app .cash-workspace-adaptive .cash-activity { width: 100%; max-width: none; padding: clamp(16px, 2vw, 24px); border-radius: 10px; }
+.retail-app .cash-workspace-adaptive .cash-task-panel h2,
+.retail-app .cash-workspace-adaptive .cash-activity h2 { font-size: 18px; margin: 0 0 16px; }
+.retail-app .cash-workspace-adaptive .cash-activity h3 { font-size: 14px; margin: 0 0 12px; }
+.retail-app .cash-workspace-adaptive .cash-task-panel > p,
+.retail-app .cash-workspace-adaptive .cash-task-panel > small { margin-bottom: 12px; line-height: 1.5; }
+.retail-app .cash-workspace-adaptive .cash-movement-fields {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 16px;
+}
+.retail-app .cash-workspace-adaptive .cash-movement-fields > :is(.cash-movement-kind, .movement-voucher-preview),
+.retail-app .cash-workspace-adaptive .cash-movement-fields > label:has(input:is([name='reason'], [type='file'])) { grid-column: 1 / -1; }
+.retail-app .cash-workspace-adaptive .cash-movement-kind { display: flex; gap: 8px; }
+.retail-app .cash-workspace-adaptive .cash-movement-kind > button { flex: 1; min-height: 44px; background: var(--tone-canvas); }
+.retail-app .cash-workspace-adaptive .cash-movement-kind > button[aria-pressed='true'] { border-color: var(--tone-accent); background: var(--tone-accent-soft); color: var(--tone-accent); }
+.retail-app .cash-workspace-adaptive .retail-form :is(input, select) { width: 100%; min-width: 0; scroll-margin-block: 96px; }
+.retail-app .cash-workspace-adaptive .retail-form > .primary-button { width: 100%; min-height: 48px; white-space: normal; }
+.retail-app .cash-workspace-adaptive .cash-activity { container: cash-activity / inline-size; }
+.retail-app .cash-workspace-adaptive .cash-history { background: transparent; }
+.retail-app .cash-workspace-adaptive .cash-activity .table-scroll,
+.retail-app .cash-workspace-adaptive .cash-movement-list { max-height: 65svh; overflow: auto; overscroll-behavior: contain; }
+.retail-app .cash-workspace-adaptive .cash-responsive-table { width: 100%; min-width: 0; font-size: 12px; }
+.retail-app .cash-workspace-adaptive .cash-responsive-table :is(th, td) { padding: 10px 8px; overflow-wrap: anywhere; white-space: normal; }
+.retail-app .cash-workspace-adaptive .cash-responsive-table td small { display: block; margin-top: 4px; color: var(--tone-muted); }
+.retail-app .cash-workspace-adaptive .team-row { gap: 12px; align-items: start; }
+.retail-app .cash-workspace-adaptive .team-row > span { min-width: 0; overflow-wrap: anywhere; }
+.retail-app .cash-workspace-adaptive .team-row > strong { flex-shrink: 0; font-variant-numeric: tabular-nums; }
+.retail-app .cash-workspace-adaptive .history-detail { margin-bottom: 16px; }
+.retail-app .cash-workspace-adaptive :is(.info-banner, .error-banner) { flex-wrap: wrap; }
+.retail-app .cash-workspace-adaptive .movement-voucher-preview { flex-wrap: wrap; }
+.retail-app .cash-workspace-adaptive .cash-close-tickets { display: grid; gap: 4px; padding: 12px 14px; margin-bottom: 16px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); }
+.retail-app .cash-workspace-adaptive .cash-close-tickets strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.retail-app .cash-workspace-adaptive .cash-close-tickets :is(span, small) { color: var(--tone-muted); font-size: 12px; }
+.retail-app .cash-workspace-adaptive .cash-denominations { display: grid; gap: 12px; }
+.retail-app .cash-workspace-adaptive .cash-denominations > button { justify-self: start; white-space: normal; }
+.retail-app .cash-workspace-adaptive .cash-denominations fieldset { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--tone-border); border-radius: 8px; }
+.retail-app .cash-workspace-adaptive .cash-denominations fieldset > p { font-size: 12px; color: var(--tone-muted); margin: 0 0 14px; line-height: 1.5; }
+.retail-app .cash-workspace-adaptive .cash-denomination-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 110px), 1fr)); gap: 12px; }
+.retail-app .cash-workspace-adaptive .cash-denomination-grid label { display: grid; gap: 6px; min-width: 0; font-size: 13px; }
+.retail-app .cash-workspace-adaptive .cash-denomination-grid input { font-variant-numeric: tabular-nums; }
+.retail-app .cash-workspace-adaptive .cash-denomination-total { display: flex; flex-wrap: wrap; gap: 8px; justify-content: space-between; padding-top: 14px; margin-top: 14px; border-top: 1px solid var(--tone-border); font-size: 13px; }
+.retail-app .cash-workspace-adaptive .cash-denominations fieldset > .text-button { margin-top: 10px; white-space: normal; text-align: left; }
+.retail-app .cash-workspace-adaptive .cash-closing-breakdown { margin-block: 14px; }
+.retail-app .cash-workspace-adaptive .cash-closing-breakdown dl { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 135px), 1fr)); gap: 8px; margin-block: 12px; }
+.retail-app .cash-workspace-adaptive .cash-closing-breakdown dl > div { padding: 8px 10px; border: 1px solid var(--tone-border); border-radius: 6px; }
+.retail-app .cash-workspace-adaptive .cash-closing-breakdown dd { margin: 4px 0 0; color: var(--tone-muted); }
+.retail-app .cash-workspace-adaptive :is(button, input, select, h2[tabindex], [tabindex='0']):focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 3px; }
+
+@container cash-workspace (min-width: 960px) {
+  .retail-app .cash-workspace-adaptive .cash-shift-layout:not([data-single='true']):not([data-operating='false']) {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
+  }
+}
+@container cash-workspace (max-width: 560px) {
+  .retail-app .cash-workspace-adaptive .cash-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .retail-app .cash-workspace-adaptive .cash-metrics > div { padding: 10px 12px; }
+}
+/* Adapt to the activity panel's width, including a narrow desktop sidebar. */
+@container cash-activity (max-width: 540px) {
+  .retail-app .cash-workspace-adaptive .cash-activity .table-scroll { border: 0; border-radius: 0; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table { display: block; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table tbody { display: grid; gap: 10px; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table tbody tr { display: grid; gap: 8px; padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table td { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: 4px 12px; padding: 0; border: 0; text-align: left; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table td[data-label]::before { content: attr(data-label); color: var(--tone-muted); font-weight: 400; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table td small { grid-column: 2; margin: 0; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table td > span { max-width: 100%; white-space: normal; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table td.table-empty { display: block; }
+  .retail-app .cash-workspace-adaptive .cash-responsive-table td .text-button { justify-self: start; padding: 8px 0; min-height: 40px; }
+}
+@media (max-width: 760px) {
+  .retail-app .cash-workspace-adaptive .cash-activity .table-scroll,
+  .retail-app .cash-workspace-adaptive .cash-movement-list { max-height: none; }
+  .retail-app .cash-workspace-adaptive .retail-form :is(input, select) { font-size: 16px; }
+}

@@ -2,11 +2,61 @@
 
 Guía vigente consolidada. Los nombres de migraciones indican dependencias, no el estado remoto: usar [schema y su historial](../SUPABASE_SETUP.md), sin repetir archivos individuales. Las Guías de Pruebas son recorridos manuales en **http://localhost:3001/**; no acreditan pruebas ejecutadas.
 
+- [Mi turno](#mi-turno)
 - [Precios por sucursal](#precios-por-sucursal)
 - [Registros de ventas](#registros-de-ventas)
 - [Retiros y comprobantes](#retiros-y-comprobantes)
 - [Remitos pendientes](#remitos-pendientes)
 - [Transferencias](#transferencias)
+
+## Mi turno
+
+### Tickets y billetes al cerrar
+
+**Cerrar turno** muestra la cantidad de tickets, incluyendo efectivo, QR, transferencia, tarjetas y mixtos. Un mixto cuenta como una venta. La consulta autorizada obtiene el total del turno sin exponer importes ni movimientos ajenos. Si esa consulta no está disponible, se aclara que se muestran las ventas disponibles en el dispositivo. El backend fija el total definitivo al guardar el cierre; otro dispositivo sin red no puede conocer ventas concurrentes todavía no cargadas.
+
+**Detallar billetes (opcional)** permite indicar cantidades de $10, $20, $50, $100, $200, $500, $1.000, $2.000, $10.000 y $20.000. No exige completar todas ni registrar billetes. Muestra un subtotal y ofrece **Usar este total como efectivo contado**, sin cambiar automáticamente el importe principal. Puede ser un detalle parcial: el total contado incluye monedas/billetes sin detallar. La suma detallada no puede superar el contado. Cantidades enteras entre 0 y 1.000.000 por denominación; sin cantidades positivas se guarda sin desglose.
+
+Desactivar el detalle lo excluye del guardado y de la validación, conservando el borrador si se vuelve a activar. Alternar tareas/navegar conserva el borrador mientras el turno permanezca montado. Tras un cierre exitoso se limpia. En **Actividad → Cierres → Ver cierre**, se consultan cantidad de tickets, billetes, subtotal, contado y resto sin detallar, junto a las ventas autorizadas. No se muestra esperado/diferencia al cajero/supervisor. Los cierres antiguos no inventan billetes ni se rellenan mediante una migración; su cantidad de tickets puede consultarse al abrir el detalle si hay conexión/datos preparados.
+
+Requiere la migración local **`202610240001_shift_closing_details.sql`**, incluida en **schema.sql** después del baseline fijo confirmado hasta `202610230002`. No avanzar ese baseline. Agrega `closing_denominations` y `ticket_count` a turnos, valida el detalle y captura todos los tickets en la transacción de cierre. Reutiliza la función de cierre existente para permisos y saldo esperado, sin cambiar fórmulas. Conserva llamadas antiguas de dos argumentos y operaciones offline anteriores.
+
+El cierre con billetes usa `close_details` en la cola y conserva el desglose en IndexedDB. Un servidor anterior rechaza ese tipo en lugar de descartarlo silenciosamente; la app informa que hay que actualizar schema y mantiene la operación. Reintentar la misma operación usa el recibo existente y no duplica ni reemplaza el cierre. El service worker sincroniza el mismo contenido; el servidor confirma el recuento definitivo. El detalle permanece asociado al turno y se comparte entre dispositivos según RLS, no solo en este navegador.
+
+Esta migración y el schema se preparan localmente, sin ejecutarse contra Supabase. Comprobación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0); sin builds ni otras pruebas automatizadas. Las nuevas funciones, RLS, concurrencia, navegador, PWA real y segundo dispositivo requieren validación manual; TypeScript no valida SQL ni el service worker.
+
+#### Guía de Pruebas — tickets y billetes
+
+En **http://localhost:3001/**, después de aplicar schema en un comercio de pruebas:
+
+1. Registrar una venta en efectivo, una QR y una mixta. Entrar a Cerrar turno: deben verse **3 tickets**, no 4. Repetir con débito/crédito/transferencia; cada ticket suma uno, cualquiera sea su medio o registro de ventas. Volver a consultar/imprimir un ticket no suma otra venta.
+2. Cerrar sin activar billetes: conserva el conteo manual y sus confirmaciones, sin exigir ningún desglose. En el cierre guardado, `closing_denominations=null` y cantidad de tickets correcta.
+3. En otro turno, cargar 2 billetes de $1.000 y 1 de $10.000. Esperado: subtotal **$12.000**. Usar este total completa el contado; cambiarlo a $12.050 permite registrar $50 sin detallar. Guardar y revisar Ver cierre, recargar y consultar desde otro dispositivo autorizado: conserva cantidades, subtotal y contado.
+4. Ingresar contado $11.000 con esos billetes: debe rechazar antes de la confirmación y pedir revisar total/cantidades. Probar fracciones/negativos: validación visible. Desactivar detalle: no valida ni guarda sus campos ocultos; reactivarlo antes de cerrar conserva el borrador.
+5. Alternar movimiento/cierre y navegar con cantidades a medio completar: no debe reiniciar contado ni billetes. Cancelar la confirmación o fallar la red mantiene el formulario; doble envío/reintento no duplica el cierre.
+6. Con PWA/caja preparadas, cerrar con detalle sin red, recargar y reconectar. Esperado: cola y desglose conservados, envío único, tickets definitivos del servidor y detalle recuperable en otro dispositivo. No borrar datos del sitio con pendientes. Si falta migración, conserva el cierre con aviso de actualizar schema, sin descartarlo.
+7. Cajero/supervisor: solo turnos autorizados, sin efectivo esperado ni diferencias. Otro comercio no puede consultar contador/billetes ni cerrar ese turno mediante RPC. Revisar móvil/teclado, cierre antiguo sin desglose y fallo de IA sin bloquear cierre.
+
+### Organización de Mi turno
+
+**Caja → Mi turno** muestra el resumen sin desplegarlo. **Registrar movimiento** y **Cerrar turno** alternan formularios en el mismo espacio, sin descartar el importe, motivo, adjunto o conteo pendiente. Ingreso/Retiro se elige con botones; categoría y comprobante conservan sus condiciones. Un perfil sin movimientos habilitados accede directamente al cierre.
+
+**Actividad del turno** concentra Movimientos, Ventas y Cierres; no hay cuatro acordeones abiertos a la vez. Con ancho suficiente se ubica junto al formulario; en pantallas menores, debajo. Ventas/cierres se convierten en fichas con etiquetas si el propio panel es angosto. Sin turno se prioriza el efectivo inicial y el historial queda secundario. No cambia autorización, asignación, efectivo esperado, stock ni sincronización. El cajero conserva conteo a ciegas y solo datos autorizados; la explicación IA sigue siendo voluntaria e independiente.
+
+### Guía de Pruebas — pendiente manual
+
+En **http://localhost:3001/**, con cuentas y datos de prueba:
+
+1. Sin turno: entrar desde Vender, confirmar efectivo inicial y abrir. Esperado: apertura directa en caja asignada y regreso a Vender; una caja ocupada bloquea apertura y ofrece Actualizar cajas, sin abrir automáticamente.
+2. Con turno: entrar a Mi turno. Esperado: resumen visible, movimiento listo para completar y actividad en un único panel. Alternar con flechas/Inicio/Fin en las pestañas y Tab en campos: foco visible y ninguna validación de paneles ocultos.
+3. Escribir importe/motivo y elegir Retiro → Pago a proveedor con adjunto. Volver a tocar Retiro ya seleccionado: no debe borrar categoría, proveedor ni archivo. Cambiar a Cerrar turno, ingresar conteo, navegar a otra pantalla y volver. Esperado: ambos borradores y archivo conservados mientras no cambie el turno; al guardar un movimiento se limpia solo su formulario.
+4. Registrar ingreso y retiro con los permisos correspondientes. Esperado: una operación por envío, confirmación y lista actualizada. Si falla red/adjunto, mensaje accionable y borrador conservado. Sin permiso no hay botón ni escritura habilitada.
+5. Cerrar con carrito pendiente: debe bloquear y permitir Volver a Vender. Resolver la venta, ingresar conteo y confirmar cierre: mantiene la confirmación existente y el mensaje de conteo guardado. Cajero/supervisor no ve esperado/diferencia; administrador conserva esos datos. Un fallo de IA no impide cerrar.
+6. Probar Movimientos/Ventas/Cierres, Ver ticket, Ver ventas de un cierre y comprobante autorizado. Esperado: mismos datos y permisos, estado vacío claro cuando no hay cierres, ningún acceso a movimientos/archivos ajenos.
+7. Revisar 320/390 px, tableta y escritorio amplio; también zoom 200% y teclado virtual. Esperado: una o dos columnas según espacio real, fichas legibles en panel angosto, botones alcanzables y sin desplazamiento horizontal de toda la página. Comprobar navegación de tablas con lector de pantalla y movimiento reducido.
+8. En una PWA previamente preparada, registrar movimiento y cerrar offline en datos de prueba; reconectar. Esperado: cola/reintentos existentes, sin duplicaciones. Un nuevo adjunto sigue requiriendo conexión y turno sincronizado. La recarga offline completa no se valida con el servidor Vite.
+
+Comprobación ejecutada del ajuste: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). No se ejecutaron builds ni otras pruebas automatizadas. Este ajuste no prepara migraciones. Navegador, móvil, backend y offline real quedan pendientes; las guías anteriores no acreditan pruebas ejecutadas de esta presentación.
 
 <a id="precios-por-sucursal"></a>
 
@@ -202,6 +252,6 @@ La consulta y las acciones requieren conexión. No se encolan transferencias com
 5. Crear otra transferencia y pulsar **Cancelar**: debe mostrarse **Cancelada**, conservar el registro y el stock **100**. No debe poder confirmarse después. Las confirmadas tampoco deben ofrecer cancelación.
 6. Probar los filtros de estado, abrir el detalle de productos y actualizar el historial. Cambiar entre Listas de precios y Transferencias antes de guardar debe conservar el borrador dentro de Catálogo.
 7. Intentar origen igual a destino, cantidad cero, fraccionaria, negativa o superior a 1.000.000: el formulario/RPC deben impedir el registro. Las llamadas con sucursales o productos de otro comercio también deben rechazarse.
-8. Con una sola sucursal, debe indicarse que hacen falta dos. Como cajero no debe aparecer la subpestaña; una llamada autenticada de cajero a confirmar/cancelar debe ser rechazada, conservando la lectura/creación que le corresponden como miembro.
+8. Con una sola sucursal, debe indicarse que hacen falta dos. Un cajero sin `manage_transfers` no debe ver las acciones de transferencias ni poder crear/confirmar/cancelar por RPC. Con ese permiso explícito, debe poder usar esas acciones dentro de su comercio, sin modificar el stock global.
 9. Desconectar antes de crear: debe mostrarse el error y conservar productos/cantidades/notas. Reconectar y reintentar con los mismos datos no debe duplicar la solicitud si el servidor ya la había guardado.
 

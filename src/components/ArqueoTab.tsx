@@ -1,3 +1,4 @@
+import { NumberInput } from './NumberInput';
 import React, { useState } from 'react';
 import {
   Lock,
@@ -165,10 +166,10 @@ export const ArqueoTab: React.FC<ArqueoTabProps> = ({
 
           {isEditingFund ? (
             <div style={{ display: 'flex', gap: '0.35rem', marginTop: '0.5rem' }}>
-              <input
+              <NumberInput
                 type="number"
                 value={fundInput}
-                onChange={e => setFundInput(e.target.value)}
+                onValueChange={e => setFundInput(e)}
                 style={{
                   width: '100%',
                   padding: '0.35rem 0.5rem',
@@ -325,11 +326,11 @@ export const ArqueoTab: React.FC<ArqueoTabProps> = ({
                 >
                   $
                 </span>
-                <input
+                <NumberInput
                   type="number"
                   placeholder="Monto..."
                   value={movementAmount}
-                  onChange={e => setMovementAmount(e.target.value)}
+                  onValueChange={e => setMovementAmount(e)}
                   style={{
                     width: '100%',
                     padding: '0.6rem 0.75rem 0.6rem 1.75rem',
@@ -492,11 +493,11 @@ export const ArqueoTab: React.FC<ArqueoTabProps> = ({
               >
                 $
               </span>
-              <input
+              <NumberInput
                 type="number"
                 placeholder="0"
                 value={countedCash}
-                onChange={e => setCountedCash(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                onValueChange={e => setCountedCash(e === '' ? '' : parseFloat(e))}
                 style={{
                   width: '100%',
                   padding: '0.75rem 1rem 0.75rem 2.5rem',

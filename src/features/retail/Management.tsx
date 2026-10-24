@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useState, useMemo, useEffect, useRef, useId } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
 import { SectionNav } from './SectionNav';
@@ -1828,7 +1829,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </label>}
             <label className="retail-price-field" hidden={!formData.sellable}>
               Precio de venta por {saleUnit} ($)
-              <input
+              <NumberInput
                 name="price"
                 disabled={!formData.sellable}
                 type="number"
@@ -1837,8 +1838,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 step="0.01"
                 required={formData.sellable}
                 value={formData.price}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, price: e.target.value }))
+                onValueChange={(e) =>
+                  { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, price: e })); }
                 }
                 placeholder="0.00"
               />
@@ -1908,7 +1909,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </label>
             <label>
               Costo por {saleUnit} ($)
-              <input
+              <NumberInput
                 name="cost"
                 disabled={creatingComposition || (!!editing && hasComposition(editing))}
                 type="number"
@@ -1916,8 +1917,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 step="0.01"
                 required
                 value={editingRecipeCost?.cost ?? (creatingComposition ? '' : formData.cost)}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, cost: e.target.value }))
+                onValueChange={(e) =>
+                  { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, cost: e })); }
                 }
                 placeholder="0.00"
               />
@@ -1939,7 +1940,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </label>
             <label>
               Stock actual ({saleUnit === 'unidad' ? 'unidades' : saleUnit === 'litro' ? 'litros' : saleUnit === 'pack' ? 'packs' : saleUnit === 'caja' ? 'cajas' : saleUnit})
-              <input
+              <NumberInput
                 name="stock"
                 type="number"
                 disabled={creatingComposition || (!!editing && hasComposition(editing))}
@@ -1947,8 +1948,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 step="1"
                 required
                 value={formData.stock}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, stock: e.target.value }))
+                onValueChange={(e) =>
+                  { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, stock: e })); }
                 }
               />
               {(creatingComposition || (editing && hasComposition(editing))) && <small>Disponibilidad calculada por componentes. Reponelos desde el listado.</small>}
@@ -2124,20 +2125,20 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </label>
             <label title="Cuántas unidades tiene cada bulto que comprás. Al reponer podés ingresar la cantidad de bultos y el sistema multiplica.">
               Unidades por bulto/pack
-              <input name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onChange={e => setFormData(prev => ({ ...prev, packSize: e.target.value }))} />
+              <NumberInput name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onValueChange={e => { invalidateProductSuggestions(); setFormData(prev => ({ ...prev, packSize: e })); }} />
               <small>El precio, el costo y el stock se expresan por {saleUnit}. El bulto se usa para convertir cantidades al reponer.</small>
             </label>
             <label>
               Avisar cuando queden
-              <input
+              <NumberInput
                 name="min"
                 type="number"
                 min="0"
                 step="1"
                 required
                 value={formData.min}
-                onChange={(e) =>
-                  setFormData((prev) => ({ ...prev, min: e.target.value }))
+                onValueChange={(e) =>
+                  { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, min: e })); }
                 }
               />
             </label>
@@ -2306,16 +2307,16 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <div className="replenish-input-grid">
                 <label>
                   {replenishByPack ? 'Cantidad de bultos' : 'Cantidad a ingresar (+)'}
-                  <input
+                  <NumberInput
                     type="number"
                     min="1"
                     step="1"
                     max={Math.floor(1000000 / (replenishByPack ? replenishmentPackSize : 1))}
                     required
                     value={replenishQty}
-                    onChange={(e) =>
+                    onValueChange={(e) =>
                       setReplenishQty(
-                        Number(e.target.value),
+                        Number(e),
                       )
                     }
                   />
@@ -2323,13 +2324,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 </label>
                 <label>
                   Nuevo costo unitario ($) <small>{canEditCatalog ? '(opcional)' : '(reservado a administración)'}</small>
-                  <input
+                  <NumberInput
                     type="number"
                     min="0"
                     step="0.01"
                     value={replenishCost}
                     disabled={!canEditCatalog}
-                    onChange={(e) => setReplenishCost(e.target.value)}
+                    onValueChange={(e) => setReplenishCost(e)}
                     placeholder="0.00"
                   />
                 </label>
@@ -2993,12 +2994,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       {bulkAdjustMode === "fixed_margin" && "Margen sobre costo (%):"}
                       {bulkAdjustMode === "absolute_price" && "Nuevo precio final ($):"}
                     </span>
-                    <input
+                    <NumberInput
                       type="number"
                       step={bulkAdjustMode === "absolute_price" ? "10" : "1"}
                       min="0"
                       value={bulkAdjustValue}
-                      onChange={(e) => setBulkAdjustValue(e.target.value)}
+                      onValueChange={(e) => setBulkAdjustValue(e)}
                       placeholder={bulkAdjustMode === "absolute_price" ? "1500" : "15"}
                     />
                   </label>

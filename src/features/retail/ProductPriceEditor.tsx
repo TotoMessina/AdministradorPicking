@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useEffect, useRef, useState } from 'react';
 import { retail, type Product } from './api';
 import type { Run } from './Management';
@@ -17,7 +18,7 @@ export function ProductPriceEditor({ storeId, product, threshold, busy, run, act
   }}>
     <h3>Editar precio de {product.name}</h3>
     <p>Precio base actual: ${product.price.toLocaleString('es-AR')}. El stock, costo, presentación y demás atributos se conservan. Las listas de precios mantienen sus reglas.</p>
-    <label>Nuevo precio base ($)<input ref={input} type="number" required min="0.01" step="0.01" value={price} disabled={busy} onChange={event => setPrice(event.target.value)} /></label>
+    <label>Nuevo precio base ($)<NumberInput ref={input} type="number" required min="0.01" step="0.01" value={price} disabled={busy} onValueChange={event => setPrice(event)} /></label>
     <ProductMarginStatus price={Number(price)} cost={product.cost} threshold={threshold} />
     <div className="button-row"><button className="primary-button" disabled={busy || Number(price) === product.price}>Guardar precio</button>
       <button type="button" className="secondary-button" disabled={busy} onClick={onClose}>Cancelar</button></div>

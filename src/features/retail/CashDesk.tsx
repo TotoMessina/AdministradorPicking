@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useEffect, useId, useRef, useState } from "react";
 import { AlertCircle, Bot, Loader2, Sparkles } from "lucide-react";
 import type { KioscoSale } from "../../types/kiosco";
@@ -13,6 +14,10 @@ import type { Run } from "./Management";
 import { cashInSale } from './payments';
 import { CashMovementForm } from './CashMovementForm';
 import { MovementVoucherLink } from './MovementVoucherLink';
+import { SectionNav } from './SectionNav';
+import { CashDenominationFields } from './CashDenominationFields';
+import { CASH_DENOMINATIONS, cashDenominationsFromDraft, cashDenominationsTotal, closingCashDenominations, type CashDenominationDraft } from '../../services/cashDenominations';
+import './cash-desk.css';
 const money = (v: number) =>
   "$" + Number(v).toLocaleString("es-AR", { maximumFractionDigits: 2 });
 export function CashDesk({
@@ -67,7 +72,12 @@ export function CashDesk({
   allowWithdrawal?: boolean;
 }) {
   const taskId = useId();
-  const [task, setTask] = useState<'movement' | 'close' | ''>('');
+  const [task, setTask] = useState<'movement' | 'close'>('movement');
+  const currentTask = allowIncome || allowWithdrawal ? task : 'close';
+  const [activity, setActivity] = useState('movements');
+  const currentActivity = shift ? activity : 'history';
+  const activityName = `${taskId}-activity`;
+  const taskName = `${taskId}-task`;
   const taskPanel = useRef<HTMLDivElement>(null);
   const taskActions = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -77,18 +87,29 @@ export function CashDesk({
     }
   }, [active, closeRequest, onCloseRequestHandled]);
   useEffect(() => {
-    if (active && task) taskPanel.current?.querySelector<HTMLElement>('section:not([hidden]) h2')?.focus();
-  }, [active, task]);
-  const returnToActions = () => {
-    const previous = task;
-    setTask('');
-    taskActions.current?.querySelector<HTMLButtonElement>(`button[data-task="${previous}"]`)?.focus();
-  };
+    if (active && !taskActions.current?.contains(document.activeElement))
+      taskPanel.current?.querySelector<HTMLElement>('section:not([hidden]) h2')?.focus();
+  }, [active, currentTask]);
   const openingRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (active && openFromSale && !shift && !occupiedByOther) openingRef.current?.focus();
   }, [active, openFromSale, shift, occupiedByOther]);
   const [counted, setCounted] = useState("");
+  const countedRef = useRef<HTMLInputElement>(null);
+  const [includeDenominations, setIncludeDenominations] = useState(false);
+  const [denominationDraft, setDenominationDraft] = useState<CashDenominationDraft>({});
+  const [closingError, setClosingError] = useState('');
+  const [ticketCount, setTicketCount] = useState<number | null>(shift?.ticket_count ?? null);
+  const availableTickets = new Set(sales.map(sale => sale.id)).size;
+  const closingTickets = Math.max(ticketCount ?? 0, availableTickets);
+  useEffect(() => {
+    let current = true;
+    setTicketCount(shift?.ticket_count ?? null);
+    if (active && shift) void retail.shiftTicketCount(shift.id)
+      .then(total => { if (current) setTicketCount(total); })
+      .catch(() => { /* The available local sales remain visible; closing is not blocked. */ });
+    return () => { current = false; };
+  }, [active, shift?.id, shift?.ticket_count, sales]);
   const [historyShift, setHistoryShift] = useState("");
   const [aiAnalysis, setAiAnalysis] = useState<string | null>(null);
   const [isAiLoading, setIsAiLoading] = useState(false);
@@ -231,23 +252,69 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
   };
 
   return (
-    <div className="cash-workspace">
-      {balanceError && <p className="error-banner" role="alert">No se pudo consultar el saldo del turno. Tocá Actualizar antes de cerrar. {balanceError}</p>}
+    <div className="cash-workspace cash-workspace-adaptive">
+      {balanceError && <div className="error-banner" role="alert"><p>No se pudo consultar el saldo del turno. Actualizá antes de cerrar. {balanceError}</p><button type="button" className="secondary-button" disabled={busy} onClick={onRefresh}>Actualizar turno</button></div>}
       <div className="section-heading">
         <div>
-          <h2>{shift ? 'Tu turno' : 'Empezar a trabajar'}</h2>
+          <h2>{shift ? 'Mi turno' : 'Abrir turno'}</h2>
           <p>
             {shift
               ? `Desde ${new Date(shift.opened_at).toLocaleString("es-AR")}`
               : "Confirmá el efectivo inicial antes de vender."}
           </p>
         </div>
+        <span className="cash-turn-state">{shift ? 'Turno abierto' : occupiedByOther ? 'Caja ocupada' : 'Sin turno abierto'}</span>
       </div>
+      {shift && (
+          <section className="cash-summary cash-turn-summary" aria-label="Resumen del turno">
+          <div className="cash-metrics">
+            <div>
+              <small>Efectivo inicial</small>
+              <strong>{money(shift.opening_cash)}</strong>
+            </div>
+            {cashierMode ? (
+              <>
+                <div>
+                  <small>Ventas del turno</small>
+                  <strong>{sales.length} {sales.length === 1 ? 'ticket' : 'tickets'}</strong>
+                </div>
+                <div>
+                  <small>QR, transferencias y tarjetas</small>
+                  <strong>{money(electronic)}</strong>
+                </div>
+                <div className="blind-audit-metric-card">
+                  <small>Al cerrar turno</small>
+                  <strong className="blind-audit-status">
+                    <span className="blind-audit-dot" aria-hidden="true" />
+                    Contá el efectivo
+                  </strong>
+                </div>
+              </>
+            ) : (
+              <>
+                <div>
+                  <small>Ventas en efectivo</small>
+                  <strong>{money(cash)}</strong>
+                </div>
+                <div>
+                  <small>QR, transferencias y tarjetas</small>
+                  <strong>{money(electronic)}</strong>
+                </div>
+                <div>
+                  <small>Efectivo esperado</small>
+                  <strong>{money(expected)}</strong>
+                </div>
+              </>
+            )}
+          </div>
+          </section>
+      )}
+      <div className="cash-shift-layout" data-operating={!shift || canOperate} data-single={openingOnly}>
+      <div className="cash-operation">
       {!shift ? (
-        <section className="retail-panel cash-opening">
-          <h2>Abrir turno</h2>
-          <p>Tu turno es el tiempo que trabajás en esta caja. Ingresá el efectivo que hay antes de empezar.</p>
-          {occupiedByOther && <p className="info-banner" role="status">Esta caja está ocupada. Elegí otra caja disponible o esperá a que cierre el turno actual y tocá Actualizar.</p>}
+        <section className="retail-panel cash-opening" aria-label="Apertura de turno">
+          <p>Ingresá el efectivo que hay en esta caja antes de empezar.</p>
+          {occupiedByOther && <div className="info-banner" role="status"><span>Esta caja está ocupada. Elegí otra disponible o actualizá cuando termine el turno actual.</span><button type="button" className="secondary-button" disabled={!active || busy} onClick={onRefresh}>Actualizar cajas</button></div>}
           <form
             className="retail-form"
             onSubmit={async (e) => {
@@ -255,7 +322,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               const opening = Number(
                 new FormData(e.currentTarget).get("opening"),
               );
-              if (register?.active && !occupiedByOther && !busy && await run(
+              if (active && register?.active && !occupiedByOther && !busy && await run(
                   () => openShift(storeId, register.id, opening),
                   "Turno abierto",
                 )) onOpened?.();
@@ -263,9 +330,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
           >
             <label>
               Efectivo inicial ($)
-              <input
+              <NumberInput
                 ref={openingRef}
-                disabled={busy || !register?.active || occupiedByOther}
+                disabled={!active || busy || !register?.active || occupiedByOther}
                 name="opening"
                 type="number"
                 min="0"
@@ -274,7 +341,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 defaultValue="0"
               />
             </label>
-            <button className="primary-button" disabled={busy || !register || occupiedByOther || !register.active}>
+            <button className="primary-button" disabled={!active || busy || !register || occupiedByOther || !register.active}>
               Abrir turno
             </button>
           </form>
@@ -286,45 +353,42 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               Esta caja no está disponible para operar. Actualizá los datos y seleccioná una caja habilitada.
             </div>
           )}
-          {canOperate && <div className="cash-task-actions" ref={taskActions} aria-label="Acciones de tu turno">
-            {(allowIncome || allowWithdrawal) && <button type="button" className="cash-task-choice" data-task="movement" aria-expanded={task === 'movement'} aria-controls={`${taskId}-movement`} disabled={busy || movementBusy} onClick={() => setTask('movement')}>
-              <strong>{allowIncome && allowWithdrawal ? 'Registrar ingreso o retiro' : allowIncome ? 'Registrar ingreso' : 'Registrar retiro'}</strong><span>Movimientos de efectivo habilitados en tu perfil.</span>
-            </button>}
-            <button type="button" className="cash-task-choice" data-task="close" aria-expanded={task === 'close'} aria-controls={`${taskId}-close`} disabled={busy || movementBusy} onClick={() => setTask('close')}>
-              <strong>Cerrar turno</strong><span>Contá el efectivo y guardá tu cierre.</span>
-            </button>
+          {canOperate && <div className="cash-operation-nav" ref={taskActions}>
+            <SectionNav name={taskName} label="Acciones de tu turno" value={currentTask} disabled={busy || movementBusy}
+              onChange={value => setTask(value as 'movement' | 'close')}
+              sections={[...(allowIncome || allowWithdrawal ? [{ id: 'movement', label: 'Registrar movimiento' }] : []), { id: 'close', label: 'Cerrar turno' }]} />
           </div>}
           {canOperate && (
-            <div className="cash-task-panels" ref={taskPanel} hidden={!task}>
-              {task && <button type="button" className="text-button" disabled={busy || movementBusy} onClick={returnToActions}>Volver a las acciones · conservar borrador</button>}
-              <section className="retail-panel cash-task-panel" id={`${taskId}-movement`} hidden={task !== 'movement' || (!allowIncome && !allowWithdrawal)}>
+            <div className="cash-task-panels" ref={taskPanel}>
+              <section className="retail-panel cash-task-panel" role="tabpanel" id={`${taskName}-panel-movement`} aria-labelledby={`${taskName}-tab-movement`} hidden={currentTask !== 'movement' || (!allowIncome && !allowWithdrawal)}>
                 <h2 tabIndex={-1}>{allowIncome && allowWithdrawal ? 'Registrar ingreso o retiro' : allowIncome ? 'Registrar ingreso' : 'Registrar retiro'}</h2>
-                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} run={run} onBusyChange={setMovementBusy} allowIncome={allowIncome} allowWithdrawal={allowWithdrawal} />
+                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} active={active && currentTask === 'movement'} run={run} onBusyChange={setMovementBusy} allowIncome={allowIncome} allowWithdrawal={allowWithdrawal} />
               </section>
-              <section className="retail-panel cash-task-panel" id={`${taskId}-close`} hidden={task !== 'close'}>
+              <section className="retail-panel cash-task-panel" role="tabpanel" id={`${taskName}-panel-close`} aria-labelledby={`${taskName}-tab-close`} hidden={currentTask !== 'close'}>
                 <h2 tabIndex={-1}>Cerrar turno</h2>
-                {cashierMode ? (
-                  <div className="blind-audit-indicator">
-                    <div className="blind-audit-indicator-header">
-                      <span className="blind-audit-badge">
-                        Conteo al cierre
-                      </span>
-                    </div>
-                    <p className="blind-audit-text">
-                      Contá el efectivo e ingresá el total. El administrador revisará las diferencias; vos no necesitás calcularlas.
-                    </p>
-                  </div>
-                ) : (
-                  <small>El saldo esperado incluye todos los ajustes de tu turno, incluso los realizados por un administrador.</small>
-                )}
+                <div className="cash-close-tickets" aria-live="polite">
+                  <strong>{closingTickets} {closingTickets === 1 ? 'ticket' : 'tickets'}</strong>
+                  <span>Todos los medios de pago; cada venta cuenta una vez.</span>
+                  <small>{ticketCount === null ? 'Recuento de las ventas disponibles en este dispositivo.' : 'El total definitivo se confirma al sincronizar el cierre.'}</small>
+                </div>
                 <p>
-                  Ingresá todo el efectivo que contaste en esta caja. Al confirmar, se guarda el conteo y termina el turno.
+                  Contá todo el efectivo de esta caja. Al confirmar, se guarda el conteo y termina el turno.
                 </p>
+                <small>{cashierMode ? 'Administración revisará las diferencias. Solo tenés que ingresar lo que contaste.' : 'El esperado incluye todos los ajustes del turno, también los de administración.'}</small>
                 <form
                   className="retail-form"
                   onSubmit={async (e) => {
                     e.preventDefault();
-                    if (hasPendingSale || movementBusy || (cashierMode && serverBalance === null)) return;
+                    if (!active || currentTask !== 'close' || busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)) return;
+                    let denominations: ReturnType<typeof closingCashDenominations>;
+                    try {
+                      denominations = closingCashDenominations(includeDenominations ? cashDenominationsFromDraft(denominationDraft) : null, Number(counted));
+                      setClosingError('');
+                    } catch (error) {
+                      setClosingError(errorMessage(error));
+                      countedRef.current?.focus();
+                      return;
+                    }
                     if (
                       window.confirm(
                         `¿Cerrar el turno de ${register?.name} con ${money(Number(counted))} contados?`,
@@ -332,11 +396,14 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     ) {
                       if (
                         await run(
-                          () => retail.closeShift(shift.id, Number(counted)),
+                          () => retail.closeShift(shift.id, Number(counted), denominations),
                           `Turno cerrado. Conteo guardado: ${money(Number(counted))}.`,
                         )
                       ) {
                         setCounted("");
+                        setIncludeDenominations(false);
+                        setDenominationDraft({});
+                        setClosingError('');
                         setAiAnalysis(null);
                         setAiError(null);
                       }
@@ -345,15 +412,23 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 >
                   <label>
                     Efectivo contado ($)
-                    <input
+                    <NumberInput
+                      ref={countedRef}
+                      name="counted"
                       required
                       type="number"
                       min="0"
                       step="0.01"
+                      disabled={!active || currentTask !== 'close' || busy}
                       value={counted}
-                      onChange={(e) => setCounted(e.target.value)}
+                      onValueChange={(e) => { setCounted(e); setClosingError(''); }}
                     />
                   </label>
+                  <CashDenominationFields enabled={includeDenominations} draft={denominationDraft} disabled={!active || currentTask !== 'close' || busy}
+                    onEnabledChange={value => { setIncludeDenominations(value); setClosingError(''); }}
+                    onChange={(denomination, value) => { setDenominationDraft(previous => ({ ...previous, [denomination]: value })); setClosingError(''); }}
+                    onUseTotal={total => { setCounted(String(total)); setClosingError(''); countedRef.current?.focus(); }} />
+                  {closingError && <p className="movement-error" role="alert">{closingError}</p>}
                   {cashierMode ? (
                     <div className="info-banner blind-audit-banner">
                       {counted === ""
@@ -369,8 +444,8 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     </div>
                   )}
 
-                  {hasPendingSale && <p role="status">Tenés una venta pendiente. Volvé a Vender para cobrarla o vaciarla antes de cerrar el turno.</p>}
-                  <button disabled={busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
+                  {hasPendingSale && <p role="status">Tenés una venta pendiente. {onSell ? <button type="button" className="text-button" onClick={onSell}>Volver a Vender</button> : 'Volvé a Vender'} para cobrarla o vaciarla antes de cerrar el turno.</p>}
+                  <button disabled={!active || currentTask !== 'close' || busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
                     Confirmar cierre
                   </button>
                 </form>
@@ -445,53 +520,18 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               </section>
             </div>
           )}
-          <details className="cash-summary retail-panel">
-          <summary>Consultar resumen del turno</summary>
-          <div className="cash-metrics">
-            <div>
-              <small>Efectivo inicial</small>
-              <strong>{money(shift.opening_cash)}</strong>
-            </div>
-            {cashierMode ? (
-              <>
-                <div>
-                  <small>Ventas del turno</small>
-                  <strong>{sales.length} {sales.length === 1 ? 'ticket' : 'tickets'}</strong>
-                </div>
-                <div>
-                  <small>QR, transferencias y tarjetas</small>
-                  <strong>{money(electronic)}</strong>
-                </div>
-                <div className="blind-audit-metric-card">
-                  <small>Al cerrar turno</small>
-                  <strong className="blind-audit-status">
-                    <span className="blind-audit-dot" aria-hidden="true" />
-                    Contá el efectivo
-                  </strong>
-                </div>
-              </>
-            ) : (
-              <>
-                <div>
-                  <small>Ventas en efectivo</small>
-                  <strong>{money(cash)}</strong>
-                </div>
-                <div>
-                  <small>QR, transferencias y tarjetas</small>
-                  <strong>{money(electronic)}</strong>
-                </div>
-                <div>
-                  <small>Efectivo esperado</small>
-                  <strong>{money(expected)}</strong>
-                </div>
-              </>
-            )}
-          </div>
-          </details>
-          <details className="retail-panel">
-            <summary>Ver ventas del turno ({sales.length})</summary>
-            <div className="table-scroll">
-              <table>
+        </>
+      )}
+      </div>
+      {!openingOnly && <section className="retail-panel cash-activity" aria-label="Actividad de esta caja">
+        <h2>{shift ? 'Actividad del turno' : cashierMode ? 'Tus últimos cierres' : 'Últimos cierres de esta caja'}</h2>
+        {shift && <SectionNav name={activityName} label="Consultar actividad" value={currentActivity} onChange={setActivity}
+          sections={[{ id: 'movements', label: `Movimientos (${movements.length})` }, { id: 'sales', label: `Ventas (${sales.length})` }, { id: 'history', label: 'Cierres' }]} />}
+        {shift && <>
+          <section role="tabpanel" id={`${activityName}-panel-sales`} aria-labelledby={`${activityName}-tab-sales`} hidden={currentActivity !== 'sales'}>
+            <h3>Ventas del turno</h3>
+            <div className="table-scroll" tabIndex={0} role="region" aria-label="Lista de ventas del turno">
+              <table className="cash-responsive-table" role="table" aria-label="Ventas del turno">
                 <thead>
                   <tr>
                     <th>Ticket</th>
@@ -503,12 +543,12 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 </thead>
                 <tbody>
                   {sales.map((s) => (
-                    <tr key={s.id}>
-                      <td>{s.ticketNumber}<small>{s.priceListName} · {s.ledgerName}</small></td>
-                      <td>{s.timestamp}</td>
-                      <td>{s.paymentMethod}</td>
-                      <td>{money(s.total)}</td>
-                      <td>
+                    <tr key={s.id} role="row">
+                      <td role="cell" data-label="Ticket">{s.ticketNumber}<small>{s.priceListName} · {s.ledgerName}</small></td>
+                      <td role="cell" data-label="Hora">{s.timestamp}</td>
+                      <td role="cell" data-label="Medio">{s.paymentMethod}</td>
+                      <td role="cell" data-label="Total">{money(s.total)}</td>
+                      <td role="cell" data-label="Comprobante">
                         <button
                           className="text-button"
                           onClick={() => onTicket(s)}
@@ -528,9 +568,10 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 </tbody>
               </table>
             </div>
-          </details>
-          <details className="retail-panel">
-            <summary>Ver ingresos y retiros del turno</summary>
+          </section>
+          <section role="tabpanel" id={`${activityName}-panel-movements`} aria-labelledby={`${activityName}-tab-movements`} hidden={currentActivity !== 'movements'}>
+            <h3>Ingresos y retiros</h3>
+            <div className="cash-movement-list" tabIndex={0} role="region" aria-label="Lista de ingresos y retiros">
             {movements.map((m) => (
               <div key={m.id} className="team-row">
                 <span>
@@ -550,25 +591,27 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               </div>
             ))}
             {!movements.length && <p>No se registraron ingresos ni retiros.</p>}
-          </details>
-        </>
-      )}
-      <details className="retail-panel cash-history" hidden={openingOnly}>
-        <summary>{cashierMode ? 'Consultar tus últimos cierres' : 'Consultar últimos cierres de esta caja'}</summary>
+            </div>
+          </section>
+        </>}
+      <section className="cash-history" role={shift ? 'tabpanel' : undefined} id={`${activityName}-panel-history`} aria-labelledby={shift ? `${activityName}-tab-history` : undefined} hidden={currentActivity !== 'history'}>
+        {shift && <h3>{cashierMode ? 'Tus últimos cierres' : 'Últimos cierres de esta caja'}</h3>}
         {historyShift && (
           <ShiftHistory
             key={historyShift}
             storeId={storeId}
             shiftId={historyShift}
+            closure={shifts.find(closed => closed.id === historyShift)}
             onTicket={onTicket}
             onClose={() => setHistoryShift("")}
           />
         )}
-        <div className="table-scroll">
-          <table>
+        <div className="table-scroll" tabIndex={0} role="region" aria-label="Lista de cierres">
+          <table className="cash-responsive-table" role="table" aria-label={cashierMode ? 'Tus últimos cierres' : 'Cierres de esta caja'}>
             <thead>
               <tr>
                 <th>Cierre</th>
+                <th>Tickets</th>
                 {!cashierMode && <th>Esperado</th>}
                 <th>{cashierMode ? 'Efectivo declarado' : 'Contado'}</th>
                 {!cashierMode && <th>Diferencia</th>}
@@ -582,12 +625,13 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 .map((s) => {
                   const diff = Number(s.counted_cash) - Number(s.expected_cash);
                   return (
-                    <tr key={s.id}>
-                      <td>{new Date(s.closed_at!).toLocaleString("es-AR")}</td>
-                      {!cashierMode && <td>{money(s.expected_cash || 0)}</td>}
-                      <td>{money(s.counted_cash || 0)}</td>
+                    <tr key={s.id} role="row">
+                      <td role="cell" data-label="Cierre">{new Date(s.closed_at!).toLocaleString("es-AR")}</td>
+                      <td role="cell" data-label="Tickets">{s.ticket_count ?? '—'}</td>
+                      {!cashierMode && <td role="cell" data-label="Esperado">{money(s.expected_cash || 0)}</td>}
+                      <td role="cell" data-label={cashierMode ? 'Efectivo declarado' : 'Contado'}>{money(s.counted_cash || 0)}</td>
                       {!cashierMode && (
-                        <td>
+                        <td role="cell" data-label="Diferencia">
                           {diff === 0 ? (
                             <span className="diff-badge-exact">$0 (Exacto)</span>
                           ) : diff > 0 ? (
@@ -598,27 +642,30 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                         </td>
                       )}
                       {cashierMode && (
-                        <td>
+                        <td role="cell" data-label="Estado">
                           <span className="blind-audit-badge-closed">
                             Arqueado y cerrado
                           </span>
                         </td>
                       )}
-                      <td>
+                      <td role="cell" data-label="Historial">
                         <button
                           className="text-button"
                           onClick={() => setHistoryShift(s.id)}
                         >
-                          Ver ventas
+                          Ver cierre
                         </button>
                       </td>
                     </tr>
                   );
                 })}
+              {!shifts.some(s => s.register_id === register?.id && s.closed_at) && <tr><td colSpan={cashierMode ? 5 : 6} className="table-empty">Todavía no hay cierres disponibles para esta caja.</td></tr>}
             </tbody>
           </table>
         </div>
-      </details>
+      </section>
+      </section>}
+      </div>
     </div>
   );
 }
@@ -626,19 +673,24 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
 function ShiftHistory({
   storeId,
   shiftId,
+  closure,
   onTicket,
   onClose,
 }: {
   storeId: string;
   shiftId: string;
+  closure?: Shift;
   onTicket: (sale: KioscoSale) => void;
   onClose: () => void;
 }) {
   const [sales, setSales] = useState<KioscoSale[]>([]);
+  const [tickets, setTickets] = useState<number | null>(closure?.ticket_count ?? null);
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(true);
   useEffect(() => {
     let active = true;
+    if (closure?.ticket_count == null) void retail.shiftTicketCount(shiftId)
+      .then(total => { if (active) setTickets(total); }).catch(() => {});
     retail
       .sales(storeId, shiftId)
       .then((rows) => {
@@ -653,15 +705,25 @@ function ShiftHistory({
     return () => {
       active = false;
     };
-  }, [storeId, shiftId]);
+  }, [storeId, shiftId, closure?.ticket_count]);
   return (
     <section className="history-detail">
       <div className="section-heading">
-        <h3>Ventas del turno cerrado</h3>
+        <h3>Detalle del cierre</h3>
         <button className="text-button" onClick={onClose}>
           Cerrar detalle
         </button>
       </div>
+      {(closure?.ticket_count ?? tickets) != null && <p><strong>{closure?.ticket_count ?? tickets} tickets</strong> · Todos los medios de pago.</p>}
+      {closure?.closing_denominations && <div className="cash-closing-breakdown">
+        <h4>Billetes declarados</h4>
+        <dl>{CASH_DENOMINATIONS.filter(amount => (closure.closing_denominations?.[amount] || 0) > 0).map(amount => <div key={amount}>
+          <dt>{money(amount)}</dt><dd>{closure.closing_denominations?.[amount]} billetes</dd>
+        </div>)}</dl>
+        <p>Subtotal detallado: <strong>{money(cashDenominationsTotal(closure.closing_denominations))}</strong></p>
+        <p>Efectivo contado: <strong>{money(Number(closure.counted_cash))}</strong></p>
+        {Number(closure.counted_cash) > cashDenominationsTotal(closure.closing_denominations) && <small>Sin detallar: {money(Number(closure.counted_cash) - cashDenominationsTotal(closure.closing_denominations))}</small>}
+      </div>}
       {loading ? (
         <p role="status">Cargando historial…</p>
       ) : error ? (
@@ -683,7 +745,7 @@ function ShiftHistory({
           </div>
         ))
       ) : (
-        <p>No hubo ventas en este turno.</p>
+        <p>No hay ventas disponibles para consultar en este turno.</p>
       )}
     </section>
   );

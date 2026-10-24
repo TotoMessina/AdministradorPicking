@@ -914,9 +914,9 @@ td button { min-height: 32px; padding: 6px 8px; font-size: 12px; }
   cursor: not-allowed;
 }
 .quantity-control .cart-qty-input {
-  width: 32px !important;
+  width: var(--cart-qty-width, 32px) !important;
   min-width: 22px !important;
-  max-width: 38px !important;
+  max-width: 10ch !important;
   height: 24px !important;
   min-height: 24px !important;
   padding: 0 2px !important;

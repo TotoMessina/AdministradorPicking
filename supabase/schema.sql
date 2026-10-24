@@ -54,7 +54,8 @@ insert into retail_schema_manifest(ordinal,filename,sha256) values
  (27,'202610220005_category_labels.sql','e975aa6c462d6ee5492edbb36b1ed523a410c634658f8ad36fd24fe18a218f99'),
  (28,'202610220006_complete_permission_profiles.sql','913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5'),
  (29,'202610230001_automatic_margin_groups.sql','6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2'),
- (30,'202610230002_ingredients_and_composition_costs.sql','86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb');
+ (30,'202610230002_ingredients_and_composition_costs.sql','86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb'),
+ (31,'202610240001_shift_closing_details.sql','d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759');
 
 do $retail_bootstrap$
 declare baseline text:=current_setting('retail.schema_baseline'); boundary integer; conflict text;
@@ -97,9 +98,10 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
-end $retail_bootstrap$;
+end;
+$retail_bootstrap$;
 
--- 1/30: 202610010001_retail_multistore.sql
+-- 1/31: 202610010001_retail_multistore.sql
 do $retail_step_1$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
@@ -335,9 +337,10 @@ $retail_source_f24b734005cc1623$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610010001_retail_multistore.sql','f24b734005cc1623cbeb235dd0436522445fce6501ec73999528a8f745ed1cb9','schema');
  end if;
-end $retail_step_1$;
+end;
+$retail_step_1$;
 
--- 2/30: 202610020001_catalog_global_and_segmentation.sql
+-- 2/31: 202610020001_catalog_global_and_segmentation.sql
 do $retail_step_2$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
@@ -626,9 +629,10 @@ $retail_source_bca9c54fa75c2a89$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610020001_catalog_global_and_segmentation.sql','bca9c54fa75c2a8940b4f28c76aaab415b1740330c2a4a334dad2fef5beca292','schema');
  end if;
-end $retail_step_2$;
+end;
+$retail_step_2$;
 
--- 3/30: 202610070001_harden_global_catalog_immutability.sql
+-- 3/31: 202610070001_harden_global_catalog_immutability.sql
 do $retail_step_3$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
@@ -724,9 +728,10 @@ $retail_source_f3ff59ec39b6e574$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610070001_harden_global_catalog_immutability.sql','f3ff59ec39b6e5744cb059f242cfdaf0c234f1ab34c4bae2ec93ca10f13594f5','schema');
  end if;
-end $retail_step_3$;
+end;
+$retail_step_3$;
 
--- 4/30: 202610130001_branches_prices_ledgers.sql
+-- 4/31: 202610130001_branches_prices_ledgers.sql
 do $retail_step_4$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
@@ -920,9 +925,10 @@ $retail_source_e86fe143f886cd85$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610130001_branches_prices_ledgers.sql','e86fe143f886cd858443bde5917d43095126a4beca788c866f2589bcee94509b','schema');
  end if;
-end $retail_step_4$;
+end;
+$retail_step_4$;
 
--- 5/30: 202610140001_web_push.sql
+-- 5/31: 202610140001_web_push.sql
 do $retail_step_5$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
@@ -1067,9 +1073,10 @@ $retail_source_918efe9a5d3313e3$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610140001_web_push.sql','918efe9a5d3313e3dc695430c93c0c035acdf97f9b20fcc4c387b444a8737964','schema');
  end if;
-end $retail_step_5$;
+end;
+$retail_step_5$;
 
--- 6/30: 202610150001_cashier_access.sql
+-- 6/31: 202610150001_cashier_access.sql
 do $retail_step_6$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
@@ -1234,9 +1241,10 @@ $retail_source_a30006ceabfa2ca5$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610150001_cashier_access.sql','a30006ceabfa2ca5abd0116ddf06f3f79d042bae913fd59c25efb5a918a83017','schema');
  end if;
-end $retail_step_6$;
+end;
+$retail_step_6$;
 
--- 7/30: 202610160001_offline_pos.sql
+-- 7/31: 202610160001_offline_pos.sql
 do $retail_step_7$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
@@ -1349,9 +1357,10 @@ $retail_source_770c916876fcdabf$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160001_offline_pos.sql','770c916876fcdabf64104718e442e7b424f343e6787bfc742c4164cccf435313','schema');
  end if;
-end $retail_step_7$;
+end;
+$retail_step_7$;
 
--- 8/30: 202610160002_offline_queue.sql
+-- 8/31: 202610160002_offline_queue.sql
 do $retail_step_8$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
@@ -1476,9 +1485,10 @@ $retail_source_ffb2f924480094f8$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160002_offline_queue.sql','ffb2f924480094f8255c3bd1105ac834381678058bb65ff6e63ec433b4710ab0','schema');
  end if;
-end $retail_step_8$;
+end;
+$retail_step_8$;
 
--- 9/30: 202610160003_pack_size.sql
+-- 9/31: 202610160003_pack_size.sql
 do $retail_step_9$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
@@ -1493,9 +1503,10 @@ $retail_source_e8f486a53e369954$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160003_pack_size.sql','e8f486a53e3699543bb33b819986d3e96c57bbfb112cb039428e534507228c6b','schema');
  end if;
-end $retail_step_9$;
+end;
+$retail_step_9$;
 
--- 10/30: 202610160004_margin_groups.sql
+-- 10/31: 202610160004_margin_groups.sql
 do $retail_step_10$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
@@ -1549,9 +1560,10 @@ $retail_source_8a5790ed3a1371e6$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160004_margin_groups.sql','8a5790ed3a1371e6c0aa57f46b68b2fe0af74efd79a3650cfa7ced54b876cc86','schema');
  end if;
-end $retail_step_10$;
+end;
+$retail_step_10$;
 
--- 11/30: 202610160005_branch_price_rules.sql
+-- 11/31: 202610160005_branch_price_rules.sql
 do $retail_step_11$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
@@ -1604,9 +1616,10 @@ $retail_source_7899d29739b25999$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160005_branch_price_rules.sql','7899d29739b25999d24e879b18ed53f8794628fe852743c7916b46d4db5b16e1','schema');
  end if;
-end $retail_step_11$;
+end;
+$retail_step_11$;
 
--- 12/30: 202610190001_justified_withdrawal.sql
+-- 12/31: 202610190001_justified_withdrawal.sql
 do $retail_step_12$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
@@ -1785,9 +1798,10 @@ $retail_source_029b5843eacab94f$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190001_justified_withdrawal.sql','029b5843eacab94f78439fd8f13da846c46e7729f376e1f314286e1f20a14fa9','schema');
  end if;
-end $retail_step_12$;
+end;
+$retail_step_12$;
 
--- 13/30: 202610190001_store_onboarding.sql
+-- 13/31: 202610190001_store_onboarding.sql
 do $retail_step_13$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
@@ -1903,9 +1917,10 @@ $retail_source_e5b8362448949bce$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190001_store_onboarding.sql','e5b8362448949bceec6db8607ab80a30285230317f319875eb6d9a2f1d47f09c','schema');
  end if;
-end $retail_step_13$;
+end;
+$retail_step_13$;
 
--- 14/30: 202610190002_pending_replenishments.sql
+-- 14/31: 202610190002_pending_replenishments.sql
 do $retail_step_14$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
@@ -2073,9 +2088,10 @@ $retail_source_3ddd179e5609126a$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190002_pending_replenishments.sql','3ddd179e5609126a264e696cd293909008bf4dd1acc06a8bb409c248ba5ab707','schema');
  end if;
-end $retail_step_14$;
+end;
+$retail_step_14$;
 
--- 15/30: 202610190003_stock_transfers.sql
+-- 15/31: 202610190003_stock_transfers.sql
 do $retail_step_15$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
@@ -2181,9 +2197,10 @@ $retail_source_cab05c3785465fba$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190003_stock_transfers.sql','cab05c3785465fba81273dddaad52130c14a8c6c42fb63ed53f476416d53a4be','schema');
  end if;
-end $retail_step_15$;
+end;
+$retail_step_15$;
 
--- 16/30: 202610200001_supplier_mappings.sql
+-- 16/31: 202610200001_supplier_mappings.sql
 do $retail_step_16$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
@@ -2273,9 +2290,10 @@ $retail_source_d4841853f82adbd4$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610200001_supplier_mappings.sql','d4841853f82adbd4e881feb1bdf3f525d76a12121e152b54257f8eaf9a81611c','schema');
  end if;
-end $retail_step_16$;
+end;
+$retail_step_16$;
 
--- 17/30: 202610200002_supplier_alias_usage.sql
+-- 17/31: 202610200002_supplier_alias_usage.sql
 do $retail_step_17$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
@@ -2341,9 +2359,10 @@ $retail_source_1adc3ce4519abbb2$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610200002_supplier_alias_usage.sql','1adc3ce4519abbb20c3436578bff8de5d9111f08abda7e198639468bd77e15c4','schema');
  end if;
-end $retail_step_17$;
+end;
+$retail_step_17$;
 
--- 18/30: 202610200003_product_expiry.sql
+-- 18/31: 202610200003_product_expiry.sql
 do $retail_step_18$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
@@ -2357,9 +2376,10 @@ $retail_source_77d1f8c0f62da284$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610200003_product_expiry.sql','77d1f8c0f62da28481839205c638d09ab8586267acd2b86fb97f44c812072a87','schema');
  end if;
-end $retail_step_18$;
+end;
+$retail_step_18$;
 
--- 19/30: 202610210001_ledger_routing.sql
+-- 19/31: 202610210001_ledger_routing.sql
 do $retail_step_19$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
@@ -2489,9 +2509,10 @@ $retail_source_f19dc026535013c8$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210001_ledger_routing.sql','f19dc026535013c80519da077ca4de832b6706cf7e885ffbc1b0e31185591d7e','schema');
  end if;
-end $retail_step_19$;
+end;
+$retail_step_19$;
 
--- 20/30: 202610210002_staff_profiles.sql
+-- 20/31: 202610210002_staff_profiles.sql
 do $retail_step_20$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
@@ -2656,9 +2677,10 @@ $retail_source_ca6e73c2c8993bc2$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210002_staff_profiles.sql','ca6e73c2c8993bc2390e2f91d48e9a0d82e60e3ae1be9613297f6ba667809a0e','schema');
  end if;
-end $retail_step_20$;
+end;
+$retail_step_20$;
 
--- 21/30: 202610210003_ledger_lock_order.sql
+-- 21/31: 202610210003_ledger_lock_order.sql
 do $retail_step_21$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
@@ -2705,9 +2727,10 @@ $retail_source_b9f318a08145ad1e$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210003_ledger_lock_order.sql','b9f318a08145ad1e1734c2afe5fc1ff04402666a69869aa0f27c4dee2abb5124','schema');
  end if;
-end $retail_step_21$;
+end;
+$retail_step_21$;
 
--- 22/30: 202610210004_delegated_catalog_actions.sql
+-- 22/31: 202610210004_delegated_catalog_actions.sql
 do $retail_step_22$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
@@ -2824,9 +2847,10 @@ $retail_source_bcfa6664c406dd00$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210004_delegated_catalog_actions.sql','bcfa6664c406dd0074ba93d0bbb367c1c212c5e9285e703583616519f163628e','schema');
  end if;
-end $retail_step_22$;
+end;
+$retail_step_22$;
 
--- 23/30: 202610220001_product_compositions.sql
+-- 23/31: 202610220001_product_compositions.sql
 do $retail_step_23$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
@@ -2983,9 +3007,10 @@ $retail_source_ef088735e7a84900$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220001_product_compositions.sql','ef088735e7a849006d0960d0e16decd98e257bb432da68ebd2e0d02618f93c84','schema');
  end if;
-end $retail_step_23$;
+end;
+$retail_step_23$;
 
--- 24/30: 202610220002_loose_cigarettes.sql
+-- 24/31: 202610220002_loose_cigarettes.sql
 do $retail_step_24$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
@@ -3092,9 +3117,10 @@ $retail_source_e943d579b3d7ed4e$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220002_loose_cigarettes.sql','e943d579b3d7ed4e77e96ffc6c26125f7ccb84ca09dcb9a09a7dde87ed147bad','schema');
  end if;
-end $retail_step_24$;
+end;
+$retail_step_24$;
 
--- 25/30: 202610220003_product_deletion_history.sql
+-- 25/31: 202610220003_product_deletion_history.sql
 do $retail_step_25$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
@@ -3198,9 +3224,10 @@ $retail_source_458a93d670539dd4$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220003_product_deletion_history.sql','458a93d670539dd4bfd36c3f8b4aff69042989aafdea80511ced58e6d5a3f9b7','schema');
  end if;
-end $retail_step_25$;
+end;
+$retail_step_25$;
 
--- 26/30: 202610220004_standard_categories.sql
+-- 26/31: 202610220004_standard_categories.sql
 do $retail_step_26$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
@@ -3301,9 +3328,10 @@ $retail_source_85e889e22c9dcc55$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220004_standard_categories.sql','85e889e22c9dcc559736c4af21b9cf7bc0205cbd1ff940ed00ff9d38f481fd13','schema');
  end if;
-end $retail_step_26$;
+end;
+$retail_step_26$;
 
--- 27/30: 202610220005_category_labels.sql
+-- 27/31: 202610220005_category_labels.sql
 do $retail_step_27$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
@@ -3333,9 +3361,10 @@ $retail_source_e975aa6c462d6ee5$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220005_category_labels.sql','e975aa6c462d6ee5492edbb36b1ed523a410c634658f8ad36fd24fe18a218f99','schema');
  end if;
-end $retail_step_27$;
+end;
+$retail_step_27$;
 
--- 28/30: 202610220006_complete_permission_profiles.sql
+-- 28/31: 202610220006_complete_permission_profiles.sql
 do $retail_step_28$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
@@ -3972,9 +4001,10 @@ $retail_source_913347ffd59472a5$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220006_complete_permission_profiles.sql','913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5','schema');
  end if;
-end $retail_step_28$;
+end;
+$retail_step_28$;
 
--- 29/30: 202610230001_automatic_margin_groups.sql
+-- 29/31: 202610230001_automatic_margin_groups.sql
 do $retail_step_29$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
@@ -4039,9 +4069,10 @@ $retail_source_6cd429e7679685c4$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610230001_automatic_margin_groups.sql','6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2','schema');
  end if;
-end $retail_step_29$;
+end;
+$retail_step_29$;
 
--- 30/30: 202610230002_ingredients_and_composition_costs.sql
+-- 30/31: 202610230002_ingredients_and_composition_costs.sql
 do $retail_step_30$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
@@ -4143,7 +4174,169 @@ $retail_source_86fd19952b8e6534$;
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610230002_ingredients_and_composition_costs.sql','86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb','schema');
  end if;
-end $retail_step_30$;
+end;
+$retail_step_30$;
+
+-- 31/31: 202610240001_shift_closing_details.sql
+do $retail_step_31$
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
+  raise notice 'Aplicando 202610240001_shift_closing_details.sql';
+  execute $retail_source_d3204ba0e41d2977$
+alter table public.retail_shifts
+ add column closing_denominations jsonb,
+ add column ticket_count integer check(ticket_count is null or ticket_count>=0);
+
+create function retail_private.cash_denominations_total(p_details jsonb) returns numeric
+language plpgsql immutable set search_path='' as $$
+declare item record; total numeric:=0;
+begin
+ if p_details is null then return 0; end if;
+ if jsonb_typeof(p_details)<>'object' then raise exception 'Revisá el detalle de billetes'; end if;
+ for item in select * from jsonb_each(p_details) loop
+  if item.key not in ('10','20','50','100','200','500','1000','2000','10000','20000')
+   or jsonb_typeof(item.value)<>'number' or item.value::text!~'^[0-9]{1,7}$' then
+   raise exception 'Usá las denominaciones disponibles y cantidades enteras entre 0 y 1.000.000';
+  end if;
+  if item.value::text::numeric>1000000 then raise exception 'La cantidad de cada billete no puede superar 1.000.000'; end if;
+  total:=total+item.key::numeric*item.value::text::numeric;
+ end loop;
+ return total;
+end $$;
+revoke all on function retail_private.cash_denominations_total(jsonb) from public,anon,authenticated;
+
+create function retail_private.snapshot_shift_closing() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if old.closed_at is not null and (new.closing_denominations is distinct from old.closing_denominations
+  or new.ticket_count is distinct from old.ticket_count or new.counted_cash is distinct from old.counted_cash) then
+  raise exception 'El cierre ya está guardado. No se puede reemplazar su conteo ni su detalle';
+ end if;
+ if new.closing_denominations is not null then
+  if retail_private.cash_denominations_total(new.closing_denominations)>coalesce(new.counted_cash,999999999999.99) then
+   raise exception 'Los billetes detallados superan el efectivo contado. Revisá cantidades o total';
+  end if;
+ end if;
+ if old.closed_at is null and new.closed_at is not null then
+  -- check_shift serializes checkout and close on this row; all payment methods count once.
+  select count(*)::integer into new.ticket_count from public.retail_sales where shift_id=new.id and store_id=new.store_id;
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.snapshot_shift_closing() from public,anon,authenticated;
+create trigger retail_snapshot_shift_closing before update of closed_at,counted_cash,closing_denominations,ticket_count
+ on public.retail_shifts for each row execute function retail_private.snapshot_shift_closing();
+
+-- Preserve accounting and permission checks in the existing two-argument function.
+create function public.retail_close_shift(p_shift uuid,p_counted numeric,p_denominations jsonb) returns numeric
+language plpgsql security definer set search_path='' as $$
+declare s public.retail_shifts;
+begin
+ s:=retail_private.check_shift(p_shift);
+ if p_counted is null or p_counted<0 or p_counted::text in ('NaN','Infinity','-Infinity') then raise exception 'Conteo inválido'; end if;
+ if retail_private.cash_denominations_total(p_denominations)>p_counted then
+  raise exception 'Los billetes detallados superan el efectivo contado. Revisá cantidades o total';
+ end if;
+ update public.retail_shifts set closing_denominations=nullif(p_denominations,'{}'::jsonb) where id=s.id;
+ return public.retail_close_shift(p_shift,p_counted);
+end $$;
+revoke all on function public.retail_close_shift(uuid,numeric,jsonb) from public,anon;
+grant execute on function public.retail_close_shift(uuid,numeric,jsonb) to authenticated;
+
+create function public.retail_shift_ticket_count(p_shift uuid) returns integer
+language plpgsql stable security definer set search_path='' as $$
+declare s public.retail_shifts; total integer;
+begin
+ select * into s from public.retail_shifts where id=p_shift;
+ if auth.uid() is null or s.id is null or retail_private.role_for(s.store_id) is null
+  or (s.opened_by<>auth.uid() and retail_private.role_for(s.store_id) not in ('owner','admin')) then
+  raise exception 'Sin acceso a este turno';
+ end if;
+ if s.ticket_count is not null then return s.ticket_count; end if;
+ select count(*)::integer into total from public.retail_sales where shift_id=s.id and store_id=s.store_id;
+ return total;
+end $$;
+revoke all on function public.retail_shift_ticket_count(uuid) from public,anon;
+grant execute on function public.retail_shift_ticket_count(uuid) to authenticated;
+
+-- Offline replay follows below, preserving the current permission/stock/receipt logic.
+
+create or replace function public.retail_sync_operation(p_operation jsonb) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare v_id uuid:=(p_operation->>'id')::uuid; v_store uuid:=(p_operation->>'store')::uuid;
+ v_shift uuid:=(p_operation->>'shift')::uuid; v_kind text:=p_operation->>'kind';
+ v_at timestamptz:=(p_operation->>'at')::timestamptz; v_result jsonb; v_receipt public.retail_sync_receipts;
+ v_register uuid; v_amount numeric; v_sale public.retail_sales; v_item jsonb; v_delta integer; v_product public.retail_products; v_cost numeric;
+begin
+ if auth.uid() is null or retail_private.role_for(v_store) is null then raise exception 'Sin acceso al comercio. La operación sigue guardada en el dispositivo'; end if;
+ if v_id is null or v_at is null or v_at>now()+interval '1 day' or v_at<'2000-01-01'::timestamptz then raise exception 'Identificador o fecha de operación inválidos'; end if;
+ perform pg_advisory_xact_lock(hashtextextended(v_id::text,0));
+ select * into v_receipt from public.retail_sync_receipts where id=v_id;
+ if found then
+  if v_receipt.user_id<>auth.uid() or v_receipt.payload<>p_operation then raise exception 'El identificador ya corresponde a otra operación'; end if;
+  return v_receipt.result;
+ end if;
+ if (v_kind='sale' and exists(select 1 from public.retail_sales where id=v_id)) or
+    (v_kind='movement' and exists(select 1 from public.retail_movements where id=v_id)) then raise exception 'El identificador ya corresponde a una operación registrada'; end if;
+ if v_kind='open' then
+  v_register:=(p_operation->>'register')::uuid; v_amount:=(p_operation->>'amount')::numeric;
+  perform 1 from public.retail_members where store_id=v_store and user_id=auth.uid() for share;
+  if not retail_private.can_use_register(v_store,v_register) or not exists(select 1 from public.retail_registers where id=v_register and active) then raise exception 'Sin acceso a esta caja'; end if;
+  if v_amount is null or v_amount<0 or v_amount::text in ('NaN','Infinity','-Infinity') then raise exception 'Fondo inicial inválido'; end if;
+  insert into public.retail_shifts(id,store_id,register_id,opened_by,opening_cash,opened_at) values(v_id,v_store,v_register,auth.uid(),v_amount,v_at);
+  v_result:=jsonb_build_object('id',v_id);
+ elsif v_kind='stock' then
+  if not retail_private.has_permission(v_store,'manage_products') then perform retail_private.require_permission(v_store,'replenish_stock'); end if;
+  if jsonb_typeof(p_operation->'items') is distinct from 'array' or jsonb_array_length(p_operation->'items') not between 1 and 10000 then raise exception 'Reposición inválida'; end if;
+  if (select count(distinct x->>'product') from jsonb_array_elements(p_operation->'items') x)<>jsonb_array_length(p_operation->'items') then raise exception 'La reposición contiene productos repetidos'; end if;
+  perform id from public.retail_products where store_id=v_store and id in (select (x->>'product')::uuid from jsonb_array_elements(p_operation->'items') x) order by id for update;
+  for v_item in select value from jsonb_array_elements(p_operation->'items') loop
+   select * into v_product from public.retail_products where id=(v_item->>'product')::uuid and store_id=v_store and active;
+   if not found then raise exception 'Producto no disponible'; end if;
+   if coalesce(v_item->>'delta','')!~'^-?[0-9]{1,7}$' then raise exception 'Cantidad inválida'; end if;
+   v_delta:=(v_item->>'delta')::integer; v_cost:=(v_item->>'cost')::numeric;
+   if abs(v_delta)>1000000 or v_product.stock+v_delta<0 then raise exception 'Stock resultante inválido'; end if;
+   if v_cost is not null and (v_cost<0 or v_cost::text in ('NaN','Infinity','-Infinity')) then raise exception 'Costo inválido'; end if;
+   if not retail_private.has_permission(v_store,'manage_products') and retail_private.role_for(v_store) not in ('owner','admin') and (v_delta<=0 or v_cost is not null) then raise exception 'Tu permiso permite sumar stock sin modificar costos'; end if;
+   update public.retail_products set stock=stock+v_delta,cost=coalesce(v_cost,cost),
+     last_restocked_at=case when v_delta>0 then greatest(coalesce(last_restocked_at,v_at),v_at) else last_restocked_at end
+     where id=v_product.id;
+   insert into public.retail_stock_movements(operation_id,product_id,store_id,user_id,delta,cost,occurred_at) values(v_id,v_product.id,v_store,auth.uid(),v_delta,v_cost,v_at);
+  end loop;
+  v_result:=jsonb_build_object('id',v_id);
+ else
+  if not exists(select 1 from public.retail_shifts where id=v_shift and store_id=v_store) then raise exception 'Turno pendiente o no disponible'; end if;
+  if v_kind='sale' then
+   perform public.retail_checkout(v_shift,v_id,p_operation->>'method',(p_operation->>'paid')::numeric,p_operation->'items',(p_operation->>'priceList')::uuid,(p_operation->>'ledger')::uuid,p_operation->'payments');
+   update public.retail_sales set created_at=v_at where id=v_id;
+   select * into v_sale from public.retail_sales where id=v_id;
+   v_result:=jsonb_build_object('id',v_id,'ticketNumber','T-'||v_sale.ticket_number);
+  elsif v_kind='movement' then
+   perform public.retail_add_movement(v_shift,p_operation->>'type',(p_operation->>'amount')::numeric,p_operation->>'reason',v_id,coalesce(p_operation->>'category','general'),p_operation->>'voucherUrl',p_operation->>'supplierName');
+   update public.retail_movements set created_at=v_at where id=v_id;
+   v_result:=jsonb_build_object('id',v_id);
+  elsif v_kind in ('close','close_details') then
+   if v_kind='close_details' then
+    v_amount:=public.retail_close_shift(v_shift,(p_operation->>'amount')::numeric,p_operation->'denominations');
+   else
+    v_amount:=public.retail_close_shift(v_shift,(p_operation->>'amount')::numeric);
+   end if;
+   update public.retail_shifts set closed_at=v_at where id=v_shift;
+   v_result:=jsonb_build_object('id',v_shift,'expected',v_amount,'ticketCount',(select ticket_count from public.retail_shifts where id=v_shift));
+  else raise exception 'Operación no admitida'; end if;
+ end if;
+ insert into public.retail_sync_receipts(id,user_id,store_id,payload,result) values(v_id,auth.uid(),v_store,p_operation,v_result);
+ return v_result;
+end $$;
+revoke all on function public.retail_sync_operation(jsonb) from public,anon;
+grant execute on function public.retail_sync_operation(jsonb) to authenticated;
+notify pgrst,'reload schema';
+$retail_source_d3204ba0e41d2977$;
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610240001_shift_closing_details.sql','d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759','schema');
+ end if;
+end;
+$retail_step_31$;
 
 notify pgrst,'reload schema';
 commit;

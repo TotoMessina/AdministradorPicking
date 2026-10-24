@@ -8,8 +8,9 @@ import { movementDetails, voucherPath } from './vouchers';
 import { randomUUID } from '../../utils/uuid';
 import { consumeSaleStock, hasComposition, withAvailableStock } from '../../services/productComposition';
 import { productMargin } from '../../services/productMarginService';
+import { closingCashDenominations } from '../../services/cashDenominations';
 
-type Operation = { id: string; kind: 'open' | 'sale' | 'movement' | 'close' | 'stock'; store: string; at: string; shift?: string; [key: string]: unknown };
+type Operation = { id: string; kind: 'open' | 'sale' | 'movement' | 'close' | 'close_details' | 'stock'; store: string; at: string; shift?: string; [key: string]: unknown };
 export type PendingOperation = { operation: Operation; error?: string };
 type State = { cache: Record<string, unknown>; queue: PendingOperation[]; revision: number };
 type Remote = Record<string, (...args: never[]) => Promise<unknown>>;
@@ -71,6 +72,7 @@ async function transaction<T>(user: string, mutate: (state: State) => T, write =
 }
 const reads = new Set(['stores', 'role', 'permissions', 'permissionProfiles', 'categories', 'registers', 'shifts', 'branches', 'priceLists', 'branchPriceRule', 'priceOverrides', 'ledgers', 'products', 'sales', 'movements', 'shiftBalance', 'registerAvailability', 'quickProducts', 'popularProducts', 'members', 'invitations', 'allSales', 'reportSales']);
 const operational = new Set(['openShift', 'closeShift', 'addMovement', 'checkout', 'replenishProductStock', 'replenishStockBatch']);
+reads.add('shiftTicketCount');
 // These records have no optimistic edits. Refresh authorization even if another
 // operation is pending, without replacing optimistic sales, stock or balances.
 const permissionReads = new Set(['permissions', 'permissionProfiles', 'role', 'members', 'invitations']);
@@ -134,7 +136,8 @@ export async function syncOffline() {
       if (error) {
         // Transport failures stay retryable. Business/authorization failures are explicit conflicts.
         if (error.code && !['PGRST000', 'PGRST001', 'PGRST002', 'PGRST003'].includes(error.code)) {
-          await transaction(user, s => { const current = s.queue.find(q => q.operation.id === entry.operation.id); if (current) current.error = error.message; }, true);
+          await transaction(user, s => { const current = s.queue.find(q => q.operation.id === entry.operation.id); if (current) current.error = entry.operation.kind === 'close_details' && error.message === 'Operación no admitida'
+            ? 'Falta actualizar el cierre con billetes en Supabase. Aplicá schema.sql con 202610240001_shift_closing_details.sql y reintentá. El cierre y su detalle siguen guardados en este dispositivo.' : error.message; }, true);
         }
         break;
       }
@@ -146,6 +149,11 @@ export async function syncOffline() {
           if (Array.isArray(value) && ['sales', 'allSales'].includes(JSON.parse(k)[0])) {
             s.cache[k] = (value as KioscoSale[]).map(sale => sale.id === entry.operation.id ? { ...sale, ticketNumber: data.ticketNumber, syncStatus: 'synced' } : sale);
           }
+        }
+        if (['close', 'close_details'].includes(entry.operation.kind) && Number.isInteger(data.ticketCount)) {
+          put(s, 'shiftTicketCount', [entry.operation.shift], data.ticketCount);
+          for (const [cacheKey, value] of Object.entries(s.cache)) if (JSON.parse(cacheKey)[0] === 'shifts' && Array.isArray(value))
+            (value as Shift[]).forEach(shift => { if (shift.id === entry.operation.shift) shift.ticket_count = data.ticketCount; });
         }
       }, true);
       event();
@@ -232,6 +240,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
       const opened: Shift = { id, store_id: store, register_id: register.id, opened_by: user, opened_at: at, opening_cash: opening, closed_at: null, counted_cash: null, expected_cash: null };
       shifts.unshift(opened); availability.forEach(r => { if (r.register_id === register.id) r.occupied = true; });
       put(s, 'sales', [store, id], []); put(s, 'movements', [store, id], []); put(s, 'shiftBalance', [id], opening);
+      put(s, 'shiftTicketCount', [id], 0);
       op = { id, kind: 'open', store, register: register.id, amount: opening, at }; output = id;
     } else {
       if (!shift || shift.closed_at) throw new Error('El turno no está abierto');
@@ -268,6 +277,8 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         if (!ledger) throw new Error('El registro de ventas ya no está activo. Actualizá los registros con conexión antes de cobrar.');
         Object.assign(sale, { store_id: store, shift_id: shiftId, created_by: user, register_id: register.id, ticketNumber: `L-${sale.id.slice(0, 8).toUpperCase()}`, syncStatus: 'pending', createdAt: at, created_at: at, branchId: branch?.id, branchName: branch?.name, registerName: register.name, priceListName: list?.name || 'Lista madre', ledgerId: ledger?.id, ledgerName: ledger?.name });
         sales.unshift(sale); put(s, 'shiftBalance', [shiftId], Math.round((balance + cashInSale(sale)) * 100) / 100);
+        const ticketCount = s.cache[key('shiftTicketCount', [shiftId])] as number | undefined;
+        put(s, 'shiftTicketCount', [shiftId], ticketCount === undefined ? new Set(sales.map(row => row.id)).size : ticketCount + 1);
         for (const [cacheKey, value] of Object.entries(s.cache)) {
           const [method, params] = JSON.parse(cacheKey);
           if (params[0] === store && (method === 'allSales' || (method === 'reportSales' && at >= params[1] && at < params[2]))) (value as KioscoSale[]).unshift(sale);
@@ -285,10 +296,15 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         put(s, 'shiftBalance', [shiftId], Math.round((balance + (args[1] === 'INGRESO' ? value : -value)) * 100) / 100);
         op = { id, kind: 'movement', store, shift: shiftId, at, type: args[1], amount: value, reason: args[3], ...details }; output = id;
       } else {
-        const counted = amount(args[1]); shift.closed_at = at; shift.counted_cash = counted; shift.expected_cash = balance;
+        const counted = amount(args[1]);
+        const denominations = closingCashDenominations(args[2], counted);
+        shift.closed_at = at; shift.counted_cash = counted; shift.expected_cash = balance;
+        shift.closing_denominations = denominations;
+        shift.ticket_count = (s.cache[key('shiftTicketCount', [shiftId])] as number | undefined) ?? new Set(sales.map(row => row.id)).size;
         const availability = findCached<{ register_id: string; occupied: boolean }[]>(s, 'registerAvailability', store);
         availability?.forEach(r => { if (r.register_id === shift!.register_id) r.occupied = false; });
-        op = { id: randomUUID(), kind: 'close', store, shift: shiftId, at, amount: counted }; output = balance;
+        op = { id: randomUUID(), kind: denominations ? 'close_details' : 'close', store, shift: shiftId, at, amount: counted,
+          ...(denominations ? { denominations } : {}) }; output = balance;
       }
     }
     s.revision++; s.queue.push({ operation: op }); return output;

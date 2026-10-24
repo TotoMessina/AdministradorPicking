@@ -122,7 +122,7 @@ export function OfflineStatus() {
               <ol className="queue-list">
                 {status.queue.slice(0, 10).map((q) => (
                   <li key={q.operation.id}>
-                    {({ sale: 'Venta', open: 'Apertura', close: 'Cierre', movement: 'Movimiento', stock: 'Stock' })[q.operation.kind]} ·{' '}
+                    {({ sale: 'Venta', open: 'Apertura', close: 'Cierre', close_details: 'Cierre con billetes', movement: 'Movimiento', stock: 'Stock' })[q.operation.kind]} ·{' '}
                     {new Date(q.operation.at).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })}
                     {q.error ? ` — ${q.error}` : ''}
                   </li>

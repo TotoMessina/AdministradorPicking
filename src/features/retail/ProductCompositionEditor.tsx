@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useEffect, useRef, useState } from 'react';
 import { retail, errorMessage, type Product } from './api';
 import type { Run } from './Management';
@@ -51,7 +52,7 @@ export function ProductCompositionEditor({ storeId, product, products, active, b
           <option value="">Elegí un componente</option>
           {products.filter(candidate => candidate.id !== product.id && !hasComposition(candidate)).map(candidate => <option key={candidate.id} value={candidate.id} disabled={rows.some((value, position) => position !== index && value.product_id === candidate.id)}>{candidate.name} · {candidate.stock} u.</option>)}
         </select></label>
-        <label>Unidades<input type="number" required min="1" max="1000000" step="1" value={row.quantity} onChange={event => setRows(previous => previous.map((value, position) => position === index ? { ...value, quantity: event.target.value } : value))} /></label>
+        <label>Unidades<NumberInput type="number" required min="1" max="1000000" step="1" value={row.quantity} onValueChange={event => setRows(previous => previous.map((value, position) => position === index ? { ...value, quantity: event } : value))} /></label>
         <small>{(() => {
           const source = products.find(candidate => candidate.id === row.product_id);
           const quantity = Number(row.quantity);

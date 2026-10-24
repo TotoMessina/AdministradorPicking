@@ -2,6 +2,7 @@ import { supabase, isValidUUID } from "../../lib/supabase";
 import { randomUUID } from "../../utils/uuid";
 import type { KioscoProduct, KioscoSale, StockComponent } from "../../types/kiosco";
 import { hasComposition, withAvailableStock } from '../../services/productComposition';
+import { closingCashDenominations, type CashDenominations } from '../../services/cashDenominations';
 import { syncOffline, withOffline } from './offline';
 import { createStoreOnce, onboarding } from './onboarding';
 import { movementDetails, VOUCHER_BUCKET, voucherExtension, voucherMimeType, voucherPath, voucherReference } from './vouchers';
@@ -62,6 +63,8 @@ export interface Shift {
   closed_at: string | null;
   counted_cash: number | null;
   expected_cash: number | null;
+  closing_denominations?: CashDenominations | null;
+  ticket_count?: number | null;
 }
 export interface Product extends KioscoProduct {
   categoryId: string;
@@ -152,6 +155,8 @@ export interface EanLookupResult {
 }
 export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
+  if (['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /p_denominations|closing_denominations|ticket_count|retail_shift_ticket_count/.test(e.message || ''))
+    return 'Falta actualizar el cierre de turnos. Aplicá schema.sql con la migración 202610240001_shift_closing_details.sql y actualizá los datos. El detalle pendiente se conserva.';
   if (['PGRST204', '42703'].includes(e?.code || '') && /sellable/.test(e.message || ''))
     return 'Falta habilitar insumos y costos de combos en Supabase. Aplicá 202610230002_ingredients_and_composition_costs.sql después de las migraciones anteriores, actualizá el catálogo y reintentá. El borrador se conserva.';
   if (['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /retail_set_margin_threshold|low_margin_threshold/.test(e.message || ''))
@@ -695,6 +700,9 @@ const remoteRetail = {
   async shiftBalance(shift: string) {
     return Number(await result<number>(supabase.rpc('retail_shift_balance', { p_shift: shift })));
   },
+  async shiftTicketCount(shift: string) {
+    return Number(await result<number>(supabase.rpc('retail_shift_ticket_count', { p_shift: shift })));
+  },
   async invitations(store: string) {
     return result<Invitation[]>(
       supabase
@@ -735,11 +743,13 @@ const remoteRetail = {
     await syncOffline();
     return onboarding.open(store, register, opening);
   },
-  async closeShift(shift: string, counted: number) {
+  async closeShift(shift: string, counted: number, denominations?: CashDenominations | null) {
+    const detail = closingCashDenominations(denominations, counted);
     return result<number>(
       supabase.rpc("retail_close_shift", {
         p_shift: shift,
         p_counted: counted,
+        ...(detail ? { p_denominations: detail } : {}),
       }),
     );
   },

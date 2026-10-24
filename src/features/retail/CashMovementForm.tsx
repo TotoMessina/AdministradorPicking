@@ -1,3 +1,4 @@
+import { NumberInput } from '../../components/NumberInput';
 import { useEffect, useRef, useState } from 'react';
 import { FileText, Loader2 } from 'lucide-react';
 import { errorMessage, retail } from './api';
@@ -5,9 +6,10 @@ import type { Run } from './Management';
 import { movementDetails, voucherExtension, voucherMimeType } from './vouchers';
 import { randomUUID } from '../../utils/uuid';
 
-export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowIncome = true, allowWithdrawal = true }: {
+export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowIncome = true, allowWithdrawal = true, active = true }: {
   store: string; shift: string; busy: boolean; run: Run; onBusyChange: (busy: boolean) => void;
   allowIncome?: boolean; allowWithdrawal?: boolean;
+  active?: boolean;
 }) {
   const [requestedType, setType] = useState('INGRESO');
   const type = requestedType === 'INGRESO' ? (allowIncome ? 'INGRESO' : 'RETIRO') : (allowWithdrawal ? 'RETIRO' : 'INGRESO');
@@ -38,9 +40,13 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
     if (fileInput.current) fileInput.current.value = '';
   };
 
+  const changeType = (next: string) => {
+    if (next === type) { setType(next); return; }
+    setType(next); setCategory('general'); setSupplier(''); clearVoucher(); setError('');
+  };
   return <form className="retail-form" onSubmit={async event => {
     event.preventDefault();
-    if (saving.current || busy) return;
+    if (!active || saving.current || busy) return;
     if ((!allowIncome && !allowWithdrawal) || (type === 'INGRESO' && !allowIncome) || (type === 'RETIRO' && !allowWithdrawal)) { setError('Tu perfil no permite este movimiento. Pedile a administración que revise tus permisos.'); return; }
     const form = event.currentTarget;
     const fields = new FormData(form);
@@ -82,13 +88,12 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
     } catch (err) { setError(errorMessage(err)); }
     finally { saving.current = false; setStage(''); onBusyChange(false); }
   }}>
-    <fieldset disabled={busy || !!stage || (!allowIncome && !allowWithdrawal)} className="cash-movement-fields">
-      <label>Tipo
-        <select name="type" value={type} onChange={event => { setType(event.target.value); setCategory('general'); setSupplier(''); clearVoucher(); setError(''); }}>
-          {allowIncome && <option value="INGRESO">Ingreso de efectivo</option>}{allowWithdrawal && <option value="RETIRO">Retiro de efectivo</option>}
-        </select>
-      </label>
-      <label>Importe ($)<input name="amount" type="number" min="0.01" max="999999999999.99" step="0.01" required /></label>
+    <fieldset disabled={!active || busy || !!stage || (!allowIncome && !allowWithdrawal)} className="cash-movement-fields">
+      <div className="cash-movement-kind" role="group" aria-label="Tipo de movimiento">
+        {allowIncome && <button type="button" aria-pressed={type === 'INGRESO'} onClick={() => changeType('INGRESO')}>Ingreso</button>}
+        {allowWithdrawal && <button type="button" aria-pressed={type === 'RETIRO'} onClick={() => changeType('RETIRO')}>Retiro</button>}
+      </div>
+      <label>Importe ($)<NumberInput name="amount" type="number" min="0.01" max="999999999999.99" step="0.01" required /></label>
       <label>Motivo<input name="reason" required maxLength={300} placeholder="Ej. Pago a proveedor" /></label>
       {type === 'RETIRO' && <label>Categoría
         <select name="category" value={category} onChange={event => { setCategory(event.target.value); setSupplier(''); clearVoucher(); setError(''); }}>
@@ -115,7 +120,7 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
       </>}
     </fieldset>
     {error && <p className="movement-error" role="alert">{error}</p>}
-    <button className="primary-button" disabled={busy || !!stage || (!allowIncome && !allowWithdrawal)}>
+    <button className="primary-button" disabled={!active || busy || !!stage || (!allowIncome && !allowWithdrawal)}>
       {stage && <Loader2 size={16} className="spin" />}
       {stage === 'uploading' ? 'Subiendo comprobante…' : stage === 'saving' ? 'Guardando movimiento…' : error ? 'Reintentar guardar movimiento' : 'Guardar movimiento'}
     </button>
