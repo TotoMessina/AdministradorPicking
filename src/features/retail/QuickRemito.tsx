@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { Camera, CheckCircle2, Loader2, Send, Sparkles } from 'lucide-react';
+import { Camera, CheckCircle2, Loader2, Send } from 'lucide-react';
+import { AiIcon } from '../../components/AiIcon';
 import { errorMessage, retail, type Branch, type Product, type PendingReplenishmentItem } from './api';
 import { remitoExtension, validRemitoQuantity } from './remitos';
 import { RemitoItems } from './RemitoItems';
@@ -85,7 +86,7 @@ export function QuickRemito({ store, branches, branchId, products, run, busy }: 
       <button type="button" className="primary-button remito-camera-button" disabled={disabled} onClick={() => input.current?.click()}><Camera size={28} /> {file ? 'Tomar otra foto' : '📷 Fotografiar remito'}</button>
       {file && <>
         <div className="quick-remito-preview">{preview && !previewError ? <img src={preview} alt="Foto del remito seleccionado" onError={() => setPreviewError(true)} /> : <p>La vista previa no está disponible. Podés adjuntar la foto igualmente.</p>}<small>{file.name} · Hasta 10 MB</small></div>
-        {!review && <div className="remito-quick-actions"><button type="button" className="primary-button" disabled={disabled} onClick={() => void process()}><Sparkles size={18} /> Procesar con IA</button><button type="button" className="secondary-button" disabled={disabled} onClick={() => { setReview(true); setItems([]); setError(''); }}>Enviar solo foto para revisión manual</button></div>}
+        {!review && <div className="remito-quick-actions"><button type="button" className="primary-button ai-action ai-action-strong" disabled={disabled} onClick={() => void process()}><AiIcon size={18} /> Procesar con IA</button><button type="button" className="secondary-button" disabled={disabled} onClick={() => { setReview(true); setItems([]); setError(''); }}>Enviar solo foto para revisión manual</button></div>}
       </>}
       {stage && <p className="remito-progress" role="status"><Loader2 size={18} className="spin" /> {progress}</p>}
       {review && <>

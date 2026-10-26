@@ -18,7 +18,7 @@ Caja es puesto de cobro; turno es período de trabajo con apertura/cierre; regis
 | Consultar ventas | Caja → Ver ventas / resumen permitido | Solo datos autorizados; cajero/supervisor conserva privacidad y arqueo a ciegas. |
 | Productos | Productos → Catálogo y stock | Búsqueda/listado y Agregar producto. Editar y Reponer en cada fila. Formulario principal al crear/editar. |
 | Atributos avanzados | Producto → Más opciones | Descubribles y conservados al editar precio. Errores plegados deben revelar y enfocar el campo. |
-| Insumos y combos | Producto → Uso; Crear combo o paquete; Combo / sueltos | Alta de combo en un solo formulario con componentes visibles y guardado atómico; insumos sin precio, costo calculado y stock físico en componentes. |
+| Insumos y combos | Producto → Uso; Crear combo o paquete; Combo / sueltos / Componentes en la fila | Etiqueta visible junto al icono. Con stock/solo insumo abre combo nuevo con ese componente; una receta existente abre su edición. Sueltos se elige explícitamente, con conversión visible. |
 | Depósito opcional | Mi comercio → Más opciones → Usar depósito; Productos → Reponer | Apagado de inicio. Salón/depósito compartidos por comercio, sin decisiones al cobrar ni stock duplicado. Recibir o mover desde el formulario existente; historial a pedido. |
 | Listas | Productos → Listas de precios | Editor único; los accesos de configuración llevan al mismo destino. Respeta sucursal y carrito. |
 | Comercio | Mi comercio | Datos del comercio, Locales y cajas, Personas con acceso, Más opciones. Separación actual con presentación sobria. |

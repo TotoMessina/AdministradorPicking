@@ -1,6 +1,7 @@
 import { NumberInput } from '../../components/NumberInput';
+import { AiIcon } from '../../components/AiIcon';
 import { useEffect, useId, useRef, useState } from "react";
-import { AlertCircle, Bot, Loader2, Sparkles } from "lucide-react";
+import { AlertCircle, Loader2 } from "lucide-react";
 import type { KioscoSale } from "../../types/kiosco";
 import { groqChat } from "../../services/groqService";
 import {
@@ -453,7 +454,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   {!cashierMode && (
                     <button
                       type="button"
-                      className="secondary-button shift-ai-analyze-btn"
+                      className="secondary-button shift-ai-analyze-btn ai-action"
                       onClick={handleAnalyzeShift}
                       disabled={busy || isAiLoading}
                     >
@@ -463,7 +464,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                           <span>Analizando turno con IA…</span>
                         </>
                       ) : (
-                        <span>{aiError ? 'Reintentar explicación del turno' : 'Explicar este turno con IA'}</span>
+                        <><AiIcon /><span>{aiError ? 'Reintentar explicación del turno' : 'Explicar este turno con IA'}</span></>
                       )}
                     </button>
                   )}
@@ -485,7 +486,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       aria-label="Análisis IA del turno"
                     >
                       <div className="shift-ai-card-header">
-                        <Sparkles size={16} className="shift-ai-header-icon" />
+                        <AiIcon className="shift-ai-header-icon" />
                         <h4>Análisis Inteligente del Turno</h4>
                       </div>
                       <div className="shift-ai-card-content">

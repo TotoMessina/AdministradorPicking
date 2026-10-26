@@ -1,7 +1,6 @@
 import React, { useMemo, useRef, useState, useEffect } from "react";
 import {
   BarChart3,
-  Sparkles,
   Copy,
   Check,
   TrendingUp,
@@ -17,6 +16,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { groqStream } from "../services/groqService";
+import { AiIcon } from './AiIcon';
 import { retail, type Shift, type Product, type Role } from "../features/retail/api";
 import type { KioscoSale } from "../types/kiosco";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
@@ -534,7 +534,7 @@ export function AIReportPanel({
       <div className="ai-report-header">
         <div className="ai-report-title-group">
           <div className="ai-report-badge">
-            <Sparkles size={13} />
+            <AiIcon size={13} />
             <span>Explicación opcional con IA</span>
           </div>
           <h2 className="ai-report-title">
@@ -707,7 +707,7 @@ export function AIReportPanel({
           <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
             <button
               type="button"
-              className="secondary-button"
+              className="secondary-button ai-action ai-action-strong"
               onClick={handleGenerateReport}
               disabled={status === "loading" || status === "streaming"}
             >
@@ -723,7 +723,7 @@ export function AIReportPanel({
                 </>
               ) : (
                 <>
-                  <BarChart3 size={18} />
+                  <AiIcon size={18} />
                   <span>Explicar estos resultados</span>
                 </>
               )}
@@ -785,10 +785,10 @@ export function AIReportPanel({
             <p>{errorMessage}</p>
             <button
               type="button"
-              className="ai-report-retry-btn"
+              className="ai-report-retry-btn ai-action"
               onClick={handleGenerateReport}
             >
-              Reintentar generación
+              <AiIcon /> Reintentar generación
             </button>
           </div>
         </div>
@@ -802,7 +802,7 @@ export function AIReportPanel({
         >
           <div className="ai-report-output-header">
             <div className="ai-report-output-title">
-              <Sparkles size={16} style={{ color: "var(--tone-accent)" }} />
+              <AiIcon />
               <span>Análisis Estratégico · {metrics.periodLabel}</span>
               <span
                 className={`badge-status ${status === "streaming" ? "streaming" : "done"}`}

@@ -1,4 +1,5 @@
 import { NumberInput } from '../../components/NumberInput';
+import { AiIcon } from '../../components/AiIcon';
 import { useState, useMemo, useEffect, useRef, useId } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
 import { SectionNav } from './SectionNav';
@@ -33,12 +34,12 @@ import {
   Download,
   FileSpreadsheet,
   FileText,
+  Eye,
   Filter,
   History,
   Loader2,
   PackageCheck,
   Percent,
-  Sparkles,
   Tag,
   Upload,
   X,
@@ -1575,13 +1576,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           {canEditCatalog && (
             <button
               type="button"
-              className="secondary-button"
+              className="secondary-button ai-action"
               disabled={busy || !categories.length}
               onClick={() => setIsInvoiceModalOpen(true)}
               title="Analizar facturas de compra con IA e importar productos a tu stock"
             >
-              <FileText size={16} />
-              <span>Importar factura de compra</span>
+              <AiIcon />
+              <span>Importar factura con IA</span>
             </button>
           )}
           </div></details>}
@@ -1670,7 +1671,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     </>
                   ) : (
                     <>
-                      <Sparkles size={15} />
+                      <AiIcon size={15} />
                       <span>Sugerencias de IA:</span>
                     </>
                   )}
@@ -1929,7 +1930,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     <div className="price-ai-actions">
                       <button
                         type="button"
-                        className="price-ai-suggestion-chip"
+                        className="price-ai-suggestion-chip ai-action"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -1941,7 +1942,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                         }}
                         title={`Aplicar precio sugerido de $${priceValidation.suggestion.toLocaleString("es-AR")}`}
                       >
-                        <Sparkles size={13} />
+                        <AiIcon size={13} />
                         <span>
                           Usar precio sugerido: $
                           {priceValidation.suggestion.toLocaleString("es-AR")}
@@ -2003,13 +2004,14 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           </div>
           </fieldset>
           <div hidden={guided} className="product-help-actions" aria-label="Ayudas opcionales para el producto">
-            <button type="button" className="text-button" disabled={busy || isSuggesting || (formData.name.trim().length < 2 && !formData.code.trim())} onClick={() => void suggestProductDetails()}>
-              <Sparkles size={14} aria-hidden="true" /> Sugerir datos
+            <button type="button" className="text-button ai-action" disabled={busy || isSuggesting || (formData.name.trim().length < 2 && !formData.code.trim())} onClick={() => void suggestProductDetails()}>
+              <AiIcon size={14} /> Sugerir datos
             </button>
-            <button type="button" className="text-button" disabled={busy || isCheckingPrice || !formData.sellable || creatingComposition} onClick={() => void reviewProductPrice()}>
-              Revisar precio
+            <button type="button" className="text-button ai-action" disabled={busy || isCheckingPrice || !formData.sellable || creatingComposition} onClick={() => void reviewProductPrice()}>
+              <AiIcon size={14} /> Revisar precio
             </button>
-            <button type="button" className="text-button" disabled={busy || isCheckingAnomalies} onClick={e => { if (editorRef.current?.reportValidity()) void handleSubmit(e, true); }}>
+            <button type="button" className="text-button ai-action" disabled={busy || isCheckingAnomalies} onClick={e => { if (editorRef.current?.reportValidity()) void handleSubmit(e, true); }}>
+              <AiIcon size={14} />
               {isCheckingAnomalies ? 'Revisando…' : 'Revisar posibles errores'}
             </button>
             <small>Estas ayudas usan IA y son opcionales.</small>
@@ -3652,7 +3654,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               </button>
               <button
                 type="button"
-                className="secondary-button"
+                className="secondary-button ai-action"
                 disabled={busy || isAnalyzingStock}
                 onClick={handleAnalyzeCriticalStock}
               >
@@ -3663,7 +3665,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   </>
                 ) : (
                   <>
-                    <Sparkles size={15} />
+                    <AiIcon size={15} />
                     <span>Analizar stock</span>
                   </>
                 )}
@@ -4104,7 +4106,7 @@ export function StoreGeneralSettingsForm({
           <section className="store-settings-section">
             <div className="store-section-header">
               <div className="store-section-header-title">
-                <Sparkles size={16} className="store-section-icon" />
+                <StoreIcon size={16} className="store-section-icon" />
                 <h4>Identidad y marca</h4>
               </div>
               <p className="store-section-desc">Nombre comercial y color característico de tu negocio.</p>
@@ -4360,7 +4362,7 @@ export function StoreGeneralSettingsForm({
         </div>
 
         <div className="preview-helper-badge">
-          <Sparkles size={15} />
+          <Eye size={15} />
           <span>Actualización en tiempo real con los datos y el color seleccionado.</span>
         </div>
       </div>
@@ -4661,11 +4663,11 @@ export function StoreSettings({
                     {onOpenAi && (
                       <button
                         type="button"
-                        className="account-action-btn"
+                        className="account-action-btn ai-action"
                         disabled={busy}
                         onClick={onOpenAi}
                       >
-                        <Sparkles size={16} />
+                        <AiIcon />
                         <span>Consultar al asistente</span>
                       </button>
                     )}

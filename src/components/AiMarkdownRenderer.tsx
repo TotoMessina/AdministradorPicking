@@ -99,16 +99,58 @@ function parseInline(text: string): InlineToken[] {
   return tokens;
 }
 
+type TableAlign = "left" | "center" | "right";
+
 type Block =
   | { type: "heading"; level: 1 | 2 | 3 | 4 | 5 | 6; text: string }
   | { type: "codeblock"; lang: string; code: string }
   | { type: "blockquote"; text: string }
   | { type: "ul"; items: string[] }
   | { type: "ol"; items: string[] }
+  | {
+      type: "table";
+      headers: string[];
+      alignments: TableAlign[];
+      rows: string[][];
+    }
   | { type: "paragraph"; text: string };
 
+function parseCells(row: string): string[] {
+  let trimmed = row.trim();
+  if (trimmed.startsWith("|")) trimmed = trimmed.slice(1);
+  if (trimmed.endsWith("|")) trimmed = trimmed.slice(0, -1);
+  return trimmed.split("|").map((cell) => cell.trim());
+}
+
+function isDelimiterRow(row: string): boolean {
+  const trimmed = row.trim();
+  if (!trimmed.includes("-") || !trimmed.includes("|")) return false;
+  const cells = parseCells(trimmed);
+  if (cells.length === 0) return false;
+  return cells.every((c) => /^:?-+:?$/.test(c));
+}
+
+function parseAlignment(cell: string): TableAlign {
+  const trimmed = cell.trim();
+  const starts = trimmed.startsWith(":");
+  const ends = trimmed.endsWith(":");
+  if (starts && ends) return "center";
+  if (ends) return "right";
+  return "left";
+}
+
 function parseBlocks(markdown: string): Block[] {
-  const lines = markdown.split(/\r?\n/);
+  // Pre-split lines: if a single line contains multiple table rows joined by `| |`, split them so each row is a line
+  const rawLines = markdown.split(/\r?\n/);
+  const lines: string[] = [];
+  for (const rawLine of rawLines) {
+    if (rawLine.includes("|") && /(?<=\|)\s+(?=\|)/.test(rawLine)) {
+      lines.push(...rawLine.split(/(?<=\|)\s+(?=\|)/));
+    } else {
+      lines.push(rawLine);
+    }
+  }
+
   const blocks: Block[] = [];
   let inCodeBlock = false;
   let codeBlockLang = "";
@@ -167,6 +209,60 @@ function parseBlocks(markdown: string): Block[] {
     if (!trimmed) {
       flushParagraph();
       flushList();
+      continue;
+    }
+
+    // Table: A line containing pipes followed by a markdown delimiter row
+    if (
+      trimmed.includes("|") &&
+      i + 1 < lines.length &&
+      isDelimiterRow(lines[i + 1])
+    ) {
+      flushParagraph();
+      flushList();
+
+      const headers = parseCells(trimmed);
+      const delimiterCells = parseCells(lines[i + 1]);
+      const alignments = delimiterCells.map(parseAlignment);
+      while (alignments.length < headers.length) {
+        alignments.push("left");
+      }
+
+      const rows: string[][] = [];
+      i += 2; // Advance past header and delimiter lines
+
+      while (i < lines.length) {
+        const nextTrimmed = lines[i].trim();
+        if (
+          !nextTrimmed ||
+          !nextTrimmed.includes("|") ||
+          nextTrimmed.startsWith("```") ||
+          nextTrimmed.startsWith("#")
+        ) {
+          break;
+        }
+
+        if (isDelimiterRow(nextTrimmed)) {
+          i++;
+          continue;
+        }
+
+        const rowCells = parseCells(nextTrimmed);
+        while (rowCells.length < headers.length) {
+          rowCells.push("");
+        }
+        rows.push(rowCells.slice(0, headers.length));
+        i++;
+      }
+
+      i--; // Decrement since for-loop increments i
+
+      blocks.push({
+        type: "table",
+        headers,
+        alignments,
+        rows,
+      });
       continue;
     }
 
@@ -313,6 +409,46 @@ export function AiMarkdownRenderer({
                 <code>{block.code}</code>
               </pre>
             );
+          case "table": {
+            return (
+              <div
+                key={key}
+                className="ai-table-wrapper"
+                tabIndex={0}
+                role="region"
+                aria-label="Tabla de datos"
+              >
+                <table className="ai-table">
+                  <thead>
+                    <tr>
+                      {block.headers.map((header, hIdx) => (
+                        <th
+                          key={`${key}-th-${hIdx}`}
+                          style={{ textAlign: block.alignments[hIdx] || "left" }}
+                        >
+                          {renderInlineTokens(parseInline(header), `${key}-th-${hIdx}`)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, rIdx) => (
+                      <tr key={`${key}-tr-${rIdx}`}>
+                        {row.map((cell, cIdx) => (
+                          <td
+                            key={`${key}-td-${rIdx}-${cIdx}`}
+                            style={{ textAlign: block.alignments[cIdx] || "left" }}
+                          >
+                            {renderInlineTokens(parseInline(cell), `${key}-td-${rIdx}-${cIdx}`)}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            );
+          }
           case "paragraph":
           default:
             return (

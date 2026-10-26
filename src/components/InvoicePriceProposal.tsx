@@ -1,6 +1,7 @@
 import { NumberInput } from './NumberInput';
+import { AiIcon } from './AiIcon';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Loader2, Sparkles } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, Loader2 } from 'lucide-react';
 import { retail, type Product } from '../features/retail/api';
 import { useToast } from '../context/ToastContext';
 import { groqChat } from '../services/groqService';
@@ -149,9 +150,9 @@ Evaluá si las terminaciones tienen sentido, priorizando precios fáciles de cob
     </div>
     <p className="invoice-price-help">∆ Margen compara el margen anterior a la factura con el margen del precio sugerido, en puntos porcentuales. Los costos son por unidad individual.</p>
     <div className="invoice-price-ai">
-      <label className="invoice-price-ai-toggle"><input type="checkbox" checked={aiEnabled} onChange={e => setAiEnabled(e.target.checked)} /> Consultar sugerencia IA (opcional)</label>
+      <label className="invoice-price-ai-toggle"><input type="checkbox" checked={aiEnabled} onChange={e => setAiEnabled(e.target.checked)} /><AiIcon size={14} /> Consultar sugerencia IA (opcional)</label>
       {aiEnabled && <>
-        <button type="button" className="secondary-button" disabled={aiBusy || !valid || !aiRows.length} onClick={() => void requestAi()}>{aiBusy ? <Loader2 size={14} className="spin" /> : <Sparkles size={14} />} Sugerencia IA de redondeo</button>
+        <button type="button" className="secondary-button ai-action" disabled={aiBusy || !valid || !aiRows.length} onClick={() => void requestAi()}>{aiBusy ? <Loader2 size={14} className="spin" /> : <AiIcon size={14} />} Sugerencia IA de redondeo</button>
         {aiRows.length > 50 && <small>La consulta incluye los primeros 50 productos pendientes.</small>}
         {aiError && <p role="status">{aiError} Podés aplicar los precios igualmente.</p>}
         {aiText && <div className="invoice-price-ai-text" role="status">{aiText}</div>}

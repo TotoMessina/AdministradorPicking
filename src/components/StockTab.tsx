@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { AlertTriangle, Search, Sparkles, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, Search, PackagePlus, CheckCircle2 } from "lucide-react";
 import type { KioscoProduct } from "../types/kiosco";
 import { playScannerBeep, playTapTone } from "../utils/audio";
 import { useToast } from "../context/ToastContext";
@@ -169,7 +169,7 @@ export const StockTab: React.FC<StockTabProps> = ({
             boxShadow: "0 4px 12px rgba(245, 158, 11, 0.3)",
           }}
         >
-          <Sparkles size={16} /> Reponer stock bajo (+12)
+          <PackagePlus size={16} /> Reponer stock bajo (+12)
         </button>
       </div>
 

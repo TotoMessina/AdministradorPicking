@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Sparkles, X, Send, Trash2, AlertCircle, ShoppingBag, Wallet, Package, Settings2 } from "lucide-react";
+import { X, Send, Trash2, AlertCircle, ShoppingBag, Wallet, Package, Settings2 } from "lucide-react";
+import { AiIcon } from './AiIcon';
 import { groqStream } from "../services/groqService";
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
@@ -213,13 +214,13 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
     setAiError("");
   };
 
-  const tabLabels: Record<string, { label: string; icon: typeof ShoppingBag }> = {
+  const tabLabels: Record<string, { label: string; icon: React.ComponentType<{ size?: number; className?: string }> }> = {
     pos: { label: "Vender", icon: ShoppingBag },
     cash: { label: "Caja", icon: Wallet },
     catalog: { label: "Catálogo", icon: Package },
     settings: { label: "Mi comercio", icon: Settings2 },
     remito: { label: "Remitos", icon: Package },
-    ai: { label: "Análisis del comercio", icon: Sparkles },
+    ai: { label: "Análisis del comercio", icon: AiIcon },
   };
 
   const currentTabInfo = tabLabels[currentTab] || tabLabels.pos;
@@ -259,7 +260,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
           <div className="ai-omni-header">
             <div className="ai-omni-header-info">
               <div className="ai-omni-badge">
-                <Sparkles size={13} />
+                <AiIcon size={13} />
                 <span>Asistente IA</span>
               </div>
               <div className="ai-omni-context-pill">
@@ -300,7 +301,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
           {/* Quick Preset Chips */}
           <div className="ai-omni-chips-bar">
             <small>Ayuda opcional generada con IA. Revisá la respuesta antes de tomar decisiones.</small>
-            {onOpenFull && <button type="button" className="text-button" onClick={onOpenFull}>Abrir análisis completo del comercio</button>}
+            {onOpenFull && <button type="button" className="text-button ai-action" onClick={onOpenFull}><AiIcon /> Abrir análisis completo del comercio</button>}
           </div>
           <div className="ai-omni-chips-bar" aria-label="Consultas rápidas">
             <span className="ai-omni-chips-title">Consultas rápidas</span>
@@ -309,11 +310,12 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
                 <button
                   key={preset}
                   type="button"
-                  className="ai-omni-chip"
+                  className="ai-omni-chip ai-action"
                   disabled={isAiLoading}
                   onClick={() => void handleSendQuery(preset)}
                 >
-                  {preset}
+                  <AiIcon size={12} />
+                  <span>{preset}</span>
                 </button>
               ))}
             </div>
@@ -333,7 +335,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
                 <div>
                   <strong>No se pudo completar la consulta</strong>
                   <p>{aiError}</p>
-                  <button type="button" className="secondary-button" disabled={isAiLoading} onClick={() => void handleSendQuery(lastQuery)}>Reintentar consulta</button>
+                  <button type="button" className="secondary-button ai-action" disabled={isAiLoading} onClick={() => void handleSendQuery(lastQuery)}><AiIcon /> Reintentar consulta</button>
                 </div>
               </div>
             ) : aiResponse ? (
@@ -345,13 +347,13 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
               </div>
             ) : isAiLoading ? (
               <div className="ai-omni-loading">
-                <Sparkles size={20} className="ai-spin-icon" />
+                <AiIcon size={20} className="ai-spin-icon" />
                 <span>Analizando datos en tiempo real…</span>
               </div>
             ) : (
               <div className="ai-omni-empty">
                 <div className="ai-omni-empty-icon">
-                  <Sparkles size={26} />
+                  <AiIcon size={26} />
                 </div>
                 <h4>¿En qué puedo ayudarte?</h4>
                 <p>
@@ -381,7 +383,7 @@ Nunca inventes precios ni datos que no estén en el contexto.`;
             />
             <button
               type="submit"
-              className="primary-button ai-omni-send-btn"
+              className="primary-button ai-omni-send-btn ai-action ai-action-strong"
               disabled={isAiLoading || !aiPrompt.trim()}
               aria-label="Enviar pregunta"
               title="Enviar"

@@ -112,7 +112,7 @@ Cancelar no crea ningún registro. Si falla una composición, tampoco queda un p
 
 1. Crear o reutilizar **Pan de pancho** y **Salchicha**, con stock contado en unidades y costo por unidad. Si no se venden por separado, elegir **Solo insumo**; no necesitan precio de venta. No crear duplicados si ya existen.
 2. Pulsar **Crear combo o paquete**: debe abrir **Nuevo combo o paquete** con componentes visibles, sin campos para ingresar costo o stock. Completar Pancho, código, categoría y precio; agregar 1 Pan de pancho y 1 Salchicha en el mismo formulario. Esperado: costo $500 si sus costos son $150/$350 y disponibilidad limitada por ambos insumos de salón.
-3. Pulsar **Guardar combo**: debe existir un solo producto con la receta completa, stock físico propio 0 y sin descontar insumos. Cancelar otro borrador no crea registros. Fallar la red/reintentar o provocar receta inválida por RPC no debe duplicar ni dejar un producto parcial. Si el producto ya existía, entrar desde **Combo / sueltos → Consume otros productos**; comprobar que conserva la edición y la conversión de cigarrillos.
+3. Pulsar **Guardar combo**: debe existir un solo producto con la receta completa, stock físico propio 0 y sin descontar insumos. Cancelar otro borrador no crea registros. Fallar la red/reintentar o provocar receta inválida por RPC no debe duplicar ni dejar un producto parcial. Si ya tiene receta, entrar desde **Componentes**; si es un producto vendible sin stock propio, **Combo / sueltos → Combo o paquete** muestra directamente los campos de componentes.
 4. Con 10 panes y 8 salchichas, se muestran **8 panchos disponibles**. Vender 2 panchos consume 2 panes y 2 salchichas: quedan 8 panes, 6 salchichas y disponibilidad para 6 panchos. No se crea un segundo stock de panchos.
 
 #### Cigarrillos sueltos y paquete
@@ -121,7 +121,7 @@ Cancelar no crea ningún registro. Si falla una composición, tampoco queda un p
 
 **Si hoy contás stock en atados:**
 
-1. En la fila del **atado**, abrir **Combo / sueltos → Configurar cigarrillos sueltos desde este atado**. Sincronizar las operaciones de todos los dispositivos antes de convertir.
+1. En la fila del **atado**, abrir **Combo / sueltos → Cigarrillos sueltos**. Confirmar que el stock actual esté contado en atados, no en cigarrillos individuales. Sincronizar las operaciones de todos los dispositivos antes de convertir.
 2. Indicar explícitamente cuántos cigarrillos trae cada atado; no se infiere del nombre ni de las unidades por bulto.
 3. Elegir crear el producto suelto o reutilizar uno existente. Se admite un producto sin stock propio o uno cuya composición esté vinculada solamente a ese atado, para corregir una relación inversa. No se suman stocks que podrían representar las mismas existencias.
 4. Revisar nombre/código interno si es nuevo, precio y costo por cigarrillo. El costo vacío en un producto nuevo propone costo del atado dividido por unidades, redondeado a centavos; en uno existente conserva su costo salvo edición explícita.

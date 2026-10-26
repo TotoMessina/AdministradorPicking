@@ -1,0 +1,340 @@
+/* A stable, distinctive visual identity for opt-in AI features across the app. */
+:root {
+  --ai-accent: #7c3aed;
+  --ai-accent-hover: #6d28d9;
+  --ai-accent-active: #5b21b6;
+  --ai-gradient: linear-gradient(135deg, #7c3aed 0%, #6366f1 100%);
+  --ai-gradient-hover: linear-gradient(135deg, #6d28d9 0%, #4f46e5 100%);
+  --ai-soft: #f5f3ff;
+  --ai-soft-hover: #ede9fe;
+  --ai-soft-active: #ddd6fe;
+  --ai-border: #c4b5fd;
+  --ai-border-hover: #a78bfa;
+  --ai-border-strong: #8b5cf6;
+  --ai-text: #6d28d9;
+  --ai-text-hover: #5b21b6;
+  --ai-shadow: 0 2px 8px rgba(124, 58, 237, 0.22);
+  --ai-shadow-hover: 0 4px 14px rgba(124, 58, 237, 0.32);
+}
+
+.ai-mark {
+  flex-shrink: 0;
+  display: inline-block;
+  vertical-align: middle;
+  color: var(--ai-accent);
+}
+
+/* Secondary / outline AI action buttons */
+button.ai-action,
+.retail-app button.ai-action,
+summary.ai-action {
+  color: var(--ai-text);
+  background: var(--ai-soft);
+  border: 1px solid var(--ai-border);
+  font-weight: 600;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.18s ease-in-out;
+}
+
+button.ai-action:hover:not(:disabled),
+.retail-app button.ai-action:hover:not(:disabled),
+summary.ai-action:hover {
+  color: var(--ai-text-hover);
+  background: var(--ai-soft-hover);
+  border-color: var(--ai-border-strong);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.16);
+}
+
+button.ai-action:active:not(:disabled),
+.retail-app button.ai-action:active:not(:disabled) {
+  background: var(--ai-soft-active);
+  transform: translateY(0);
+}
+
+/* Primary / Strong AI action buttons (e.g. Procesar con IA, Analizar con IA) */
+button.ai-action.ai-action-strong,
+.retail-app button.ai-action.ai-action-strong {
+  color: #ffffff !important;
+  background: var(--ai-gradient) !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+  box-shadow: var(--ai-shadow);
+  font-weight: 600;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.15);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+button.ai-action.ai-action-strong:hover:not(:disabled),
+.retail-app button.ai-action.ai-action-strong:hover:not(:disabled) {
+  color: #ffffff !important;
+  background: var(--ai-gradient-hover) !important;
+  border-color: rgba(255, 255, 255, 0.38) !important;
+  box-shadow: var(--ai-shadow-hover);
+  transform: translateY(-1px);
+}
+
+button.ai-action.ai-action-strong:active:not(:disabled),
+.retail-app button.ai-action.ai-action-strong:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: var(--ai-shadow);
+}
+
+/* Subtle AI text-button variant (used in helper toolbars) */
+button.text-button.ai-action,
+.retail-app button.text-button.ai-action {
+  background: var(--ai-soft) !important;
+  color: var(--ai-text) !important;
+  border: 1px solid var(--ai-border) !important;
+  border-radius: 8px;
+  padding: 6px 12px;
+  font-weight: 600;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.16s ease;
+}
+
+button.text-button.ai-action:hover:not(:disabled),
+.retail-app button.text-button.ai-action:hover:not(:disabled) {
+  background: var(--ai-soft-hover) !important;
+  border-color: var(--ai-border-strong) !important;
+  color: var(--ai-text-hover) !important;
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.14);
+}
+
+/* Icon colors inside buttons */
+.ai-action .ai-mark {
+  color: currentColor;
+}
+
+button.ai-action.ai-action-strong .ai-mark {
+  color: #ffffff;
+}
+
+.ai-action:focus-visible,
+summary.ai-action:focus-visible {
+  outline: 3px solid var(--ai-border-strong);
+  outline-offset: 2px;
+}
+
+summary.ai-action {
+  padding: 12px 14px;
+  border-radius: 8px;
+}
+summary.ai-action .ai-mark {
+  margin-right: 6px;
+}
+
+/* Sidebar AI Dock */
+.sidebar-ai-dock {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--tone-border);
+}
+
+.sidebar-ai-btn {
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 14px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 10px;
+}
+
+@media (max-width: 960px) {
+  .sidebar-ai-dock {
+    margin: 0;
+    padding: 0;
+    border-top: none;
+    position: absolute;
+    top: 16px;
+    right: 24px;
+  }
+  .sidebar-ai-btn {
+    width: auto;
+    min-height: 36px;
+    padding: 6px 12px;
+    font-size: 12px;
+    gap: 7px;
+  }
+}
+
+@media (max-width: 760px) {
+  .sidebar-ai-dock {
+    top: 14px;
+    right: 16px;
+  }
+  .sidebar-ai-btn {
+    min-height: 32px;
+    padding: 5px 10px;
+    font-size: 11.5px;
+    gap: 6px;
+  }
+}
+
+@media (max-width: 420px) {
+  .sidebar-ai-btn .sidebar-ai-btn-text {
+    display: none;
+  }
+  .sidebar-ai-btn {
+    padding: 6px 8px;
+    min-width: 32px;
+    justify-content: center;
+  }
+}
+
+/* Chips and suggestions */
+.ai-omni-chip.ai-action,
+.price-ai-suggestion-chip.ai-action,
+.ai-chip-item {
+  background: var(--ai-soft);
+  color: var(--ai-text);
+  border: 1px solid var(--ai-border);
+  font-weight: 500;
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 12px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.16s ease;
+}
+
+.ai-omni-chip.ai-action:hover:not(:disabled),
+.price-ai-suggestion-chip.ai-action:hover:not(:disabled),
+.ai-chip-item:hover:not(:disabled) {
+  background: var(--ai-soft-hover);
+  border-color: var(--ai-border-strong);
+  color: var(--ai-text-hover);
+  box-shadow: 0 2px 6px rgba(124, 58, 237, 0.15);
+}
+
+/* Header icon badges and avatars */
+.ai-header-icon-badge,
+.ai-omni-badge,
+.ai-welcome-avatar,
+.ai-omni-empty-icon,
+.ai-bubble-avatar.assistant,
+.ai-report-badge {
+  color: var(--ai-accent);
+  background: linear-gradient(135deg, var(--ai-soft) 0%, var(--ai-soft-hover) 100%);
+  border: 1px solid var(--ai-border);
+}
+
+.ai-omni-badge {
+  display: inline-flex;
+  width: auto;
+  gap: 6px;
+  padding: 8px 10px;
+  white-space: nowrap;
+  border-radius: 8px;
+}
+
+.ai-report-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 8px;
+  border-radius: 6px;
+}
+
+.shift-ai-analysis-card,
+.stock-ai-card,
+.price-ai-alert-banner,
+.invoice-price-ai,
+.ai-report-output-box {
+  border-color: var(--ai-border);
+}
+
+.invoice-price-ai {
+  border: 1px solid var(--ai-border);
+  border-radius: 10px;
+  padding: 12px;
+}
+
+.invoice-price-ai-toggle {
+  color: var(--ai-text-hover);
+}
+
+.invoice-price-ai-toggle input {
+  accent-color: var(--ai-accent);
+}
+
+.ai-spin-icon {
+  transform-origin: center;
+  animation: ai-spin 1.4s linear infinite;
+}
+
+@keyframes ai-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* AI Markdown Tables */
+.ai-table-wrapper {
+  margin: 10px 0;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 8px;
+  border: 1px solid var(--ai-border);
+  background: #ffffff;
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.08);
+}
+
+.ai-table {
+  width: 100%;
+  min-width: 320px;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  line-height: 1.45;
+  text-align: left;
+  border-spacing: 0;
+}
+
+.ai-table th {
+  background: var(--ai-soft);
+  color: var(--ai-text);
+  font-weight: 700;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--ai-border);
+  white-space: nowrap;
+  font-size: 12px;
+  letter-spacing: 0.2px;
+}
+
+.ai-table td {
+  padding: 9px 12px;
+  border-bottom: 1px solid #f1f5f9;
+  color: var(--tone-ink, #0f172a);
+  vertical-align: middle;
+}
+
+.ai-table tr:last-child td {
+  border-bottom: none;
+}
+
+.ai-table tbody tr:hover td {
+  background: var(--ai-soft-hover);
+}
+
+

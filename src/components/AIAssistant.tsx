@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from "react";
 import {
-  Sparkles,
   Send,
   Square,
   RotateCcw,
@@ -12,9 +11,9 @@ import {
   Copy,
   Check,
   User,
-  Bot,
 } from "lucide-react";
 import { groqStream, isRateLimitError, getRetryDelay, DEFAULT_MODEL, FALLBACK_FAST_MODEL } from "../services/groqService";
+import { AiIcon } from './AiIcon';
 import type { GroqMessage } from "../types/ai";
 import { AiMarkdownRenderer } from "./AiMarkdownRenderer";
 import { retail, type Store, type Product, type Shift, type Movement, type Role, type Member } from "../features/retail/api";
@@ -874,11 +873,11 @@ ${JSON.stringify(contextPayload)}`;
       <header className="ai-assistant-header">
         <div className="ai-header-left">
           <div className="ai-header-icon-badge">
-            <Sparkles size={22} />
+            <AiIcon size={22} />
           </div>
           <div className="ai-header-title-box">
             <div className="ai-header-title">
-              <span>Asistente del comercio</span>
+              <span>Asistente IA del comercio</span>
             </div>
             <span className="ai-header-subtitle">
               {store.name}
@@ -904,7 +903,7 @@ ${JSON.stringify(contextPayload)}`;
         {messages.length === 0 ? (
           <div className="ai-welcome-card">
             <div className="ai-welcome-avatar">
-              <Sparkles size={28} />
+              <AiIcon size={28} />
             </div>
             <h2 className="ai-welcome-title">
               ¿En qué te ayudo?
@@ -981,7 +980,7 @@ ${JSON.stringify(contextPayload)}`;
                   <button
                     key={label}
                     type="button"
-                    className="ai-chip-btn"
+                    className="ai-chip-btn ai-action"
                     onClick={() => handleSend(label)}
                     disabled={isStreaming}
                   >
@@ -1005,7 +1004,7 @@ ${JSON.stringify(contextPayload)}`;
               >
                 {!isUser && (
                   <div className="ai-bubble-avatar assistant">
-                    <Bot size={18} />
+                    <AiIcon size={18} />
                   </div>
                 )}
 
@@ -1093,8 +1092,9 @@ ${JSON.stringify(contextPayload)}`;
           ) : (
             <button
               type="submit"
-              className="ai-send-btn"
+              className="ai-send-btn ai-action ai-action-strong"
               disabled={!input.trim()}
+              aria-label="Enviar consulta al asistente IA"
               title="Enviar mensaje (Enter)"
             >
               <Send size={16} />

@@ -1,4 +1,5 @@
 import { NumberInput } from './NumberInput';
+import { AiIcon } from './AiIcon';
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
   AlertTriangle,
@@ -17,7 +18,6 @@ import {
   Plus,
   RefreshCw,
   Search,
-  Sparkles,
   Trash2,
   Upload,
   X,
@@ -1000,7 +1000,7 @@ export function InvoiceAnalyzer({
         {/* Header */}
         <div className="invoice-header">
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <FileText size={22} />
+            <AiIcon size={22} />
             <div>
               <h2 style={{ margin: 0, fontSize: 18, fontWeight: 700 }}>Analizador de Facturas con IA</h2>
               <p style={{ margin: 0, fontSize: 13, color: "var(--tone-muted)" }}>
@@ -1083,7 +1083,7 @@ export function InvoiceAnalyzer({
         {step === "input" && (
           <div className="invoice-body">
             <div className="invoice-hint">
-              <Sparkles size={16} />
+              <AiIcon />
               <span>
                 Subí tu factura en <strong>PDF</strong> o <strong>Foto / Imagen</strong> (PNG, JPG, WEBP). Revisá las sugerencias y aplicá la reposición cuando esté todo confirmado.
               </span>
@@ -1200,7 +1200,7 @@ export function InvoiceAnalyzer({
                   onClick={() => setInvoiceText((prev) => cleanInvoiceOcrText(prev))}
                   title="Eliminar líneas de ruido, símbolos sueltos y artefactos de OCR"
                 >
-                  <Sparkles size={12} /> Limpiar ruido OCR
+                  <Filter size={12} /> Limpiar ruido OCR
                 </button>
               )}
             </div>
@@ -1218,11 +1218,11 @@ export function InvoiceAnalyzer({
             <div className="invoice-actions">
               <button className="secondary-button" onClick={onClose}>Cancelar</button>
               <button
-                className="primary-button"
+                className="primary-button ai-action ai-action-strong"
                 onClick={() => void handleParse()}
                 disabled={!invoiceText.trim() || isExtracting}
               >
-                <Sparkles size={14} /> Analizar con IA
+                <AiIcon size={14} /> Analizar con IA
               </button>
             </div>
           </div>
@@ -1367,7 +1367,7 @@ export function InvoiceAnalyzer({
               <div className="inv-unmatched-banner">
                 <div className="inv-unmatched-header" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <Sparkles size={16} />
+                    <AiIcon />
                     <span>
                       Factura con <strong>{unmatchedTotal}</strong> producto{unmatchedTotal !== 1 ? "s" : ""} sin vincular con tu catálogo
                     </span>
@@ -1728,7 +1728,7 @@ export function InvoiceAnalyzer({
                             /* Editing New Product */
                             <div className="inv-drawer-card">
                               <span className="inv-drawer-title">
-                                <Sparkles size={14} color="var(--tone-accent)" /> Configuración del producto nuevo
+                                <Plus size={14} /> Configuración del producto nuevo
                               </span>
                               <div className="invoice-detail-fields">
                                 <label style={{ gridColumn: "span 2" }}>
@@ -2039,7 +2039,7 @@ export function InvoiceAnalyzer({
               )}
               {createdCount > 0 && (
                 <span className="inv-chip indigo">
-                  <Sparkles size={13} /> {createdCount} nuevo{createdCount !== 1 ? "s" : ""} producto{createdCount !== 1 ? "s" : ""} creado{createdCount !== 1 ? "s" : ""}
+                  <PackageCheck size={13} /> {createdCount} nuevo{createdCount !== 1 ? "s" : ""} producto{createdCount !== 1 ? "s" : ""} creado{createdCount !== 1 ? "s" : ""}
                 </span>
               )}
             </div>

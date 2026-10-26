@@ -8,7 +8,6 @@ import {
   Settings2,
   LogOut,
   RefreshCw,
-  CircleHelp,
   X,
   Camera,
   Tag,
@@ -23,6 +22,7 @@ import { ThermalReceiptModal } from "../../components/ThermalReceiptModal";
 import { AiAssistantWidget } from "../../components/AiAssistantWidget";
 import { AIReportPanel } from "../../components/AIReportPanel";
 import { AIAssistant } from "../../components/AIAssistant";
+import { AiIcon } from "../../components/AiIcon";
 import type { KioscoCartItem, KioscoSale } from "../../types/kiosco";
 import {
   retail,
@@ -932,11 +932,19 @@ function Workspace({
             </button>
           ))}
         </nav>
+        <div className="sidebar-ai-dock">
+          <button
+            type="button"
+            className="sidebar-ai-btn ai-action ai-action-strong"
+            disabled={busy || guiding}
+            onClick={() => setIsAiOpen(true)}
+            title="Abrir Asistente IA del comercio"
+          >
+            <AiIcon size={16} />
+            <span className="sidebar-ai-btn-text">Asistente IA</span>
+          </button>
+        </div>
         <div id="account-actions" className="sidebar-bottom">
-          <details>
-            <summary><CircleHelp size={16} aria-hidden="true" /> Ayuda</summary>
-            <button type="button" className="text-button" disabled={busy || guiding} onClick={() => setIsAiOpen(true)}>Consultar al asistente</button>
-          </details>
           <div className="account-info">
             <strong>
               {
@@ -1100,7 +1108,7 @@ function Workspace({
             <div hidden={tab !== 'cash'}>
                 {canReviewSales && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Ver ventas' }]} />}
                 {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canAttachInvoice={can('attach_invoice')} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
-                  <details className="retail-panel"><summary>Explicar estos resultados</summary><AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} /></details>
+                  <details className="retail-panel"><summary className="ai-action"><AiIcon /> Explicar estos resultados con IA</summary><AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} /></details>
                 </div>}
                 <div hidden={canReviewSales && cashView !== 'shift'} role={canReviewSales ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={canReviewSales ? 'cash-tab-shift' : undefined}>
                 {ledgerLoading && <div role="status">Cargando movimientos…</div>}
