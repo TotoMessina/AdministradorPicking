@@ -204,7 +204,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         const product = products.find(p => p.id === row.id); if (!product) throw new Error('Producto no disponible en este dispositivo');
         if (hasComposition(product)) throw new Error(`Reponé los componentes de ${product.name}; su disponibilidad se calcula con ese stock.`);
         const delta = row.quantityAdded ?? row.newStock - product.stock;
-        if (!Number.isInteger(delta) || Math.abs(delta) > 1000000 || product.stock + delta < 0) throw new Error('Cantidad de stock inválida');
+        if (!Number.isInteger(delta) || Math.abs(delta) > 1000000 || product.stock + delta < (product.depotStock || 0)) throw new Error('El stock total no puede quedar por debajo de lo guardado en depósito. Mové esas unidades al salón o revisá la cantidad.');
         if (!manager && (delta <= 0 || row.newCost !== undefined)) throw new Error('Tu permiso permite sumar stock sin modificar costos.');
         product.stock += delta;
         if (row.newCost !== undefined) product.cost = amount(row.newCost);
@@ -380,6 +380,10 @@ export function withOffline<T extends Remote>(source: T): T {
         return remoteRead(user, property, args);
       }
       if (navigator.onLine === false) throw new Error('Esta configuración necesita conexión. Podés seguir vendiendo desde tu caja.');
+      if (property === 'setDepot' || property === 'depotOperation') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar o mover stock de depósito. El borrador se conserva.');
+      });
+      if (property === 'depotMovements') return original(...args as never[]);
       if (property === 'saveMarginThreshold') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar el límite de bajo margen. El porcentaje ingresado se conserva.');
       });
@@ -392,10 +396,21 @@ export function withOffline<T extends Remote>(source: T): T {
         if (state.queue.length && product.sellable !== undefined && product.sellable !== (previous?.sellable !== false))
           throw new Error('Sincronizá las operaciones pendientes antes de cambiar si un producto se vende o es solo insumo. El borrador se conserva.');
       });
-      if (property === 'saveProductComposition' || property === 'enableLooseCigarettes') await transaction(user, state => {
+      if (property === 'saveProductComposition' || property === 'enableLooseCigarettes' || property === 'createCompositeProduct') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de configurar combos o sueltos. El borrador se conserva.');
       });
       const result = await original(...args as never[]);
+      if (property === 'setDepot' || property === 'depotOperation' || property === 'createCompositeProduct') {
+        const state = await transaction(user, s => { s.revision++; return s; }, true);
+        // The write is already committed; a failed refresh cannot turn it into a
+        // failed operation. Normal refresh/background reads can recover the view.
+        await Promise.allSettled(Object.keys(state.cache).filter(k => ['products', 'stores'].includes(JSON.parse(k)[0])).map(k => {
+          const [method, parameters] = JSON.parse(k);
+          return remoteRead(user, method, parameters);
+        }));
+        event();
+        return result;
+      }
       // Configuration is online-only. Refresh cached catalog/permissions after changes.
       const state = await transaction(user, s => s);
       const permissionChange = property === 'savePermissionProfile' || property === 'setStaffProfile';

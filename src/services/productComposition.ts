@@ -1,6 +1,8 @@
 import type { KioscoCartItem, KioscoProduct, KioscoSale, StockComponent } from '../types/kiosco';
 
 export const hasComposition = (product: Pick<KioscoProduct, 'stock_components'>) => !!product.stock_components?.length;
+/** A depot reserves physical units; virtual products already contain sale availability. */
+export const stockForSale = (product: KioscoProduct) => Math.max(0, product.stock - (hasComposition(product) ? 0 : (product.depotStock || 0)));
 /** Zero cost means unknown, as in margin analytics. Never show a partial recipe as a complete cost. */
 export function compositionCost(components: StockComponent[], products: KioscoProduct[] | ReadonlyMap<string, KioscoProduct>) {
   const byId = Array.isArray(products) ? new Map(products.map(product => [product.id, product])) : products;
@@ -38,7 +40,7 @@ export function withAvailableStock<T extends KioscoProduct>(products: T[]): T[] 
     ...product.stock_components!.map(component => {
       const source = byId.get(component.product_id);
       return source && !hasComposition(source) && Number.isInteger(component.quantity) && component.quantity > 0
-        ? Math.floor(source.stock / component.quantity) : 0;
+        ? Math.floor(stockForSale(source) / component.quantity) : 0;
     }),
   )) });
 }
@@ -63,7 +65,7 @@ export function cartStockError(cart: Pick<KioscoCartItem, 'product' | 'qty'>[], 
   }
   for (const [id, quantity] of required) {
     const source = byId.get(id)!;
-    if (source.stock < quantity) return `Stock insuficiente de ${source.name}: necesitás ${quantity} y hay ${source.stock}. Revisá las cantidades del carrito.`;
+    if (stockForSale(source) < quantity) return `Stock insuficiente de ${source.name}: necesitás ${quantity} y hay ${stockForSale(source)} disponibles${source.depotStock ? ` en salón (${source.depotStock} en depósito). Reponé el salón antes de vender` : '. Revisá las cantidades del carrito'}.`;
   }
   return '';
 }
@@ -83,7 +85,7 @@ export function availableForCart(product: KioscoProduct, cart: KioscoCartItem[],
   return Math.max(0, Math.min(999999, ...stockRequirements(current).map(part => {
     const source = byId.get(part.product_id);
     return source && (!hasComposition(current) || !hasComposition(source)) && part.quantity > 0
-      ? Math.floor((source.stock - (used.get(source.id) || 0)) / part.quantity) : 0;
+      ? Math.floor((stockForSale(source) - (used.get(source.id) || 0)) / part.quantity) : 0;
   })));
 }
 

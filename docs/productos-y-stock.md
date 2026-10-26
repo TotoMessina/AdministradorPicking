@@ -5,10 +5,58 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Insumos y costos automáticos](#insumos-y-costos-automaticos)
 - [Combos y cigarrillos](#combos-y-cigarrillos)
 - [Bultos y unidades](#bultos-y-unidades)
+- [Depósito opcional](#deposito-opcional)
 - [Bajo margen](#bajo-margen)
 - [Métricas de margen](#metricas-de-margen)
 - [Categorías](#categorias)
 - [Eliminar y restaurar](#eliminar-y-restaurar)
+
+<a id="deposito-opcional"></a>
+
+## Depósito opcional
+
+**Mi comercio → Más opciones → Usar depósito** activa un depósito compartido por comercio. Para perfiles delegados con `manage_store`, el mismo control está en Datos del comercio. De inicio está apagado: no agrega tareas al alta de comercio/productos ni decisiones al vender. Activarlo conserva todo el stock existente en salón y no crea unidades ni duplica artículos. Salón y depósito son comunes a los locales, siguiendo el stock compartido actual; no son inventarios independientes por sucursal/caja.
+
+Con la opción encendida, Productos muestra total y desglose salón/depósito. **Reponer**, en la fila del producto, reutiliza cantidad/unidades/bultos y ofrece:
+
+- **Reponer salón:** pasa unidades del depósito al salón, sin cambiar total, costo ni caja. Se propone al abrir si el producto tiene unidades en depósito, sin ejecutarse solo.
+- **Recibir mercadería:** suma existencias, con destino visible Salón o Depósito (se propone Depósito). El costo unitario mantiene sus permisos y reglas actuales.
+- **Guardar en depósito:** pasa unidades del salón al depósito. Sirve también para distribuir el stock inicial, sin modificar el total.
+
+El formulario conserva cantidades, bultos, costo y referencias al alternar tareas o navegar mientras sigue montado. Los campos de recepción ocultos quedan deshabilitados durante un traslado; no validan ni cambian costos. Cancelar descarta ese formulario, sin reiniciar otros editores. Al cambiar la configuración del depósito con el formulario abierto, exige cerrarlo y revisar la operación antes de guardar. Foco inicial en cantidad, Tab contenido en el diálogo, Escape/Cancelar devuelve el foco a la acción de origen. No se automatizó la validación de estos recorridos.
+
+La venta y la botonera usan solo salón, sin selector adicional ni consumo automático del depósito. Los combos calculan disponibilidad por componentes en salón, conservando receta/costo; no tienen depósito propio. Atados/sueltos comparten las unidades individuales actuales: ingresar o mover bultos convierte una sola vez. El stock total físico de los componentes sigue disponible para informes/compras; moverlo no cambia capital valorizado ni precios.
+
+Crear un producto, importar CSV/factura o aprobar un remito sigue ingresando unidades en salón; no cambia su contrato ni reinterpreta borradores anteriores. Más herramientas informa ese destino con depósito activo. Para guardarlas, usar Reponer → Guardar en depósito. Editar Stock total ajusta el salón y no puede dejar el total por debajo del depósito. Para corregir una existencia del depósito, pasar primero esas unidades al salón y usar la corrección existente; no se agregó un segundo editor de ajustes.
+
+**Historial de depósito**, dentro de Reponer, consulta a pedido los últimos 30 ingresos/traslados del producto. Guarda identificador, usuario, fecha, producto y cantidades posteriores en Supabase, compartidos entre dispositivos autorizados. No se borra historial al apagar la opción. Desactivar requiere depósito vacío; tampoco se permite eliminar un producto con unidades guardadas allí: primero moverlas al salón. No se redistribuye ni borra información silenciosamente.
+
+### Persistencia y conexión
+
+Migración local **`202610260001_optional_depot.sql`**, incluida en `supabase/schema.sql`, sin aplicación remota. `retail_products.stock` conserva el total; `retail_depot_balances` guarda la parte en depósito. Las tablas nuevas no admiten escritura directa para usuarios autenticados; las RPC validan comercio, producto físico, permisos, cantidades, existencia de origen y costo. Cada movimiento bloquea producto y configuración; el ID de solicitud permite reintentar sin duplicar. Un trigger impide que venta/edición/cliente anterior reduzca el total por debajo de lo reservado, incluso en una receta.
+
+Activar/desactivar requiere `manage_store`. Recibir y trasladar requiere `manage_products` o `replenish_stock`; modificar costos exige `manage_products`. Consultar el historial requiere permiso de stock o configuración. Los balances se leen por membresía para calcular disponibilidad de venta. No se concede un rol administrativo por mostrar estas acciones.
+
+Activación, traslados e ingresos a depósito requieren conexión y cola local vacía; no se encolan como reposiciones antiguas. Recibir en salón conserva la cola offline existente. La venta offline preparada descuenta total y salón de su copia, dejando depósito intacto, y el servidor vuelve a comprobar disponibilidad. No conoce traslados/ventas de otros dispositivos durante la desconexión: un conflicto conserva la venta en la cola para revisión, sin cobrar otra vez ni tomar stock del depósito automáticamente. Actualizar/preparar los dispositivos antes de distribuir mercadería. El service worker mantiene el replay existente, sin un nuevo tipo de operación.
+
+Una lectura fallida de balances no se reemplaza por cero: se conserva caché preparada o se informa error. La compatibilidad con servidores anteriores solo usa cero si falta la tabla y el comercio no tiene depósito habilitado. El catálogo pagina los balances; no se limita a los primeros 1.000 productos. Tras mutaciones se invalida la revisión local y se refresca catálogo/configuración sin permitir que una lectura anterior sobrescriba esa copia. Una respuesta perdida se reintenta con el mismo ID; la RPC consulta el movimiento guardado antes de validar saldo actual. Si solo falla refrescar después de guardar, no se repite la escritura como nueva operación.
+
+### Guía de Pruebas — depósito, pendiente manual
+
+En **http://localhost:3001/** y un comercio de pruebas, después de aplicar schema en el proyecto correcto:
+
+1. **Sin activar:** crear producto, recibir, vender y operar offline preparado. Esperado: flujo habitual, sin tareas/destino de depósito ni selector al cobrar; datos existentes intactos.
+2. **Activar y distribuir:** producto con total 100 → activar → salón 100/depósito 0. Guardar 80 en depósito → salón 20/depósito 80/total 100. Recargar y consultar otro dispositivo autorizado: mismo desglose.
+3. **Vender y reponer:** vender 3 por cualquier medio → 17/80/97. Reponer salón con 12 → 29/68/97. No cambia costo, precio, importe de caja ni cantidad total por el traslado.
+4. **Recibir:** ingresar 2 bultos de 12 en depósito → 29/92/121; recibir 5 en salón → 34/92/126. Revisar costo unitario y referencia con y sin permiso de costos. CSV/factura/remito deben ingresar en salón, sin una segunda conversión de bultos.
+5. **Límites y reintentos:** intentar mover más que el origen o vender por encima del salón, incluso con stock en depósito. Esperado: error visible, operación completa sin cambios parciales. Doble clic, pérdida de respuesta y reintento con los mismos datos: una sola operación, también si el primer movimiento agotó el origen.
+6. **Borradores y teclado:** alternar tareas, navegar y volver, cancelar, Tab/Escape y teclado móvil. Esperado: campos conservados hasta cancelar/guardar, costos ocultos no validan ni se aplican, foco visible y botones alcanzables. Cambiar la opción desde otra sesión y actualizar: no convierte un traslado pendiente en compra.
+7. **Combos y sueltos:** dejar pan o salchichas solo en depósito → no permite vender pancho hasta reponer esos componentes. Mover cigarrillos y vender paquete/suelto: descuenta unidades individuales de salón una sola vez, sin modificar receta ni precios.
+8. **Permisos y concurrencia:** cajero sin reposición no puede operar por RPC ni leer historial; con `replenish_stock` puede trasladar/recibir sin editar costos. Otro comercio queda excluido. Dos dispositivos intentando consumir el mismo origen: nunca queda saldo negativo ni una venta consume unidades reservadas. Un traslado entre sucursales de la sección Transferencias sigue siendo solo registro, no reasignación de estos balances.
+9. **Desactivar y bajas:** con depósito ocupado, desactivar/eliminar producto debe pedir mover primero. Pasar todo al salón, desactivar y consultar otra vez: total intacto e historial conservado. Total inferior a depósito al editar debe fallar sin cambiar otros atributos.
+10. **Offline/PWA:** preparar salón 2/depósito 10, desconectar y vender 2 → salón 0/depósito 10/total 10 local. Una tercera unidad se rechaza; traslados/activación/ingresos a depósito requieren red. Reconectar: una sola venta y mismo balance. Con cambios concurrentes, conservar y mostrar el conflicto sin borrar pendientes. Repetir con catálogo grande y lectura de balances fallida: no tratar depósito desconocido como disponible.
+
+Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0), tras integrar depósito y alta directa de combos. Sin builds ni otras pruebas automatizadas. Requieren validación manual SQL/RLS/RPC, concurrencia, navegador, móvil, segundo dispositivo y PWA. TypeScript no acredita esas pruebas; no se aplicaron migraciones ni se crearon datos remotos.
 
 <a id="insumos-y-costos-automaticos"></a>
 
@@ -18,7 +66,7 @@ En **Productos → Agregar / Editar → Uso del producto**, elegir **Solo insumo
 
 Los registros anteriores siguen siendo vendibles: hay que elegir Solo insumo en los panes o salchichas existentes. Cambiar el uso conserva precio previamente cargado, atributos y stock. Volver a Para vender exige precio positivo. Los precios fijos de listas se conservan para una eventual vuelta a venta, aunque los insumos no se ofrecen en el editor de precios de listas ni en ajustes masivos.
 
-**Crear combo o paquete** pide nombre, código y precio; deja costo pendiente hasta elegir componentes. **Combo / sueltos** muestra cantidad × costo de cada componente y el total por unidad. Con pan a $150 y salchicha a $350, un pancho de 1 + 1 cuesta $500. No requiere precio de venta de sus insumos.
+**Crear combo o paquete** abre un formulario propio con nombre, código, precio, categoría y componentes desde el inicio. Muestra cantidad × costo de cada componente y el total por unidad; no pide cargar costo ni stock propio. Con pan a $150 y salchicha a $350, un pancho de 1 + 1 cuesta $500. No requiere precio de venta de sus insumos. **Combo / sueltos** conserva la edición de composiciones existentes.
 
 El costo del compuesto es automático y no editable directamente. Cambia al guardar la receta o cambiar el costo de sus componentes mediante edición, reposición o importación existente. Se suma a centavos, sin modificar precios, existencias ni ventas anteriores. Costo 0 mantiene la representación existente de costo desconocido: si falta el costo de un componente, el total queda pendiente (0 en persistencia) y no se informa un margen a partir de una suma parcial. No se inventan costos ni se bloquea vender por falta de costo.
 
@@ -56,15 +104,15 @@ Pendientes: navegador, móvil, SQL/RLS, concurrencia, otro dispositivo y sincron
 
 ### Cómo configurarlos
 
-En **Productos → Catálogo y stock**, administración dispone de **Crear combo o paquete**, junto a Agregar producto. Guarda primero los datos del producto con stock propio 0 y abre directamente sus componentes. Para productos existentes, usar **Combo / sueltos** en su fila. Cada producto conserva precio, código, categoría y listas. El costo compuesto es automático; el grupo de margen se calcula con el límite del comercio. El cajero vende por búsqueda, lector o botonera sin elegir ingredientes ni abrir otro asistente.
+En **Productos → Catálogo y stock**, administración dispone de **Crear combo o paquete**, junto a Agregar producto. Abre **Nuevo combo o paquete**, con componentes, costo y disponibilidad calculados desde el inicio; usa los mismos campos de receta que la edición existente. **Guardar combo** guarda datos y composición en una sola transacción. Para productos existentes, usar **Combo / sueltos** en su fila. Cada producto conserva precio, código, categoría y listas. El costo compuesto es automático; el grupo de margen se calcula con el límite del comercio. El cajero vende por búsqueda, lector o botonera sin elegir ingredientes ni abrir otro asistente.
 
-Si se cancela el primer formulario, no se crea el producto. Después de **Crear y elegir componentes**, el producto ya existe: **Configurar después** lo conserva con stock 0 y sin composición; se retoma desde Combo / sueltos. Un error al guardar componentes conserva su borrador y no vuelve a crear el producto.
+Cancelar no crea ningún registro. Si falla una composición, tampoco queda un producto sin configurar. La RPC `retail_create_composite_product` de la migración local `202610260002_create_composite_product.sql` reutiliza las validaciones/costos existentes, requiere `manage_products` y `manage_compositions`, y guarda un recibo con ID estable para reintentar sin duplicar. No cambia precios, fórmulas ni existencias de componentes al crear. Necesita conexión y cola sincronizada; navegar conserva el formulario montado. Los atributos adicionales se pueden editar después desde Editar. Un combo sin costos conocidos muestra costo pendiente, sin inventar un costo parcial.
 
 #### Pancho
 
 1. Crear o reutilizar **Pan de pancho** y **Salchicha**, con stock contado en unidades y costo por unidad. Si no se venden por separado, elegir **Solo insumo**; no necesitan precio de venta. No crear duplicados si ya existen.
-2. Pulsar **Crear combo o paquete** y completar **Pancho**, con su código y precio. El costo se calcula al elegir componentes. El stock propio queda en **0**. Pulsar **Crear y elegir componentes**.
-3. En los componentes que se abren, agregar 1 Pan de pancho y 1 Salchicha y guardar. Si el producto ya existía, entrar desde **Combo / sueltos → Consume otros productos**.
+2. Pulsar **Crear combo o paquete**: debe abrir **Nuevo combo o paquete** con componentes visibles, sin campos para ingresar costo o stock. Completar Pancho, código, categoría y precio; agregar 1 Pan de pancho y 1 Salchicha en el mismo formulario. Esperado: costo $500 si sus costos son $150/$350 y disponibilidad limitada por ambos insumos de salón.
+3. Pulsar **Guardar combo**: debe existir un solo producto con la receta completa, stock físico propio 0 y sin descontar insumos. Cancelar otro borrador no crea registros. Fallar la red/reintentar o provocar receta inválida por RPC no debe duplicar ni dejar un producto parcial. Si el producto ya existía, entrar desde **Combo / sueltos → Consume otros productos**; comprobar que conserva la edición y la conversión de cigarrillos.
 4. Con 10 panes y 8 salchichas, se muestran **8 panchos disponibles**. Vender 2 panchos consume 2 panes y 2 salchichas: quedan 8 panes, 6 salchichas y disponibilidad para 6 panchos. No se crea un segundo stock de panchos.
 
 #### Cigarrillos sueltos y paquete
@@ -87,7 +135,7 @@ Si el atado es usado por otros productos compuestos, hay que revisar esas compos
 1. Usar **Cigarrillo [marca/presentación] suelto** como producto con stock propio. El stock, costo y precio de ese producto se expresan por cigarrillo. Código interno propio; cada marca/presentación mantiene sus existencias.
 2. Si la reposición se carga por paquetes de 20, configurar **Unidades por bulto/pack = 20** en ese producto. Ingresar 5 bultos suma 100 cigarrillos. Si se compra por cartón, ese campo debe indicar sus unidades individuales reales; no determina cuántos cigarrillos descuenta el paquete vendido.
 3. Usar **Crear combo o paquete** para crear **Paquete [misma marca] ×20**, con código de barras del paquete y precio del paquete (su costo se calcula por componentes). No reutilizar el mismo código del suelto. El stock propio queda en **0**.
-4. Al pulsar **Crear y elegir componentes**, elegir 20 unidades del producto suelto y guardar. Quedan dos productos vendibles con precios independientes y una única existencia física. El grupo de margen se clasifica automáticamente según precio base, costo y límite del comercio.
+4. En ese mismo formulario, elegir 20 unidades del producto suelto y pulsar **Guardar combo**. Quedan dos productos vendibles con precios independientes y una única existencia física. El grupo de margen se clasifica automáticamente según precio base, costo y límite del comercio.
 5. Con 100 cigarrillos, vender 1 paquete y 3 sueltos deja **77 cigarrillos**, disponibilidad para **3 paquetes completos** y posibilidad de vender los restantes como sueltos. No se ingresan fracciones de paquete ni se necesita registrar una apertura de paquete para vender un cigarrillo.
 
 Los productos vinculados no muestran Reponer. Se reponen sus componentes, también desde CSV o facturas/remitos: vincular el ingreso al producto que guarda las unidades físicas, con la conversión de bultos que corresponda. Una fila CSV que intenta reponer un combo queda inválida con una explicación; no inventa ni reparte stock. Los flujos de facturas y propuestas de precios no cambian sus cálculos.

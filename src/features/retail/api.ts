@@ -20,6 +20,7 @@ export interface Store {
   accent_color: string;
   currency: string;
   low_margin_threshold?: number;
+  depot_enabled?: boolean;
 }
 export interface Category {
   id: string;
@@ -36,6 +37,11 @@ export interface Register {
 }
 export interface Branch { id: string; store_id: string; name: string; address: string; is_default: boolean }
 export interface StockTransferItem { product_id: string; product_name: string; qty: number }
+export type DepotAction = 'to_salon' | 'to_depot' | 'receive';
+export interface DepotMovement {
+  id: string; product_id: string; product_name: string; action: DepotAction; quantity: number;
+  total_after: number; depot_after: number; actor_email: string | null; created_at: string;
+}
 export interface StockTransfer {
   id: string;
   store_id: string;
@@ -155,6 +161,10 @@ export interface EanLookupResult {
 }
 export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
+  if (e?.code === 'PGRST202' && /retail_create_composite_product/.test(e.message || ''))
+    return 'Falta actualizar la creación de combos. Aplicá schema.sql con 202610260002_create_composite_product.sql y reintentá. El borrador se conserva.';
+  if (['PGRST202', 'PGRST204', 'PGRST205', '42703', '42P01'].includes(e?.code || '') && /retail_(?:set_depot|depot_)|depot_enabled/.test(e.message || ''))
+    return 'Falta habilitar el depósito en la base. Aplicá schema.sql con 202610260001_optional_depot.sql, actualizá los datos y reintentá. El borrador se conserva.';
   if (['PGRST202', 'PGRST204', '42703'].includes(e?.code || '') && /p_denominations|closing_denominations|ticket_count|retail_shift_ticket_count/.test(e.message || ''))
     return 'Falta actualizar el cierre de turnos. Aplicá schema.sql con la migración 202610240001_shift_closing_details.sql y actualizá los datos. El detalle pendiente se conserva.';
   if (['PGRST204', '42703'].includes(e?.code || '') && /sellable/.test(e.message || ''))
@@ -431,6 +441,16 @@ const remoteRetail = {
         .order("id")
         .range(from, to),
     );
+    const balances = await allRows<{ product_id: string; quantity: number }>((from, to) => supabase.from('retail_depot_balances')
+      .select('product_id,quantity').eq('store_id', store).order('product_id').range(from, to)).catch(async error => {
+      if (!['PGRST205', '42P01'].includes(error?.code)) throw error;
+      // Compatibility with a server preceding this feature, never a missing
+      // balance table on a commerce that already enabled its depot.
+      const current = await result<Store>(supabase.from('retail_stores').select('*').eq('id', store).single());
+      if (current.depot_enabled) throw error;
+      return [];
+    });
+    const depot = new Map((balances || []).map(row => [row.product_id, Number(row.quantity)]));
     return withAvailableStock<Product>(rows.map((p) => ({
       id: p.id,
       categoryId: p.category_id,
@@ -441,6 +461,7 @@ const remoteRetail = {
       price: Number(p.price),
       cost: Number(p.cost),
       stock: p.stock,
+      depotStock: depot.get(p.id) || 0,
       minStock: p.min_stock,
       emoji: p.emoji,
       active: p.active,
@@ -560,6 +581,9 @@ const remoteRetail = {
         .select("id")
         .single(),
     );
+  },
+  async createCompositeProduct(store: string, request: string, data: { name: string; code: string; price: number; categoryId: string; components: StockComponent[] }) {
+    return result<string>(supabase.rpc('retail_create_composite_product', { p_store: store, p_request: request, p_data: data }));
   },
   async archiveProduct(store: string, id: string, request?: { id: string; reason?: string; product?: Product }) {
     const p = request?.product;
@@ -824,6 +848,20 @@ const remoteRetail = {
     return result<string>(supabase.rpc('retail_create_transfer', {
       p_store: store, p_from_branch: fromBranch, p_to_branch: toBranch, p_items: items, p_notes: notes.trim() || null, p_request: requestId || randomUUID(),
     }));
+  },
+  async setDepot(store: string, enabled: boolean) {
+    return result(supabase.rpc('retail_set_depot', { p_store: store, p_enabled: enabled }));
+  },
+  async depotOperation(store: string, product: string, quantity: number, action: DepotAction, request: string, cost?: number, note?: string) {
+    return result<string>(supabase.rpc('retail_depot_operation', {
+      p_store: store, p_product: product, p_quantity: quantity, p_action: action, p_request: request,
+      p_cost: cost ?? null, p_note: note?.trim() || null,
+    }));
+  },
+  async depotMovements(store: string, product: string): Promise<DepotMovement[]> {
+    return result<DepotMovement[]>(supabase.from('retail_depot_movements')
+      .select('id,product_id,product_name,action,quantity,total_after,depot_after,actor_email,created_at')
+      .eq('store_id', store).eq('product_id', product).order('created_at', { ascending: false }).order('id').limit(30));
   },
   async confirmTransfer(store: string, transferId: string): Promise<string> {
     return result<string>(supabase.rpc('retail_confirm_transfer', { p_store: store, p_transfer_id: transferId }));

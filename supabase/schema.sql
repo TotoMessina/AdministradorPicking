@@ -55,7 +55,9 @@ insert into retail_schema_manifest(ordinal,filename,sha256) values
  (28,'202610220006_complete_permission_profiles.sql','913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5'),
  (29,'202610230001_automatic_margin_groups.sql','6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2'),
  (30,'202610230002_ingredients_and_composition_costs.sql','86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb'),
- (31,'202610240001_shift_closing_details.sql','d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759');
+ (31,'202610240001_shift_closing_details.sql','d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759'),
+ (32,'202610260001_optional_depot.sql','f221d19fcff7ac881cdbeefc3d3546e625c464872038afb8b69d5491e90b1f5a'),
+ (33,'202610260002_create_composite_product.sql','2e23fbafc73e0b697b607cae3b0587c9a709f13e4882b3a8ce244530eabb60a4');
 
 do $retail_bootstrap$
 declare baseline text:=current_setting('retail.schema_baseline'); boundary integer; conflict text;
@@ -101,7 +103,7 @@ begin
 end;
 $retail_bootstrap$;
 
--- 1/31: 202610010001_retail_multistore.sql
+-- 1/33: 202610010001_retail_multistore.sql
 do $retail_step_1$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
@@ -340,7 +342,7 @@ $retail_source_f24b734005cc1623$;
 end;
 $retail_step_1$;
 
--- 2/31: 202610020001_catalog_global_and_segmentation.sql
+-- 2/33: 202610020001_catalog_global_and_segmentation.sql
 do $retail_step_2$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
@@ -632,7 +634,7 @@ $retail_source_bca9c54fa75c2a89$;
 end;
 $retail_step_2$;
 
--- 3/31: 202610070001_harden_global_catalog_immutability.sql
+-- 3/33: 202610070001_harden_global_catalog_immutability.sql
 do $retail_step_3$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
@@ -731,7 +733,7 @@ $retail_source_f3ff59ec39b6e574$;
 end;
 $retail_step_3$;
 
--- 4/31: 202610130001_branches_prices_ledgers.sql
+-- 4/33: 202610130001_branches_prices_ledgers.sql
 do $retail_step_4$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
@@ -928,7 +930,7 @@ $retail_source_e86fe143f886cd85$;
 end;
 $retail_step_4$;
 
--- 5/31: 202610140001_web_push.sql
+-- 5/33: 202610140001_web_push.sql
 do $retail_step_5$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
@@ -1076,7 +1078,7 @@ $retail_source_918efe9a5d3313e3$;
 end;
 $retail_step_5$;
 
--- 6/31: 202610150001_cashier_access.sql
+-- 6/33: 202610150001_cashier_access.sql
 do $retail_step_6$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
@@ -1244,7 +1246,7 @@ $retail_source_a30006ceabfa2ca5$;
 end;
 $retail_step_6$;
 
--- 7/31: 202610160001_offline_pos.sql
+-- 7/33: 202610160001_offline_pos.sql
 do $retail_step_7$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
@@ -1360,7 +1362,7 @@ $retail_source_770c916876fcdabf$;
 end;
 $retail_step_7$;
 
--- 8/31: 202610160002_offline_queue.sql
+-- 8/33: 202610160002_offline_queue.sql
 do $retail_step_8$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
@@ -1488,7 +1490,7 @@ $retail_source_ffb2f924480094f8$;
 end;
 $retail_step_8$;
 
--- 9/31: 202610160003_pack_size.sql
+-- 9/33: 202610160003_pack_size.sql
 do $retail_step_9$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
@@ -1506,7 +1508,7 @@ $retail_source_e8f486a53e369954$;
 end;
 $retail_step_9$;
 
--- 10/31: 202610160004_margin_groups.sql
+-- 10/33: 202610160004_margin_groups.sql
 do $retail_step_10$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
@@ -1563,7 +1565,7 @@ $retail_source_8a5790ed3a1371e6$;
 end;
 $retail_step_10$;
 
--- 11/31: 202610160005_branch_price_rules.sql
+-- 11/33: 202610160005_branch_price_rules.sql
 do $retail_step_11$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
@@ -1619,7 +1621,7 @@ $retail_source_7899d29739b25999$;
 end;
 $retail_step_11$;
 
--- 12/31: 202610190001_justified_withdrawal.sql
+-- 12/33: 202610190001_justified_withdrawal.sql
 do $retail_step_12$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
@@ -1801,7 +1803,7 @@ $retail_source_029b5843eacab94f$;
 end;
 $retail_step_12$;
 
--- 13/31: 202610190001_store_onboarding.sql
+-- 13/33: 202610190001_store_onboarding.sql
 do $retail_step_13$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
@@ -1920,7 +1922,7 @@ $retail_source_e5b8362448949bce$;
 end;
 $retail_step_13$;
 
--- 14/31: 202610190002_pending_replenishments.sql
+-- 14/33: 202610190002_pending_replenishments.sql
 do $retail_step_14$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
@@ -2091,7 +2093,7 @@ $retail_source_3ddd179e5609126a$;
 end;
 $retail_step_14$;
 
--- 15/31: 202610190003_stock_transfers.sql
+-- 15/33: 202610190003_stock_transfers.sql
 do $retail_step_15$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
@@ -2200,7 +2202,7 @@ $retail_source_cab05c3785465fba$;
 end;
 $retail_step_15$;
 
--- 16/31: 202610200001_supplier_mappings.sql
+-- 16/33: 202610200001_supplier_mappings.sql
 do $retail_step_16$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
@@ -2293,7 +2295,7 @@ $retail_source_d4841853f82adbd4$;
 end;
 $retail_step_16$;
 
--- 17/31: 202610200002_supplier_alias_usage.sql
+-- 17/33: 202610200002_supplier_alias_usage.sql
 do $retail_step_17$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
@@ -2362,7 +2364,7 @@ $retail_source_1adc3ce4519abbb2$;
 end;
 $retail_step_17$;
 
--- 18/31: 202610200003_product_expiry.sql
+-- 18/33: 202610200003_product_expiry.sql
 do $retail_step_18$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
@@ -2379,7 +2381,7 @@ $retail_source_77d1f8c0f62da284$;
 end;
 $retail_step_18$;
 
--- 19/31: 202610210001_ledger_routing.sql
+-- 19/33: 202610210001_ledger_routing.sql
 do $retail_step_19$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
@@ -2512,7 +2514,7 @@ $retail_source_f19dc026535013c8$;
 end;
 $retail_step_19$;
 
--- 20/31: 202610210002_staff_profiles.sql
+-- 20/33: 202610210002_staff_profiles.sql
 do $retail_step_20$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
@@ -2680,7 +2682,7 @@ $retail_source_ca6e73c2c8993bc2$;
 end;
 $retail_step_20$;
 
--- 21/31: 202610210003_ledger_lock_order.sql
+-- 21/33: 202610210003_ledger_lock_order.sql
 do $retail_step_21$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
@@ -2730,7 +2732,7 @@ $retail_source_b9f318a08145ad1e$;
 end;
 $retail_step_21$;
 
--- 22/31: 202610210004_delegated_catalog_actions.sql
+-- 22/33: 202610210004_delegated_catalog_actions.sql
 do $retail_step_22$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
@@ -2850,7 +2852,7 @@ $retail_source_bcfa6664c406dd00$;
 end;
 $retail_step_22$;
 
--- 23/31: 202610220001_product_compositions.sql
+-- 23/33: 202610220001_product_compositions.sql
 do $retail_step_23$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
@@ -3010,7 +3012,7 @@ $retail_source_ef088735e7a84900$;
 end;
 $retail_step_23$;
 
--- 24/31: 202610220002_loose_cigarettes.sql
+-- 24/33: 202610220002_loose_cigarettes.sql
 do $retail_step_24$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
@@ -3120,7 +3122,7 @@ $retail_source_e943d579b3d7ed4e$;
 end;
 $retail_step_24$;
 
--- 25/31: 202610220003_product_deletion_history.sql
+-- 25/33: 202610220003_product_deletion_history.sql
 do $retail_step_25$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
@@ -3227,7 +3229,7 @@ $retail_source_458a93d670539dd4$;
 end;
 $retail_step_25$;
 
--- 26/31: 202610220004_standard_categories.sql
+-- 26/33: 202610220004_standard_categories.sql
 do $retail_step_26$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
@@ -3331,7 +3333,7 @@ $retail_source_85e889e22c9dcc55$;
 end;
 $retail_step_26$;
 
--- 27/31: 202610220005_category_labels.sql
+-- 27/33: 202610220005_category_labels.sql
 do $retail_step_27$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
@@ -3364,7 +3366,7 @@ $retail_source_e975aa6c462d6ee5$;
 end;
 $retail_step_27$;
 
--- 28/31: 202610220006_complete_permission_profiles.sql
+-- 28/33: 202610220006_complete_permission_profiles.sql
 do $retail_step_28$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
@@ -4004,7 +4006,7 @@ $retail_source_913347ffd59472a5$;
 end;
 $retail_step_28$;
 
--- 29/31: 202610230001_automatic_margin_groups.sql
+-- 29/33: 202610230001_automatic_margin_groups.sql
 do $retail_step_29$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
@@ -4072,7 +4074,7 @@ $retail_source_6cd429e7679685c4$;
 end;
 $retail_step_29$;
 
--- 30/31: 202610230002_ingredients_and_composition_costs.sql
+-- 30/33: 202610230002_ingredients_and_composition_costs.sql
 do $retail_step_30$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
@@ -4177,7 +4179,7 @@ $retail_source_86fd19952b8e6534$;
 end;
 $retail_step_30$;
 
--- 31/31: 202610240001_shift_closing_details.sql
+-- 31/33: 202610240001_shift_closing_details.sql
 do $retail_step_31$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
@@ -4337,6 +4339,196 @@ $retail_source_d3204ba0e41d2977$;
  end if;
 end;
 $retail_step_31$;
+
+-- 32/33: 202610260001_optional_depot.sql
+do $retail_step_32$
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
+  raise notice 'Aplicando 202610260001_optional_depot.sql';
+  execute $retail_source_f221d19fcff7ac88$
+alter table public.retail_stores add column depot_enabled boolean not null default false;
+
+create table public.retail_depot_balances (
+ product_id uuid primary key references public.retail_products(id),
+ store_id uuid not null references public.retail_stores(id),
+ quantity integer not null check(quantity>=0),
+ foreign key(store_id,product_id) references public.retail_products(store_id,id)
+);
+create index retail_depot_balances_store on public.retail_depot_balances(store_id);
+create table public.retail_depot_movements (
+ id uuid primary key,
+ store_id uuid not null references public.retail_stores(id),
+ product_id uuid not null references public.retail_products(id),
+ product_name text not null,
+ action text not null check(action in ('to_salon','to_depot','receive')),
+ quantity integer not null check(quantity between 1 and 1000000),
+ total_after integer not null,
+ depot_after integer not null,
+ actor_id uuid not null references auth.users(id),
+ actor_email text,
+ created_at timestamptz not null default now(),
+ payload jsonb not null,
+ foreign key(store_id,product_id) references public.retail_products(store_id,id)
+);
+create index retail_depot_movements_store on public.retail_depot_movements(store_id,created_at desc);
+alter table public.retail_depot_balances enable row level security;
+alter table public.retail_depot_movements enable row level security;
+revoke all on public.retail_depot_balances,public.retail_depot_movements from public,anon,authenticated;
+grant select on public.retail_depot_balances,public.retail_depot_movements to authenticated;
+create policy depot_balance_read on public.retail_depot_balances for select to authenticated
+ using(retail_private.role_for(store_id) is not null);
+create policy depot_movement_read on public.retail_depot_movements for select to authenticated
+ using(retail_private.has_permission(store_id,'manage_products') or retail_private.has_permission(store_id,'replenish_stock') or retail_private.has_permission(store_id,'manage_store'));
+
+-- Also protects legacy checkout clients, stock edits, recipes and direct REST calls.
+create function retail_private.guard_depot_inventory() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare reserved integer;
+begin
+ if tg_op='UPDATE' then
+  if new.store_id<>old.store_id then raise exception 'No se puede cambiar el comercio de un producto'; end if;
+ end if;
+ select quantity into reserved from public.retail_depot_balances where product_id=new.id;
+ reserved:=coalesce(reserved,0);
+ if new.stock<reserved then
+  raise exception 'Stock de salón insuficiente para %. Hay % unidades en depósito. Reponé el salón o revisá el stock total',new.name,reserved;
+ end if;
+ if not new.active and reserved>0 then raise exception 'Pasá primero las unidades de % del depósito al salón antes de eliminar el producto',new.name; end if;
+ return new;
+end $$;
+revoke all on function retail_private.guard_depot_inventory() from public,anon,authenticated;
+create trigger retail_guard_depot_inventory before insert or update of stock,active,store_id on public.retail_products
+ for each row execute function retail_private.guard_depot_inventory();
+
+create function retail_private.guard_depot_setting() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if new.depot_enabled is distinct from old.depot_enabled then
+  perform retail_private.require_permission(new.id,'manage_store');
+  if not new.depot_enabled and exists(select 1 from public.retail_depot_balances where store_id=new.id and quantity>0) then
+   raise exception 'Todavía hay mercadería en depósito. Pasala al salón antes de desactivar; no se borra ni se mueve automáticamente';
+  end if;
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.guard_depot_setting() from public,anon,authenticated;
+create trigger retail_guard_depot_setting before update of depot_enabled on public.retail_stores
+ for each row execute function retail_private.guard_depot_setting();
+
+create function public.retail_set_depot(p_store uuid,p_enabled boolean) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_store');
+ if p_enabled is null then raise exception 'Indicá si usás depósito'; end if;
+ update public.retail_stores set depot_enabled=p_enabled where id=p_store;
+end $$;
+revoke all on function public.retail_set_depot(uuid,boolean) from public,anon;
+grant execute on function public.retail_set_depot(uuid,boolean) to authenticated;
+
+create function public.retail_depot_operation(p_store uuid,p_product uuid,p_quantity integer,p_action text,p_request uuid,p_cost numeric default null,p_note text default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare p public.retail_products; previous public.retail_depot_movements; reserved integer;
+ enabled boolean; signature jsonb; note text:=nullif(trim(p_note),'');
+begin
+ if retail_private.has_permission(p_store,'manage_products') then
+  perform retail_private.require_permission(p_store,'manage_products');
+ else perform retail_private.require_permission(p_store,'replenish_stock'); end if;
+ if p_request is null or p_quantity is null or p_quantity not between 1 and 1000000 or p_action is null or p_action not in ('to_salon','to_depot','receive') then raise exception 'Revisá la operación y la cantidad de unidades'; end if;
+ if p_cost is not null and (p_action<>'receive' or p_cost<0 or p_cost::text in ('NaN','Infinity','-Infinity')) then raise exception 'Costo inválido'; end if;
+ if p_cost is not null then perform retail_private.require_permission(p_store,'manage_products'); end if;
+ if length(note)>300 then raise exception 'La referencia admite hasta 300 caracteres'; end if;
+ signature:=jsonb_build_object('product',p_product,'quantity',p_quantity,'action',p_action,'cost',p_cost,'note',note);
+ perform pg_advisory_xact_lock(hashtextextended('depot:'||p_request::text,0));
+ select * into previous from public.retail_depot_movements where id=p_request;
+ if found then
+  if previous.store_id<>p_store or previous.actor_id<>auth.uid() or previous.payload<>signature then raise exception 'La solicitud corresponde a otra operación de depósito'; end if;
+  return previous.id;
+ end if;
+ -- Consistent lock order: setting first, then product. Checkout locks the product too.
+ select depot_enabled into enabled from public.retail_stores where id=p_store for share;
+ if not coalesce(enabled,false) then raise exception 'El depósito no está habilitado. Actualizá los datos del comercio'; end if;
+ select * into p from public.retail_products where id=p_product and store_id=p_store and active for update;
+ if not found then raise exception 'Producto no disponible. Actualizá el catálogo'; end if;
+ if jsonb_array_length(p.stock_components)>0 then raise exception 'Mové o recibí los componentes; el combo no tiene stock físico propio'; end if;
+ select quantity into reserved from public.retail_depot_balances where product_id=p.id;
+ reserved:=coalesce(reserved,0);
+ if p_action='to_salon' then
+  if reserved<p_quantity then raise exception 'No alcanza el stock del depósito para %. Actualizá y revisá la cantidad',p.name; end if;
+  reserved:=reserved-p_quantity;
+ elsif p_action='to_depot' then
+  if p.stock-reserved<p_quantity then raise exception 'No alcanza el stock del salón para %. Actualizá y revisá la cantidad',p.name; end if;
+  reserved:=reserved+p_quantity;
+ else
+  if p.stock::bigint+p_quantity>2147483647 then raise exception 'El stock resultante supera el límite permitido'; end if;
+  update public.retail_products set stock=stock+p_quantity,cost=coalesce(p_cost,cost),last_restocked_at=now() where id=p.id;
+  p.stock:=p.stock+p_quantity;
+  reserved:=reserved+p_quantity;
+  insert into public.retail_stock_movements(operation_id,product_id,store_id,user_id,delta,cost,occurred_at)
+   values(p_request,p.id,p_store,auth.uid(),p_quantity,p_cost,now());
+ end if;
+ insert into public.retail_depot_balances(product_id,store_id,quantity) values(p.id,p_store,reserved)
+  on conflict(product_id) do update set quantity=excluded.quantity;
+ insert into public.retail_depot_movements(id,store_id,product_id,product_name,action,quantity,total_after,depot_after,actor_id,actor_email,payload)
+  values(p_request,p_store,p.id,p.name,p_action,p_quantity,p.stock,reserved,auth.uid(),auth.jwt()->>'email',signature);
+ return p_request;
+end $$;
+revoke all on function public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text) from public,anon;
+grant execute on function public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text) to authenticated;
+notify pgrst,'reload schema';
+$retail_source_f221d19fcff7ac88$;
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610260001_optional_depot.sql','f221d19fcff7ac881cdbeefc3d3546e625c464872038afb8b69d5491e90b1f5a','schema');
+ end if;
+end;
+$retail_step_32$;
+
+-- 33/33: 202610260002_create_composite_product.sql
+do $retail_step_33$
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
+  raise notice 'Aplicando 202610260002_create_composite_product.sql';
+  execute $retail_source_2e23fbafc73e0b69$
+create function public.retail_create_composite_product(p_store uuid,p_request uuid,p_data jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare signature jsonb; previous public.retail_sync_receipts; category uuid;
+ label text:=trim(p_data->>'name'); code text:=trim(p_data->>'code'); price numeric;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ perform retail_private.require_permission(p_store,'manage_compositions');
+ if p_request is null or jsonb_typeof(p_data) is distinct from 'object' then raise exception 'Revisá los datos del combo'; end if;
+ signature:=jsonb_build_object('kind','create_composite','store',p_store,'data',p_data);
+ perform pg_advisory_xact_lock(hashtextextended(p_request::text,0));
+ select * into previous from public.retail_sync_receipts where id=p_request;
+ if found then
+  if previous.user_id<>auth.uid() or previous.store_id<>p_store or previous.payload<>signature then raise exception 'La solicitud corresponde a otra operación. Revisá el combo antes de guardar'; end if;
+  return (previous.result->>'id')::uuid;
+ end if;
+ if label is null or length(label) not between 1 and 160 or code is null or length(code) not between 1 and 80 then raise exception 'Completá nombre y código del combo'; end if;
+ price:=(p_data->>'price')::numeric;
+ if price is null or price::text in ('NaN','Infinity','-Infinity') or price not between 0.01 and 9999999999 then raise exception 'Ingresá un precio de venta válido'; end if;
+ category:=(p_data->>'categoryId')::uuid;
+ if not exists(select 1 from public.retail_categories where id=category and store_id=p_store) then raise exception 'Elegí una categoría del comercio'; end if;
+ if jsonb_typeof(p_data->'components') is distinct from 'array' then raise exception 'Elegí los componentes del combo'; end if;
+ if jsonb_array_length(p_data->'components') not between 1 and 30 then raise exception 'Elegí entre 1 y 30 componentes'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-composition:'||p_store::text,0));
+ -- The existing composition trigger requires an empty recipe on INSERT. Both
+ -- statements stay in this transaction: no bare product survives a recipe error.
+ insert into public.retail_products(id,store_id,category_id,name,code,price,cost,stock,min_stock,emoji,sellable)
+  values(p_request,p_store,category,label,code,price,0,0,4,'📦',true);
+ perform public.retail_save_product_composition(p_store,p_request,p_data->'components','[]'::jsonb);
+ insert into public.retail_sync_receipts(id,user_id,store_id,payload,result)
+  values(p_request,auth.uid(),p_store,signature,jsonb_build_object('id',p_request));
+ return p_request;
+end $$;
+revoke all on function public.retail_create_composite_product(uuid,uuid,jsonb) from public,anon;
+grant execute on function public.retail_create_composite_product(uuid,uuid,jsonb) to authenticated;
+notify pgrst,'reload schema';
+$retail_source_2e23fbafc73e0b69$;
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610260002_create_composite_product.sql','2e23fbafc73e0b697b607cae3b0587c9a709f13e4882b3a8ce244530eabb60a4','schema');
+ end if;
+end;
+$retail_step_33$;
 
 notify pgrst,'reload schema';
 commit;

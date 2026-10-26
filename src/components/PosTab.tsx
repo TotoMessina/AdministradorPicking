@@ -33,7 +33,7 @@ import { AiAssistantWidget } from "./AiAssistantWidget";
 import { QuickProducts } from '../features/retail/QuickProducts';
 import { cents } from '../features/retail/payments';
 import { formatPackStock, unitsPerPack } from '../services/inventoryUnits';
-import { availableForCart, cartStockError } from '../services/productComposition';
+import { availableForCart, cartStockError, stockForSale } from '../services/productComposition';
 interface Props {
   active?: boolean;
   products: KioscoProduct[];
@@ -537,7 +537,7 @@ export function PosTab({
                       <span className="pos-search-emoji">{p.emoji || "📦"}</span>
                       <div className="pos-search-info">
                         <strong>{p.name}</strong>
-                        <small>{p.category} · {unitsPerPack(p.pack_size) > 1 ? formatPackStock(p.stock, p.pack_size) : p.stock <= 0 ? "Sin stock" : `${p.stock} disp.`}</small>
+                        <small>{p.category} · {unitsPerPack(p.pack_size) > 1 ? formatPackStock(stockForSale(p), p.pack_size) : stockForSale(p) <= 0 ? "Sin stock" : `${stockForSale(p).toLocaleString('es-AR')} disp.`}{p.depotStock ? ` · ${p.depotStock.toLocaleString('es-AR')} en depósito` : ''}</small>
                       </div>
                       <strong className="pos-search-price">{money(p.price)}</strong>
                       <span className="add-product"><Plus size={16} /></span>

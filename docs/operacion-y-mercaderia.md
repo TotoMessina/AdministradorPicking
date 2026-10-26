@@ -235,6 +235,8 @@ El historial muestra origen, destino, fecha, artículos/cantidades, notas y esta
 
 Las transferencias son exclusivamente registros internos. Crear, confirmar o cancelar no llama a reposición, no actualiza `retail_products.stock` y no genera entradas/salidas de inventario. El stock sigue siendo compartido por la tienda; no se calcula disponibilidad por sucursal ni se comprueba una existencia por local que el sistema no lleva.
 
+El [depósito opcional](productos-y-stock.md#deposito-opcional) es una separación real entre salón y depósito del comercio, accesible desde Reponer. No cambia esta sección de transferencias entre sucursales ni transforma sus registros anteriores en movimientos de inventario.
+
 Las funciones comprueban que las dos sucursales sean diferentes y pertenezcan al mismo comercio. Cada producto debe existir, estar activo al crear el registro y pertenecer al comercio. Se ignoran nombres proporcionados por el cliente y se guarda el nombre real del catálogo. Se rechazan productos repetidos en llamadas directas: hay que enviar una sola línea con su cantidad total.
 
 La interfaz y las RPC de crear/confirmar/cancelar exigen administración o `manage_transfers`. Las lecturas mantienen RLS por comercio; ver metadatos no concede permiso de escritura. La tabla no permite eludir las funciones y su auditoría mediante escritura directa. No se habilita borrado de registros.

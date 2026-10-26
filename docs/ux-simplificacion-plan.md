@@ -1,6 +1,6 @@
 ﻿# Plan de simplificación de uso — estado vigente
 
-Actualizado el 24/10/2026. Referencia de decisiones actuales, sin el historial de prompts y entregas anteriores. [Índice general](../README.md). La revisión de código no equivale a evaluación visual ni prueba de usabilidad con personas.
+Actualizado el 26/10/2026. Referencia de decisiones actuales, sin el historial de prompts y entregas anteriores. [Índice general](../README.md). La revisión de código no equivale a evaluación visual ni prueba de usabilidad con personas.
 
 ## Objetivo y criterios
 
@@ -18,7 +18,8 @@ Caja es puesto de cobro; turno es período de trabajo con apertura/cierre; regis
 | Consultar ventas | Caja → Ver ventas / resumen permitido | Solo datos autorizados; cajero/supervisor conserva privacidad y arqueo a ciegas. |
 | Productos | Productos → Catálogo y stock | Búsqueda/listado y Agregar producto. Editar y Reponer en cada fila. Formulario principal al crear/editar. |
 | Atributos avanzados | Producto → Más opciones | Descubribles y conservados al editar precio. Errores plegados deben revelar y enfocar el campo. |
-| Insumos y combos | Producto → Uso; Crear combo o paquete; Combo / sueltos | Solo insumo sin precio; costo compuesto automático; stock físico en componentes. |
+| Insumos y combos | Producto → Uso; Crear combo o paquete; Combo / sueltos | Alta de combo en un solo formulario con componentes visibles y guardado atómico; insumos sin precio, costo calculado y stock físico en componentes. |
+| Depósito opcional | Mi comercio → Más opciones → Usar depósito; Productos → Reponer | Apagado de inicio. Salón/depósito compartidos por comercio, sin decisiones al cobrar ni stock duplicado. Recibir o mover desde el formulario existente; historial a pedido. |
 | Listas | Productos → Listas de precios | Editor único; los accesos de configuración llevan al mismo destino. Respeta sucursal y carrito. |
 | Comercio | Mi comercio | Datos del comercio, Locales y cajas, Personas con acceso, Más opciones. Separación actual con presentación sobria. |
 | Categorías y registros | Mi comercio → Más opciones | Categorías canónicas con nombre visible personalizable; registros con reglas por pago y cambios auditados. |
@@ -40,7 +41,7 @@ Comparación cualitativa deducida de implementaciones e instrucciones anteriores
 | Empezar a vender | Textos de caja/turno mezclados y navegación intermedia | Vender → Abrir turno → efectivo → Abrir turno → Vender. |
 | Alta de producto | Atributos y ayudas competían; revisión IA podía interponerse | Agregar producto → datos básicos → Guardar; Más opciones y revisión voluntarias. |
 | Editar precio | Riesgo de competir con atributos y formularios extensos | Editar precio o precio en Editar → Guardar, conservando los demás atributos. |
-| Crear pancho | Precio ficticio de ingredientes y costo manual del combo | Insumos con costo/stock → combo con precio → componentes → costo calculado. |
+| Crear pancho | Precio ficticio de ingredientes, costo manual y alta seguida de otra pantalla de componentes | Insumos con costo/stock → nombre/precio/componentes juntos, con costo calculado → Guardar combo. |
 | Comercio de una caja | Formularios de varios registros abiertos y accesos repetidos | Resumen de local/caja → Administrar solo por intención, sin perder acceso al segundo local. |
 | Cierre | El análisis podía retrasar la confirmación | Conteo → confirmaciones existentes → cierre guardado; resumen IA con estado/reintento independiente. |
 | Inicio de comercio | Configuración dispersa y riesgo de duplicar recursos | Confirmar recursos creados → primer producto/omitir → apertura real/continuar turno válido. |
@@ -72,6 +73,22 @@ Guía de Pruebas pendiente en **http://localhost:3001/**, con datos de prueba:
 4. Vender: efectivo recibido/importe manual/pago mixto con miles → total y vuelto correctos, Enter y F1–F4 conservados. Cantidad `1000` con stock suficiente → `1.000` y mil unidades, sin perder foco del lector.
 5. Cierre y billetes: cantidad `1000` de billetes de $10 → `1.000` y subtotal $10.000. Cantidades fraccionarias/negativas, máximos y campos obligatorios siguen mostrando errores en el control visible; desactivar detalle no valida sus campos ocultos.
 6. Reposición por bultos, composición, remitos, transferencias y propuestas: verificar que los separadores no cambien cantidades, conversiones, porcentajes ni redondeos existentes. Probar teclado móvil, flechas, navegar/volver con borradores y venta offline preparada; no se realizaron estas comprobaciones manuales.
+
+## Depósito sin complejidad obligatoria
+
+Se agrega una única opción de activación por comercio, sin pasos nuevos en onboarding ni alta básica. Sin depósito, Reponer conserva la reposición habitual. Con depósito, la misma acción permite Reponer salón, Recibir mercadería (destino visible) o Guardar en depósito. Se conservan cantidad/bultos, borradores y permisos; costo/proveedor/referencia solo intervienen al recibir. El catálogo muestra total/desglose y Vender usa salón, sin selector adicional. Los componentes también se descuentan de salón; no se crea stock físico de combos. No se modifica el total al trasladar, los precios o el capital valorizado.
+
+El depósito y salón siguen siendo compartidos entre locales, no inventario por sucursal; Transferencias conserva su registro anterior. CSV/facturas/remitos continúan ingresando en salón y se informa en Más herramientas. Desactivar requiere vaciar depósito explícitamente y conserva historia; activar no distribuye existencias ni crea duplicados. Los traslados/ingresos a depósito y configuración necesitan conexión y cola vacía. Venta offline preparada conserva la cola existente y el conflicto si cambió la disponibilidad; no se toma automáticamente mercadería guardada.
+
+SQL local `202610260001_optional_depot.sql`, incluido en schema con baseline fijo, sin aplicar remotamente. Guía manual y límites en [Productos y stock](productos-y-stock.md#deposito-opcional). Comprobación final ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0), también tras integrar el alta directa de combos. Sin builds ni otras pruebas automatizadas. Pendientes: ejecución SQL/RLS/RPC en entorno de prueba, concurrencia, respuesta perdida, navegador, foco/teclado móvil, PWA y segundo dispositivo. No se realizaron esas pruebas ni una evaluación con personas.
+
+## Alta directa de combos
+
+Crear combo o paquete deja de reutilizar el alta normal seguida de una segunda pantalla. Abre un formulario específico con datos básicos, componentes, costo calculado y disponibilidad de salón. Guardar combo crea producto y composición en una transacción, con recibo de reintento y permisos efectivos; un error/cancelación no deja productos parciales. La edición de recetas reutiliza los mismos campos y conserva el acceso a sueltos. Más atributos permanecen en Editar, sin pedir costo o stock propio al crear el combo.
+
+SQL local `202610260002_create_composite_product.sql` incluido en schema, sin aplicación remota. Recorridos manuales pendientes en [Productos y stock](productos-y-stock.md#combos-y-cigarrillos): acceso directo, costo/disponibilidad, cancelar, reintentar, permisos, navegación móvil y edición de composiciones existentes. No se probaron en navegador/backend ni con personas.
+
+Comprobación final ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores (salida 0). Schema regenerado localmente con 33 migraciones, baseline sin cambios; no se ejecutó SQL remoto, builds ni otras pruebas automatizadas. TypeScript no valida las funciones SQL, RLS ni la apariencia.
 
 ## Límites que deben conservarse
 

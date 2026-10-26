@@ -13,7 +13,8 @@ export interface KioscoProduct {
   price: number; // Precio de venta final al público
   cost?: number; // Costo de compra mayorista
   sellable?: boolean; // false: insumo con stock, no se vende directamente
-  stock: number; // Unidades actuales en mostrador
+  stock: number; // Total físico; en compuestos, disponibilidad calculada.
+  depotStock?: number; // Parte del total guardada en depósito (0 si no se usa).
   pack_size?: number | null; // Unidades individuales por bulto de compra.
   stock_components?: StockComponent[]; // Por venta: unidades consumidas de productos con stock propio.
   margin_group?: MarginGroup | null;

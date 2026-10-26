@@ -1,0 +1,12 @@
+.retail-app .depot-settings { padding: 16px; margin-block: 12px; }
+.retail-app .depot-settings p { margin-block: 8px 0; color: var(--tone-muted); }
+.retail-app .depot-settings .permission-switch { width: 100%; }
+.retail-app .depot-restock-fields { display: flex; flex-direction: column; gap: 14px; min-inline-size: 0; padding: 0; margin: 0; border: 0; }
+.retail-app .depot-tasks { display: flex; flex-wrap: wrap; gap: 8px; }
+.retail-app .depot-tasks button { flex: 1 1 140px; }
+.retail-app .depot-summary { display: flex; flex-wrap: wrap; gap: 8px 20px; padding: 12px; background: var(--tone-soft); border-radius: 8px; }
+.retail-app .depot-stock-detail { display: block; white-space: normal; margin-top: 4px; color: var(--tone-muted); }
+.retail-app .depot-history ul { padding: 0; list-style: none; max-height: 240px; overflow: auto; }
+.retail-app .depot-history li { display: grid; gap: 4px; padding-block: 10px; border-bottom: 1px solid var(--tone-border); }
+.retail-app .depot-history summary { cursor: pointer; }
+.retail-app .depot-tasks button:focus-visible, .retail-app .depot-history summary:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 3px; }

@@ -6,8 +6,9 @@ import { hasComposition } from '../../services/productComposition';
 import { randomUUID } from '../../utils/uuid';
 
 /** Explicit conversion from packet stock to individual units; never run while selling. */
-export function LooseCigaretteEditor({ storeId, packet, products, busy, active, run, onSaved, onBack }: {
+export function LooseCigaretteEditor({ storeId, packet, products, busy, active, run, onSaved, onBack, focusOnActivate = true }: {
   storeId: string; packet: Product; products: Product[]; busy: boolean; active: boolean; run: Run; onSaved: () => void; onBack: () => void;
+  focusOnActivate?: boolean;
 }) {
   const [units, setUnits] = useState('');
   const [target, setTarget] = useState<Product | null>(null);
@@ -19,7 +20,7 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
   const saving = useRef(false);
   const request = useRef({ signature: '', id: '' });
   const first = useRef<HTMLInputElement>(null);
-  useEffect(() => { if (active) first.current?.focus(); }, [active]);
+  useEffect(() => { if (active && focusOnActivate) first.current?.focus(); }, [active, focusOnActivate]);
   const perPacket = Number(units);
   const expectedUnits = packet.stock * perPacket;
   const eligible = products.filter(product => product.id !== packet.id && product.active && product.sellable !== false &&
@@ -30,6 +31,7 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
   return <form className="retail-form product-editor" onSubmit={async event => {
     event.preventDefault();
     if (!active || busy || saving.current) return;
+    if (packet.depotStock) { setError('Antes de convertir el stock, pasá las unidades del depósito al salón desde Reponer.'); return; }
     if (!validUnits) { setError('Revisá cuántos cigarrillos trae el atado.'); return; }
     const input = { unitsPerPacket: perPacket, target, name: target?.name || name.trim(), code: target?.code || code.trim(), price: Number(price), cost: unitCost };
     const signature = JSON.stringify(input);
@@ -47,14 +49,16 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
       }, 'Venta de cigarrillos sueltos configurada')) onSaved();
     } finally { saving.current = false; }
   }}>
-    <h3>Vender cigarrillos sueltos</h3>
-    <p>Atado: <strong>{packet.name}</strong>. El stock se contará en cigarrillos individuales.</p>
-    <label>Cigarrillos por atado<NumberInput ref={first} type="number" required min="2" max="1000" step="1" placeholder="Ej. 10 o 20" disabled={busy} value={units} onValueChange={event => setUnits(event)} /></label>
-    <label>Producto suelto<select disabled={busy} value={target?.id || ''} onChange={event => {
+    <h3>Vender por atado y por cigarrillo</h3>
+    <p>Usá esta opción si el stock de <strong>{packet.name}</strong> está contado en atados. Si ya contás cigarrillos individuales, armá un paquete desde Combo o paquete.</p>
+    <fieldset className="composition-loose-fields" disabled={busy || !active}>
+    <label>¿Cuántos cigarrillos trae cada atado?<NumberInput ref={first} type="number" required min="2" max="1000" step="1" placeholder="Ej. 10 o 20" value={units} onValueChange={event => setUnits(event)} /></label>
+    <div className="composition-unit-shortcuts" role="group" aria-label="Presentaciones habituales">{[10, 20].map(count => <button key={count} type="button" className="secondary-button" aria-pressed={units === String(count)} onClick={() => { setUnits(String(count)); setError(''); }}>{count} cigarrillos</button>)}</div>
+    <label>Producto para vender suelto<select value={target?.id || ''} onChange={event => {
       const selected = candidates.find(product => product.id === event.target.value);
       setTarget(selected ? structuredClone(selected) : null); setPrice(selected ? String(selected.price) : ''); setCost(selected ? String(selected.cost) : ''); setError('');
     }}><option value="">Crear uno nuevo</option>{candidates.map(product => <option value={product.id} key={product.id}>{product.name}</option>)}</select></label>
-    <fieldset className="form-grid" disabled={busy || !!target} hidden={!!target}>
+    <fieldset className="form-grid" disabled={busy || !active || !!target} hidden={!!target}>
       <label>Nombre del suelto<input required maxLength={160} value={name} onChange={event => setName(event.target.value)} /></label>
       <label>Código interno del suelto<input required maxLength={100} value={code} onChange={event => setCode(event.target.value)} /></label>
     </fieldset>
@@ -63,14 +67,16 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
       <label>Costo por cigarrillo ($)<NumberInput type="number" min="0" max="9999999999" step="0.01" disabled={busy} value={cost} placeholder={Number.isFinite(unitCost) ? String(unitCost) : ''} onValueChange={event => setCost(event)} /><small>{target ? 'Conserva el costo existente, salvo que lo edites.' : 'Si lo dejás vacío, usa el costo del atado dividido por sus cigarrillos, redondeado a centavos.'}</small></label>
     </div>
     <div className="composition-fields" aria-live="polite">
-      <strong>{validUnits ? `${packet.stock} atados × ${perPacket} = ${expectedUnits} cigarrillos` : 'Revisá cuántos cigarrillos trae el atado.'}</strong>
+      <strong>{validUnits ? `${packet.stock.toLocaleString('es-AR')} atados × ${perPacket.toLocaleString('es-AR')} = ${expectedUnits.toLocaleString('es-AR')} cigarrillos` : 'Indicá cuántos cigarrillos trae cada atado para revisar la conversión.'}</strong>
       <p>Guardar convierte esas existencias una sola vez. El atado pasa a descontar {validUnits ? perPacket : 'sus'} cigarrillos por venta; un suelto descuenta 1.</p>
       <p>El precio del atado se conserva. Su costo se calcula como {validUnits ? perPacket : 'las unidades'} × costo por cigarrillo{validUnits && Number.isFinite(unitCost) && unitCost > 0 ? `: $${(Math.round(unitCost * 100) * perPacket / 100).toLocaleString('es-AR')}` : ' (pendiente si falta ese costo)'}. La reposición se carga sobre el suelto, por atados{validUnits ? ` de ${perPacket} cigarrillos` : ''}.</p>
       {target && hasComposition(target) && <p>Se reemplaza la vinculación inversa de {target.name} con este atado. No se cambian ventas anteriores.</p>}
     </div>
     <small>Con conexión y sin operaciones pendientes. Sincronizá los otros dispositivos antes de convertir el stock.</small>
+    {!!packet.depotStock && <p role="alert">Primero pasá las unidades del depósito al salón desde Reponer. Después podés convertir el stock.</p>}
     {error && <p role="alert">{error}</p>}
-    <div className="button-row product-editor-actions"><button className="primary-button" disabled={busy || !validUnits}>Convertir stock y habilitar sueltos</button>
-      <button type="button" className="secondary-button" disabled={busy} onClick={onBack}>Volver a componentes</button></div>
+    <div className="button-row product-editor-actions"><button className="primary-button" disabled={busy || !active || !validUnits || !!packet.depotStock}>Convertir stock y habilitar sueltos</button>
+      <button type="button" className="secondary-button" disabled={busy || !active} onClick={onBack}>Cancelar</button></div>
+    </fieldset>
   </form>;
 }

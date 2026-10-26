@@ -1,0 +1,17 @@
+.retail-app .composition-workspace { display: grid; gap: 16px; }
+.retail-app .composition-workspace > h3 { margin: 0; overflow-wrap: anywhere; }
+.retail-app .composition-workspace > h3:focus-visible,
+.retail-app .composition-other-options summary:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 4px; }
+.retail-app .composition-start { display: flex; flex-wrap: wrap; gap: 12px; padding: 16px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.retail-app .composition-start p { flex-basis: 100%; margin: 0; }
+.retail-app .composition-other-options { margin-top: 10px; color: var(--tone-muted); }
+.retail-app .composition-other-options summary { cursor: pointer; padding-block: 10px; }
+.retail-app .catalog-list .action-icon-btn.action-btn-combo { width: auto; max-width: none; gap: 6px; padding-inline: 8px; white-space: nowrap; font-size: 12px; }
+.retail-app .composition-unit-shortcuts { display: flex; flex-wrap: wrap; gap: 8px; }
+.retail-app .composition-loose-fields { display: grid; gap: 16px; border: 0; padding: 0; margin: 0; min-inline-size: 0; }
+.retail-app .composition-unit-shortcuts button[aria-pressed='true'] { border-color: var(--tone-accent); background: var(--tone-soft); }
+@media (max-width: 640px) {
+  .retail-app .composition-workspace .section-nav { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .retail-app .composition-start button { flex: 1 1 180px; min-height: 44px; }
+  .retail-app .catalog-list .action-icon-btn.action-btn-combo { min-height: 44px; }
+}

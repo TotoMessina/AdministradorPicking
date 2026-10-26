@@ -5,7 +5,7 @@ export const permissionOptions = [
   { id: 'move_sale_ledger', label: 'Cambiar ventas propias de registro' },
   { id: 'submit_remito', label: 'Enviar remitos para revisión' },
   { id: 'view_sales', label: 'Consultar ventas e informes de las cajas asignadas' },
-  { id: 'replenish_stock', label: 'Reponer stock compartido (unidades y bultos)' },
+  { id: 'replenish_stock', label: 'Recibir mercadería y mover stock entre salón y depósito (unidades y bultos)' },
   { id: 'edit_prices', label: 'Editar precios base del catálogo' },
   { id: 'manage_quick_products', label: 'Personalizar botonera de las sucursales asignadas' },
   { id: 'manage_products', label: 'Crear, editar e importar productos (incluye costos y stock)' },

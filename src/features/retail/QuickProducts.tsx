@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import type { KioscoProduct } from '../../types/kiosco';
 import { retail, errorMessage } from './api';
 import { formatPackStock, unitsPerPack } from '../../services/inventoryUnits';
+import { stockForSale } from '../../services/productComposition';
 export function QuickProducts({ storeId, branchId, products: inventory, manager, onAdd, onOpenManual, disabled, editorOnly = false }: {
   storeId: string; branchId: string; products: KioscoProduct[]; manager: boolean; onAdd: (p: KioscoProduct) => void; onOpenManual?: () => void; disabled: boolean;
   editorOnly?: boolean;
@@ -56,9 +57,10 @@ export function QuickProducts({ storeId, branchId, products: inventory, manager,
     </form> : editorOnly ? <p>Elegí Personalizar para cambiar los productos de venta rápida de esta sucursal.</p> : <div className="quick-products-grid">
       {ids.map(id => {
         const p = products.find(p => p.id === id)!;
-        return <button type="button" key={id} disabled={disabled || p.stock <= 0} onClick={() => onAdd(p)} aria-label={`Venta rápida: ${p.name}`}>
-          <span aria-hidden="true">{p.emoji || '📦'}</span><strong>{p.name}</strong><small>${p.price.toLocaleString('es-AR')}{p.stock <= 0 ? ' · Sin stock' : ''}</small>
-          {unitsPerPack(p.pack_size) > 1 && <small>{formatPackStock(p.stock, p.pack_size)}</small>}
+        return <button type="button" key={id} disabled={disabled || stockForSale(p) <= 0} onClick={() => onAdd(p)} aria-label={`Venta rápida: ${p.name}`}>
+          <span aria-hidden="true">{p.emoji || '📦'}</span><strong>{p.name}</strong><small>${p.price.toLocaleString('es-AR')}{stockForSale(p) <= 0 ? ' · Sin stock' : ''}</small>
+          {unitsPerPack(p.pack_size) > 1 && <small>{formatPackStock(stockForSale(p), p.pack_size)}</small>}
+          {!!p.depotStock && stockForSale(p) <= 0 && <small>{p.depotStock.toLocaleString('es-AR')} en depósito</small>}
         </button>;
       })}
       {onOpenManual && (

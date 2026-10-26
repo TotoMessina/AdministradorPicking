@@ -13,7 +13,11 @@ import { MarginThresholdSettings } from './MarginThresholdSettings';
 import { productMargin } from '../../services/productMarginService';
 import { ProductDeletionEditor, DeletedProducts } from './ProductDeletionTools';
 import { ProductCompositionEditor } from './ProductCompositionEditor';
-import { compositionCost, hasComposition } from '../../services/productComposition';
+import { NewCompositeEditor } from './NewCompositeEditor';
+import { compositionCost, hasComposition, stockForSale } from '../../services/productComposition';
+import { DepotSettings } from './DepotSettings';
+import { DepotHistory } from './DepotHistory';
+import { errorMessage } from './api';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
 import {
@@ -421,7 +425,12 @@ export function CatalogEditor({
   const canRestock = canEditCatalog || allowRestock;
   const canCompose = can('manage_compositions');
   const canDelete = can('delete_products');
-  const productEditing = canEditCatalog && (adding || !!editing);
+  const [newCompositeOpen, setNewCompositeOpen] = useState(false);
+  const productEditing = canEditCatalog && (adding || !!editing || (newCompositeOpen && canCompose));
+  const closeNewComposite = () => {
+    setNewCompositeOpen(false);
+    requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); });
+  };
   const [deletionTarget, setDeletionTarget] = useState<Product | null>(null);
   const [deletionHistoryOpen, setDeletionHistoryOpen] = useState(false);
   const deletionEditing = canDelete && (!!deletionTarget || deletionHistoryOpen);
@@ -697,6 +706,8 @@ export function CatalogEditor({
 
   // Stock Replenishment states (Unitary)
   const [replenishTarget, setReplenishTarget] = useState<Product | null>(null);
+  const replenishDialog = useRef<HTMLDivElement>(null);
+  const replenishTrigger = useRef<HTMLButtonElement | null>(null);
   const [replenishQty, setReplenishQty] = useState<number>(12);
   const [replenishByPack, setReplenishByPack] = useState(false);
   const replenishmentPackSize = unitsPerPack(replenishTarget?.pack_size);
@@ -704,6 +715,27 @@ export function CatalogEditor({
   const [replenishCost, setReplenishCost] = useState<string>("0");
   const [replenishSupplier, setReplenishSupplier] = useState<string>("");
   const [replenishNotes, setReplenishNotes] = useState<string>("");
+  const [replenishTask, setReplenishTask] = useState<'receive' | 'to_salon' | 'to_depot'>('receive');
+  const [receiveInDepot, setReceiveInDepot] = useState(false);
+  const [replenishError, setReplenishError] = useState('');
+  const [replenishDepotMode, setReplenishDepotMode] = useState(false);
+  const replenishSaving = useRef(false);
+  const depotModeChanged = !!replenishTarget && replenishDepotMode !== !!store.depot_enabled;
+  const receiving = !store.depot_enabled || replenishTask === 'receive';
+  const replenishCurrent = products.find(p => p.id === replenishTarget?.id) || replenishTarget;
+  const movingLimit = receiving ? 1000000 : replenishTask === 'to_salon'
+    ? (replenishCurrent?.depotStock || 0) : replenishCurrent ? stockForSale(replenishCurrent) : 0;
+  const closeReplenish = () => {
+    if (busy || replenishSaving.current) return;
+    setReplenishTarget(null);
+    requestAnimationFrame(() => {
+      if (replenishTrigger.current?.getClientRects().length) replenishTrigger.current.focus();
+      else catalogSearch.current?.focus();
+    });
+  };
+  useEffect(() => {
+    if (active && replenishTarget) replenishDialog.current?.querySelector<HTMLInputElement>('input[inputmode]')?.focus();
+  }, [active, replenishTarget?.id]);
 
   // Bulk CSV replenishment states
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
@@ -722,7 +754,11 @@ export function CatalogEditor({
     if (!canRestock) return;
     restockRequest.current = { signature: '', id: '', at: '' };
     setReplenishTarget(p);
-    setReplenishQty(12);
+    setReplenishDepotMode(!!store.depot_enabled);
+    setReplenishTask(store.depot_enabled && p.depotStock ? 'to_salon' : 'receive');
+    setReceiveInDepot(!!store.depot_enabled);
+    setReplenishError('');
+    setReplenishQty(store.depot_enabled && p.depotStock ? Math.min(12, p.depotStock) : 12);
     setReplenishByPack(false);
     setReplenishCost(String(p.cost || 0));
     setReplenishSupplier("");
@@ -731,35 +767,42 @@ export function CatalogEditor({
 
   const handleConfirmUnitaryReplenish = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canRestock || !replenishTarget || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000) return;
+    if (!active || busy || replenishSaving.current || !canRestock || !replenishTarget || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000) return;
+    if (depotModeChanged) { setReplenishError('Cambió la configuración de depósito. Cerrá y volvé a abrir Reponer para revisar el destino.'); return; }
 
-    const newStock = replenishTarget.stock + replenishmentUnits;
+    const newStock = (replenishCurrent?.stock || 0) + (receiving ? replenishmentUnits : 0);
     const numCost = parseFloat(replenishCost);
-    const validCost = canEditCatalog && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
-    const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null]);
+    const validCost = receiving && canEditCatalog && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
+    const depotAction = store.depot_enabled && (!receiving || receiveInDepot);
+    const note = receiving ? [replenishSupplier.trim(), replenishNotes.trim()].filter(Boolean).join(' · ') : undefined;
+    const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null, depotAction ? replenishTask : 'salon', depotAction ? note : null]);
     if (restockRequest.current.signature !== signature) restockRequest.current = { signature, id: randomUUID(), at: new Date().toISOString() };
 
-    const success = await run(
-      () =>
-        retail.replenishProductStock(
+    replenishSaving.current = true; setReplenishError('');
+    let success = false;
+    try { success = await run(
+      async () => { try {
+        if (depotAction) return await retail.depotOperation(store.id, replenishTarget.id, replenishmentUnits, replenishTask, restockRequest.current.id, validCost, note);
+        return await retail.replenishProductStock(
           store.id,
           replenishTarget.id,
           newStock,
           validCost,
           replenishmentUnits,
           restockRequest.current,
-        ),
-      `Reposición registrada: +${replenishmentUnits} u. de ${replenishTarget.name}`,
-    );
+        );
+      } catch (reason) { setReplenishError(errorMessage(reason)); throw reason; } },
+      receiving ? `Mercadería recibida: +${replenishmentUnits.toLocaleString('es-AR')} u. de ${replenishTarget.name}` : 'Stock trasladado. El total no cambió.',
+    ); } finally { replenishSaving.current = false; }
 
     if (success) {
-      replenishmentService.saveRecord({
+      if (receiving) replenishmentService.saveRecord({
         id: randomUUID(),
         storeId: store.id,
         createdAt: new Date().toISOString(),
         type: "unitario",
         supplier: replenishSupplier.trim() || undefined,
-        notes: replenishNotes.trim() || undefined,
+        notes: [store.depot_enabled && receiveInDepot ? 'Destino: depósito' : '', replenishNotes.trim()].filter(Boolean).join(' · ') || undefined,
         totalUnits: replenishmentUnits,
         itemsCount: 1,
         items: [
@@ -768,13 +811,13 @@ export function CatalogEditor({
             code: replenishTarget.code,
             name: replenishTarget.name,
             quantityAdded: replenishmentUnits,
-            previousStock: replenishTarget.stock,
+            previousStock: replenishCurrent?.stock || 0,
             newStock,
             cost: validCost,
           },
         ],
       });
-      setReplenishTarget(null);
+      closeReplenish();
     }
   };
 
@@ -1460,7 +1503,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return products.filter((p) => (!stockFilter || p.stock <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
+    return products.filter((p) => (!stockFilter || stockForSale(p) <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
       (!q || (p.name + " " + p.code + " " + p.category).toLowerCase().includes(q)),
     );
   }, [products, stockFilter, lowMarginFilter, query]);
@@ -1496,6 +1539,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         <div className="catalog-actions-row">
           {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={() => setIsCsvModalOpen(true)}>Importar desde CSV / Excel</button>}
           {!guided && (canEditCatalog || canRestock || can('edit_prices')) && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
+          {store.depot_enabled && <small>CSV, facturas y remitos ingresan en salón. Para guardarlos en depósito, usá Reponer.</small>}
           <button
             type="button"
             className="secondary-button"
@@ -1542,7 +1586,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           )}
           </div></details>}
           {!guided && canEditCatalog && canCompose && <button type="button" className="secondary-button" disabled={busy || !categories.length}
-            onClick={event => { editorTrigger.current = event.currentTarget; startAdd(true); }}>Crear combo o paquete</button>}
+            onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositeOpen(true); }}>Crear combo o paquete</button>}
           <button
             type="button"
             className="primary-button"
@@ -1558,7 +1602,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       {priceEditing && priceTarget && <ProductPriceEditor key={priceTarget.id} storeId={store.id} product={priceTarget} threshold={store.low_margin_threshold} busy={busy} run={run} active={active} onClose={closePriceEditor} />}
       {canDelete && deletionTarget && <ProductDeletionEditor key={deletionTarget.id} storeId={store.id} product={deletionTarget} busy={busy} run={run} active={active} onClose={closeDeletion} />}
       {canDelete && deletionHistoryOpen && <DeletedProducts storeId={store.id} busy={busy} run={run} active={active} onClose={closeDeletion} />}
-      {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} product={compositionTarget} products={products} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} />}
+      {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} product={compositionTarget} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} canCreateCombo={canEditCatalog} />}
+      {canEditCatalog && canCompose && newCompositeOpen && <NewCompositeEditor key={store.id} storeId={store.id} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeNewComposite} />}
       {canEditCatalog && (adding || editing) && (
         <form
           key={editing?.id || "new"}
@@ -1939,12 +1984,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <small>Si hay varios lotes, indicá el próximo vencimiento. No cambia precios ni bloquea ventas.</small>
             </label>
             <label>
-              Stock actual ({saleUnit === 'unidad' ? 'unidades' : saleUnit === 'litro' ? 'litros' : saleUnit === 'pack' ? 'packs' : saleUnit === 'caja' ? 'cajas' : saleUnit})
+              {store.depot_enabled ? 'Stock total' : 'Stock actual'} ({saleUnit === 'unidad' ? 'unidades' : saleUnit === 'litro' ? 'litros' : saleUnit === 'pack' ? 'packs' : saleUnit === 'caja' ? 'cajas' : saleUnit})
               <NumberInput
                 name="stock"
                 type="number"
                 disabled={creatingComposition || (!!editing && hasComposition(editing))}
-                min="0"
+                min={editing?.depotStock || 0}
                 step="1"
                 required
                 value={formData.stock}
@@ -1953,6 +1998,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 }
               />
               {(creatingComposition || (editing && hasComposition(editing))) && <small>Disponibilidad calculada por componentes. Reponelos desde el listado.</small>}
+              {!!editing?.depotStock && <small>{editing.depotStock.toLocaleString('es-AR')} unidades están en depósito. Cambiar este total ajusta el salón; para mover unidades usá Reponer.</small>}
             </label>
           </div>
           </fieldset>
@@ -2231,17 +2277,28 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           role="dialog"
           aria-modal="true"
           aria-labelledby="replenish-modal-title"
+          ref={replenishDialog}
+          onKeyDown={event => {
+            if (!active) return;
+            if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeReplenish(); }
+            if (event.key !== 'Tab') return;
+            const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled):not([type="hidden"]), select:not(:disabled), summary, a[href], [tabindex="0"]')).filter(control => control.getClientRects().length);
+            const first = controls[0], last = controls.at(-1);
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+            else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+          }}
         >
           <div className="ai-modal-card replenish-modal-card">
             <div className="ai-modal-header">
               <div className="ai-modal-title" id="replenish-modal-title">
                 <PackageCheck size={20} className="ai-success-icon" />
-                <h3>Reponer Stock de Producto</h3>
+                <h3>{store.depot_enabled ? receiving ? 'Recibir mercadería' : replenishTask === 'to_salon' ? 'Reponer salón' : 'Guardar en depósito' : 'Reponer stock de producto'}</h3>
               </div>
               <button
                 type="button"
                 className="ai-modal-close"
-                onClick={() => setReplenishTarget(null)}
+                disabled={busy || !active}
+                onClick={closeReplenish}
                 aria-label="Cerrar"
               >
                 <X size={18} />
@@ -2251,6 +2308,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               onSubmit={handleConfirmUnitaryReplenish}
               className="replenish-form"
             >
+              <fieldset className="depot-restock-fields" disabled={busy || !active}>
               <div className="replenish-product-hero">
                 <span className="replenish-product-emoji">
                   {replenishTarget.emoji || "📦"}
@@ -2265,7 +2323,24 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 </div>
               </div>
 
-              <div className="replenish-stock-status-box">
+              {store.depot_enabled && <>
+                <div className="depot-tasks" role="group" aria-label="Tarea de stock">
+                  {([{ id: 'to_salon', label: 'Reponer salón' }, { id: 'receive', label: 'Recibir mercadería' }, { id: 'to_depot', label: 'Guardar en depósito' }] as const).map(task =>
+                    <button key={task.id} type="button" className={replenishTask === task.id ? 'primary-button' : 'secondary-button'} aria-pressed={replenishTask === task.id}
+                      onClick={() => { setReplenishTask(task.id); setReplenishError(''); }}>{task.label}</button>)}
+                </div>
+                <div className="depot-summary" role="status">
+                  <span>Salón: <strong>{replenishCurrent ? stockForSale(replenishCurrent).toLocaleString('es-AR') : '0'}</strong></span>
+                  <span>Depósito: <strong>{(replenishCurrent?.depotStock || 0).toLocaleString('es-AR')}</strong></span>
+                  <span>Total: <strong>{replenishCurrent?.stock.toLocaleString('es-AR')}</strong></span>
+                </div>
+                {receiving ? <label>Ingresar en<select value={receiveInDepot ? 'depot' : 'salon'} onChange={event => { setReceiveInDepot(event.target.value === 'depot'); setReplenishError(''); }}>
+                  <option value="depot">Depósito</option><option value="salon">Salón</option>
+                </select></label> : <small>{replenishTask === 'to_salon' ? 'Del depósito al salón.' : 'Del salón al depósito.'} El total no cambia. Requiere conexión.</small>}
+                {receiving && receiveInDepot && <small>Ingresa al depósito; no queda disponible para vender hasta reponer el salón. Requiere conexión.</small>}
+                {!receiving && <small>Disponibles en el origen: {movingLimit.toLocaleString('es-AR')} unidades. Se verifica al confirmar.</small>}
+              </>}
+              <div className="replenish-stock-status-box" hidden={!!store.depot_enabled}>
                 <div className="status-col">
                   <span className="col-label">Stock actual</span>
                   <span className="col-val">{replenishTarget.stock} u.</span>
@@ -2322,26 +2397,27 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   />
                   {replenishByPack && <small aria-live="polite">= {replenishmentUnits.toLocaleString('es-AR')} unidades individuales</small>}
                 </label>
-                <label>
+                <label hidden={!receiving}>
                   Nuevo costo unitario ($) <small>{canEditCatalog ? '(opcional)' : '(reservado a administración)'}</small>
                   <NumberInput
                     type="number"
                     min="0"
                     step="0.01"
                     value={replenishCost}
-                    disabled={!canEditCatalog}
+                    disabled={!canEditCatalog || !receiving}
                     onValueChange={(e) => setReplenishCost(e)}
                     placeholder="0.00"
                   />
                 </label>
-                <ProductMarginStatus price={replenishTarget.price} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />
+                {receiving && <ProductMarginStatus price={replenishTarget.price} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />}
               </div>
 
-              <div className="replenish-input-grid">
+              <div className="replenish-input-grid" hidden={!receiving}>
                 <label>
                   Proveedor o Distribuidor <small>(opcional)</small>
                   <input
                     type="text"
+                    disabled={!receiving}
                     value={replenishSupplier}
                     onChange={(e) => setReplenishSupplier(e.target.value)}
                     placeholder="Ej. Arcor, Distribuidora Sur"
@@ -2351,6 +2427,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   N° de Remito / Comprobante <small>(opcional)</small>
                   <input
                     type="text"
+                    disabled={!receiving}
                     value={replenishNotes}
                     onChange={(e) => setReplenishNotes(e.target.value)}
                     placeholder="Ej. Remito R-000458"
@@ -2358,23 +2435,27 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 </label>
               </div>
 
+              {replenishError && <p role="alert" className="movement-error">{replenishError}</p>}
+              {depotModeChanged && <p role="alert">Cambió la configuración de depósito. Cerrá y volvé a abrir Reponer antes de guardar.</p>}
               <div className="ai-modal-footer">
                 <button
                   type="button"
                   className="secondary-button"
                   disabled={busy}
-                  onClick={() => setReplenishTarget(null)}
+                  onClick={closeReplenish}
                 >
                   Cancelar
                 </button>
                 <button
                   type="submit"
                   className="primary-button"
-                  disabled={busy || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000}
+                  disabled={busy || depotModeChanged || !Number.isSafeInteger(replenishQty) || !Number.isSafeInteger(replenishmentUnits) || replenishmentUnits <= 0 || replenishmentUnits > 1000000}
                 >
-                  Confirmar reposición (+{replenishmentUnits} u.)
+                  {store.depot_enabled ? receiving ? 'Confirmar ingreso' : replenishTask === 'to_salon' ? 'Reponer salón' : 'Guardar en depósito' : 'Confirmar reposición'} ({replenishmentUnits.toLocaleString('es-AR')} u.)
                 </button>
               </div>
+              </fieldset>
+              {store.depot_enabled && <DepotHistory key={replenishTarget.id} store={store.id} product={replenishTarget.id} active={active && !busy} />}
             </form>
           </div>
         </div>
@@ -3247,7 +3328,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               {visibleColumns.cost && <th className="th-cost">Costo</th>}
               {visibleColumns.price && <th className="th-price">Precio</th>}
               {visibleColumns.margin && <th className="th-margin">% Rentabilidad</th>}
-              {visibleColumns.stock && <th className="th-stock">Stock</th>}
+              {visibleColumns.stock && <th className="th-stock">{store.depot_enabled ? 'Stock total' : 'Stock'}</th>}
               {visibleColumns.minStock && <th className="th-minstock">Stock mín.</th>}
               {visibleColumns.expiry && <th className="th-expiry">Vencimiento</th>}
               <th className="th-actions">Acciones</th>
@@ -3342,9 +3423,10 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   )}
                   {visibleColumns.stock && (
                     <td data-label="Stock" className="stock-col">
-                      <span className={p.stock <= p.minStock ? "stock-low" : "stock-pill"}>
-                        {p.stock} {p.stock <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
+                      <span className={stockForSale(p) <= p.minStock ? "stock-low" : "stock-pill"}>
+                        {p.stock.toLocaleString('es-AR')} {stockForSale(p) <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
                       </span>
+                      {store.depot_enabled && !hasComposition(p) && <small className="depot-stock-detail">Salón: {stockForSale(p).toLocaleString('es-AR')} · Depósito: {(p.depotStock || 0).toLocaleString('es-AR')}</small>}
                     </td>
                   )}
                   {visibleColumns.minStock && (
@@ -3363,7 +3445,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       type="button"
                       className="action-icon-btn action-btn-replenish"
                       disabled={busy}
-                      onClick={() => startReplenish(p)}
+                      onClick={event => { replenishTrigger.current = event.currentTarget; startReplenish(p); }}
                       hidden={!canRestock || hasComposition(p)}
                       aria-label={`Reponer stock de ${p.name}`}
                       title="Reponer stock"
@@ -3386,11 +3468,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                         type="button"
                         className="action-icon-btn action-btn-combo"
                         disabled={busy}
-                        aria-label={`Combo / sueltos de ${p.name}: configurar componentes`}
-                        title="Configurar combo o componentes sueltos"
+                        aria-label={`${hasComposition(p) ? 'Editar componentes' : 'Configurar combo o cigarrillos sueltos'} de ${p.name}`}
+                        title={hasComposition(p) ? 'Editar los componentes de este producto' : 'Armar un combo o configurar cigarrillos sueltos'}
                         onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositionProduct(false); setCompositionTarget(p); }}
                       >
                         <Layers size={14} aria-hidden="true" />
+                        <span>{hasComposition(p) ? 'Componentes' : 'Combo / sueltos'}</span>
                       </button>
                     )}
                     {!canEditCatalog && allowPriceEdit && p.sellable !== false && (
@@ -4402,6 +4485,7 @@ export function StoreSettings({
           <div className="more-settings-container">
             {/* Columna Izquierda: Opciones y herramientas + Cuenta y comercios */}
             <div className="more-settings-column">
+              <DepotSettings key={store.id} store={store} busy={busy} run={run} active={view === 'more'} />
               {/* Tarjeta 1: Opciones y herramientas */}
               <div className="store-settings-card">
                 <div className="store-settings-header">

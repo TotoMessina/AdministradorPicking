@@ -41,7 +41,9 @@ trigger: always_on
 - Conservar lector/foco de venta, F1–F4, pagos mixtos, importe manual, botonera, carrito y protección al cambiar sucursal/lista/registro.
 - Mantener borradores al navegar, importaciones y reposiciones en curso. Cancelar afecta solo al editor correspondiente.
 - Conservar stock compartido por comercio, bulto/unidad, recetas, listas por sucursal, remitos pendientes, transferencias y comprobantes privados.
+- Depósito opcional: apagado por defecto, salón/depósito compartidos por comercio; `stock` sigue siendo el total físico. Venta y componentes usan solo salón. Traslados no cambian total ni costos, requieren conexión y dejan historial. No duplicar stock al activar ni redistribuir/borrar al desactivar. Las transferencias entre sucursales siguen siendo registros, no inventario por local.
 - Insumos: pueden tener stock/costo sin precio de venta, sin venta directa. Compuestos: consumen componentes, sin segundo stock físico; costo = cantidades × costos. No convertir ni borrar existencias por una opción visual.
+- Crear combo o paquete abre el formulario específico con componentes desde el inicio y guardado atómico; no volver al alta normal seguida de una segunda configuración que pueda dejar productos incompletos.
 - Cigarrillos: stock en unidades individuales, paquete/suelto con precios independientes y reposición por atados con una sola conversión.
 - Bajo margen automático sobre `(precio − costo) / precio`, límite inicial 10% configurable. Costo 0 es desconocido; mantener separación estándar/bajo margen e instantáneas históricas.
 - Caja = puesto de cobro. Turno = período de trabajo abierto con efectivo y cerrado contando efectivo. Registro de ventas = agrupación; no es caja ni define condición fiscal.

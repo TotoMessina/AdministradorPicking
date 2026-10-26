@@ -1,6 +1,6 @@
 ﻿# Supabase: instalación y actualización desde schema
 
-El archivo único para instalar/actualizar la base es **[supabase/schema.sql](supabase/schema.sql)**. Contiene las **31 migraciones actuales**, en orden de nombre completo, y registra cada una en `retail_private.schema_migrations`. No hay que pegar archivos por separado.
+El archivo único para instalar/actualizar la base es **[supabase/schema.sql](supabase/schema.sql)**. Contiene las **33 migraciones actuales**, en orden de nombre completo, y registra cada una en `retail_private.schema_migrations`. No hay que pegar archivos por separado.
 
 ## Proyecto y alcance
 
@@ -16,7 +16,7 @@ Schema incluye tablas, RLS, funciones, buckets y ajustes de datos de las migraci
 
 El responsable confirmó el **23/10/2026** que ejecutó todos los SQL actuales. Por eso el baseline del archivo queda fijado en **`202610230002_ingredients_and_composition_costs.sql`**.
 
-Al ejecutar schema en una base retail existente sin su historial, registra como **`adopted`** los 30 archivos hasta ese punto, **sin volver a ejecutarlos**. La nueva migración `202610240001_shift_closing_details.sql`, posterior a ese baseline, se aplica como pendiente y agrega tickets/billetes al cierre. No se aplicó remotamente durante su preparación. La fecha de adopción no es la fecha histórica de ejecución. No se deduce el estado remoto por tener productos o una columna; tampoco se certifica que los cuerpos instalados coincidan con el repositorio.
+Al ejecutar schema en una base retail existente sin su historial, registra como **`adopted`** los 30 archivos hasta ese punto, **sin volver a ejecutarlos**. Las migraciones posteriores `202610240001_shift_closing_details.sql` (tickets/billetes), `202610260001_optional_depot.sql` (depósito opcional) y `202610260002_create_composite_product.sql` (alta atómica de combos) se aplican como pendientes. No se aplicaron remotamente durante su preparación. La fecha de adopción no es la fecha histórica de ejecución. No se deduce el estado remoto por tener productos o una columna; tampoco se certifica que los cuerpos instalados coincidan con el repositorio.
 
 Este baseline es una declaración para esa instalación confirmada. **Para otro entorno cuya instalación no esté confirmada, vaciar o corregir `retail.schema_baseline` antes de ejecutar.** Una base existente sin historial y sin baseline se detiene sin aplicar migraciones. La presencia de las nueve tablas base es una comprobación mínima adicional, no una auditoría de todos los objetos.
 
@@ -29,7 +29,9 @@ Si faltan migraciones intermedias o hubo una ejecución fallida, no declarar com
 3. Revisar errores y el resultado final: `filename`, `origin` y `registered_at`. Un error revierte la transacción completa, incluido su historial; no continuar ejecutando fragmentos.
 4. Actualizar la app y el catálogo en los dispositivos una vez confirmada la instalación.
 
-En una **base nueva de Supabase**, sin objetos retail, el archivo ejecuta las 31 migraciones y registra `origin=schema`; el baseline de adopción no omite nada en ese caso. Se requieren los servicios habituales de Supabase Auth/Storage.
+En una **base nueva de Supabase**, sin objetos retail, el archivo ejecuta las 33 migraciones y registra `origin=schema`; el baseline de adopción no omite nada en ese caso. Se requieren los servicios habituales de Supabase Auth/Storage.
+
+El depósito se instala **apagado** para todos los comercios, sin redistribuir existencias. La activación es posterior y voluntaria desde Mi comercio. El total sigue en productos; los balances y movimientos se protegen con RLS/RPC y un trigger de disponibilidad. No modifica las transferencias entre sucursales. Ver [alcance, permisos y pruebas](docs/productos-y-stock.md#deposito-opcional). Instalar SQL no certifica la operación offline, la concurrencia ni los permisos: validar en un entorno de prueba antes de usarlo.
 
 En una **base con historial de schema**, comprueba nombres, orden y SHA-256 de los archivos registrados, y ejecuta solo los posteriores pendientes. Repetirlo sin archivos nuevos no vuelve a hacer backfills, renombrados o altas predeterminadas. Si hay checksums distintos, huecos o entradas desconocidas, se detiene. No es un reparador de objetos borrados o alterados manualmente después de instalar.
 
@@ -54,8 +56,8 @@ Las migraciones originales se conservan como fuente, historial y referencia de h
 
 ## Guía de Pruebas — manual pendiente
 
-1. En una base Supabase desechable nueva, ejecutar schema completo: deben quedar las 31 entradas `schema` y los objetos de la app. Repetir: mismas entradas y sin recursos ni ajustes duplicados.
-2. En la instalación manual confirmada sin historial, ejecutar con su baseline: 30 entradas `adopted`, sin repetir sus cuerpos SQL, y la nueva de cierre como `schema`. Si ya hay historial, solo agrega la pendiente. Repetir: sin cambios. Verificar tablas, RPC y RLS con las cuentas correspondientes; el historial por sí solo no certifica esos permisos.
+1. En una base Supabase desechable nueva, ejecutar schema completo: deben quedar las 33 entradas `schema` y los objetos de la app. Repetir: mismas entradas y sin recursos ni ajustes duplicados.
+2. En la instalación manual confirmada sin historial, ejecutar con su baseline: 30 entradas `adopted`, sin repetir sus cuerpos SQL, y las de cierre/depósito/combos como `schema`. Si ya hay historial, solo agrega las pendientes. Repetir: sin cambios. Verificar tablas, RPC y RLS con las cuentas correspondientes; el historial por sí solo no certifica esos permisos.
 3. En un entorno de pruebas existente sin historial, vaciar baseline: debe detenerse antes de aplicar cambios. Restaurarlo solo después de confirmar el estado de ese entorno.
 4. Para ensayar una migración futura, usar una copia desechable: agregar un cambio después del baseline, regenerar y aplicar. Debe ejecutarse una vez como `schema`, sin adoptarse ni repetir lo anterior. No cambiar archivos históricos de producción para probar checksums.
 5. Abrir http://localhost:3001/: ingresar, consultar catálogo, editar un producto y recorrer apertura → venta → cierre solo en datos de prueba. Repetir con cajero/administrador, insumos/combos y otro dispositivo según las guías.

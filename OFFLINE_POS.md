@@ -49,6 +49,8 @@ Usar un dispositivo por caja durante una desconexión evita aperturas simultáne
 
 No borrar datos del sitio, desinstalar la PWA ni usar navegación privada mientras existan pendientes. La app solicita almacenamiento persistente, pero su concesión depende del navegador. Una falla o pérdida física del dispositivo antes de sincronizar no puede recuperarse desde el servidor; descargar el respaldo si una desconexión se prolonga.
 
+Con [depósito opcional](docs/productos-y-stock.md#deposito-opcional), vender descuenta solo la disponibilidad de salón preparada en el catálogo, también para componentes/paquetes. El total físico baja y el depósito no cambia. Activar/desactivar, trasladar e ingresar al depósito requiere conexión y sincronizar antes los pendientes; no agrega tipos de operación a la cola ni al service worker. Recibir en salón conserva el flujo anterior. Preparar todos los dispositivos antes de distribuir stock: un equipo desconectado no conoce traslados concurrentes y conserva el conflicto si no alcanza el salón al sincronizar. No se toma stock del depósito ni se cambia una venta automáticamente para resolverlo.
+
 ## Cómo probar
 
 1. En `http://localhost:3001/`, abrir turno, buscar un producto y cobrar con F1/F2/F3. F4 debe pedir el reparto y aceptar Enter. Verificar que no se abre un ticket automáticamente y que el foco vuelve al lector.
