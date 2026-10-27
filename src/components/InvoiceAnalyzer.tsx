@@ -76,10 +76,26 @@ interface InvoiceItem {
   newName: string;
   /** Código de barras / interno para producto nuevo */
   newCode: string;
+  /** Si el código de barras es un EAN real detectado */
+  codeDetected?: boolean;
+  /** Origen del código de barras */
+  codeSource?: 'invoice' | 'catalog' | 'manual' | 'none';
   /** Precio de venta sugerido y editable para producto nuevo */
   newPrice: number;
+  /** Margen de ganancia porcentual sobre costo (ej: 40 para +40%) */
+  customMargin?: number;
+  /** Indica si el usuario fijó un precio exacto manual en lugar de calcular por margen */
+  isManualPrice?: boolean;
   /** Categoría seleccionada si es nuevo */
   newCategoryId: string;
+  /** Origen de la categoría asignada */
+  categorySource?: 'ai' | 'catalog' | 'manual';
+}
+
+export function isRealBarcode(code?: string | null): boolean {
+  if (!code) return false;
+  const trimmed = code.trim();
+  return /^\d{8,14}$/.test(trimmed);
 }
 
 export interface InvoiceAnalyzerProps {
@@ -162,15 +178,14 @@ export function formatSuggestedProductName(rawName: string, commercialName?: str
 function generateProductCode(existingCodes: Set<string>): string {
   let attempts = 0;
   while (attempts < 50) {
-    const randomSuffix = Math.floor(1000000000 + Math.random() * 9000000000);
-    const code = `779${randomSuffix}`;
+    const code = `INT-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
     if (!existingCodes.has(code.toLowerCase())) {
       existingCodes.add(code.toLowerCase());
       return code;
     }
     attempts++;
   }
-  const fallback = `INT-${Date.now().toString().slice(-6)}${Math.floor(10 + Math.random() * 90)}`;
+  const fallback = `INT-${Math.floor(100000 + Math.random() * 900000)}`;
   existingCodes.add(fallback.toLowerCase());
   return fallback;
 }
@@ -620,20 +635,38 @@ export function InvoiceAnalyzer({
             : rawCost;
           const qty = rawQty * unitsPerPack;
 
-          // Categorización entre las opciones provistas por la base de datos.
-          const assignedCategoryId = resolveCategory(it.category || undefined, cleanCommercialName || rawInvoiceLine, localCategories);
+          // Búsqueda inteligente en catálogo para sugerir categoría y EAN
+          const isBarcode = isRealBarcode(rawCode);
+          const catalogMatches = rankCatalogMatches(cleanCommercialName || rawInvoiceLine, rawCode, products, 3);
+          const bestCatalogMatch = catalogMatches.length > 0 && catalogMatches[0].confidence >= 0.4 ? catalogMatches[0].product : null;
 
-          const hasMatch = !!matchedProduct;
-          let newCode = rawCode;
-          if (!newCode || existingCodes.has(newCode.toLowerCase())) {
-            newCode = generateProductCode(existingCodes);
-          } else {
-            existingCodes.add(newCode.toLowerCase());
+          let newCode = "";
+          let codeDetected = false;
+          let codeSource: InvoiceItem["codeSource"] = "none";
+
+          if (isBarcode) {
+            newCode = rawCode;
+            codeDetected = true;
+            codeSource = "invoice";
+          } else if (bestCatalogMatch?.code && isRealBarcode(bestCatalogMatch.code)) {
+            newCode = bestCatalogMatch.code;
+            codeDetected = true;
+            codeSource = "catalog";
           }
 
-          // Margen estimado inicial del 40% sobre el costo unitario real
-          const suggestedPrice = unitCost > 0 ? Math.round(unitCost * 1.4) : 100;
+          // Categorización entre las opciones provistas por la base de datos o catálogo.
+          let assignedCategoryId = resolveCategory(it.category || undefined, cleanCommercialName || rawInvoiceLine, localCategories);
+          let categorySource: InvoiceItem["categorySource"] = it.category ? "ai" : "manual";
 
+          const defaultCat = defaultProductCategory(localCategories);
+          if ((!assignedCategoryId || assignedCategoryId === defaultCat) && bestCatalogMatch?.categoryId) {
+            assignedCategoryId = bestCatalogMatch.categoryId;
+            categorySource = "catalog";
+          }
+
+          const hasMatch = !!matchedProduct;
+          const defaultMargin = 40;
+          const suggestedPrice = unitCost > 0 ? Math.max(1, Math.round(unitCost * (1 + defaultMargin / 100))) : 100;
           const suggestedName = formatSuggestedProductName(rawInvoiceLine, cleanCommercialName);
 
           return {
@@ -660,8 +693,13 @@ export function InvoiceAnalyzer({
             suggestedName,
             newName: suggestedName,
             newCode,
+            codeDetected,
+            codeSource,
             newPrice: suggestedPrice,
+            customMargin: defaultMargin,
+            isManualPrice: false,
             newCategoryId: assignedCategoryId,
+            categorySource,
           };
         });
 
@@ -936,7 +974,7 @@ export function InvoiceAnalyzer({
       prev.map((it) => {
         if (!it.matchedProduct && it.action === "create_new") {
           const newPrice = Math.max(1, Math.round(it.unitCost * (1 + marginPct / 100)));
-          return { ...it, newPrice };
+          return { ...it, newPrice, customMargin: marginPct, isManualPrice: false };
         }
         return it;
       }),
@@ -1593,7 +1631,7 @@ export function InvoiceAnalyzer({
                                     ✨ Producto nuevo a registrar
                                   </span>
                                   <span className="inv-tag-cat">📁 {categoryName}</span>
-                                  {it.newCode && <span className="inv-tag-code">EAN: {it.newCode}</span>}
+                                  {isRealBarcode(it.newCode) && <span className="inv-tag-code">EAN: {it.newCode}</span>}
                                   {it.invoiceLine && it.invoiceLine !== displayName && (
                                     <span style={{ fontSize: 11, color: "var(--tone-muted)" }}>
                                       Factura: {it.invoiceLine}
@@ -1692,35 +1730,24 @@ export function InvoiceAnalyzer({
                               <option value="skip">Omitir</option>
                             </select>
                           ) : (
-                            <div className="inv-intent-nav">
-                              <button
-                                type="button"
-                                className={`inv-intent-pill ${isNew ? "active new" : ""}`}
-                                onClick={() => updateItem(i, { action: "create_new" })}
-                                title="Crear este artículo como un nuevo producto en tu catálogo"
-                              >
-                                <Sparkles size={13} />
-                                <span>Crear nuevo</span>
-                              </button>
-                              <button
-                                type="button"
-                                className={`inv-intent-pill ${isLinking ? "active link" : ""}`}
-                                onClick={() => updateItem(i, { action: "both", linkStatus: "pending" })}
-                                title="Asociar este renglón a un producto que ya tenés en tu catálogo"
-                              >
-                                <Link2 size={13} />
-                                <span>Vincular</span>
-                              </button>
-                              <button
-                                type="button"
-                                className={`inv-intent-pill ${isSkipped ? "active skip" : ""}`}
-                                onClick={() => updateItem(i, { action: "skip" })}
-                                title="Omitir este renglón"
-                              >
-                                <EyeOff size={13} />
-                                <span>Omitir</span>
-                              </button>
-                            </div>
+                            <select
+                              className={`inv-action-select ${isNew ? 'create_new' : isSkipped ? 'skip' : 'both'}`}
+                              value={isNew ? 'create_new' : isSkipped ? 'skip' : 'link'}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val === 'create_new') {
+                                  updateItem(i, { action: 'create_new' });
+                                } else if (val === 'link') {
+                                  updateItem(i, { action: 'both', linkStatus: 'pending' });
+                                } else if (val === 'skip') {
+                                  updateItem(i, { action: 'skip' });
+                                }
+                              }}
+                            >
+                              <option value="create_new">✨ Crear nuevo</option>
+                              <option value="link">🔗 Vincular</option>
+                              <option value="skip">🚫 Omitir</option>
+                            </select>
                           )}
 
                           {isMatched && (
@@ -1738,7 +1765,7 @@ export function InvoiceAnalyzer({
 
                       {/* CUERPO SEGÚN INTENCIÓN */}
 
-                      {/* 1. PRODUCTO NUEVO (Directo, visible, intuitivo con nombre sugerido) */}
+                      {/* 1. PRODUCTO NUEVO (Directo, visible, intuitivo con nombre sugerido y margen) */}
                       {isNew && (
                         <div className="inv-new-product-body">
                           {/* Bloque de Nombre sugerido y editable */}
@@ -1767,49 +1794,131 @@ export function InvoiceAnalyzer({
                               onChange={(e) => updateItem(i, { newName: e.target.value })}
                               placeholder="Escribí el nombre comercial para tu kiosco..."
                             />
-                            <div className="inv-invoice-source-ref">
-                              <span>Renglón original en factura:</span> <code>{it.invoiceLine || it.rawName}</code>
-                            </div>
                           </div>
 
-                          {/* Metadatos: Categoría y Código EAN */}
+                          {/* Metadatos: Categoría y Código EAN con búsqueda en base de datos e IA */}
                           <div className="inv-new-grid-fields">
-                            <label>
-                              Categoría en kiosco
-                              <select
-                                value={it.newCategoryId}
-                                onChange={(e) => updateItem(i, { newCategoryId: e.target.value })}
-                              >
-                                {localCategories.map((c) => (
-                                  <option key={c.id} value={c.id}>
-                                    {c.name}
-                                  </option>
-                                ))}
-                              </select>
-                            </label>
+                            <div className="inv-field-group">
+                              <div className="inv-field-header">
+                                <label htmlFor={`cat-${i}`}>Categoría en kiosco</label>
+                                {it.categorySource === 'ai' ? (
+                                  <span className="inv-field-badge ai" title="Categoría detectada por IA">
+                                    <Sparkles size={11} /> Auto (IA)
+                                  </span>
+                                ) : it.categorySource === 'catalog' ? (
+                                  <span className="inv-field-badge catalog" title="Categoría detectada de tu catálogo">
+                                    📁 De tu catálogo
+                                  </span>
+                                ) : (
+                                  <span className="inv-field-badge warning" title="Revisá y elegí la categoría adecuada">
+                                    ⚠️ Elegir
+                                  </span>
+                                )}
+                              </div>
+                              <div className="inv-field-row">
+                                <select
+                                  id={`cat-${i}`}
+                                  value={it.newCategoryId}
+                                  onChange={(e) => updateItem(i, { newCategoryId: e.target.value, categorySource: 'manual' })}
+                                >
+                                  {localCategories.map((c) => (
+                                    <option key={c.id} value={c.id}>
+                                      {c.name}
+                                    </option>
+                                  ))}
+                                </select>
+                                <button
+                                  type="button"
+                                  className="inv-small-btn"
+                                  title="Buscar categoría de productos similares en tu catálogo"
+                                  onClick={() => {
+                                    const matches = rankCatalogMatches(it.newName || it.suggestedName || it.rawName, null, products, 3);
+                                    const found = matches.find((m) => !!m.product.categoryId);
+                                    if (found && found.product.categoryId) {
+                                      updateItem(i, {
+                                        newCategoryId: found.product.categoryId,
+                                        categorySource: 'catalog',
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <Search size={12} />
+                                  <span>Buscar</span>
+                                </button>
+                              </div>
+                            </div>
 
-                            <label>
-                              Código de barras / EAN
+                            <div className="inv-field-group">
+                              <div className="inv-field-header">
+                                <label htmlFor={`ean-${i}`}>Código de barras / EAN</label>
+                                {it.codeDetected ? (
+                                  <span className="inv-field-badge success" title={`Código detectado ${it.codeSource === 'invoice' ? 'en factura' : 'en catálogo'}`}>
+                                    <CheckCircle2 size={11} /> {it.codeSource === 'invoice' ? 'En factura' : 'En catálogo'}
+                                  </span>
+                                ) : (
+                                  <span className="inv-field-badge warning" title="No se detectó código de barras real">
+                                    Sin código (opcional)
+                                  </span>
+                                )}
+                              </div>
                               <div className="inv-code-input-box">
                                 <input
+                                  id={`ean-${i}`}
                                   type="text"
                                   value={it.newCode}
-                                  onChange={(e) => updateItem(i, { newCode: e.target.value })}
-                                  placeholder="Código de barras"
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    updateItem(i, {
+                                      newCode: val,
+                                      codeDetected: isRealBarcode(val),
+                                      codeSource: 'manual',
+                                    });
+                                  }}
+                                  placeholder="Escanear o ingresar código EAN..."
                                 />
                                 <button
                                   type="button"
                                   className="inv-small-btn"
-                                  title="Generar nuevo código de barras interno"
+                                  title="Buscar si un producto similar en tu catálogo tiene código de barras"
+                                  onClick={() => {
+                                    const matches = rankCatalogMatches(it.newName || it.suggestedName || it.rawName, null, products, 5);
+                                    const found = matches.find((m) => isRealBarcode(m.product.code));
+                                    if (found) {
+                                      updateItem(i, {
+                                        newCode: found.product.code,
+                                        codeDetected: true,
+                                        codeSource: 'catalog',
+                                        newCategoryId: found.product.categoryId || it.newCategoryId,
+                                        categorySource: 'catalog',
+                                      });
+                                    } else {
+                                      alert('No se encontró ningún producto similar con código de barras en tu catálogo.');
+                                    }
+                                  }}
+                                >
+                                  <Search size={12} />
+                                  <span>Buscar</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  className="inv-small-btn"
+                                  title="Generar código interno único (si no tiene código de barras de fábrica)"
                                   onClick={() => {
                                     const used = new Set(products.map((p) => p.code.toLowerCase()));
-                                    updateItem(i, { newCode: generateProductCode(used) });
+                                    const gen = generateProductCode(used);
+                                    updateItem(i, { newCode: gen, codeDetected: true, codeSource: 'manual' });
                                   }}
                                 >
                                   <RefreshCw size={12} />
+                                  <span>Generar</span>
                                 </button>
                               </div>
-                            </label>
+                              {!it.codeDetected && (
+                                <span className="inv-field-hint">
+                                  💡 Si el producto tiene código de barras en el envase, podés escanearlo aquí. Si se vende por búsqueda en pantalla, podés dejarlo vacío o generar uno interno.
+                                </span>
+                              )}
+                            </div>
                           </div>
 
                           {/* Presentación del Bulto / Display */}
@@ -1853,11 +1962,20 @@ export function InvoiceAnalyzer({
                             </div>
                           </div>
 
-                          {/* Costo, Precio de Venta y Margen */}
-                          <div className="inv-new-pricing-box">
-                            <div className="inv-new-pricing-row">
-                              <label>
-                                Costo unitario real ($)
+                          {/* Panel de Costo Unitario, Margen de Ganancia y Precio al Público */}
+                          <div className="inv-pricing-panel">
+                            {/* Bloque 1: Costo unitario real */}
+                            <div className="inv-price-card cost-card">
+                              <div className="inv-price-card-header">
+                                <span className="inv-card-title">Costo unitario real</span>
+                                {it.isPack && (
+                                  <span className="inv-card-badge">
+                                    Pack {it.unitsPerPack} u.
+                                  </span>
+                                )}
+                              </div>
+                              <div className="inv-cost-input-wrapper">
+                                <span className="currency-prefix">$</span>
                                 <NumberInput
                                   type="number"
                                   min={0}
@@ -1865,59 +1983,188 @@ export function InvoiceAnalyzer({
                                   value={it.unitCost}
                                   onValueChange={(e) => {
                                     const cost = Math.max(0, Number(e));
+                                    const margin = it.customMargin ?? 40;
+                                    const newPrice = it.isManualPrice
+                                      ? it.newPrice
+                                      : Math.max(1, Math.round(cost * (1 + margin / 100)));
                                     updateItem(i, {
                                       unitCost: cost,
-                                      newPrice: Math.round(cost * 1.4) || 100,
+                                      newPrice,
                                     });
                                   }}
+                                  className="inv-cost-number-input"
                                 />
-                                {it.isPack && (
-                                  <span className="inv-cost-calc-hint">
-                                    Cálculo: ${it.rawCost.toLocaleString("es-AR", { minimumFractionDigits: 2 })} ÷ {it.unitsPerPack} u.
-                                  </span>
-                                )}
-                              </label>
-
-                              <label>
-                                Precio de venta al público ($)
-                                <NumberInput
-                                  type="number"
-                                  min={1}
-                                  step={0.01}
-                                  value={it.newPrice}
-                                  onValueChange={(e) =>
-                                    updateItem(i, {
-                                      newPrice: Math.max(1, Number(e)),
-                                    })
-                                  }
-                                />
-                                <span className="inv-margin-tag">
-                                  Margen: {marginPct > 0 ? `+${marginPct}% sobre costo` : "0%"}
-                                </span>
-                              </label>
-
-                              <div className="inv-quick-margin-box">
-                                <span>Margen rápido:</span>
-                                {[30, 40, 50, 100].map((m) => (
-                                  <button
-                                    key={m}
-                                    type="button"
-                                    className="inv-small-btn"
-                                    onClick={() => {
-                                      const price = Math.max(1, Math.round(it.unitCost * (1 + m / 100)));
-                                      updateItem(i, { newPrice: price });
-                                    }}
-                                    title={`Calcular precio con +${m}%`}
-                                  >
-                                    +{m}%
-                                  </button>
-                                ))}
                               </div>
+                              {it.isPack ? (
+                                <span className="inv-price-card-hint">
+                                  Bulto: ${it.rawCost.toLocaleString("es-AR", { minimumFractionDigits: 2 })} ÷ {it.unitsPerPack} u.
+                                </span>
+                              ) : (
+                                <span className="inv-price-card-hint">
+                                  Costo por unidad individual
+                                </span>
+                              )}
                             </div>
 
-                            {/* Resumen explicativo */}
-                            <div className="inv-create-summary-pill">
-                              💡 <strong>Resumen de alta:</strong> Se creará el producto «<strong>{it.newName || it.suggestedName}</strong>» en <strong>{categoryName}</strong>. Ingresarán <strong>{it.qty} unidades</strong> al stock ({it.isPack ? `${it.rawQty} dsp. × ${it.unitsPerPack} u.` : 'sueltas'}) con costo unitario de <strong>${it.unitCost.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</strong> y precio de venta de <strong>${it.newPrice.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</strong>.
+                            {/* Bloque 2: Margen de Ganancia y Precio de Venta al Público */}
+                            <div className="inv-price-card sale-card">
+                              <div className="inv-price-card-header">
+                                <span className="inv-card-title">Margen y precio de venta</span>
+                                {!it.isManualPrice ? (
+                                  <button
+                                    type="button"
+                                    className="inv-price-mode-link"
+                                    onClick={() => updateItem(i, { isManualPrice: true })}
+                                    title="Definir precio exacto a mano"
+                                  >
+                                    ✏️ Poner precio a mano
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="inv-price-mode-link"
+                                    onClick={() => {
+                                      const margin = it.customMargin ?? 40;
+                                      const price = Math.max(1, Math.round(it.unitCost * (1 + margin / 100)));
+                                      updateItem(i, { isManualPrice: false, newPrice: price });
+                                    }}
+                                    title="Calcular precio automáticamente según el % de margen"
+                                  >
+                                    ↺ Volver a margen %
+                                  </button>
+                                )}
+                              </div>
+
+                              {!it.isManualPrice ? (
+                                <div className="inv-margin-control-flow">
+                                  <div className="inv-margin-chips-row">
+                                    <span className="inv-chips-label">Margen:</span>
+                                    {[30, 40, 50, 70, 100].map((m) => (
+                                      <button
+                                        key={m}
+                                        type="button"
+                                        className={`inv-margin-chip ${(it.customMargin ?? 40) === m ? "active" : ""}`}
+                                        onClick={() => {
+                                          const price = Math.max(1, Math.round(it.unitCost * (1 + m / 100)));
+                                          updateItem(i, { customMargin: m, newPrice: price });
+                                        }}
+                                      >
+                                        +{m}%
+                                      </button>
+                                    ))}
+                                    <div className="inv-margin-custom-inline">
+                                      <span>Otro:</span>
+                                      <NumberInput
+                                        type="number"
+                                        min={0}
+                                        max={1000}
+                                        value={it.customMargin ?? 40}
+                                        onValueChange={(val) => {
+                                          const m = Math.max(0, Number(val));
+                                          const price = Math.max(1, Math.round(it.unitCost * (1 + m / 100)));
+                                          updateItem(i, { customMargin: m, newPrice: price });
+                                        }}
+                                        className="inv-margin-number-input"
+                                      />
+                                      <span>%</span>
+                                    </div>
+                                  </div>
+
+                                  <div className="inv-calculated-price-display">
+                                    <span className="label">Precio al público:</span>
+                                    <span className="price-val">${it.newPrice.toLocaleString("es-AR", { minimumFractionDigits: 2 })}</span>
+                                    {it.unitCost > 0 && (
+                                      <span className="profit-val">
+                                        (ganancia: +${(it.newPrice - it.unitCost).toLocaleString("es-AR", { minimumFractionDigits: 2 })} por u.)
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="inv-manual-price-flow">
+                                  <div className="inv-manual-input-row">
+                                    <label htmlFor={`price-${i}`}>Precio exacto al público ($):</label>
+                                    <div className="inv-cost-input-wrapper">
+                                      <span className="currency-prefix">$</span>
+                                      <NumberInput
+                                        id={`price-${i}`}
+                                        type="number"
+                                        min={1}
+                                        step={0.01}
+                                        value={it.newPrice}
+                                        onValueChange={(e) => {
+                                          const price = Math.max(1, Number(e));
+                                          const margin = it.unitCost > 0 ? Math.round(((price - it.unitCost) / it.unitCost) * 100) : 0;
+                                          updateItem(i, { newPrice: price, customMargin: margin });
+                                        }}
+                                        className="inv-cost-number-input"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="inv-manual-price-status">
+                                    <span className="inv-margin-pill">Margen resultante: +{marginPct}%</span>
+                                    <span className="inv-price-card-hint">Modo manual activo. El precio no variará salvo que lo cambies.</span>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          {/* Resumen de Alta Destacado (High Visibility) */}
+                          <div className="inv-high-visibility-summary">
+                            <div className="inv-summary-banner">
+                              <div className="inv-summary-badge">
+                                <Sparkles size={13} />
+                                <span>Alta en Catálogo</span>
+                              </div>
+                              <span className="inv-summary-headline">
+                                Se creará «<strong>{it.newName || it.suggestedName}</strong>» en <strong>{categoryName}</strong>
+                              </span>
+                            </div>
+
+                            <div className="inv-summary-stat-chips">
+                              <div className="inv-stat-chip stock">
+                                <span className="chip-icon">📦</span>
+                                <div className="chip-text">
+                                  <span className="chip-label">Stock a ingresar</span>
+                                  <strong className="chip-value highlight">
+                                    {it.qty} unidades {it.isPack ? `(${it.rawQty} dsp. × ${it.unitsPerPack} u.)` : "sueltas"}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="inv-stat-chip cost">
+                                <span className="chip-icon">🏷️</span>
+                                <div className="chip-text">
+                                  <span className="chip-label">Costo unitario</span>
+                                  <strong className="chip-value">
+                                    ${it.unitCost.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="inv-stat-chip price">
+                                <span className="chip-icon">💰</span>
+                                <div className="chip-text">
+                                  <span className="chip-label">Precio al público</span>
+                                  <strong className="chip-value">
+                                    ${it.newPrice.toLocaleString("es-AR", { minimumFractionDigits: 2 })}
+                                    <span style={{ fontSize: 11, color: "var(--tone-accent)", marginLeft: 3 }}>
+                                      (+{marginPct}%)
+                                    </span>
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="inv-stat-chip code">
+                                <span className="chip-icon">🔢</span>
+                                <div className="chip-text">
+                                  <span className="chip-label">Código EAN</span>
+                                  <strong className="chip-value">
+                                    {it.newCode || "Sin código"}
+                                  </strong>
+                                </div>
+                              </div>
                             </div>
                           </div>
                         </div>
