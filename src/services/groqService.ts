@@ -126,7 +126,8 @@ async function request(
   )) throw new GroqError('Enviá al menos un mensaje con rol y contenido válidos.', 0, 'INVALID_MESSAGES');
   if ((options.model !== undefined && !options.model.trim()) ||
     (options.temperature !== undefined && (!Number.isFinite(options.temperature) || options.temperature < 0 || options.temperature > 2)) ||
-    (options.maxTokens !== undefined && (!Number.isInteger(options.maxTokens) || options.maxTokens <= 0))) {
+    (options.maxTokens !== undefined && (!Number.isInteger(options.maxTokens) || options.maxTokens <= 0)) ||
+    (options.responseFormat !== undefined && options.responseFormat !== 'json_object')) {
     throw new GroqError('Revisá el modelo, la temperatura (0 a 2) y el máximo de tokens (entero positivo).', 0, 'INVALID_OPTIONS');
   }
 
@@ -144,6 +145,7 @@ async function request(
       temperature: options.temperature,
       // Groq deprecates max_tokens in favor of max_completion_tokens. Default to 500 to stay well within free tier OTPM limits.
       max_completion_tokens: options.maxTokens ?? 500,
+      ...(options.responseFormat ? { response_format: { type: options.responseFormat } } : {}),
       stream,
     }),
   });
@@ -170,6 +172,8 @@ export async function groqChat(
     if (!isRecord(first) || !isRecord(first.message) || typeof first.message.content !== 'string') {
       throw new GroqError('Groq no devolvió una respuesta de texto.', response.status, 'INVALID_RESPONSE');
     }
+    if (options.responseFormat && first.finish_reason === 'length')
+      throw new GroqError('La respuesta JSON alcanzó su límite de salida y quedó incompleta.', response.status, 'OUTPUT_TRUNCATED');
     return first.message.content;
   } catch (error) {
     throw normalizeError(error, options.signal);

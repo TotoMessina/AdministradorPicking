@@ -507,13 +507,13 @@ openssl req -new -key privada.key -subj "/C=AR/O=${razonSocial.trim() || 'MI_COM
                   2. Entrá al servicio <strong>"Administración de Puntos de Venta y Domicilios"</strong> → elegí tu empresa/titular → <strong>"A.B.M. Puntos de Venta"</strong> → clic en <strong>"Agregar"</strong>.
                   <br />
                   3. Completá:
-                  <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>
+                </p>
+                <ul style={{ margin: '4px 0 6px 18px', padding: 0 }}>
                     <li><strong>Número:</strong> Ingresá un número libre (ej: <code>2</code> si el 1 lo usás para Comprobantes en Línea).</li>
                     <li><strong>Nombre Fantasía:</strong> Ej: <em>Kiosco</em>.</li>
                     <li><strong>Sistema:</strong> Seleccioná obligatoriamente <strong>"Factura Electrónica - Monotributo / Responsable Inscripto - Web Services"</strong>.</li>
                     <li><strong>Domicilio:</strong> Seleccioná el local comercial.</li>
-                  </ul>
-                </p>
+                </ul>
                 <div className="billing-alert-tip">
                   <AlertCircle size={16} style={{ flexShrink: 0, marginTop: 2 }} />
                   <div>

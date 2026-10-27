@@ -29,7 +29,7 @@ export default defineConfig({
       const publicAssets = ['offline.html', 'manifest.json', 'favicon.svg',
         'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png'];
       for (const asset of publicAssets) hash.update(readFileSync(new URL(`./public/${asset}`, import.meta.url)));
-      const assets = [...new Set(['index.html', ...publicAssets, ...Object.keys(bundle).filter(name => /\.(js|css|woff2?|svg|png)$/.test(name))])];
+      const assets = [...new Set(['index.html', ...publicAssets, ...Object.keys(bundle).filter(name => /\.(m?js|css|woff2?|svg|png)$/.test(name))])];
       const template = readFileSync(new URL('./pwa/sw.js', import.meta.url), 'utf8');
       hash.update(template);
       this.emitFile({

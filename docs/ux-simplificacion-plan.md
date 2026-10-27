@@ -1,4 +1,4 @@
-﻿# Plan de simplificación de uso — estado vigente
+# Plan de simplificación de uso — estado vigente
 
 Actualizado el 27/10/2026. Referencia de decisiones actuales, sin el historial de prompts y entregas anteriores. [Índice general](../README.md). La revisión de código no equivale a evaluación visual ni prueba de usabilidad con personas.
 
@@ -26,7 +26,7 @@ Caja es puesto de cobro; turno es período de trabajo con apertura/cierre; regis
 | Equipo y perfiles | Mi comercio → Personas con acceso | Agregar persona y perfiles editables según permisos; no obligatorio en comercio unipersonal. |
 | Inicio guiado | Mi comercio → Retomar pendientes | Tres pasos: comercio, productos, apertura. Solo altas nuevas elegibles; estado compartido en backend. |
 | Asistente general | Ayuda → Consultar al asistente | Acceso secundario y voluntario; análisis completo según permisos, sin entradas generales redundantes. |
-| Facturas/remitos | Productos → Más herramientas / Remitos pendientes; Remito autorizado | OCR con relectura, giro y texto recuperable; análisis por partes con reintento voluntario. Confirmar vínculo sin proveedor aplica solo a esa factura; recordar requiere proveedor. Propuestas conservadas. Guía y pendientes en [IA y facturas](ia-y-facturas.md#lectura-de-facturas). |
+| Facturas/remitos | Productos → Más herramientas / Remitos pendientes; Remito autorizado | OCR con relectura, giro y original recuperable; filtro administrativo y extracción JSON en bloques chicos, con división acotada del bloque fallido. Confirmación manual antes de cargar. En ítems nuevos, intención preseleccionada en Crear nuevo con nombre sugerido comercial editable, chips de margen y unidades a ingresar calculadas. Sin proveedor, el vínculo aplica solo a esa factura; recordar requiere proveedor. Propuestas conservadas. Guía y pendientes en [IA y facturas](ia-y-facturas.md#lectura-de-facturas). |
 | Transferencias | Productos → Transferencias | Acceso con permiso; constancia interna, no cambio del stock global. |
 | PWA y avisos | Mi comercio → Más opciones → App y avisos | Instalación y permisos por intención. Un aviso abre la sección aunque esté plegada, protegiendo el carrito. |
 
@@ -40,6 +40,7 @@ Comparación cualitativa deducida de implementaciones e instrucciones anteriores
 | --- | --- | --- |
 | Empezar a vender | Textos de caja/turno mezclados y navegación intermedia | Vender → Abrir turno → efectivo → Abrir turno → Vender. |
 | Alta de producto | Precio calculado a mano; atributos y ayudas competían | Agregar producto → costo y porcentaje → precio principal calculado → Guardar; Más opciones y revisión voluntarias. |
+| Crear desde factura | Ítems nuevos quedaban omitidos por defecto, en acordeón cerrado con botón de vínculo deshabilitado | Ítem nuevo preseleccionado en Crear nuevo → nombre comercial sugerido editable (con botón para restaurarlo) → costo unitario y margen visible → Confirmar reposición. |
 | Editar precio | Riesgo de competir con atributos y formularios extensos | Editar precio o precio en Editar → Guardar, conservando los demás atributos. |
 | Crear pancho | Precio ficticio de ingredientes, costo manual y alta seguida de otra pantalla de componentes | Insumos con costo/stock → nombre y componentes → costo calculado y porcentaje → Guardar combo. |
 | Comercio de una caja | Formularios de varios registros abiertos y accesos repetidos | Resumen de local/caja → Administrar solo por intención, sin perder acceso al segundo local. |

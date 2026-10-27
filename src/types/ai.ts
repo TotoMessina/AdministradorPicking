@@ -8,6 +8,8 @@ export interface GroqOptions {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
+  /** Opt-in: callers that parse data can request JSON without changing chat responses. */
+  responseFormat?: 'json_object';
 }
 
 /** status = 0 when no HTTP error status is available (configuration/network/abort). */

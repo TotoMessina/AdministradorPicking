@@ -1,4 +1,5 @@
 import * as pdfjsLib from "pdfjs-dist";
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
 import Tesseract from "tesseract.js";
 import type { Product } from '../features/retail/api';
 import { unitsPerPack } from './inventoryUnits';
@@ -25,13 +26,9 @@ Si un renglón coincide por código o nombre, usá su pack_size como unitsPerPac
 Devolvé cost como costo ORIGINAL por bulto, sin dividirlo: la aplicación calcula unitCost = cost / unitsPerPack y qtyTotal = qty * unitsPerPack una sola vez. Ejemplo: pack_size=24, qty=2 y cost=4800 implica 48 unidades y costo individual 200. No dividas cost en el JSON; si devolvés unitCost aparte, debe ser por unidad individual.`;
 }
 
-// Configure pdfjs worker using unpkg fallback matching the installed version
+// Serve the worker from the app, using the same installed PDF.js version.
 if (typeof window !== "undefined") {
-  try {
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
-  } catch {
-    // Worker initialization fallback
-  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 }
 
 export interface ParseFileResult {
@@ -209,49 +206,58 @@ function isOcrNoiseLine(rawLine: string): boolean {
     .trim();
 
   if (!stripped) return true;
-  // A separate quantity/price/code column can contain even a single digit.
-  if (/\d/.test(stripped)) return false;
 
-  // 2. Extraer caracteres alfanuméricos (incluye vocales con tilde, diéresis y eñes)
+  // Códigos o cantidades de bulto entre paréntesis como (25) o (10)
+  if (/^\(\d{1,4}\)$/.test(stripped)) return false;
+
+  // Standalone code (3+ dígitos), o precio explícito con símbolo de moneda o decimales
+  if (/^(?:[\$€\s]*\d{1,12}[.,]\d{1,4}|[\$€]\s*\d{1,12}|\d{3,14})$/.test(stripped)) {
+    return false;
+  }
+
+  // Dígitos aislados de 1 o 2 cifras sin formato ni contexto suelen ser motas o ruido de fondo
+  if (/^\d{1,2}$/.test(stripped)) return true;
+
+  // Palabras clave comerciales o de comprobante que confirman renglones legítimos
+  const hasInvoiceKeyword = /\b(?:factura|remito|comprobante|cuit|fecha|cliente|cuenta|distribuidora|direcci[oó]n|raz[oó]n|social|transporte|vendedor|condici[oó]n|precio|importe|cantidad|descripci[oó]n|sugerido|unitario|subtotal|total|atados|caja|bulto|unidades?|pack|cig|cigar|ks|box)\b/i.test(stripped);
+
+  // 2. Extraer caracteres alfanuméricos
   const alnumMatches = stripped.match(/[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ]/g) || [];
   const alnumCount = alnumMatches.length;
 
-  // Si tiene menos de 3 caracteres alfanuméricos en total:
-  // Todo producto, precio o encabezado comercial legítimo tiene al menos 3 alfanuméricos.
-  // Elimina ej: "% . !", ";: po", "“ La\"", "Y =>.", "4 E", "A -— =", "e — L", "ur.", "' + - y” A"
-  if (alnumCount < 3) return true;
+  const hasPriceFormat = /[\$€]\s*\d+|\b\d{1,7}[\.,]\d{2,3}\b/.test(stripped);
+
+  // Si tiene menos de 3 caracteres alfanuméricos y no tiene formato de precio: ruido
+  if (alnumCount < 3 && !hasPriceFormat) return true;
 
   // 3. Extraer palabras / tokens alfanuméricos
   const words = stripped.match(/[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ]+/g) || [];
   if (words.length === 0) return true;
 
-  const maxWordLen = Math.max(...words.map((w) => w.length));
-  const hasPriceFormat = /[\$€]\s*\d+|\b\d+[\.,]\d{2}\b/.test(stripped);
-  const hasDigits = /\d/.test(stripped);
-
   // 4. Proporción excesiva de símbolos no alfanuméricos vs alfanuméricos:
-  // Si los símbolos no espaciales superan o igualan a las letras/números y no hay formato de precio
   const nonSpaceChars = stripped.replace(/\s+/g, "");
   const symbolCount = nonSpaceChars.length - alnumCount;
-  if (!hasPriceFormat && symbolCount >= alnumCount) {
-    return true; // ej: "' + - y” A", "Y =>.", "A -— ="
-  }
-
-  // 5. Ninguna palabra de al menos 3 caracteres:
-  // En una factura no existen renglones legítimos compuestos únicamente por palabras de 1 o 2 letras.
-  // Elimina ej: "El aL", "pl E a", "e 1 A", "d' a L ba", "E +77", "4 E", "e — L"
-  if (maxWordLen < 3 && !hasPriceFormat) {
+  if (!hasPriceFormat && !hasInvoiceKeyword && symbolCount >= alnumCount) {
     return true;
   }
 
-  // 6. Fragmentación severa de letras sueltas (alucinación de sombras/sellos OCR):
-  // Si contiene 2 o más palabras de 1 solo carácter y representan el 50% o más de las palabras del renglón,
-  // sin números ni palabras largas (maxWordLen < 4 y menos de 10 caracteres alfanuméricos).
-  // Elimina ej: "A e Cta", "pl E a", "d' a L ba"
-  const singleCharWords = words.filter((w) => w.length === 1);
-  if (!hasDigits && !hasPriceFormat && maxWordLen < 4 && alnumCount < 10) {
-    if (singleCharWords.length >= 2 && singleCharWords.length / words.length >= 0.5) {
-      return true; // ej: "A e Cta"
+  // 5. Detección de sopa de letras / artefactos fotográficos de fondo:
+  const nonNumericWords = words.filter((w) => !/^\d+$/.test(w));
+  const shortWords = nonNumericWords.filter((w) => w.length <= 2);
+  const singleCharWords = nonNumericWords.filter((w) => w.length === 1);
+  const maxWordLen = nonNumericWords.length > 0 ? Math.max(...nonNumericWords.map((w) => w.length)) : 0;
+
+  if (!hasInvoiceKeyword && !hasPriceFormat) {
+    // Si no contiene palabras de al menos 4 caracteres y no hay precio ni palabra clave, es ruido
+    if (maxWordLen < 4) return true;
+
+    if (nonNumericWords.length >= 3) {
+      if (shortWords.length / nonNumericWords.length >= 0.45 || singleCharWords.length / nonNumericWords.length >= 0.25) {
+        return true;
+      }
+    } else {
+      // 1 o 2 palabras no numéricas: debe tener al menos 6 caracteres alfanuméricos
+      if (alnumCount < 6) return true;
     }
   }
 
@@ -268,7 +274,20 @@ export function cleanInvoiceOcrText(rawText: string): string {
   if (!rawText) return "";
 
   const lines = rawText.split(/\r?\n/);
+
+  // Detectar inicio real del comprobante para descartar ruido fotográfico previo
+  const INVOICE_START_PATTERN = /\b(?:factura\b|comprobante\b|remito\b|liquidaci[oó]n\b|nota\s+de\s+(?:cr[eé]dito|d[eé]bito)|ticket\b|tique\b|recibo\b|orden\s+de\s+compra\b|cuit\s*[:.\s-]*\d|raz[oó]n\s+social\b|distribuidora\b|mayorista\b|fecha\s*[:.\s]\s*\d|punto\s+de\s+venta\b|c[oó]d(?:igo)?\s+(?:prov(?:eedor)?|art[ií]culo)\b|art[ií]culo\b|descripci[oó]n\b)/i;
+
+  let startIdx = 0;
+  for (let idx = 0; idx < lines.length; idx++) {
+    if (INVOICE_START_PATTERN.test(lines[idx])) {
+      startIdx = idx;
+      break;
+    }
+  }
+
   const cleanedLines: string[] = [];
+  const relevantLines = lines.slice(startIdx);
 
   const NOISE_PATTERNS = [
     /^\s*[-_=\*~|#\.\/\\:;,\s]+\s*$/,                     // divisores y símbolos puros
@@ -287,9 +306,18 @@ export function cleanInvoiceOcrText(rawText: string): string {
     /^\s*cuit\b/i,                                        // CUIT aislado
   ];
 
-  for (const line of lines) {
-    const trimmed = line.trim();
+  for (let idx = 0; idx < relevantLines.length; idx++) {
+    const trimmed = relevantLines[idx].trim();
     if (!trimmed) continue;
+
+    // Detectar renglón de bulto como (25) o (10) que quedó separado abajo de la descripción
+    const packOnlyMatch = trimmed.match(/^\s*\((\d{1,4})\)(.*)$/);
+    if (packOnlyMatch && cleanedLines.length > 0) {
+      const packNum = packOnlyMatch[1];
+      const rest = packOnlyMatch[2].trim();
+      cleanedLines[cleanedLines.length - 1] += ` (${packNum})`;
+      if (!rest || isOcrNoiseLine(rest)) continue;
+    }
 
     // 1. Omitir líneas que coinciden con artefactos y ruido de escaneo OCR
     if (isOcrNoiseLine(trimmed)) continue;
@@ -386,19 +414,55 @@ async function preprocessImageForOcr(dataUrl: string, rotation: number): Promise
         ctx.drawImage(img, -originalWidth * scale / 2, -originalHeight * scale / 2, originalWidth * scale, originalHeight * scale);
         ctx.restore();
 
-        // 3. Conversión a escala de grises limpia (sin thresholding destructivo):
+        // 3. Conversión a escala de grises y estiramiento de contraste adaptativo:
+        // Blanquea fondos de papel claros y superficies de apoyo para evitar que el granulado o textura genere ruido OCR.
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const d = imgData.data;
+        const totalPixels = canvas.width * canvas.height;
+
+        // Histograma de luminancia (Rec. 709)
+        const hist = new Uint32Array(256);
+        for (let i = 0; i < d.length; i += 4) {
+          const g = Math.round(0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2]);
+          d[i] = g;
+          hist[g]++;
+        }
+
+        // Buscar percentil 5 (tinta oscura) y percentil 85 (fondo de papel / luz dominante)
+        let accum = 0;
+        let p05 = 0;
+        let p85 = 255;
+        const targetP05 = totalPixels * 0.05;
+        const targetP85 = totalPixels * 0.85;
+
+        for (let v = 0; v < 256; v++) {
+          accum += hist[v];
+          if (p05 === 0 && accum >= targetP05) p05 = v;
+          if (p85 === 255 && accum >= targetP85) {
+            p85 = v;
+            break;
+          }
+        }
+
+        const whiteClip = Math.max(185, p85);
+        const blackClip = Math.min(p05, 80);
+        const range = Math.max(1, whiteClip - blackClip);
 
         for (let i = 0; i < d.length; i += 4) {
-          const r = d[i];
-          const g = d[i + 1];
-          const b = d[i + 2];
-          // Luminancia perceptual Rec. 709
-          const gray = 0.299 * r + 0.587 * g + 0.114 * b;
-          d[i] = gray;
-          d[i + 1] = gray;
-          d[i + 2] = gray;
+          const g = d[i];
+          let val: number;
+          if (g >= whiteClip) {
+            val = 255;
+          } else if (g <= blackClip) {
+            val = 0;
+          } else {
+            val = Math.round(((g - blackClip) * 255) / range);
+            // Suavizar cerca del blanco para eliminar sombras de pliegues o textura de mesas
+            if (val > 215) val = 255;
+          }
+          d[i] = val;
+          d[i + 1] = val;
+          d[i + 2] = val;
         }
 
         ctx.putImageData(imgData, 0, 0);
@@ -457,9 +521,9 @@ async function recognizeTextWithOcr(
     const res = await worker.recognize(optimizedUrl, { rotateAuto: true });
     let best = res.data;
 
-    // Si por el formato de la imagen el bloque único capturó poco texto (< 60 caracteres),
+    // Si por el formato de la imagen el bloque único capturó muy poco texto (< 60 caracteres),
     // reintenta en modo AUTO ('3')
-    if (best.text.trim().length < 60 || best.confidence < 75) {
+    if (best.text.trim().length < 60) {
       onProgress?.('Revisando la distribución de columnas…');
       await worker.setParameters({
         tessedit_pageseg_mode: Tesseract.PSM.AUTO,

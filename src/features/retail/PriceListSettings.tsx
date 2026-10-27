@@ -1,5 +1,22 @@
 import { useEffect, useRef, useState, type CSSProperties, type Ref } from 'react';
-import { ArrowRight, CircleHelp, GitBranch, LockKeyhole, Pencil, Plus, Trash2, X } from 'lucide-react';
+import {
+  AlertCircle,
+  ArrowRight,
+  Building2,
+  CircleHelp,
+  Coins,
+  CornerDownRight,
+  Eye,
+  GitBranch,
+  LockKeyhole,
+  Pencil,
+  Plus,
+  SlidersHorizontal,
+  Store,
+  Trash2,
+  TrendingUp,
+  X,
+} from 'lucide-react';
 import { NumberInput } from '../../components/NumberInput';
 import { randomUUID } from '../../utils/uuid';
 import { retail, errorMessage, type Branch, type Category, type PriceList, type PriceOverride, type PriceRule, type Product } from './api';
@@ -66,43 +83,220 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
     if (active) focusPreview.current = true;
     else if (!preview.current?.closest('[hidden]')) preview.current?.focus();
   };
-  const seen = new Set<string>();
-  const nodes = (source: string, depth = 0): { list: PriceList; depth: number }[] => {
+
+  interface TreeNode {
+    list: PriceList;
+    children: TreeNode[];
+  }
+
+  const visited = new Set<string>();
+  const buildTree = (sourceId: string, depth = 0): TreeNode[] => {
     if (depth >= 12) return [];
-    return lists.filter(l => origin(l) === source && !seen.has(l.id)).flatMap(l => { seen.add(l.id); return [{ list: l, depth }, ...nodes(l.id, depth + 1)]; });
+    return lists
+      .filter(l => origin(l) === sourceId && !visited.has(l.id))
+      .map(l => {
+        visited.add(l.id);
+        return {
+          list: l,
+          children: buildTree(l.id, depth + 1),
+        };
+      });
   };
-  const costNodes = nodes('cost'); const catalogNodes = nodes('catalog');
-  const orphanNodes = lists.filter(l => !seen.has(l.id)).map(list => ({ list, depth: 0 }));
-  const renderNodes = (items: typeof costNodes) => <ol className="price-flow-list">{items.map(({ list: l, depth }) => <li key={l.id} style={{ '--price-depth': Math.min(depth, 3) } as CSSProperties}>
-    <article className={`price-flow-node${selected === l.id ? ' selected' : ''}`}>
-      <div className="price-flow-main"><button type="button" className="price-flow-name" onClick={() => inspect(l.id)} aria-pressed={selected === l.id} aria-label={`Ver precios de ${l.name}`}>
-        <strong>{l.name}</strong><span>{l.is_primary ? 'Costo + porcentaje de cada producto' : `Desde ${sourceName(origin(l), lists)}`}</span>
-      </button>{l.is_primary ? <span className="price-origin-badge">Principal</span> : <button type="button" className="price-percent" disabled={busy} onClick={() => start(origin(l), l, true)} aria-label={`Editar porcentaje de ${l.name}: ${percent(l.adjustment)}`}><Pencil size={12} aria-hidden="true" /> {percent(l.adjustment)}</button>}</div>
-      {(!!l.pricing_rules?.length || l.branch_id || !l.active) && <div className="price-flow-badges">
-        {!!l.pricing_rules?.length && <span>{l.pricing_rules.length} ajustes</span>}
-        {l.branch_id && <span>{branches.find(b => b.id === l.branch_id)?.name || 'Sucursal asignada'}</span>}
-        {!l.active && <span>Inactiva</span>}
-      </div>}
-      <div className="price-flow-actions">
-        <button type="button" className="text-button" disabled={busy} onClick={() => start(origin(l), l)} aria-label={`Editar ${l.name}`}><Pencil size={14} aria-hidden="true" /> {sessions.some(s => s.key === l.id) ? 'Continuar' : 'Editar'}</button>
-        <button type="button" className="text-button" disabled={busy} onClick={() => start(l.id)} aria-label={`Crear lista desde ${l.name}`}><Plus size={14} aria-hidden="true" /> Lista</button>
-      </div>
-    </article>
-  </li>)}</ol>;
+
+  const costTree = buildTree('cost');
+  const catalogTree = buildTree('catalog');
+  const orphanNodes: TreeNode[] = lists
+    .filter(l => !visited.has(l.id))
+    .map(list => ({ list, children: [] }));
+
+  const renderTree = (items: TreeNode[], depth = 0) => {
+    if (!items.length) return null;
+    return (
+      <ol className={`price-tree-list depth-${depth}`}>
+        {items.map(({ list: l, children }) => {
+          const isSelected = selected === l.id;
+          const branchName = l.branch_id ? branches.find(b => b.id === l.branch_id)?.name : null;
+          const parentName = sourceName(origin(l), lists);
+          const rulesCount = l.pricing_rules?.length || 0;
+          const isEditing = sessions.some(s => s.key === l.id);
+
+          return (
+            <li key={l.id} className="price-tree-item">
+              <article className={`price-flow-node ${l.is_primary ? 'is-primary' : ''} ${isSelected ? 'selected' : ''}`}>
+                <div className="price-flow-main">
+                  <button
+                    type="button"
+                    className="price-flow-name"
+                    onClick={() => inspect(l.id)}
+                    aria-pressed={isSelected}
+                    aria-label={`Ver precios de ${l.name}`}
+                  >
+                    <div className="price-node-title-row">
+                      <span className="price-node-icon" aria-hidden="true">
+                        {l.is_primary ? <Store size={15} /> : <TrendingUp size={14} />}
+                      </span>
+                      <strong className="price-node-name">{l.name}</strong>
+                      {l.is_primary && (
+                        <span className="price-primary-pill">Principal</span>
+                      )}
+                    </div>
+                    <span className="price-node-origin">
+                      {l.is_primary ? (
+                        'Costo base + margen individual de cada producto'
+                      ) : (
+                        <>
+                          <CornerDownRight size={11} aria-hidden="true" />
+                          <span>Deriva de <strong>{parentName}</strong></span>
+                        </>
+                      )}
+                    </span>
+                  </button>
+
+                  {!l.is_primary && (
+                    <button
+                      type="button"
+                      className={`price-percent ${l.adjustment > 0 ? 'is-markup' : l.adjustment < 0 ? 'is-discount' : 'is-neutral'}`}
+                      disabled={busy}
+                      onClick={() => start(origin(l), l, true)}
+                      aria-label={`Editar porcentaje de ${l.name}: ${percent(l.adjustment)}`}
+                      title="Clic para editar porcentaje general"
+                    >
+                      <Pencil size={11} aria-hidden="true" />
+                      <span>{percent(l.adjustment)}</span>
+                    </button>
+                  )}
+                </div>
+
+                {(rulesCount > 0 || branchName || !l.active) && (
+                  <div className="price-flow-badges">
+                    {rulesCount > 0 && (
+                      <span className="price-badge-item" title="Reglas por categoría o marca">
+                        <SlidersHorizontal size={11} aria-hidden="true" />
+                        <span>{rulesCount} {rulesCount === 1 ? 'regla' : 'reglas'}</span>
+                      </span>
+                    )}
+                    {branchName && (
+                      <span className="price-badge-item" title="Exclusiva para esta sucursal">
+                        <Building2 size={11} aria-hidden="true" />
+                        <span>{branchName}</span>
+                      </span>
+                    )}
+                    {!l.active && (
+                      <span className="price-badge-item is-inactive">
+                        <AlertCircle size={11} aria-hidden="true" />
+                        <span>Inactiva</span>
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                <div className="price-flow-actions">
+                  <button
+                    type="button"
+                    className={`price-action-link ${isSelected ? 'active-view' : ''}`}
+                    onClick={() => inspect(l.id)}
+                    aria-label={`Ver precios de ${l.name}`}
+                  >
+                    <Eye size={13} aria-hidden="true" />
+                    <span>{isSelected ? 'Viendo precios' : 'Ver precios'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="price-action-link"
+                    disabled={busy}
+                    onClick={() => start(origin(l), l)}
+                    aria-label={`Editar ${l.name}`}
+                  >
+                    <Pencil size={13} aria-hidden="true" />
+                    <span>{isEditing ? 'Continuar' : 'Editar'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    className="price-action-link price-action-add"
+                    disabled={busy}
+                    onClick={() => start(l.id)}
+                    aria-label={`Crear lista derivada desde ${l.name}`}
+                    title={`Crear una lista derivada con base en ${l.name}`}
+                  >
+                    <Plus size={13} aria-hidden="true" />
+                    <span>Derivar lista</span>
+                  </button>
+                </div>
+              </article>
+
+              {children.length > 0 && renderTree(children, depth + 1)}
+            </li>
+          );
+        })}
+      </ol>
+    );
+  };
+
   return <section className="retail-panel price-list-settings" aria-label="Listas de precios">
     <div className="price-lists-heading"><h3 ref={heading} tabIndex={-1}>Listas de precios</h3>
       <button type="button" className="primary-button" disabled={busy || !primary} onClick={() => start(primary!.id)}><Plus size={16} aria-hidden="true" /> Crear lista</button>
     </div>
     <div className={`price-lists-layout${active ? ' editing' : ''}`}>
       <div className="price-flow" aria-label="Orígenes y listas derivadas">
-        <div className={`price-flow-root${selected === 'cost' ? ' selected' : ''}`}><button type="button" className="price-flow-name" aria-pressed={selected === 'cost'} onClick={() => inspect('cost')}><strong><GitBranch size={17} aria-hidden="true" /> Costo</strong></button><span className="price-origin-badge"><LockKeyhole size={12} aria-hidden="true" /> Solo consulta</span></div>
-        {!!costNodes.length && renderNodes(costNodes)}
-        {primary ? renderNodes(catalogNodes) : <details className="price-catalog-origin" open={!costNodes.length && catalogNodes.length ? true : undefined}><summary>Catálogo{catalogNodes.length ? ` · ${catalogNodes.length} listas` : ''}</summary>
-          <div className="price-flow-root"><button type="button" className="price-flow-name" aria-pressed={selected === 'catalog'} onClick={() => inspect('catalog')}><strong>Precios del catálogo</strong></button><button type="button" className="text-button" disabled={busy} onClick={() => start('catalog')} aria-label="Crear lista desde el catálogo"><Plus size={14} aria-hidden="true" /> Lista</button></div>
-          {renderNodes(catalogNodes)}
-        </details>}
+        <div className="price-flow-tree-header">
+          <span className="price-flow-tree-title">Estructura jerárquica de listas</span>
+          <span className="price-flow-tree-subtitle">Elegí cualquier lista para consultar o fijar sus precios</span>
+        </div>
+
+        {/* Nodo Raíz: Costo */}
+        <div className={`price-flow-root ${selected === 'cost' ? 'selected' : ''}`}>
+          <button
+            type="button"
+            className="price-flow-name"
+            aria-pressed={selected === 'cost'}
+            onClick={() => inspect('cost')}
+          >
+            <div className="price-node-title-row">
+              <span className="price-node-icon price-root-icon" aria-hidden="true">
+                <Coins size={16} />
+              </span>
+              <div className="price-root-text">
+                <strong className="price-node-name">Costo de reposición</strong>
+                <span className="price-node-origin">Base de compra sin recargos</span>
+              </div>
+            </div>
+          </button>
+          <div className="price-root-meta">
+            <span className="price-origin-badge">
+              <LockKeyhole size={12} aria-hidden="true" /> Solo consulta
+            </span>
+            {selected === 'cost' && (
+              <span className="price-viewing-badge">Viendo costos</span>
+            )}
+          </div>
+        </div>
+
+        {!!costTree.length && renderTree(costTree, 0)}
+
+        {primary ? (
+          catalogTree.length > 0 && renderTree(catalogTree, 0)
+        ) : (
+          <details className="price-catalog-origin" open={!costTree.length && catalogTree.length ? true : undefined}>
+            <summary>Catálogo legado{catalogTree.length ? ` · ${catalogTree.length} listas` : ''}</summary>
+            <div className="price-flow-root">
+              <button type="button" className="price-flow-name" aria-pressed={selected === 'catalog'} onClick={() => inspect('catalog')}>
+                <strong>Precios del catálogo</strong>
+              </button>
+              <button type="button" className="text-button" disabled={busy} onClick={() => start('catalog')} aria-label="Crear lista desde el catálogo">
+                <Plus size={14} aria-hidden="true" /> Derivar lista
+              </button>
+            </div>
+            {renderTree(catalogTree, 0)}
+          </details>
+        )}
+
         {!primary && <p role="status">Instalá la actualización de lista principal para crear nuevas listas.</p>}
-        {!!orphanNodes.length && <div><p role="status">Estas listas necesitan revisar su origen.</p>{renderNodes(orphanNodes)}</div>}
+        {!!orphanNodes.length && (
+          <div className="price-orphan-block">
+            <p role="status">Listas con origen a revisar:</p>
+            {renderTree(orphanNodes, 0)}
+          </div>
+        )}
       </div>
       <div hidden={!active} className="price-list-workspace">{sessions.map(s => <div key={s.key} hidden={active !== s.key}>
         <PriceListEditor session={s} active={active === s.key} percentageFocus={percentageTarget.key === s.key ? percentageTarget.request : 0} lists={lists} overrides={overrides} products={products} categories={categories} branches={branches} run={run} busy={busy} onCancel={() => close(s.key)} onSaved={() => { setSelected(s.draft.id); close(s.key); }} onDeleted={() => { setSelected(prev => prev === s.draft.id ? 'cost' : prev); close(s.key); }} onEditDerived={l => start(origin(l), l)} />
