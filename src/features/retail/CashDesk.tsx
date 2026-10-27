@@ -367,15 +367,20 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               </section>
               <section className="retail-panel cash-task-panel" role="tabpanel" id={`${taskName}-panel-close`} aria-labelledby={`${taskName}-tab-close`} hidden={currentTask !== 'close'}>
                 <h2 tabIndex={-1}>Cerrar turno</h2>
-                <div className="cash-close-tickets" aria-live="polite">
-                  <strong>{closingTickets} {closingTickets === 1 ? 'ticket' : 'tickets'}</strong>
-                  <span>Todos los medios de pago; cada venta cuenta una vez.</span>
-                  <small>{ticketCount === null ? 'Recuento de las ventas disponibles en este dispositivo.' : 'El total definitivo se confirma al sincronizar el cierre.'}</small>
+
+                <div className="cash-close-summary-card">
+                  <div>
+                    <small>Ventas del turno</small>
+                    <strong>{closingTickets} {closingTickets === 1 ? 'ticket' : 'tickets'}</strong>
+                  </div>
+                  {!cashierMode && (
+                    <div>
+                      <small>Efectivo esperado</small>
+                      <strong>{money(expected)}</strong>
+                    </div>
+                  )}
                 </div>
-                <p>
-                  Contá todo el efectivo de esta caja. Al confirmar, se guarda el conteo y termina el turno.
-                </p>
-                <small>{cashierMode ? 'Administración revisará las diferencias. Solo tenés que ingresar lo que contaste.' : 'El esperado incluye todos los ajustes del turno, también los de administración.'}</small>
+
                 <form
                   className="retail-form"
                   onSubmit={async (e) => {
@@ -412,7 +417,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   }}
                 >
                   <label>
-                    Efectivo contado ($)
+                    Efectivo contado en caja ($)
                     <NumberInput
                       ref={countedRef}
                       name="counted"
@@ -420,6 +425,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       type="number"
                       min="0"
                       step="0.01"
+                      placeholder="0"
                       disabled={!active || currentTask !== 'close' || busy}
                       value={counted}
                       onValueChange={(e) => { setCounted(e); setClosingError(''); }}
@@ -430,24 +436,34 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     onChange={(denomination, value) => { setDenominationDraft(previous => ({ ...previous, [denomination]: value })); setClosingError(''); }}
                     onUseTotal={total => { setCounted(String(total)); setClosingError(''); countedRef.current?.focus(); }} />
                   {closingError && <p className="movement-error" role="alert">{closingError}</p>}
-                  {cashierMode ? (
-                    <div className="info-banner blind-audit-banner">
-                      {counted === ""
-                        ? "Ingresá el efectivo que contaste para cerrar el turno."
-                        : `Efectivo contado: ${money(Number(counted))}.`}
-                    </div>
-                  ) : (
-                    <div className="info-banner">
-                      Diferencia:{" "}
-                      {counted === ""
-                        ? "Ingresá el conteo"
-                        : money(Number(counted) - expected)}
-                    </div>
+                  {counted !== "" && (
+                    cashierMode ? (
+                      <div className="cash-close-feedback" role="status">
+                        <span>Efectivo a declarar:</span>
+                        <strong>{money(Number(counted))}</strong>
+                      </div>
+                    ) : (
+                      <div className={`cash-close-diff ${Number(counted) === expected ? 'cash-close-diff-exact' : Number(counted) > expected ? 'cash-close-diff-surplus' : 'cash-close-diff-deficit'}`}>
+                        <span>Diferencia:</span>
+                        <strong>
+                          {Number(counted) === expected
+                            ? '$0 (Exacto)'
+                            : Number(counted) > expected
+                              ? `+${money(Number(counted) - expected)} (Sobrante)`
+                              : `${money(Number(counted) - expected)} (Faltante)`}
+                        </strong>
+                      </div>
+                    )
                   )}
 
-                  {hasPendingSale && <p role="status">Tenés una venta pendiente. {onSell ? <button type="button" className="text-button" onClick={onSell}>Volver a Vender</button> : 'Volvé a Vender'} para cobrarla o vaciarla antes de cerrar el turno.</p>}
+                  {hasPendingSale && (
+                    <div className="info-banner" role="status">
+                      <span>Hay una venta en curso sin cobrar.</span>
+                      {onSell && <button type="button" className="text-button" onClick={onSell}>Ir a Vender</button>}
+                    </div>
+                  )}
                   <button disabled={!active || currentTask !== 'close' || busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
-                    Confirmar cierre
+                    Cerrar turno
                   </button>
                 </form>
                 <div className="cash-optional-analysis" hidden={cashierMode}>

@@ -27,6 +27,7 @@ trigger: always_on
 
 - No aplicar migraciones remotas, borrar datos ni ejecutar reparación por iniciativa propia. Preparar SQL local y explicar su aplicación y efectos.
 - Entrada SQL: `supabase/schema.sql`, generada con `node scripts/generate-schema.mjs` desde `supabase/migrations/`. Regenerar tras agregar una migración; no editar bloques generados a mano.
+- Actualización individual solicitada: `node scripts/generate-schema.mjs --individual-updates` genera `supabase/updates/` para la base conciliada hasta `202610260003_billing_fields.sql`. Usar esos paquetes en orden, uno por ejecución, con el mismo historial/checksums; no aplicar fuentes sueltas de migrations ni registrar pasos a mano. No supone autorización para ejecutar SQL remoto.
 - Conservar migraciones originales como historial/fuente. Corregir una migración registrada mediante una nueva, no editándola. No ignorar errores ni agregar `CASCADE` para forzar instalación.
 - Schema usa historial privado, checksums y una transacción. En bases manuales exige baseline confirmado; no inferirlo solo por columnas o productos existentes. El baseline confirmado el 23/10/2026 llega a `202610230002_ingredients_and_composition_costs.sql`: no avanzarlo automáticamente al agregar archivos ni asumir que vale para otro entorno.
 - Excluir del instalador `maintenance/`, `tests/` y `push-schedule.sql`. La tarea push requiere despliegue y Vault; reparar otro proyecto es una operación aparte.
@@ -46,6 +47,7 @@ trigger: always_on
 - Crear combo o paquete abre el formulario específico con componentes desde el inicio y guardado atómico; no volver al alta normal seguida de una segunda configuración que pueda dejar productos incompletos.
 - Cigarrillos: stock en unidades individuales, paquete/suelto con precios independientes y reposición por atados con una sola conversión.
 - Bajo margen automático sobre `(precio − costo) / precio`, límite inicial 10% configurable. Costo 0 es desconocido; mantener separación estándar/bajo margen e instantáneas históricas.
+- Alta de producto por porcentaje sobre costo: $100 +30% = $130. Principal única/global, derivadas en cadena conservando ajustes/fijos; lista exclusiva activa de sucursal tiene prioridad. Costo nuevo recalcula productos con porcentaje; anteriores conservan precio manual hasta convertirlos por intención. Una edición explícita incompatible de precio lo deja manual. No confundir aumento sobre costo con margen bruto; no reescribir tickets ni repriciar carritos en curso.
 - Caja = puesto de cobro. Turno = período de trabajo abierto con efectivo y cerrado contando efectivo. Registro de ventas = agrupación; no es caja ni define condición fiscal.
 - Conservar PWA, avisos, caché por cuenta y sincronización. No prometer configuración offline si requiere backend ni borrar colas para resolver errores.
 - IA secundaria y voluntaria: no bloquea vender, guardar producto, registrar movimiento ni confirmar cierre. Fallos de Groq quedan en la herramienta; no simular respuestas. Conservar `llama-3.1-8b-instant` y configuración por entorno.

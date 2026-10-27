@@ -89,6 +89,16 @@
 .retail-app .cash-workspace-adaptive .cash-close-tickets { display: grid; gap: 4px; padding: 12px 14px; margin-bottom: 16px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); }
 .retail-app .cash-workspace-adaptive .cash-close-tickets strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .retail-app .cash-workspace-adaptive .cash-close-tickets :is(span, small) { color: var(--tone-muted); font-size: 12px; }
+.retail-app .cash-workspace-adaptive .cash-close-summary-card { display: flex; gap: 20px; flex-wrap: wrap; padding: 10px 14px; margin-bottom: 14px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); }
+.retail-app .cash-workspace-adaptive .cash-close-summary-card > div { display: flex; flex-direction: column; gap: 2px; }
+.retail-app .cash-workspace-adaptive .cash-close-summary-card small { color: var(--tone-muted); font-size: 11px; }
+.retail-app .cash-workspace-adaptive .cash-close-summary-card strong { font-size: 16px; font-variant-numeric: tabular-nums; color: var(--tone-text); }
+.retail-app .cash-workspace-adaptive .cash-close-diff { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 8px; font-size: 13px; margin-block: 8px; }
+.retail-app .cash-workspace-adaptive .cash-close-diff strong { font-size: 15px; font-variant-numeric: tabular-nums; }
+.retail-app .cash-workspace-adaptive .cash-close-diff-exact { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+.retail-app .cash-workspace-adaptive .cash-close-diff-surplus { background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+.retail-app .cash-workspace-adaptive .cash-close-diff-deficit { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
+.retail-app .cash-workspace-adaptive .cash-close-feedback { display: flex; align-items: center; justify-content: space-between; padding: 8px 12px; border-radius: 6px; font-size: 13px; background: var(--tone-soft); border: 1px solid var(--tone-border); margin-block: 8px; }
 .retail-app .cash-workspace-adaptive .cash-denominations { display: grid; gap: 12px; }
 .retail-app .cash-workspace-adaptive .cash-denominations > button { justify-self: start; white-space: normal; }
 .retail-app .cash-workspace-adaptive .cash-denominations fieldset { min-width: 0; margin: 0; padding: 14px; border: 1px solid var(--tone-border); border-radius: 8px; }

@@ -1,35 +1,102 @@
 import React, { useState } from "react";
-import { Printer, Download, X, Check } from "lucide-react";
+import { Printer, Download, X, Check, ShieldCheck } from "lucide-react";
 import type { KioscoSale } from "../types/kiosco";
+import type { Store } from "../features/retail/api";
 import { useDialogFocus } from '../features/retail/useDialogFocus';
+import {
+  formatCaeVto,
+  formatComprobanteNro,
+  formatCuit,
+  getComprobanteTipoLabel,
+  getCondicionIvaLabel,
+} from "../features/retail/billing";
+import { buildArcaQrUrl } from "../services/billingService";
 
 interface ThermalReceiptModalProps {
   sale: KioscoSale | null;
   isOpen: boolean;
   onClose: () => void;
+  store?: Store | null;
 }
 
 export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   sale,
   isOpen,
   onClose,
+  store,
 }) => {
   const [paperWidth, setPaperWidth] = useState<"58mm" | "80mm">("58mm");
   const dialogRef = useDialogFocus(isOpen, onClose);
 
   if (!isOpen || !sale) return null;
 
+  const isFiscal = (sale?.billingStatus === 'authorized' || !!sale?.cae) && !!sale?.cae;
+  const cbteTipo = sale?.cbteTipo || (store?.condicion_iva === 'RI' ? 6 : 11);
+  const tipoLabel = getComprobanteTipoLabel(cbteTipo);
+  const ptoVta = store?.punto_venta_afip || 1;
+  const cbteNroStr = formatComprobanteNro(ptoVta, sale?.cbteNro);
+  const cuitFormatted = formatCuit(store?.cuit);
+  const ivaLabel = getCondicionIvaLabel(store?.condicion_iva);
+  const caeVtoStr = formatCaeVto(sale?.caeVto);
+
+  const qrUrl = isFiscal && sale
+    ? buildArcaQrUrl({
+        cuit: store?.cuit || '',
+        puntoVenta: ptoVta,
+        cbteTipo,
+        cbteNro: sale.cbteNro || 0,
+        importe: sale.total,
+        fecha: sale.created_at || sale.createdAt || new Date().toISOString(),
+        cae: sale.cae || '',
+      })
+    : '';
+
   const handlePrint = () => {
     window.print();
   };
 
   const handleDownloadTxt = () => {
+    const headerLines = isFiscal
+      ? [
+          "================================",
+          store?.razon_social || sale.storeName || "Mi comercio",
+          cuitFormatted ? `CUIT: ${cuitFormatted}` : "",
+          store?.condicion_iva ? `IVA: ${ivaLabel}` : "",
+          store?.iibb ? `IIBB: ${store.iibb}` : "",
+          [sale.storeAddress, sale.storePhone].filter(Boolean).join(" · "),
+          "================================",
+          `${tipoLabel.toUpperCase()} NRO ${cbteNroStr}`,
+          `Ticket ref: ${sale.ticketNumber}`,
+        ].filter(Boolean)
+      : [
+          "================================",
+          sale.storeName || "Mi comercio",
+          [sale.storeAddress, sale.storePhone].filter(Boolean).join(" · "),
+          "================================",
+          `Ticket: ${sale.ticketNumber}`,
+        ];
+
+    const footerLines = isFiscal
+      ? [
+          "================================",
+          `CAE: ${sale.cae}`,
+          `VTO. CAE: ${caeVtoStr}`,
+          `QR ARCA: ${qrUrl}`,
+          "================================",
+          "Comprobante fiscal electronico ARCA",
+          sale.receiptMessage || "¡Gracias por tu compra!",
+          "================================",
+        ]
+      : [
+          "================================",
+          "  COMPROBANTE NO VALIDO COMO    ",
+          "           FACTURA              ",
+          sale.receiptMessage || "¡Gracias por tu compra!",
+          "================================",
+        ];
+
     const lines = [
-      "================================",
-      sale.storeName || "Mi comercio",
-      [sale.storeAddress, sale.storePhone].filter(Boolean).join(" · "),
-      "================================",
-      `Ticket: ${sale.ticketNumber}`,
+      ...headerLines,
       ...[sale.branchName && `Sucursal: ${sale.branchName}`, sale.registerName && `Caja: ${sale.registerName}`, sale.priceListName && `Lista: ${sale.priceListName}`, sale.invoiceReference && `Comprobante externo: ${sale.invoiceReference}`].filter((v): v is string => !!v),
       `Fecha:  ${sale.date || new Date().toLocaleDateString("es-AR")} ${sale.timestamp}`,
       "--------------------------------",
@@ -48,11 +115,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       ...(sale.syncStatus === 'pending' ? ['GUARDADO LOCAL · PENDIENTE DE SINCRONIZAR'] : []),
       `Paga Con:       $${sale.amountPaid.toLocaleString("es-AR")}`,
       `Vuelto:         $${sale.change.toLocaleString("es-AR")}`,
-      "================================",
-      "  COMPROBANTE NO VALIDO COMO    ",
-      "           FACTURA              ",
-      sale.receiptMessage || "¡Gracias por tu compra!",
-      "================================",
+      ...footerLines,
     ];
 
     const element = document.createElement("a");
@@ -60,7 +123,9 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       type: "text/plain;charset=utf-8",
     });
     element.href = URL.createObjectURL(file);
-    element.download = `Ticket_${sale.ticketNumber}.txt`;
+    element.download = isFiscal
+      ? `${tipoLabel.replace(/\s+/g, '_')}_${cbteNroStr || sale.ticketNumber}.txt`
+      : `Ticket_${sale.ticketNumber}.txt`;
     document.body.appendChild(element);
     element.click();
     document.body.removeChild(element);
@@ -137,15 +202,20 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   color: "var(--text-main, #0f172a)",
                 }}
               >
-                Comprobante de Venta {sale.ticketNumber}
+                {isFiscal
+                  ? `${tipoLabel} N° ${cbteNroStr || sale.ticketNumber}`
+                  : `Comprobante de Venta ${sale.ticketNumber}`}
               </div>
               <div
                 style={{
                   fontSize: "0.75rem",
-                  color: "var(--text-muted, #64748b)",
+                  color: isFiscal ? "#16a34a" : "var(--text-muted, #64748b)",
+                  fontWeight: isFiscal ? 600 : 400,
                 }}
               >
-                Ticket Térmico Listo para Imprimir
+                {isFiscal
+                  ? `Comprobante Fiscal Autorizado ARCA · CAE ${sale.cae}`
+                  : "Ticket Térmico Listo para Imprimir"}
               </div>
             </div>
           </div>
@@ -243,10 +313,27 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   letterSpacing: "1px",
                 }}
               >
-                {sale.storeName || "Mi comercio"}
+                {isFiscal
+                  ? (store?.razon_social || sale.storeName || "Mi comercio")
+                  : (sale.storeName || "Mi comercio")}
               </div>
+              {isFiscal && cuitFormatted && (
+                <div style={{ fontSize: "0.75rem", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+                  CUIT: {cuitFormatted}
+                </div>
+              )}
+              {isFiscal && store?.condicion_iva && (
+                <div style={{ fontSize: "0.6875rem", color: "#475569" }}>
+                  IVA: {ivaLabel}
+                </div>
+              )}
+              {isFiscal && store?.iibb && (
+                <div style={{ fontSize: "0.6875rem", color: "#64748b" }}>
+                  Ing. Brutos: {store.iibb}
+                </div>
+              )}
               <div style={{ fontSize: "0.71875rem", color: "#64748b" }}>
-                {sale.storePhone || "Comprobante de venta"}
+                {sale.storePhone || (!isFiscal ? "Comprobante de venta" : "")}
               </div>
               <div
                 style={{
@@ -257,6 +344,27 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
               >
                 {sale.storeAddress}
               </div>
+              {isFiscal && (
+                <div
+                  style={{
+                    margin: "0.5rem 0",
+                    padding: "0.4rem 0",
+                    borderTop: "2px solid #0f172a",
+                    borderBottom: "2px solid #0f172a",
+                    textAlign: "center",
+                  }}
+                >
+                  <div style={{ fontSize: "0.9375rem", fontWeight: 900, letterSpacing: "1px" }}>
+                    {tipoLabel.toUpperCase()}
+                  </div>
+                  <div style={{ fontSize: "0.8125rem", fontWeight: 700 }}>
+                    N° {cbteNroStr}
+                  </div>
+                  <div style={{ fontSize: "0.5625rem", color: "#64748b", marginTop: "1px" }}>
+                    DOCUMENTO FISCAL ELECTRÓNICO
+                  </div>
+                </div>
+              )}
               <div
                 style={{
                   borderBottom: "1px dashed #cbd5e1",
@@ -436,50 +544,81 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 color: "#64748b",
               }}
             >
-              <div style={{ fontWeight: 700, color: "#475569" }}>
-                *** COMPROBANTE NO VÁLIDO COMO FACTURA ***
-              </div>
-              <div style={{ marginTop: "3px" }}>
-                {sale.receiptMessage || "¡Gracias por tu compra!"}
-              </div>
-              <div style={{ marginTop: "2px" }}>
-                Conservar este ticket ante cambios
-              </div>
-
-              {/* Barcode graphic emulation */}
-              <div
-                style={{
-                  marginTop: "0.75rem",
-                  display: "flex",
-                  justifyContent: "center",
-                  alignItems: "flex-end",
-                  height: "24px",
-                  gap: "2px",
-                }}
-              >
-                {[
-                  2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 3, 2, 1, 4, 2, 1, 3, 2, 1, 3,
-                ].map((h, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      width: `${h}px`,
-                      height: "100%",
-                      background: "#0f172a",
-                      display: "inline-block",
-                    }}
+              {isFiscal ? (
+                <div style={{ margin: "0.5rem 0", textAlign: "center" }}>
+                  <img
+                    src={`https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(qrUrl)}&size=110x110&margin=2`}
+                    alt="Código QR ARCA"
+                    style={{ width: "110px", height: "110px", margin: "0 auto", display: "block" }}
                   />
-                ))}
-              </div>
-              <div
-                style={{
-                  fontSize: "0.625rem",
-                  letterSpacing: "2px",
-                  marginTop: "2px",
-                }}
-              >
-                {sale.ticketNumber}
-              </div>
+                  <div style={{ fontSize: "0.6875rem", fontWeight: 800, color: "#0f172a", marginTop: "4px" }}>
+                    CAE: {sale.cae}
+                  </div>
+                  <div style={{ fontSize: "0.625rem", fontWeight: 600, color: "#334155" }}>
+                    Fecha Vto. CAE: {caeVtoStr}
+                  </div>
+                  <div style={{ fontSize: "0.5625rem", color: "#64748b", marginTop: "2px" }}>
+                    Comprobante electrónico autorizado por ARCA
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div style={{ fontWeight: 700, color: "#475569" }}>
+                    *** COMPROBANTE NO VÁLIDO COMO FACTURA ***
+                  </div>
+                  {sale.billingStatus === 'pending' && (
+                    <div style={{ background: "#fefce8", color: "#854d0e", border: "1px solid #fef08a", padding: "4px 8px", borderRadius: "4px", fontSize: "0.625rem", fontWeight: 700, margin: "6px 0" }}>
+                      ⏳ EN TRÁMITE DE AUTORIZACIÓN ANTE ARCA
+                    </div>
+                  )}
+                  {sale.billingStatus === 'error' && (
+                    <div style={{ background: "#fef2f2", color: "#991b1b", border: "1px solid #fecaca", padding: "4px 8px", borderRadius: "4px", fontSize: "0.625rem", fontWeight: 700, margin: "6px 0" }}>
+                      ⚠️ EMISIÓN FISCAL PENDIENTE DE REINTENTO
+                    </div>
+                  )}
+                  <div style={{ marginTop: "3px" }}>
+                    {sale.receiptMessage || "¡Gracias por tu compra!"}
+                  </div>
+                  <div style={{ marginTop: "2px" }}>
+                    Conservar este ticket ante cambios
+                  </div>
+
+                  {/* Barcode graphic emulation */}
+                  <div
+                    style={{
+                      marginTop: "0.75rem",
+                      display: "flex",
+                      justifyContent: "center",
+                      alignItems: "flex-end",
+                      height: "24px",
+                      gap: "2px",
+                    }}
+                  >
+                    {[
+                      2, 1, 3, 1, 2, 4, 1, 2, 3, 1, 3, 2, 1, 4, 2, 1, 3, 2, 1, 3,
+                    ].map((h, i) => (
+                      <span
+                        key={i}
+                        style={{
+                          width: `${h}px`,
+                          height: "100%",
+                          background: "#0f172a",
+                          display: "inline-block",
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      fontSize: "0.625rem",
+                      letterSpacing: "2px",
+                      marginTop: "2px",
+                    }}
+                  >
+                    {sale.ticketNumber}
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

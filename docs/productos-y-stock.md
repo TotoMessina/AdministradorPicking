@@ -2,6 +2,7 @@
 
 Guía vigente consolidada. Los nombres de migraciones indican dependencias, no el estado remoto: usar [schema y su historial](../SUPABASE_SETUP.md), sin repetir archivos individuales. Las Guías de Pruebas son recorridos manuales en **http://localhost:3001/**; no acreditan pruebas ejecutadas.
 
+- [Precio principal por porcentaje](#precio-principal-por-porcentaje)
 - [Insumos y costos automáticos](#insumos-y-costos-automaticos)
 - [Combos y cigarrillos](#combos-y-cigarrillos)
 - [Bultos y unidades](#bultos-y-unidades)
@@ -10,6 +11,29 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Métricas de margen](#metricas-de-margen)
 - [Categorías](#categorias)
 - [Eliminar y restaurar](#eliminar-y-restaurar)
+
+## Precio principal por porcentaje
+
+**Productos → Agregar producto** pide costo y **Margen sobre costo (%)**, y muestra el precio calculado, sin pedir calcularlo a mano. Costo $100 +30% = **$130** en la lista Principal global. Es aumento sobre costo; el indicador de bajo margen sigue calculándose sobre el precio de venta (en este ejemplo, 23,08%). No son el mismo porcentaje.
+
+El porcentaje se guarda por producto en Supabase. Al cambiar el costo, el servidor recalcula el precio principal y las listas derivadas aplican sus porcentajes en cadena. Costo $200 +30% = $260; una derivada +50% resulta $390. Reposición offline preparada recalcula la caché con la misma regla; altas, edición del porcentaje y configuración de listas requieren conexión. Los precios fijos de listas derivadas prevalecen.
+
+Los productos anteriores conservan sus precios manuales: no se les inventa un porcentaje ni se modifican sus ventas históricas. **Editar producto → Precio → Por porcentaje sobre costo** permite convertirlos por intención. **Manual** conserva esa alternativa para la edición; guardar otro precio desde Editar precio o un ajuste/importación explícita deja ese producto manual si cambia su precio fuera del cálculo. Volver al porcentaje requiere edición autorizada del producto. Los demás atributos se conservan.
+
+**Solo insumo** sigue sin necesitar precio de venta. Los combos nuevos piden componentes y porcentaje: su costo es la suma de los insumos y su precio se calcula sobre esa suma en la misma transacción. Cambiar costos de componentes actualiza los combos con porcentaje. Es necesario conocer todos sus costos; costo cero no permite guardar un precio automático. No se transforma stock físico ni se cambian recetas.
+
+Preparación local: [actualización 202610270002](../supabase/updates/202610270002_primary_product_markup.sql), después de las actualizaciones anteriores. Agrega `sale_markup` opcional, una lista principal por comercio y validaciones de backend. **También cambia la base de las listas existentes**, conservando sus porcentajes, ramas y fijos: ver [listas](operacion-y-mercaderia.md#precios-por-sucursal). No aplicada remotamente.
+
+### Guía de Pruebas — pendiente manual
+
+En **http://localhost:3001/**, con la actualización SQL aplicada y datos de prueba:
+
+1. Agregar producto con costo 100, porcentaje 30 y stock 10: muestra 130, guarda y al recargar conserva costo, porcentaje, stock y atributos. Probar 0% y decimales; vacío/costo cero impiden guardar con un mensaje visible.
+2. Editar ese producto, cambiar solo costo a 200: muestra y guarda 260. Reponer dos bultos de 10 con costo unitario 300: suma 20 unidades una vez, calcula 390 y respeta el depósito si está activo. Comprobar el indicador de bajo margen con el precio resultante.
+3. Editar un producto anterior: conserva su precio manual. Elegir Por porcentaje, guardar y recargar; luego Editar precio con un importe distinto: avisa que pasará a manual y conserva atributos. Con perfil solo de precios puede editar importes, sin conceder gestión del catálogo ni del porcentaje.
+4. Crear combo con pan de costo 40 y salchicha de costo 60, porcentaje 30: costo 100 y precio 130; cambiar costo del pan a 50 da costo 110 y precio 143. Error de guardado no deja un combo sin receta; insumos no necesitan precio. Cambiar recetas/atados no duplica stock.
+5. Guardar borrador, navegar y volver: valores conservados; cancelar solo descarta ese editor. Probar teclado y móvil, errores y Guardar alcanzables. La revisión IA sigue voluntaria.
+6. Preparar PWA/catálogo/listas/turno con red, desconectar y reponer con costo autorizado; vender con los precios locales recalculados. Reconectar: sincronización única; cambios remotos incompatibles mantienen el pendiente para revisión. No se prometen altas offline ni se vacían colas. No crear ventas de prueba en producción.
 
 <a id="deposito-opcional"></a>
 
@@ -66,9 +90,9 @@ En **Productos → Agregar / Editar → Uso del producto**, elegir **Solo insumo
 
 Los registros anteriores siguen siendo vendibles: hay que elegir Solo insumo en los panes o salchichas existentes. Cambiar el uso conserva precio previamente cargado, atributos y stock. Volver a Para vender exige precio positivo. Los precios fijos de listas se conservan para una eventual vuelta a venta, aunque los insumos no se ofrecen en el editor de precios de listas ni en ajustes masivos.
 
-**Crear combo o paquete** abre un formulario propio con nombre, código, precio, categoría y componentes desde el inicio. Muestra cantidad × costo de cada componente y el total por unidad; no pide cargar costo ni stock propio. Con pan a $150 y salchicha a $350, un pancho de 1 + 1 cuesta $500. No requiere precio de venta de sus insumos. **Combo / sueltos** conserva la edición de composiciones existentes.
+**Crear combo o paquete** abre un formulario propio con nombre, código, categoría, componentes y porcentaje sobre costo desde el inicio. Muestra cantidad × costo de cada componente y el total por unidad; no pide cargar costo ni stock propio. Con pan a $150 y salchicha a $350, un pancho de 1 + 1 cuesta $500. No requiere precio de venta de sus insumos. **Combo / sueltos** conserva la edición de composiciones existentes.
 
-El costo del compuesto es automático y no editable directamente. Cambia al guardar la receta o cambiar el costo de sus componentes mediante edición, reposición o importación existente. Se suma a centavos, sin modificar precios, existencias ni ventas anteriores. Costo 0 mantiene la representación existente de costo desconocido: si falta el costo de un componente, el total queda pendiente (0 en persistencia) y no se informa un margen a partir de una suma parcial. No se inventan costos ni se bloquea vender por falta de costo.
+El costo del compuesto es automático y no editable directamente. Cambia al guardar la receta o cambiar el costo de sus componentes mediante edición, reposición o importación existente. Se suma a centavos; con porcentaje también actualiza el precio principal. Los precios manuales, las existencias y las ventas anteriores se conservan. Costo 0 mantiene la representación existente de costo desconocido: si falta el costo de un componente, el total queda pendiente (0 en persistencia) y no se informa un margen a partir de una suma parcial. No se inventan costos. Los productos manuales conservan su precio sin costo; guardar un producto automático exige costos conocidos.
 
 También rige para paquetes de cigarrillos: costo del paquete = cantidad de cigarrillos × costo unitario. Puede diferir por centavos del costo anterior si el unitario fue redondeado. Los precios de paquete y suelto siguen siendo independientes; stock y reposición no cambian. Desvincular una receta conserva su último costo; desde entonces es editable como producto con stock propio.
 
@@ -144,7 +168,7 @@ Los productos vinculados no muestran Reponer. Se reponen sus componentes, tambi�
 
 - Composición fija: hasta 30 componentes, unidades enteras entre 1 y 1.000.000 por componente. No permite repetidos, autorreferencias, componentes de otra tienda, productos inactivos ni composiciones anidadas. Las variantes/adicionales elegidos durante la venta quedan fuera de este paso.
 - Crear o cambiar composición necesita conexión y operaciones locales sincronizadas. Una selección inválida o un error mantiene el borrador. Cambiar de pantalla mantiene el editor montado; Cancelar descarta solo ese borrador.
-- El producto vinculado guarda stock físico 0; su `stock` expuesto al cliente es disponibilidad calculada. Editar nombre, precio u otros atributos conserva la composición y no escribe esa disponibilidad como stock. El precio sigue siendo explícito; el costo se recalcula al cambiar costos de ingredientes.
+- El producto vinculado guarda stock físico 0; su `stock` expuesto al cliente es disponibilidad calculada. Editar nombre, precio u otros atributos conserva la composición y no escribe esa disponibilidad como stock. El costo se recalcula al cambiar costos de ingredientes; con porcentaje se recalcula el precio, y si es manual se conserva.
 - El editor genérico de composición no convierte existencias previas: si un producto tiene stock propio distinto de 0 no permite vincularlo. Para cigarrillos contados en atados, usar la conversión explícita descrita arriba, con vista previa y registro administrativo. No se multiplican ni borran stocks al cambiar una selección visual ni al instalar la migración.
 - Volver a Stock propio deja stock 0, sin trasladar ni borrar existencias de componentes. No se puede archivar un componente usado por una composición activa ni eliminar uno referenciado. Los productos anteriores quedan con composición vacía y conservan sus existencias.
 - El carrito suma el consumo de todos sus renglones antes de cobrar: combos, paquetes, sueltos y componentes vendidos directamente compiten por el mismo stock. La validación autoritativa de Supabase descuenta todo o nada y conserva el identificador de venta/reintentos.
@@ -222,8 +246,8 @@ Cambiar el límite requiere conexión y sincronizar primero las operaciones loca
 
 En **http://localhost:3001/**, con comercio y productos de prueba después de aplicar la migración:
 
-1. Agregar producto con precio 1000 y costo 950: esperar **Bajo margen automático · 5%**, sin selector/tilde. Guardar y usar Ver solo bajo margen: debe aparecer.
-2. Cambiar costo a 900: con límite 10, esperar margen 10% sin bajo margen. Costo 800 muestra 20%; costo 1100 muestra aviso de venta debajo del costo. Verificar que el sistema no corrija precios ni stock por su cuenta. Probar costo cero: **Margen sin calcular**, nunca ganancia del 100%.
+1. En un producto con precio Manual, guardar precio 1000 y costo 950: esperar **Bajo margen automático · 5%**, sin selector/tilde. Guardar y usar Ver solo bajo margen: debe aparecer.
+2. En ese producto manual, cambiar costo a 900: con límite 10, esperar margen 10% sin bajo margen. Costo 800 muestra 20%; costo 1100 muestra aviso de venta debajo del costo. Verificar que el sistema no corrija precios ni stock por su cuenta. Probar costo cero: **Margen sin calcular**, nunca ganancia del 100%.
 3. Mi comercio → Datos del comercio → Bajo margen: debe mostrar 10 inicialmente. Cambiar a 20 y guardar. Un producto de precio 1000/costo 850 (15%) debe pasar a bajo margen sin cambiar sus importes; actualizar otro dispositivo confirma el límite compartido. Otro comercio permanece sin cambios.
 4. Cambiar a 0 y 100 en datos de prueba; probar valores negativos, mayores a 100, vacíos y más de dos decimales. Esperar validación visible y sin guardado inválido. Con 0, solo pérdidas clasificables quedan debajo del límite; sin costo no se infiere rentabilidad.
 5. Con un perfil de precio únicamente, editar precio para cruzar el límite: debe permitir guardar sin exigir editar productos completos. Los atributos avanzados se conservan. Con reposición y costo autorizado, cambiar costo cruzando el límite: actualiza grupo y stock según la reposición real. Sin autorización no se puede cambiar costo ni el límite.

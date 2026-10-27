@@ -17,11 +17,10 @@ export function CashDenominationFields({ enabled, draft, disabled, onEnabledChan
   catch (reason) { error = reason instanceof Error ? reason.message : 'Revisá las cantidades.'; }
   return <div className="cash-denominations">
     <button type="button" className="secondary-button" aria-expanded={enabled} aria-controls={id} disabled={disabled} onClick={() => onEnabledChange(!enabled)}>
-      {enabled ? 'No guardar detalle de billetes' : 'Detallar billetes (opcional)'}
+      {enabled ? 'Ocultar conteo de billetes' : '💵 Contar por billetes (opcional)'}
     </button>
-    <fieldset id={id} hidden={!enabled} disabled={disabled || !enabled} aria-describedby={`${id}-help`}>
-      <legend>Cantidad de cada billete</legend>
-      <p id={`${id}-help`}>Completá solo los que quieras. El efectivo contado puede incluir monedas u otros billetes sin detallar.</p>
+    <fieldset id={id} hidden={!enabled} disabled={disabled || !enabled}>
+      <legend>Conteo de billetes</legend>
       <div className="cash-denomination-grid">
         {CASH_DENOMINATIONS.map(amount => <label key={amount}>
           <span>{money(amount)}</span>
@@ -30,8 +29,8 @@ export function CashDenominationFields({ enabled, draft, disabled, onEnabledChan
         </label>)}
       </div>
       {error && <p role="alert" className="movement-error">{error}</p>}
-      <div className="cash-denomination-total" aria-live="polite"><span>Subtotal detallado</span><strong>{money(total)}</strong></div>
-      <button type="button" className="text-button" disabled={!!error || total <= 0} onClick={() => onUseTotal(total)}>Usar este total como efectivo contado</button>
+      <div className="cash-denomination-total" aria-live="polite"><span>Total billetes</span><strong>{money(total)}</strong></div>
+      <button type="button" className="text-button" disabled={!!error || total <= 0} onClick={() => onUseTotal(total)}>Aplicar al efectivo contado</button>
     </fieldset>
   </div>;
 }

@@ -263,8 +263,10 @@ export function PosTab({
   }, [active]);
   const add = (p: KioscoProduct) => {
     if (busy || isLoading || !active) return;
+    if (p.pricingError) { notify('warning', `${p.name}: ${p.pricingError}`); return; }
     if (p.sellable === false) { notify('warning', 'Este producto es solo un insumo. Elegí el combo para venderlo.'); return; }
     const existing = cart.find((i) => i.product.id === p.id);
+    if (existing && existing.product.price !== p.price) { notify('warning', 'Cambió el precio de este producto. Revisá el carrito antes de agregar más unidades.'); return; }
     if (p.code !== "MANUAL" && (existing?.qty || 0) >= availableForCart(p, cart, products)) {
       notify("warning", "No alcanza el stock compartido para agregar otra unidad. Revisá los productos y combos del carrito.");
       return;
@@ -526,20 +528,20 @@ export function PosTab({
                     <button
                       key={p.id}
                       type="button"
-                      disabled={busy || availableForCart(p, cart, products) <= qty}
+                      disabled={busy || !!p.pricingError || availableForCart(p, cart, products) <= qty}
                       className={`pos-search-item ${qty ? "in-cart" : ""}`}
                       onClick={() => {
                         add(p);
                         setQuery("");
                       }}
-                      aria-label={`Agregar ${p.name}, ${money(p.price)}`}
+                      aria-label={p.pricingError ? `${p.name}: ${p.pricingError}` : `Agregar ${p.name}, ${money(p.price)}`}
                     >
                       <span className="pos-search-emoji">{p.emoji || "📦"}</span>
                       <div className="pos-search-info">
                         <strong>{p.name}</strong>
                         <small>{p.category} · {unitsPerPack(p.pack_size) > 1 ? formatPackStock(stockForSale(p), p.pack_size) : stockForSale(p) <= 0 ? "Sin stock" : `${stockForSale(p).toLocaleString('es-AR')} disp.`}{p.depotStock ? ` · ${p.depotStock.toLocaleString('es-AR')} en depósito` : ''}</small>
                       </div>
-                      <strong className="pos-search-price">{money(p.price)}</strong>
+                      <strong className="pos-search-price">{p.pricingError || money(p.price)}</strong>
                       <span className="add-product"><Plus size={16} /></span>
                     </button>
                   );

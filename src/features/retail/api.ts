@@ -9,6 +9,8 @@ import { movementDetails, VOUCHER_BUCKET, voucherExtension, voucherMimeType, vou
 import { REMITO_BUCKET, remitoExtension, remitoPath, remitoReference, type PendingReplenishment, type PendingReplenishmentItem } from './remitos';
 export type { PendingReplenishment, PendingReplenishmentItem } from './remitos';
 import type { Permission, PermissionProfile, StaffBaseRole } from './permissions';
+import type { BillingStatus, CondicionIva } from './billing';
+export type { BillingStatus, CondicionIva } from './billing';
 export type Role = "owner" | "admin" | "supervisor" | "cashier";
 export interface Store {
   id: string;
@@ -21,6 +23,13 @@ export interface Store {
   currency: string;
   low_margin_threshold?: number;
   depot_enabled?: boolean;
+  cuit?: string | null;
+  razon_social?: string | null;
+  condicion_iva?: CondicionIva | null;
+  punto_venta_afip?: number | null;
+  iibb?: string | null;
+  inicio_actividades?: string | null;
+  billing_enabled?: boolean;
 }
 export interface Category {
   id: string;
@@ -55,7 +64,12 @@ export interface StockTransfer {
   reviewed_by?: string | null;
   reviewed_at?: string | null;
 }
-export interface PriceList { id: string; store_id: string; name: string; adjustment: number; active: boolean; branch_id?: string | null }
+export interface PriceRule { scope: 'category' | 'brand' | 'product'; target: string; adjustment: number }
+export interface PriceList {
+  id: string; store_id: string; name: string; adjustment: number; active: boolean; branch_id?: string | null;
+  is_primary?: boolean;
+  base_kind?: 'cost' | 'catalog' | 'list'; parent_id?: string | null; pricing_rules?: PriceRule[]; revision?: number;
+}
 export interface PriceOverride { list_id: string; product_id: string; price: number }
 export interface SalesLedger { id: string; store_id: string; name: string; is_default: boolean; active: boolean; payment_methods?: import('../../types/kiosco').PaymentMethod[] }
 export interface SaleLedgerChange { id: string; from_name: string; to_name: string; changed_by: string; changed_at: string }
@@ -141,6 +155,13 @@ export interface SaleRow {
   ledger_id: string;
   ledger_name: string;
   invoice_reference: string | null;
+  cbte_tipo?: number | null;
+  cbte_nro?: number | null;
+  cae?: string | null;
+  cae_vto?: string | null;
+  billing_status?: BillingStatus;
+  billing_error?: string | null;
+  billing_attempts?: number;
   id: string;
   ticket_number: number;
   items: KioscoSale["items"];
@@ -161,6 +182,8 @@ export interface EanLookupResult {
 }
 export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
+  if (['PGRST202', 'PGRST204', '42703', '42P01'].includes(e?.code || '') && /retail_set_billing_settings|retail_update_sale_billing|billing_enabled|cuit|razon_social/.test(e.message || ''))
+    return 'Falta actualizar la configuración fiscal en la base. Aplicá schema.sql con la migración 202610260003_billing_fields.sql y reintentá. El borrador se conserva.';
   if (e?.code === 'PGRST202' && /retail_create_composite_product/.test(e.message || ''))
     return 'Falta actualizar la creación de combos. Aplicá schema.sql con 202610260002_create_composite_product.sql y reintentá. El borrador se conserva.';
   if (['PGRST202', 'PGRST204', 'PGRST205', '42703', '42P01'].includes(e?.code || '') && /retail_(?:set_depot|depot_)|depot_enabled/.test(e.message || ''))
@@ -196,6 +219,8 @@ export function errorMessage(error: unknown): string {
   if (e?.code === '23505' && e.message?.includes('retail_one_active_price_list_per_branch'))
     return 'Esta sucursal ya tiene una lista activa. Desactivala o cambiala a global antes de asignar otra.';
   if (e?.code === 'PGRST204' || e?.code === '42703') {
+    if (/sale_markup|is_primary/.test(e.message || ''))
+      return 'Falta actualizar la lista Principal en Supabase. Aplicá supabase/updates/202610270002_primary_product_markup.sql después de las actualizaciones anteriores y recargá los datos. El borrador se conserva.';
     if (e.message?.includes('margin_group'))
       return 'Falta actualizar la base de datos: ejecutá completa la migración 202610160004_margin_groups.sql en el SQL Editor de Supabase. Después, actualizá la pantalla y volvé a guardar. El producto no se guardó.';
     if (e.message?.includes('pack_size'))
@@ -253,6 +278,13 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   ledgerId: row.ledger_id,
   ledgerName: row.ledger_name,
   invoiceReference: row.invoice_reference,
+  cbteTipo: row.cbte_tipo ?? null,
+  cbteNro: row.cbte_nro ?? null,
+  cae: row.cae ?? null,
+  caeVto: row.cae_vto ?? null,
+  billingStatus: row.billing_status ?? 'none',
+  billingError: row.billing_error ?? null,
+  billingAttempts: row.billing_attempts ?? 0,
   id: row.id,
   ticketNumber: `T-${row.ticket_number}`,
   items: row.items,
@@ -330,17 +362,38 @@ const remoteRetail = {
     return result<{ branches: Branch[]; registers: Register[] }>(supabase.rpc('retail_management_locations', { p_store: store }));
   },
   async savePriceList(store: string, name: string, adjustment: number, id?: string, active = true, branchId?: string | null) {
-    const query = supabase.from('retail_price_lists');
-    const values = { name: name.trim(), adjustment, active, ...(branchId !== undefined ? { branch_id: branchId || null } : {}) };
-    return result(id ? query.update(values).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, ...values, branch_id: branchId || null }));
+    const previous = id ? await result<PriceList>(supabase.from('retail_price_lists').select('*').eq('store_id', store).eq('id', id).single()) : undefined;
+    const primary = previous ? undefined : await result<PriceList | null>(supabase.from('retail_price_lists').select('*').eq('store_id', store).eq('is_primary', true).maybeSingle());
+    if (!previous && !primary) throw new Error('Actualizá la lista Principal en Supabase antes de crear listas. El borrador se conserva.');
+    return result(supabase.rpc('retail_save_price_list_tree', {
+      p_store: store, p_id: id || randomUUID(), p_name: name.trim(), p_adjustment: adjustment, p_active: active,
+      p_branch: branchId === undefined ? previous?.branch_id || null : branchId || null,
+      p_base: previous?.base_kind || 'list', p_parent: previous?.parent_id || primary?.id || null,
+      p_rules: previous?.pricing_rules || [], p_revision: previous?.revision ?? 0,
+    }));
   },
   async savePriceOverride(store: string, list: string, product: string, price: number | null) {
-    const query = supabase.from('retail_price_overrides');
-    return result(price === null ? query.delete().eq('store_id', store).eq('list_id', list).eq('product_id', product) : query.upsert({ store_id: store, list_id: list, product_id: product, price }, { onConflict: 'list_id,product_id' }));
+    return result(supabase.rpc('retail_save_price_override', { p_store: store, p_list: list, p_product: product, p_price: price }));
+  },
+  async savePriceListTree(store: string, list: PriceList) {
+    const { data, error } = await supabase.rpc('retail_save_price_list_tree', {
+      p_store: store, p_id: list.id, p_name: list.name.trim(), p_adjustment: list.adjustment,
+      p_active: list.active, p_branch: list.branch_id || null, p_base: list.base_kind || 'catalog',
+      p_parent: list.parent_id || null, p_rules: list.pricing_rules || [], p_revision: list.revision ?? 0,
+    });
+    if (error?.code === 'PGRST202') throw new Error('Falta actualizar las listas en Supabase. Aplicá el schema preparado y volvé a guardar; el borrador se conserva.');
+    if (error) throw error;
+    return data as string;
   },
   async saveLedger(store: string, name: string, id?: string, active = true) {
     const query = supabase.from('retail_ledgers');
     return result(id ? query.update({ name: name.trim(), active }).eq('store_id', store).eq('id', id).select('id').single() : query.insert({ store_id: store, name: name.trim() }));
+  },
+  async deletePriceList(store: string, list: string, revision: number) {
+    const { data, error } = await supabase.rpc('retail_delete_price_list', { p_store: store, p_list: list, p_revision: revision });
+    if (error?.code === 'PGRST202') throw new Error('Falta actualizar la eliminación de listas en Supabase. Aplicá schema.sql y reintentá. La lista sigue disponible.');
+    if (error) throw error;
+    return data as string;
   },
   async saveLedgerRouting(store: string, defaultId: string, rules: Record<string, string>) {
     return result(supabase.rpc('retail_save_ledger_routing', { p_store: store, p_default: defaultId, p_rules: rules }));
@@ -426,6 +479,7 @@ const remoteRetail = {
       tags?: string[] | null;
       unit_type?: string | null;
       pack_size?: number | null;
+      sale_markup?: number | null;
       margin_group?: 'standard' | 'low_margin' | null;
       expiry_date?: string | null;
       last_restocked_at?: string | null;
@@ -471,6 +525,7 @@ const remoteRetail = {
       tags: Array.isArray(p.tags) ? p.tags : [],
       unitType: p.unit_type || "unit",
       pack_size: p.pack_size ?? null,
+      sale_markup: p.sale_markup == null ? null : Number(p.sale_markup),
       margin_group: p.margin_group ?? 'standard',
       expiry_date: p.expiry_date ?? null,
       last_restocked_at: p.last_restocked_at ?? null,
@@ -546,6 +601,7 @@ const remoteRetail = {
       code: p.code.trim(),
       name: p.name.trim(),
       price: p.price,
+      ...(p.sale_markup !== undefined ? { sale_markup: p.sale_markup } : {}),
       cost: p.cost,
       stock: hasComposition(p) ? 0 : p.stock,
       min_stock: p.minStock,
@@ -582,7 +638,11 @@ const remoteRetail = {
         .single(),
     );
   },
-  async createCompositeProduct(store: string, request: string, data: { name: string; code: string; price: number; categoryId: string; components: StockComponent[] }) {
+  async createCompositeProduct(store: string, request: string, data: { name: string; code: string; price: number; sale_markup?: number | null; categoryId: string; components: StockComponent[] }) {
+    if (data.sale_markup != null) {
+      const primary = await result<{ id: string } | null>(supabase.from('retail_price_lists').select('id').eq('store_id', store).eq('is_primary', true).maybeSingle());
+      if (!primary) throw new Error('Actualizá la lista Principal en Supabase antes de guardar un combo por porcentaje. El borrador se conserva.');
+    }
     return result<string>(supabase.rpc('retail_create_composite_product', { p_store: store, p_request: request, p_data: data }));
   },
   async archiveProduct(store: string, id: string, request?: { id: string; reason?: string; product?: Product }) {
@@ -680,6 +740,114 @@ const remoteRetail = {
   },
   async saveMarginThreshold(store: string, threshold: number, expected: number) {
     return result(supabase.rpc('retail_set_margin_threshold', { p_store: store, p_threshold: threshold, p_expected: expected }));
+  },
+  async saveBillingSettings(
+    store: string,
+    settings: {
+      cuit: string;
+      razon_social: string;
+      condicion_iva: CondicionIva;
+      punto_venta_afip: number;
+      iibb?: string | null;
+      inicio_actividades?: string | null;
+      billing_enabled: boolean;
+    },
+  ) {
+    return result(
+      supabase.rpc('retail_set_billing_settings', {
+        p_store: store,
+        p_cuit: settings.cuit,
+        p_razon_social: settings.razon_social,
+        p_condicion_iva: settings.condicion_iva,
+        p_punto_venta_afip: settings.punto_venta_afip,
+        p_iibb: settings.iibb || null,
+        p_inicio_actividades: settings.inicio_actividades || null,
+        p_billing_enabled: settings.billing_enabled,
+      }),
+    );
+  },
+  async updateSaleBilling(
+    store: string,
+    saleId: string,
+    status: BillingStatus,
+    details?: {
+      cbte_tipo?: number;
+      cbte_nro?: number;
+      cae?: string;
+      cae_vto?: string;
+      error?: string;
+    },
+  ) {
+    const params: Record<string, unknown> = {
+      p_store: store,
+      p_sale: saleId,
+      p_status: status,
+    };
+    if (details?.cbte_tipo != null) params.p_cbte_tipo = details.cbte_tipo;
+    if (details?.cbte_nro != null) params.p_cbte_nro = details.cbte_nro;
+    if (details?.cae != null) params.p_cae = details.cae;
+    if (details?.cae_vto != null) params.p_cae_vto = details.cae_vto;
+    if (details?.error != null) params.p_error = details.error;
+
+    return result(supabase.rpc('retail_update_sale_billing', params));
+  },
+  async setBillingCredentials(
+    store: string,
+    cert: string,
+    key: string,
+    environment: 'homo' | 'prod' = 'homo',
+  ) {
+    return result(
+      supabase.rpc('retail_set_billing_credentials', {
+        p_store: store,
+        p_cert: cert,
+        p_key: key,
+        p_environment: environment,
+      }),
+    );
+  },
+  async getBillingCredentialsStatus(
+    store: string,
+  ): Promise<{ configured: boolean; environment?: 'homo' | 'prod'; updated_at?: string | null }> {
+    return result(
+      supabase.rpc('retail_get_billing_credentials_status', {
+        p_store: store,
+      }),
+    );
+  },
+  async testBillingConnection(
+    store: string,
+  ): Promise<{ success: boolean; message?: string; environment?: string; puntoVenta?: number; ultimoComprobante?: number; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('billing-authorize', {
+      body: {
+        storeId: store,
+        action: 'test_connection',
+      },
+    });
+    if (error) {
+      throw new Error(error.message || 'Error al conectar con el servicio de comprobación de ARCA');
+    }
+    return data;
+  },
+  async generateBillingCsr(
+    store: string,
+    cuit: string,
+    razonSocial: string,
+    alias = 'kiosco_pos',
+  ): Promise<{ success: boolean; privateKey: string; csr: string; error?: string }> {
+    const { data, error } = await supabase.functions.invoke('billing-authorize', {
+      body: {
+        storeId: store,
+        action: 'generate_csr',
+        cuit,
+        razonSocial,
+        alias,
+      },
+    });
+    if (error) {
+      throw new Error(error.message || 'Error al generar pedido de certificado en backend');
+    }
+    return data;
   },
   async updateStore(
     store: string,

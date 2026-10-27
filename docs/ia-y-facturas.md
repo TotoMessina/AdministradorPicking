@@ -2,11 +2,40 @@
 
 Guía vigente consolidada. Los nombres de migraciones indican dependencias, no el estado remoto: usar [schema y su historial](../SUPABASE_SETUP.md), sin repetir archivos individuales. Las Guías de Pruebas son recorridos manuales en **http://localhost:3001/**; no acreditan pruebas ejecutadas.
 
+- [Lectura de facturas](#lectura-de-facturas)
 - [Memoria de proveedor](#memoria-de-proveedor)
 - [Propuestas de precios](#propuestas-de-precios)
 - [Alertas operativas](#alertas-operativas)
 - [Predicción de stock](#prediccion-de-stock)
 - [Capital inmovilizado](#capital-inmovilizado)
+
+## Lectura de facturas
+
+**Productos → Más herramientas → Importar factura de compra** mantiene la lectura local con Tesseract y el análisis voluntario con Groq. Subir una imagen no modifica productos ni stock. El modelo general y la configuración por entorno se conservan; no se agrega otro proveedor de IA ni dependencias.
+
+La lectura conserva proporciones de fotos y tickets largos, limita el tamaño total del lienzo y evita una compresión JPEG adicional. Si el primer OCR tiene poco texto o baja confianza, compara otra distribución de columnas. La limpieza conserva cantidades/códigos aislados y productos con «Original» en el nombre. Los PDF escaneados se leen página por página a resolución propia, en lugar de usar solo la miniatura de la primera. Si no puede leer una página, informa cuál y no presenta un documento parcial como completo.
+
+**Volver a leer**, **Girar 90° y leer**, **Ver / editar texto detectado** y **Restaurar texto original** permiten corregir la fuente antes de analizar. Una lectura de baja confianza avisa que se revisen cantidades y costos; no garantiza exactitud. Fallar al subir otro archivo conserva el texto anterior y exige revisarlo o volver a leer antes de analizarlo. HEIC no decodificable pide exportar a JPG/PNG/WEBP. Cargar el motor/idioma puede requerir conexión; Groq y la aplicación al catálogo siguen necesitando los servicios habituales.
+
+El mensaje anterior «No se pudieron extraer productos…» mezclaba una lista vacía con JSON inválido/truncado. La extracción se divide ahora en partes de hasta 20 líneas (también acotadas por caracteres), con hasta 4.200 tokens de salida por solicitud en lugar de 1.400 para todo el documento. Los resultados completados se conservan en memoria de ese editor para reintentar; cerrar/recargar no promete conservar esa caché. No se deduplican renglones repetidos legítimos ni se inventan costos. Los importes JSON o texto argentino como `1.234,50` se normalizan; los importes ilegibles quedan pendientes de completar. Una cantidad explícita ilegible no se reemplaza por una unidad válida. La revisión manual sigue siendo necesaria, especialmente si un producto ocupa varias líneas o las columnas se leen fuera de orden.
+
+Respuesta inválida, lista vacía, límite de Groq y espera agotada tienen mensajes distintos y abren el texto detectado. Una parte que tarda más de 45 segundos se cancela para reintentar. El límite muestra una espera orientativa y requiere una acción del usuario para volver a consultar: no reinicia solicitudes por sí solo. Doble clic no inicia dos análisis. Cerrar el editor cancela la extracción generativa activa e ignora resultados tardíos; el OCR local ya iniciado termina y libera su worker.
+
+Si no se detectó proveedor, **Confirmar vínculo** confirma solo para esa factura, sin inventar proveedor ni guardar un alias. Con proveedor, **Confirmar y recordar** conserva la memoria compartida existente. Antes de aplicar, cantidades enteras, costos pendientes y costos positivos requeridos por productos con precio automático se validan con mensajes accionables. Elegir Solo Stock mantiene la alternativa cuando no corresponde actualizar costo. No se modifican las fórmulas de bultos, el servicio ni el panel de propuestas de precios, las reglas de stock ni los permisos del backend. No se prepara SQL para este ajuste.
+
+### Guía de Pruebas — lectura, pendiente manual
+
+En **http://localhost:3001/**, con un comercio de pruebas:
+
+1. Subir la foto que mostraba el error → conserva imagen/texto, permite analizar y diferencia respuesta inválida de ausencia de productos. Comparar cada renglón, código, cantidad, presentación y costo con el original antes de aplicar; esta factura concreta aún no fue comprobada.
+2. Foto lateral y ticket largo → Girar 90° y leer / Volver a leer no duplica productos ni stock; las cantidades aisladas y un producto llamado Original no desaparecen por limpieza. Restaurar texto recupera la lectura sin limpiar. Si la foto no es legible, permite corregir o pegar texto y muestra un aviso.
+3. Factura de más de 20 renglones y PDF escaneado de varias páginas → muestra progreso por partes/páginas y revisar incluye los renglones leídos; no omite páginas por usar la miniatura. Mantener renglones iguales repetidos y revisar una descripción dividida entre partes.
+4. En un entorno de prueba, provocar límite, pérdida de red o respuesta JSON incompleta → error específico, texto conservado y ninguna escritura. Al reintentar reutiliza partes válidas; esperar el contador no envía consultas. Doble clic no dispara solicitudes simultáneas. Cerrar durante análisis no cambia otra pantalla al llegar la respuesta.
+5. Proveedor no detectado → elegir producto y Confirmar vínculo habilita la revisión sin guardar alias. Completar proveedor y confirmar de nuevo permite recordarlo. Un costo no detectado exige completarlo para alta/costo, pero permite Solo Stock; cantidades inválidas no llegan al backend como una unidad inventada.
+6. Revisar bulto de 24, cantidad 2 y costo por bulto 4.800 → 48 unidades, costo unitario 200, sin segunda división. Confirmar/omitir vínculos y aplicar solo en datos de prueba → se mantiene el flujo de reposición y las propuestas de precios. Cajero sin permisos no adquiere acceso a importación.
+7. En móvil y con teclado: Elegir archivo, controles de lectura, edición del texto y errores alcanzables. Revisar foco y movimiento reducido, sin cubrir acciones con otro diálogo.
+
+Verificación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sin errores. No se ejecutaron builds ni otras pruebas automatizadas. Pendientes: factura concreta, navegador, móvil, Groq/Tesseract reales, escritura/permisos y backend; no se realizaron reposiciones de prueba ni evaluación con personas.
 
 <a id="memoria-de-proveedor"></a>
 

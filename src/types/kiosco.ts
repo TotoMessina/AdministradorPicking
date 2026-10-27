@@ -11,6 +11,8 @@ export interface KioscoProduct {
   name: string; // Descripción comercial
   category: KioscoCategory;
   price: number; // Precio de venta final al público
+  sale_markup?: number | null; // Aumento porcentual sobre costo en la lista Principal; null conserva precio manual.
+  pricingError?: string; // Missing cost/configuration: never substitute a fabricated sale price.
   cost?: number; // Costo de compra mayorista
   sellable?: boolean; // false: insumo con stock, no se vende directamente
   stock: number; // Total físico; en compuestos, disponibilidad calculada.
@@ -53,6 +55,13 @@ export interface KioscoSale {
   ledgerId?: string;
   ledgerName?: string;
   invoiceReference?: string | null;
+  cbteTipo?: number | null;
+  cbteNro?: number | null;
+  cae?: string | null;
+  caeVto?: string | null;
+  billingStatus?: 'none' | 'pending' | 'authorized' | 'error' | 'retry';
+  billingError?: string | null;
+  billingAttempts?: number;
   id: string;
   ticketNumber: string; // Ej: "T-0042"
   storeName?: string;

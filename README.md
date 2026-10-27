@@ -1,12 +1,12 @@
-﻿# AdministradorKiosco
+# AdministradorKiosco
 
-Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caja, catálogo, stock compartido por comercio, sucursales y permisos efectivos en backend. Los tickets no son facturas fiscales.
+Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caja, catálogo, stock compartido por comercio, sucursales y permisos efectivos en backend. Emisión optativa de comprobantes fiscales electrónicos ARCA (ex AFIP) con CAE y QR oficial.
 
 ## Empezar
 
 1. Instalar dependencias con `npm install`.
 2. Completar `.env.local` desde `.env.example`, sin claves privadas ni `service_role`.
-3. Seguir [Instalación de Supabase](SUPABASE_SETUP.md). El punto único de SQL es [supabase/schema.sql](supabase/schema.sql).
+3. Seguir [Instalación de Supabase](SUPABASE_SETUP.md). El instalador completo es [supabase/schema.sql](supabase/schema.sql); para la base conciliada está la [actualización en cinco archivos pequeños](SUPABASE_SETUP.md#actualización-individual-después-de-conciliar-34-migraciones).
 4. Usar `npm run dev` y abrir http://localhost:3001/ si ese es el puerto disponible. No reiniciar un servidor ya abierto sin necesidad.
 
 ## Documentación vigente
@@ -16,7 +16,7 @@ Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caj
 | Reglas de trabajo y preferencias | [.agents/rules/directrices_trabajo.md](.agents/rules/directrices_trabajo.md) |
 | Instalación, historial y actualización SQL | [SUPABASE_SETUP.md](SUPABASE_SETUP.md) |
 | Productos, insumos, combos, bultos, margen, categorías y bajas | [Productos y stock](docs/productos-y-stock.md) |
-| Inicio guiado, Mi comercio, equipo y perfiles | [Administración](docs/administracion.md) |
+| Inicio guiado, Mi comercio, datos fiscales ARCA, equipo y perfiles | [Administración](docs/administracion.md) |
 | Registros, listas, retiros, remitos y transferencias | [Operación y mercadería](docs/operacion-y-mercaderia.md) |
 | Memoria del proveedor, propuestas de precios y análisis locales | [IA y facturas](docs/ia-y-facturas.md) |
 | Caja preparada y sincronización | [OFFLINE_POS.md](OFFLINE_POS.md) |

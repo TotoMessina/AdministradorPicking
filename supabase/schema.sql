@@ -7,64 +7,228 @@
 -- al agregar archivos. Para otro entorno, revisar o vaciar antes de ejecutar.
 -- Una base existente sin historial ni baseline se rechaza ANTES de aplicar cambios.
 -- Reejecuciones omiten migraciones registradas y verifican su SHA-256.
+-- Cada cuerpo se ejecuta con LF, incluso si el editor/portapapeles introduce CRLF.
+-- Un único DO contiene manifiesto, comprobaciones y pasos: no usa tablas temporales.
 -- No incluye maintenance/, tests/, ni push-schedule.sql (requiere Vault y despliegue).
 -- Este archivo no fue ejecutado contra Supabase durante su preparación.
-begin;
-select pg_advisory_xact_lock(hashtextextended('administrador-kiosco:schema',0));
-select set_config('retail.schema_baseline', '202610230002_ingredients_and_composition_costs.sql', true);
-
-create schema if not exists retail_private;
-create table if not exists retail_private.schema_migrations (
- filename text primary key,
- sha256 text not null check(length(sha256)=64),
- origin text not null check(origin in ('schema','adopted')),
- registered_at timestamptz not null default now()
-);
-revoke all on retail_private.schema_migrations from public,anon,authenticated;
-create temporary table retail_schema_manifest (
- ordinal integer primary key, filename text unique not null, sha256 text not null
-) on commit drop;
-insert into retail_schema_manifest(ordinal,filename,sha256) values
- (1,'202610010001_retail_multistore.sql','f24b734005cc1623cbeb235dd0436522445fce6501ec73999528a8f745ed1cb9'),
- (2,'202610020001_catalog_global_and_segmentation.sql','bca9c54fa75c2a8940b4f28c76aaab415b1740330c2a4a334dad2fef5beca292'),
- (3,'202610070001_harden_global_catalog_immutability.sql','f3ff59ec39b6e5744cb059f242cfdaf0c234f1ab34c4bae2ec93ca10f13594f5'),
- (4,'202610130001_branches_prices_ledgers.sql','e86fe143f886cd858443bde5917d43095126a4beca788c866f2589bcee94509b'),
- (5,'202610140001_web_push.sql','918efe9a5d3313e3dc695430c93c0c035acdf97f9b20fcc4c387b444a8737964'),
- (6,'202610150001_cashier_access.sql','a30006ceabfa2ca5abd0116ddf06f3f79d042bae913fd59c25efb5a918a83017'),
- (7,'202610160001_offline_pos.sql','770c916876fcdabf64104718e442e7b424f343e6787bfc742c4164cccf435313'),
- (8,'202610160002_offline_queue.sql','ffb2f924480094f8255c3bd1105ac834381678058bb65ff6e63ec433b4710ab0'),
- (9,'202610160003_pack_size.sql','e8f486a53e3699543bb33b819986d3e96c57bbfb112cb039428e534507228c6b'),
- (10,'202610160004_margin_groups.sql','8a5790ed3a1371e6c0aa57f46b68b2fe0af74efd79a3650cfa7ced54b876cc86'),
- (11,'202610160005_branch_price_rules.sql','7899d29739b25999d24e879b18ed53f8794628fe852743c7916b46d4db5b16e1'),
- (12,'202610190001_justified_withdrawal.sql','029b5843eacab94f78439fd8f13da846c46e7729f376e1f314286e1f20a14fa9'),
- (13,'202610190001_store_onboarding.sql','e5b8362448949bceec6db8607ab80a30285230317f319875eb6d9a2f1d47f09c'),
- (14,'202610190002_pending_replenishments.sql','3ddd179e5609126a264e696cd293909008bf4dd1acc06a8bb409c248ba5ab707'),
- (15,'202610190003_stock_transfers.sql','cab05c3785465fba81273dddaad52130c14a8c6c42fb63ed53f476416d53a4be'),
- (16,'202610200001_supplier_mappings.sql','d4841853f82adbd4e881feb1bdf3f525d76a12121e152b54257f8eaf9a81611c'),
- (17,'202610200002_supplier_alias_usage.sql','1adc3ce4519abbb20c3436578bff8de5d9111f08abda7e198639468bd77e15c4'),
- (18,'202610200003_product_expiry.sql','77d1f8c0f62da28481839205c638d09ab8586267acd2b86fb97f44c812072a87'),
- (19,'202610210001_ledger_routing.sql','f19dc026535013c80519da077ca4de832b6706cf7e885ffbc1b0e31185591d7e'),
- (20,'202610210002_staff_profiles.sql','ca6e73c2c8993bc2390e2f91d48e9a0d82e60e3ae1be9613297f6ba667809a0e'),
- (21,'202610210003_ledger_lock_order.sql','b9f318a08145ad1e1734c2afe5fc1ff04402666a69869aa0f27c4dee2abb5124'),
- (22,'202610210004_delegated_catalog_actions.sql','bcfa6664c406dd0074ba93d0bbb367c1c212c5e9285e703583616519f163628e'),
- (23,'202610220001_product_compositions.sql','ef088735e7a849006d0960d0e16decd98e257bb432da68ebd2e0d02618f93c84'),
- (24,'202610220002_loose_cigarettes.sql','e943d579b3d7ed4e77e96ffc6c26125f7ccb84ca09dcb9a09a7dde87ed147bad'),
- (25,'202610220003_product_deletion_history.sql','458a93d670539dd4bfd36c3f8b4aff69042989aafdea80511ced58e6d5a3f9b7'),
- (26,'202610220004_standard_categories.sql','85e889e22c9dcc559736c4af21b9cf7bc0205cbd1ff940ed00ff9d38f481fd13'),
- (27,'202610220005_category_labels.sql','e975aa6c462d6ee5492edbb36b1ed523a410c634658f8ad36fd24fe18a218f99'),
- (28,'202610220006_complete_permission_profiles.sql','913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5'),
- (29,'202610230001_automatic_margin_groups.sql','6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2'),
- (30,'202610230002_ingredients_and_composition_costs.sql','86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb'),
- (31,'202610240001_shift_closing_details.sql','d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759'),
- (32,'202610260001_optional_depot.sql','f221d19fcff7ac881cdbeefc3d3546e625c464872038afb8b69d5491e90b1f5a'),
- (33,'202610260002_create_composite_product.sql','2e23fbafc73e0b697b607cae3b0587c9a709f13e4882b3a8ce244530eabb60a4');
-
-do $retail_bootstrap$
-declare baseline text:=current_setting('retail.schema_baseline'); boundary integer; conflict text;
+do $retail_install$
+declare
+ manifest jsonb := $retail_schema_manifest_json$
+[
+ {
+  "ordinal": 1,
+  "filename": "202610010001_retail_multistore.sql",
+  "sha256": "f24b734005cc1623cbeb235dd0436522445fce6501ec73999528a8f745ed1cb9"
+ },
+ {
+  "ordinal": 2,
+  "filename": "202610020001_catalog_global_and_segmentation.sql",
+  "sha256": "bca9c54fa75c2a8940b4f28c76aaab415b1740330c2a4a334dad2fef5beca292"
+ },
+ {
+  "ordinal": 3,
+  "filename": "202610070001_harden_global_catalog_immutability.sql",
+  "sha256": "f3ff59ec39b6e5744cb059f242cfdaf0c234f1ab34c4bae2ec93ca10f13594f5"
+ },
+ {
+  "ordinal": 4,
+  "filename": "202610130001_branches_prices_ledgers.sql",
+  "sha256": "e86fe143f886cd858443bde5917d43095126a4beca788c866f2589bcee94509b"
+ },
+ {
+  "ordinal": 5,
+  "filename": "202610140001_web_push.sql",
+  "sha256": "918efe9a5d3313e3dc695430c93c0c035acdf97f9b20fcc4c387b444a8737964"
+ },
+ {
+  "ordinal": 6,
+  "filename": "202610150001_cashier_access.sql",
+  "sha256": "a30006ceabfa2ca5abd0116ddf06f3f79d042bae913fd59c25efb5a918a83017"
+ },
+ {
+  "ordinal": 7,
+  "filename": "202610160001_offline_pos.sql",
+  "sha256": "770c916876fcdabf64104718e442e7b424f343e6787bfc742c4164cccf435313"
+ },
+ {
+  "ordinal": 8,
+  "filename": "202610160002_offline_queue.sql",
+  "sha256": "ffb2f924480094f8255c3bd1105ac834381678058bb65ff6e63ec433b4710ab0"
+ },
+ {
+  "ordinal": 9,
+  "filename": "202610160003_pack_size.sql",
+  "sha256": "e8f486a53e3699543bb33b819986d3e96c57bbfb112cb039428e534507228c6b"
+ },
+ {
+  "ordinal": 10,
+  "filename": "202610160004_margin_groups.sql",
+  "sha256": "8a5790ed3a1371e6c0aa57f46b68b2fe0af74efd79a3650cfa7ced54b876cc86"
+ },
+ {
+  "ordinal": 11,
+  "filename": "202610160005_branch_price_rules.sql",
+  "sha256": "7899d29739b25999d24e879b18ed53f8794628fe852743c7916b46d4db5b16e1"
+ },
+ {
+  "ordinal": 12,
+  "filename": "202610190001_justified_withdrawal.sql",
+  "sha256": "029b5843eacab94f78439fd8f13da846c46e7729f376e1f314286e1f20a14fa9"
+ },
+ {
+  "ordinal": 13,
+  "filename": "202610190001_store_onboarding.sql",
+  "sha256": "e5b8362448949bceec6db8607ab80a30285230317f319875eb6d9a2f1d47f09c"
+ },
+ {
+  "ordinal": 14,
+  "filename": "202610190002_pending_replenishments.sql",
+  "sha256": "3ddd179e5609126a264e696cd293909008bf4dd1acc06a8bb409c248ba5ab707"
+ },
+ {
+  "ordinal": 15,
+  "filename": "202610190003_stock_transfers.sql",
+  "sha256": "cab05c3785465fba81273dddaad52130c14a8c6c42fb63ed53f476416d53a4be"
+ },
+ {
+  "ordinal": 16,
+  "filename": "202610200001_supplier_mappings.sql",
+  "sha256": "d4841853f82adbd4e881feb1bdf3f525d76a12121e152b54257f8eaf9a81611c"
+ },
+ {
+  "ordinal": 17,
+  "filename": "202610200002_supplier_alias_usage.sql",
+  "sha256": "1adc3ce4519abbb20c3436578bff8de5d9111f08abda7e198639468bd77e15c4"
+ },
+ {
+  "ordinal": 18,
+  "filename": "202610200003_product_expiry.sql",
+  "sha256": "77d1f8c0f62da28481839205c638d09ab8586267acd2b86fb97f44c812072a87"
+ },
+ {
+  "ordinal": 19,
+  "filename": "202610210001_ledger_routing.sql",
+  "sha256": "f19dc026535013c80519da077ca4de832b6706cf7e885ffbc1b0e31185591d7e"
+ },
+ {
+  "ordinal": 20,
+  "filename": "202610210002_staff_profiles.sql",
+  "sha256": "ca6e73c2c8993bc2390e2f91d48e9a0d82e60e3ae1be9613297f6ba667809a0e"
+ },
+ {
+  "ordinal": 21,
+  "filename": "202610210003_ledger_lock_order.sql",
+  "sha256": "b9f318a08145ad1e1734c2afe5fc1ff04402666a69869aa0f27c4dee2abb5124"
+ },
+ {
+  "ordinal": 22,
+  "filename": "202610210004_delegated_catalog_actions.sql",
+  "sha256": "bcfa6664c406dd0074ba93d0bbb367c1c212c5e9285e703583616519f163628e"
+ },
+ {
+  "ordinal": 23,
+  "filename": "202610220001_product_compositions.sql",
+  "sha256": "ef088735e7a849006d0960d0e16decd98e257bb432da68ebd2e0d02618f93c84"
+ },
+ {
+  "ordinal": 24,
+  "filename": "202610220002_loose_cigarettes.sql",
+  "sha256": "e943d579b3d7ed4e77e96ffc6c26125f7ccb84ca09dcb9a09a7dde87ed147bad"
+ },
+ {
+  "ordinal": 25,
+  "filename": "202610220003_product_deletion_history.sql",
+  "sha256": "458a93d670539dd4bfd36c3f8b4aff69042989aafdea80511ced58e6d5a3f9b7"
+ },
+ {
+  "ordinal": 26,
+  "filename": "202610220004_standard_categories.sql",
+  "sha256": "85e889e22c9dcc559736c4af21b9cf7bc0205cbd1ff940ed00ff9d38f481fd13"
+ },
+ {
+  "ordinal": 27,
+  "filename": "202610220005_category_labels.sql",
+  "sha256": "e975aa6c462d6ee5492edbb36b1ed523a410c634658f8ad36fd24fe18a218f99"
+ },
+ {
+  "ordinal": 28,
+  "filename": "202610220006_complete_permission_profiles.sql",
+  "sha256": "913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5"
+ },
+ {
+  "ordinal": 29,
+  "filename": "202610230001_automatic_margin_groups.sql",
+  "sha256": "6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2"
+ },
+ {
+  "ordinal": 30,
+  "filename": "202610230002_ingredients_and_composition_costs.sql",
+  "sha256": "86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb"
+ },
+ {
+  "ordinal": 31,
+  "filename": "202610240001_shift_closing_details.sql",
+  "sha256": "d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759"
+ },
+ {
+  "ordinal": 32,
+  "filename": "202610260001_optional_depot.sql",
+  "sha256": "f221d19fcff7ac881cdbeefc3d3546e625c464872038afb8b69d5491e90b1f5a"
+ },
+ {
+  "ordinal": 33,
+  "filename": "202610260002_create_composite_product.sql",
+  "sha256": "2e23fbafc73e0b697b607cae3b0587c9a709f13e4882b3a8ce244530eabb60a4"
+ },
+ {
+  "ordinal": 34,
+  "filename": "202610260003_billing_fields.sql",
+  "sha256": "2a42b0a16de6707616bf9ca85fc249a83f55ee6b5976299b51197573391e6cd3"
+ },
+ {
+  "ordinal": 35,
+  "filename": "202610260004_price_list_tree.sql",
+  "sha256": "bb77060967eec30f15a7befb20989890ac312c90f76e002656fa6dfada36bf36"
+ },
+ {
+  "ordinal": 36,
+  "filename": "202610260005_delete_price_lists.sql",
+  "sha256": "540fb2b7146a1f68e89f462f43305d58798953d156be4e62e6944f0edccd2a69"
+ },
+ {
+  "ordinal": 37,
+  "filename": "202610260006_billing_update_robustness.sql",
+  "sha256": "97469041ab94b975ce569c26fb60b2aba78d9f8a94c4c13a5567c47f14c576f2"
+ },
+ {
+  "ordinal": 38,
+  "filename": "202610270001_store_billing_credentials.sql",
+  "sha256": "5c5d202e9b94464428e5417696fbc782491a023ad726f772b5693436ba16b9cb"
+ },
+ {
+  "ordinal": 39,
+  "filename": "202610270002_primary_product_markup.sql",
+  "sha256": "d9e8f398d415af14d4bc1235f3d2023f755cc62ad7879aa3b257794f756e6a02"
+ }
+]
+$retail_schema_manifest_json$::jsonb;
+ baseline text; boundary integer; conflict text;
  existing_installation boolean;
 begin
+ perform pg_advisory_xact_lock(hashtextextended('administrador-kiosco:schema',0));
+ perform set_config('retail.schema_baseline', '202610230002_ingredients_and_composition_costs.sql', true);
+ baseline:=current_setting('retail.schema_baseline');
+ create schema if not exists retail_private;
+ create table if not exists retail_private.schema_migrations (
+  filename text primary key,
+  sha256 text not null check(length(sha256)=64),
+  origin text not null check(origin in ('schema','adopted')),
+  registered_at timestamptz not null default now()
+ );
+ revoke all on retail_private.schema_migrations from public,anon,authenticated;
+
  if baseline<>'' then
-  select ordinal into boundary from retail_schema_manifest where filename=baseline;
+  select ordinal into boundary from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) where filename=baseline;
   if boundary is null then raise exception 'Baseline desconocido: %. Usá el nombre completo de una migración del manifiesto',baseline; end if;
  end if;
  select exists(select 1 from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
@@ -82,33 +246,29 @@ begin
    end if;
    -- Explicit operator declaration, NOT an inference from columns or row counts.
    insert into retail_private.schema_migrations(filename,sha256,origin)
-    select filename,sha256,'adopted' from retail_schema_manifest where ordinal<=boundary;
+    select filename,sha256,'adopted' from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) where ordinal<=boundary;
    raise notice 'Adoptadas % migraciones hasta %. Esta fecha registra la adopción, no su ejecución original',boundary,baseline;
   end if;
- elsif baseline<>'' and exists(select 1 from retail_schema_manifest m where m.ordinal<=boundary
+ elsif baseline<>'' and exists(select 1 from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) where m.ordinal<=boundary
   and not exists(select 1 from retail_private.schema_migrations h where h.filename=m.filename)) then
   raise exception 'La base ya tiene historial. No se permite ampliar baseline para saltar migraciones pendientes';
  end if;
  select h.filename into conflict from retail_private.schema_migrations h
-  left join retail_schema_manifest m on m.filename=h.filename
+  left join jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) on m.filename=h.filename
   where m.filename is null or m.sha256<>h.sha256 limit 1;
  if conflict is not null then
   raise exception 'El historial no coincide con este schema: %. No se aplicó ningún cambio. No editar migraciones registradas; preparar una nueva o usar la versión correcta del repositorio',conflict;
  end if;
- if exists(select 1 from retail_schema_manifest m join retail_private.schema_migrations h using(filename)
-  where exists(select 1 from retail_schema_manifest previous where previous.ordinal<m.ordinal
+ if exists(select 1 from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) join retail_private.schema_migrations h using(filename)
+  where exists(select 1 from jsonb_to_recordset(manifest) previous(ordinal integer,filename text,sha256 text) where previous.ordinal<m.ordinal
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
-end;
-$retail_bootstrap$;
-
--- 1/33: 202610010001_retail_multistore.sql
-do $retail_step_1$
+-- 1/39: 202610010001_retail_multistore.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
   raise notice 'Aplicando 202610010001_retail_multistore.sql';
-  execute $retail_source_f24b734005cc1623$
+  execute replace($retail_source_f24b734005cc1623$
 create schema if not exists retail_private;
 revoke all on schema retail_private from public;
 grant usage on schema retail_private to authenticated;
@@ -335,19 +495,17 @@ end $$;
 
 revoke all on function public.retail_create_store(text),public.retail_accept_invitations(),public.retail_open_shift(uuid,uuid,numeric),public.retail_checkout(uuid,uuid,text,numeric,jsonb),public.retail_add_movement(uuid,text,numeric,text,uuid),public.retail_close_shift(uuid,numeric) from public,anon;
 grant execute on function public.retail_create_store(text),public.retail_accept_invitations(),public.retail_open_shift(uuid,uuid,numeric),public.retail_checkout(uuid,uuid,text,numeric,jsonb),public.retail_add_movement(uuid,text,numeric,text,uuid),public.retail_close_shift(uuid,numeric) to authenticated;
-$retail_source_f24b734005cc1623$;
+$retail_source_f24b734005cc1623$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610010001_retail_multistore.sql','f24b734005cc1623cbeb235dd0436522445fce6501ec73999528a8f745ed1cb9','schema');
  end if;
 end;
-$retail_step_1$;
 
--- 2/33: 202610020001_catalog_global_and_segmentation.sql
-do $retail_step_2$
+-- 2/39: 202610020001_catalog_global_and_segmentation.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
   raise notice 'Aplicando 202610020001_catalog_global_and_segmentation.sql';
-  execute $retail_source_bca9c54fa75c2a89$
+  execute replace($retail_source_bca9c54fa75c2a89$
 -- ==============================================================================
 -- 1. FUNCIÓN AUXILIAR: Actualización automática de timestamp (updated_at)
 -- ==============================================================================
@@ -627,19 +785,17 @@ grant execute on function public.retail_contribute_catalog(text, text, text, tex
 -- Notificar a PostgREST para recargar la caché de esquemas inmediatamente
 notify pgrst, 'reload schema';
 
-$retail_source_bca9c54fa75c2a89$;
+$retail_source_bca9c54fa75c2a89$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610020001_catalog_global_and_segmentation.sql','bca9c54fa75c2a8940b4f28c76aaab415b1740330c2a4a334dad2fef5beca292','schema');
  end if;
 end;
-$retail_step_2$;
 
--- 3/33: 202610070001_harden_global_catalog_immutability.sql
-do $retail_step_3$
+-- 3/39: 202610070001_harden_global_catalog_immutability.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
   raise notice 'Aplicando 202610070001_harden_global_catalog_immutability.sql';
-  execute $retail_source_f3ff59ec39b6e574$
+  execute replace($retail_source_f3ff59ec39b6e574$
 create or replace function public.retail_contribute_catalog(
   p_code text,
   p_name text,
@@ -726,19 +882,17 @@ $$;
 revoke all on function public.retail_contribute_catalog(text, text, text, text, text, text) from public;
 grant execute on function public.retail_contribute_catalog(text, text, text, text, text, text) to authenticated;
 
-$retail_source_f3ff59ec39b6e574$;
+$retail_source_f3ff59ec39b6e574$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610070001_harden_global_catalog_immutability.sql','f3ff59ec39b6e5744cb059f242cfdaf0c234f1ab34c4bae2ec93ca10f13594f5','schema');
  end if;
 end;
-$retail_step_3$;
 
--- 4/33: 202610130001_branches_prices_ledgers.sql
-do $retail_step_4$
+-- 4/39: 202610130001_branches_prices_ledgers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
   raise notice 'Aplicando 202610130001_branches_prices_ledgers.sql';
-  execute $retail_source_e86fe143f886cd85$
+  execute replace($retail_source_e86fe143f886cd85$
 create table public.retail_branches (
  id uuid primary key default gen_random_uuid(), store_id uuid not null references public.retail_stores(id),
  name text not null check(length(trim(name)) between 1 and 80), address text not null default '',
@@ -923,19 +1077,17 @@ begin
 end $$;
 revoke all on function public.retail_update_prices(uuid,jsonb) from public,anon;
 grant execute on function public.retail_update_prices(uuid,jsonb) to authenticated;
-$retail_source_e86fe143f886cd85$;
+$retail_source_e86fe143f886cd85$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610130001_branches_prices_ledgers.sql','e86fe143f886cd858443bde5917d43095126a4beca788c866f2589bcee94509b','schema');
  end if;
 end;
-$retail_step_4$;
 
--- 5/33: 202610140001_web_push.sql
-do $retail_step_5$
+-- 5/39: 202610140001_web_push.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
   raise notice 'Aplicando 202610140001_web_push.sql';
-  execute $retail_source_918efe9a5d3313e3$
+  execute replace($retail_source_918efe9a5d3313e3$
 create table public.retail_push_subscriptions (
  id uuid primary key default gen_random_uuid(),
  user_id uuid not null references auth.users(id) on delete cascade,
@@ -1071,19 +1223,17 @@ revoke all on function public.retail_save_push(uuid,text,text,text,boolean,boole
 grant execute on function public.retail_save_push(uuid,text,text,text,boolean,boolean),public.retail_remove_push(text),
  public.retail_request_push_test(uuid,text) to authenticated;
 grant execute on function public.retail_claim_push(uuid) to service_role;
-$retail_source_918efe9a5d3313e3$;
+$retail_source_918efe9a5d3313e3$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610140001_web_push.sql','918efe9a5d3313e3dc695430c93c0c035acdf97f9b20fcc4c387b444a8737964','schema');
  end if;
 end;
-$retail_step_5$;
 
--- 6/33: 202610150001_cashier_access.sql
-do $retail_step_6$
+-- 6/39: 202610150001_cashier_access.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
   raise notice 'Aplicando 202610150001_cashier_access.sql';
-  execute $retail_source_a30006ceabfa2ca5$
+  execute replace($retail_source_a30006ceabfa2ca5$
 alter table public.retail_members
  add column branch_id uuid,
  add column register_id uuid,
@@ -1239,19 +1389,17 @@ end $$;
 revoke all on function public.retail_team(uuid),public.retail_set_cashier_access(uuid,uuid,uuid,uuid,boolean),public.retail_register_availability(uuid),public.retail_shift_balance(uuid) from public,anon;
 grant execute on function public.retail_team(uuid),public.retail_set_cashier_access(uuid,uuid,uuid,uuid,boolean),public.retail_register_availability(uuid),public.retail_shift_balance(uuid) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_a30006ceabfa2ca5$;
+$retail_source_a30006ceabfa2ca5$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610150001_cashier_access.sql','a30006ceabfa2ca5abd0116ddf06f3f79d042bae913fd59c25efb5a918a83017','schema');
  end if;
 end;
-$retail_step_6$;
 
--- 7/33: 202610160001_offline_pos.sql
-do $retail_step_7$
+-- 7/39: 202610160001_offline_pos.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
   raise notice 'Aplicando 202610160001_offline_pos.sql';
-  execute $retail_source_770c916876fcdabf$
+  execute replace($retail_source_770c916876fcdabf$
 alter table public.retail_sales drop constraint retail_sales_payment_method_check;
 alter table public.retail_sales add check(payment_method in ('Efectivo','QR','Transferencia','Mixto','Debito','Credito'));
 alter table public.retail_sales add column payments jsonb, add column cash_amount numeric(14,2), add column recorded_at timestamptz not null default now();
@@ -1355,19 +1503,17 @@ end $$;
 
 
 notify pgrst,'reload schema';
-$retail_source_770c916876fcdabf$;
+$retail_source_770c916876fcdabf$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160001_offline_pos.sql','770c916876fcdabf64104718e442e7b424f343e6787bfc742c4164cccf435313','schema');
  end if;
 end;
-$retail_step_7$;
 
--- 8/33: 202610160002_offline_queue.sql
-do $retail_step_8$
+-- 8/39: 202610160002_offline_queue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
   raise notice 'Aplicando 202610160002_offline_queue.sql';
-  execute $retail_source_ffb2f924480094f8$
+  execute replace($retail_source_ffb2f924480094f8$
 create table public.retail_quick_products (
  store_id uuid not null, branch_id uuid not null, product_id uuid not null, position integer not null check(position between 0 and 19),
  primary key(branch_id,product_id), unique(branch_id,position),
@@ -1483,37 +1629,33 @@ end $$;
 revoke all on function public.retail_sync_operation(jsonb),public.retail_save_quick_products(uuid,uuid,uuid[]),public.retail_popular_products(uuid,uuid) from public,anon;
 grant execute on function public.retail_sync_operation(jsonb),public.retail_save_quick_products(uuid,uuid,uuid[]),public.retail_popular_products(uuid,uuid) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_ffb2f924480094f8$;
+$retail_source_ffb2f924480094f8$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160002_offline_queue.sql','ffb2f924480094f8255c3bd1105ac834381678058bb65ff6e63ec433b4710ab0','schema');
  end if;
 end;
-$retail_step_8$;
 
--- 9/33: 202610160003_pack_size.sql
-do $retail_step_9$
+-- 9/39: 202610160003_pack_size.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
   raise notice 'Aplicando 202610160003_pack_size.sql';
-  execute $retail_source_e8f486a53e369954$
+  execute replace($retail_source_e8f486a53e369954$
 alter table public.retail_products
  add column pack_size integer default null check(pack_size is null or pack_size >= 1);
 -- Product updates use explicit column grants and the existing manager RLS policy.
 grant update(pack_size) on public.retail_products to authenticated;
 notify pgrst,'reload schema';
-$retail_source_e8f486a53e369954$;
+$retail_source_e8f486a53e369954$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160003_pack_size.sql','e8f486a53e3699543bb33b819986d3e96c57bbfb112cb039428e534507228c6b','schema');
  end if;
 end;
-$retail_step_9$;
 
--- 10/33: 202610160004_margin_groups.sql
-do $retail_step_10$
+-- 10/39: 202610160004_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
   raise notice 'Aplicando 202610160004_margin_groups.sql';
-  execute $retail_source_8a5790ed3a1371e6$
+  execute replace($retail_source_8a5790ed3a1371e6$
 -- May be rerun to finish a manual installation without deleting existing values.
 alter table public.retail_products
  add column if not exists margin_group text default 'standard';
@@ -1558,19 +1700,17 @@ drop trigger if exists retail_snapshot_margin_items on public.retail_sales;
 create trigger retail_snapshot_margin_items before insert on public.retail_sales
  for each row execute function retail_private.snapshot_margin_items();
 notify pgrst,'reload schema';
-$retail_source_8a5790ed3a1371e6$;
+$retail_source_8a5790ed3a1371e6$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160004_margin_groups.sql','8a5790ed3a1371e6c0aa57f46b68b2fe0af74efd79a3650cfa7ced54b876cc86','schema');
  end if;
 end;
-$retail_step_10$;
 
--- 11/33: 202610160005_branch_price_rules.sql
-do $retail_step_11$
+-- 11/39: 202610160005_branch_price_rules.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
   raise notice 'Aplicando 202610160005_branch_price_rules.sql';
-  execute $retail_source_7899d29739b25999$
+  execute replace($retail_source_7899d29739b25999$
 alter table public.retail_price_lists add column branch_id uuid,
  add foreign key(store_id,branch_id) references public.retail_branches(store_id,id);
 grant update(branch_id) on public.retail_price_lists to authenticated;
@@ -1614,19 +1754,17 @@ revoke all on function retail_private.enforce_branch_price_rule() from public,an
 create trigger retail_enforce_branch_price_rule before insert on public.retail_sales
  for each row execute function retail_private.enforce_branch_price_rule();
 notify pgrst,'reload schema';
-$retail_source_7899d29739b25999$;
+$retail_source_7899d29739b25999$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610160005_branch_price_rules.sql','7899d29739b25999d24e879b18ed53f8794628fe852743c7916b46d4db5b16e1','schema');
  end if;
 end;
-$retail_step_11$;
 
--- 12/33: 202610190001_justified_withdrawal.sql
-do $retail_step_12$
+-- 12/39: 202610190001_justified_withdrawal.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
   raise notice 'Aplicando 202610190001_justified_withdrawal.sql';
-  execute $retail_source_029b5843eacab94f$
+  execute replace($retail_source_029b5843eacab94f$
 alter table public.retail_movements
  add column category text not null default 'general' check(category in ('general','supplier_payment','other')),
  add column voucher_url text,
@@ -1796,19 +1934,17 @@ end $$;
 revoke all on function public.retail_sync_operation(jsonb) from public,anon;
 grant execute on function public.retail_sync_operation(jsonb) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_029b5843eacab94f$;
+$retail_source_029b5843eacab94f$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190001_justified_withdrawal.sql','029b5843eacab94f78439fd8f13da846c46e7729f376e1f314286e1f20a14fa9','schema');
  end if;
 end;
-$retail_step_12$;
 
--- 13/33: 202610190001_store_onboarding.sql
-do $retail_step_13$
+-- 13/39: 202610190001_store_onboarding.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
   raise notice 'Aplicando 202610190001_store_onboarding.sql';
-  execute $retail_source_e5b8362448949bce$
+  execute replace($retail_source_e5b8362448949bce$
 create table public.retail_store_onboarding (
  store_id uuid primary key references public.retail_stores(id),
  step smallint not null default 1 check (step between 1 and 3),
@@ -1915,19 +2051,17 @@ begin
 end $$;
 revoke all on function public.retail_create_store_once(text,uuid), public.retail_onboarding_update(uuid,integer,text), public.retail_onboarding_open_shift(uuid,uuid,numeric) from public,anon;
 grant execute on function public.retail_create_store_once(text,uuid), public.retail_onboarding_update(uuid,integer,text), public.retail_onboarding_open_shift(uuid,uuid,numeric) to authenticated;
-$retail_source_e5b8362448949bce$;
+$retail_source_e5b8362448949bce$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190001_store_onboarding.sql','e5b8362448949bceec6db8607ab80a30285230317f319875eb6d9a2f1d47f09c','schema');
  end if;
 end;
-$retail_step_13$;
 
--- 14/33: 202610190002_pending_replenishments.sql
-do $retail_step_14$
+-- 14/39: 202610190002_pending_replenishments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
   raise notice 'Aplicando 202610190002_pending_replenishments.sql';
-  execute $retail_source_3ddd179e5609126a$
+  execute replace($retail_source_3ddd179e5609126a$
 create table public.retail_pending_replenishments (
  id uuid primary key, store_id uuid not null references public.retail_stores(id), branch_id uuid,
  submitted_by uuid not null references auth.users(id), submitted_at timestamptz not null default now(),
@@ -2086,19 +2220,17 @@ end $$;
 revoke all on function public.retail_submit_pending_replenishment(uuid,uuid,text,text,jsonb,text),public.retail_approve_replenishment(uuid,uuid,jsonb),public.retail_reject_replenishment(uuid,uuid,text) from public,anon;
 grant execute on function public.retail_submit_pending_replenishment(uuid,uuid,text,text,jsonb,text),public.retail_approve_replenishment(uuid,uuid,jsonb),public.retail_reject_replenishment(uuid,uuid,text) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_3ddd179e5609126a$;
+$retail_source_3ddd179e5609126a$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190002_pending_replenishments.sql','3ddd179e5609126a264e696cd293909008bf4dd1acc06a8bb409c248ba5ab707','schema');
  end if;
 end;
-$retail_step_14$;
 
--- 15/33: 202610190003_stock_transfers.sql
-do $retail_step_15$
+-- 15/39: 202610190003_stock_transfers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
   raise notice 'Aplicando 202610190003_stock_transfers.sql';
-  execute $retail_source_cab05c3785465fba$
+  execute replace($retail_source_cab05c3785465fba$
 -- Internal audit records only: these functions never update product stock.
 create table public.retail_stock_transfers (
  id uuid primary key default gen_random_uuid(), store_id uuid not null references public.retail_stores(id),
@@ -2195,19 +2327,17 @@ end $$;
 revoke all on function public.retail_create_transfer(uuid,uuid,uuid,jsonb,text,uuid),public.retail_confirm_transfer(uuid,uuid),public.retail_cancel_transfer(uuid,uuid) from public,anon;
 grant execute on function public.retail_create_transfer(uuid,uuid,uuid,jsonb,text,uuid),public.retail_confirm_transfer(uuid,uuid),public.retail_cancel_transfer(uuid,uuid) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_cab05c3785465fba$;
+$retail_source_cab05c3785465fba$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610190003_stock_transfers.sql','cab05c3785465fba81273dddaad52130c14a8c6c42fb63ed53f476416d53a4be','schema');
  end if;
 end;
-$retail_step_15$;
 
--- 16/33: 202610200001_supplier_mappings.sql
-do $retail_step_16$
+-- 16/39: 202610200001_supplier_mappings.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
   raise notice 'Aplicando 202610200001_supplier_mappings.sql';
-  execute $retail_source_d4841853f82adbd4$
+  execute replace($retail_source_d4841853f82adbd4$
 -- Same normalization as normalizeSupplierText in the client; no new extension.
 create function retail_private.normalize_supplier(p_text text) returns text
 language sql immutable set search_path = '' as $$
@@ -2288,19 +2418,17 @@ revoke all on function public.retail_get_supplier_mappings(uuid,text) from publi
 grant execute on function public.retail_upsert_supplier_mapping(uuid,text,text,uuid,text,integer) to authenticated;
 grant execute on function public.retail_get_supplier_mappings(uuid,text) to authenticated;
 
-$retail_source_d4841853f82adbd4$;
+$retail_source_d4841853f82adbd4$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610200001_supplier_mappings.sql','d4841853f82adbd4e881feb1bdf3f525d76a12121e152b54257f8eaf9a81611c','schema');
  end if;
 end;
-$retail_step_16$;
 
--- 17/33: 202610200002_supplier_alias_usage.sql
-do $retail_step_17$
+-- 17/39: 202610200002_supplier_alias_usage.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
   raise notice 'Aplicando 202610200002_supplier_alias_usage.sql';
-  execute $retail_source_1adc3ce4519abbb2$
+  execute replace($retail_source_1adc3ce4519abbb2$
 -- Replace the old signature without ambiguous PostgREST overloads; six-argument callers keep working.
 drop function public.retail_upsert_supplier_mapping(uuid,text,text,uuid,text,integer);
 create function public.retail_upsert_supplier_mapping(
@@ -2357,36 +2485,32 @@ revoke all on function public.retail_upsert_supplier_mapping(uuid,text,text,uuid
 revoke all on function public.retail_delete_supplier_mapping(uuid,text,uuid) from public,anon;
 grant execute on function public.retail_upsert_supplier_mapping(uuid,text,text,uuid,text,integer,numeric,boolean,uuid) to authenticated;
 grant execute on function public.retail_delete_supplier_mapping(uuid,text,uuid) to authenticated;
-$retail_source_1adc3ce4519abbb2$;
+$retail_source_1adc3ce4519abbb2$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610200002_supplier_alias_usage.sql','1adc3ce4519abbb20c3436578bff8de5d9111f08abda7e198639468bd77e15c4','schema');
  end if;
 end;
-$retail_step_17$;
 
--- 18/33: 202610200003_product_expiry.sql
-do $retail_step_18$
+-- 18/39: 202610200003_product_expiry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
   raise notice 'Aplicando 202610200003_product_expiry.sql';
-  execute $retail_source_77d1f8c0f62da284$
+  execute replace($retail_source_77d1f8c0f62da284$
 alter table public.retail_products
   add column if not exists expiry_date date default null,
   add column if not exists last_restocked_at timestamptz default null;
 
-$retail_source_77d1f8c0f62da284$;
+$retail_source_77d1f8c0f62da284$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610200003_product_expiry.sql','77d1f8c0f62da28481839205c638d09ab8586267acd2b86fb97f44c812072a87','schema');
  end if;
 end;
-$retail_step_18$;
 
--- 19/33: 202610210001_ledger_routing.sql
-do $retail_step_19$
+-- 19/39: 202610210001_ledger_routing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
   raise notice 'Aplicando 202610210001_ledger_routing.sql';
-  execute $retail_source_f19dc026535013c8$
+  execute replace($retail_source_f19dc026535013c8$
 alter table public.retail_ledgers add column payment_methods text[] not null default '{}'
  check(payment_methods <@ array['Efectivo','QR','Transferencia','Debito','Credito','Mixto']::text[]);
 -- Each method has at most one destination per store, including direct inserts.
@@ -2507,19 +2631,17 @@ begin
 end $$;
 revoke all on function public.retail_save_ledger_routing(uuid,uuid,jsonb),public.retail_prepare_sales_ledgers(uuid),public.retail_move_sale_ledger(uuid,uuid,uuid,uuid,uuid) from public,anon;
 grant execute on function public.retail_save_ledger_routing(uuid,uuid,jsonb),public.retail_prepare_sales_ledgers(uuid),public.retail_move_sale_ledger(uuid,uuid,uuid,uuid,uuid) to authenticated;
-$retail_source_f19dc026535013c8$;
+$retail_source_f19dc026535013c8$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210001_ledger_routing.sql','f19dc026535013c80519da077ca4de832b6706cf7e885ffbc1b0e31185591d7e','schema');
  end if;
 end;
-$retail_step_19$;
 
--- 20/33: 202610210002_staff_profiles.sql
-do $retail_step_20$
+-- 20/39: 202610210002_staff_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
   raise notice 'Aplicando 202610210002_staff_profiles.sql';
-  execute $retail_source_ca6e73c2c8993bc2$
+  execute replace($retail_source_ca6e73c2c8993bc2$
 alter table public.retail_members drop constraint retail_members_role_check;
 alter table public.retail_members add constraint retail_members_role_check check(role in ('owner','admin','supervisor','cashier'));
 alter table public.retail_invitations drop constraint retail_invitations_role_check;
@@ -2675,19 +2797,17 @@ grant execute on function retail_private.can_review_sales(uuid,uuid) to authenti
 create policy staff_review_sales on public.retail_sales for select to authenticated using(retail_private.can_review_sales(store_id,shift_id));
 revoke all on function public.retail_permissions(uuid),public.retail_set_staff_profile(uuid,uuid,text,uuid,boolean),public.retail_team(uuid) from public,anon;
 grant execute on function public.retail_permissions(uuid),public.retail_set_staff_profile(uuid,uuid,text,uuid,boolean),public.retail_team(uuid) to authenticated;
-$retail_source_ca6e73c2c8993bc2$;
+$retail_source_ca6e73c2c8993bc2$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210002_staff_profiles.sql','ca6e73c2c8993bc2390e2f91d48e9a0d82e60e3ae1be9613297f6ba667809a0e','schema');
  end if;
 end;
-$retail_step_20$;
 
--- 21/33: 202610210003_ledger_lock_order.sql
-do $retail_step_21$
+-- 21/39: 202610210003_ledger_lock_order.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
   raise notice 'Aplicando 202610210003_ledger_lock_order.sql';
-  execute $retail_source_b9f318a08145ad1e$
+  execute replace($retail_source_b9f318a08145ad1e$
 -- Forward correction for environments that already applied ledger routing.
 -- Keep the RPC contract, authorization and audit/idempotency behavior intact.
 create or replace function public.retail_move_sale_ledger(p_store uuid,p_sale uuid,p_target uuid,p_expected uuid,p_request uuid)
@@ -2725,19 +2845,17 @@ end $$;
 revoke all on function public.retail_move_sale_ledger(uuid,uuid,uuid,uuid,uuid) from public,anon;
 grant execute on function public.retail_move_sale_ledger(uuid,uuid,uuid,uuid,uuid) to authenticated;
 
-$retail_source_b9f318a08145ad1e$;
+$retail_source_b9f318a08145ad1e$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210003_ledger_lock_order.sql','b9f318a08145ad1e1734c2afe5fc1ff04402666a69869aa0f27c4dee2abb5124','schema');
  end if;
 end;
-$retail_step_21$;
 
--- 22/33: 202610210004_delegated_catalog_actions.sql
-do $retail_step_22$
+-- 22/39: 202610210004_delegated_catalog_actions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
   raise notice 'Aplicando 202610210004_delegated_catalog_actions.sql';
-  execute $retail_source_bcfa6664c406dd00$
+  execute replace($retail_source_bcfa6664c406dd00$
 alter table public.retail_permission_profiles drop constraint retail_permission_profiles_permissions_check;
 alter table public.retail_permission_profiles add constraint retail_permission_profiles_permissions_check
  check(permissions <@ array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products']::text[]);
@@ -2845,19 +2963,17 @@ begin
 end $$;
 revoke all on function public.retail_update_product_price(uuid,uuid,numeric,numeric),public.retail_save_quick_products(uuid,uuid,uuid[]),public.retail_sync_operation(jsonb) from public,anon;
 grant execute on function public.retail_update_product_price(uuid,uuid,numeric,numeric),public.retail_save_quick_products(uuid,uuid,uuid[]),public.retail_sync_operation(jsonb) to authenticated;
-$retail_source_bcfa6664c406dd00$;
+$retail_source_bcfa6664c406dd00$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610210004_delegated_catalog_actions.sql','bcfa6664c406dd0074ba93d0bbb367c1c212c5e9285e703583616519f163628e','schema');
  end if;
 end;
-$retail_step_22$;
 
--- 23/33: 202610220001_product_compositions.sql
-do $retail_step_23$
+-- 23/39: 202610220001_product_compositions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
   raise notice 'Aplicando 202610220001_product_compositions.sql';
-  execute $retail_source_ef088735e7a84900$
+  execute replace($retail_source_ef088735e7a84900$
 alter table public.retail_products add column if not exists stock_components jsonb not null default '[]'::jsonb;
 alter table public.retail_products add constraint retail_product_components_array
  check(jsonb_typeof(stock_components)='array' and jsonb_array_length(stock_components)<=30);
@@ -3005,19 +3121,17 @@ end $$;
 revoke all on function public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb) from public,anon;
 grant execute on function public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_ef088735e7a84900$;
+$retail_source_ef088735e7a84900$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220001_product_compositions.sql','ef088735e7a849006d0960d0e16decd98e257bb432da68ebd2e0d02618f93c84','schema');
  end if;
 end;
-$retail_step_23$;
 
--- 24/33: 202610220002_loose_cigarettes.sql
-do $retail_step_24$
+-- 24/39: 202610220002_loose_cigarettes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
   raise notice 'Aplicando 202610220002_loose_cigarettes.sql';
-  execute $retail_source_e943d579b3d7ed4e$
+  execute replace($retail_source_e943d579b3d7ed4e$
 create table public.retail_loose_unit_conversions (
  id uuid primary key,
  store_id uuid not null references public.retail_stores(id) on delete cascade,
@@ -3115,19 +3229,17 @@ end $$;
 revoke all on function public.retail_enable_loose_cigarettes(uuid,uuid,uuid,jsonb) from public,anon;
 grant execute on function public.retail_enable_loose_cigarettes(uuid,uuid,uuid,jsonb) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_e943d579b3d7ed4e$;
+$retail_source_e943d579b3d7ed4e$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220002_loose_cigarettes.sql','e943d579b3d7ed4e77e96ffc6c26125f7ccb84ca09dcb9a09a7dde87ed147bad','schema');
  end if;
 end;
-$retail_step_24$;
 
--- 25/33: 202610220003_product_deletion_history.sql
-do $retail_step_25$
+-- 25/39: 202610220003_product_deletion_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
   raise notice 'Aplicando 202610220003_product_deletion_history.sql';
-  execute $retail_source_458a93d670539dd4$
+  execute replace($retail_source_458a93d670539dd4$
 create table public.retail_product_deletions (
  id uuid primary key default gen_random_uuid(),
  store_id uuid not null references public.retail_stores(id) on delete cascade,
@@ -3222,19 +3334,17 @@ end $$;
 revoke all on function public.retail_set_product_active(uuid,uuid,boolean,uuid,text,jsonb) from public,anon;
 grant execute on function public.retail_set_product_active(uuid,uuid,boolean,uuid,text,jsonb) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_458a93d670539dd4$;
+$retail_source_458a93d670539dd4$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220003_product_deletion_history.sql','458a93d670539dd4bfd36c3f8b4aff69042989aafdea80511ced58e6d5a3f9b7','schema');
  end if;
 end;
-$retail_step_25$;
 
--- 26/33: 202610220004_standard_categories.sql
-do $retail_step_26$
+-- 26/39: 202610220004_standard_categories.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
   raise notice 'Aplicando 202610220004_standard_categories.sql';
-  execute $retail_source_85e889e22c9dcc55$
+  execute replace($retail_source_85e889e22c9dcc55$
 create table public.retail_category_catalog (
  name text primary key
 );
@@ -3326,19 +3436,17 @@ end $$;
 revoke all on function public.retail_create_store(text) from public,anon;
 grant execute on function public.retail_create_store(text) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_85e889e22c9dcc55$;
+$retail_source_85e889e22c9dcc55$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220004_standard_categories.sql','85e889e22c9dcc559736c4af21b9cf7bc0205cbd1ff940ed00ff9d38f481fd13','schema');
  end if;
 end;
-$retail_step_26$;
 
--- 27/33: 202610220005_category_labels.sql
-do $retail_step_27$
+-- 27/39: 202610220005_category_labels.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
   raise notice 'Aplicando 202610220005_category_labels.sql';
-  execute $retail_source_e975aa6c462d6ee5$
+  execute replace($retail_source_e975aa6c462d6ee5$
 alter table public.retail_categories add column display_name text
  check(display_name is null or length(trim(display_name)) between 1 and 80);
 create unique index retail_category_display_name on public.retail_categories
@@ -3359,19 +3467,17 @@ end $$;
 revoke all on function public.retail_rename_category(uuid,uuid,text,text) from public,anon;
 grant execute on function public.retail_rename_category(uuid,uuid,text,text) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_e975aa6c462d6ee5$;
+$retail_source_e975aa6c462d6ee5$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220005_category_labels.sql','e975aa6c462d6ee5492edbb36b1ed523a410c634658f8ad36fd24fe18a218f99','schema');
  end if;
 end;
-$retail_step_27$;
 
--- 28/33: 202610220006_complete_permission_profiles.sql
-do $retail_step_28$
+-- 28/39: 202610220006_complete_permission_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
   raise notice 'Aplicando 202610220006_complete_permission_profiles.sql';
-  execute $retail_source_913347ffd59472a5$
+  execute replace($retail_source_913347ffd59472a5$
 alter table public.retail_permission_profiles add column revision integer not null default 0;
 
 create function retail_private.can_grant_permissions(p_store uuid,p_permissions text[]) returns boolean
@@ -3999,19 +4105,17 @@ end $$;
 revoke all on function public.retail_management_locations(uuid),public.retail_write_branch(uuid,text,text,uuid),public.retail_write_register(uuid,text,uuid,uuid,boolean) from public,anon;
 grant execute on function public.retail_management_locations(uuid),public.retail_write_branch(uuid,text,text,uuid),public.retail_write_register(uuid,text,uuid,uuid,boolean) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_913347ffd59472a5$;
+$retail_source_913347ffd59472a5$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610220006_complete_permission_profiles.sql','913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5','schema');
  end if;
 end;
-$retail_step_28$;
 
--- 29/33: 202610230001_automatic_margin_groups.sql
-do $retail_step_29$
+-- 29/39: 202610230001_automatic_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
   raise notice 'Aplicando 202610230001_automatic_margin_groups.sql';
-  execute $retail_source_6cd429e7679685c4$
+  execute replace($retail_source_6cd429e7679685c4$
 alter table public.retail_stores add column low_margin_threshold numeric(5,2) not null default 10
  check(low_margin_threshold between 0 and 100);
 
@@ -4067,19 +4171,17 @@ grant execute on function public.retail_set_margin_threshold(uuid,numeric,numeri
 -- Reclassify current products, including inactive ones, without touching sales.
 update public.retail_products set price=price;
 notify pgrst,'reload schema';
-$retail_source_6cd429e7679685c4$;
+$retail_source_6cd429e7679685c4$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610230001_automatic_margin_groups.sql','6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2','schema');
  end if;
 end;
-$retail_step_29$;
 
--- 30/33: 202610230002_ingredients_and_composition_costs.sql
-do $retail_step_30$
+-- 30/39: 202610230002_ingredients_and_composition_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
   raise notice 'Aplicando 202610230002_ingredients_and_composition_costs.sql';
-  execute $retail_source_86fd19952b8e6534$
+  execute replace($retail_source_86fd19952b8e6534$
 alter table public.retail_products add column sellable boolean not null default true;
 alter table public.retail_products drop constraint retail_products_price_check;
 alter table public.retail_products add constraint retail_products_price_check
@@ -4172,19 +4274,22 @@ create trigger retail_reject_ingredient_sales before insert on public.retail_sal
 -- Refresh only current recipe costs/margin; physical units, price and ticket snapshots stay intact.
 update public.retail_products set price=price where jsonb_array_length(stock_components)>0;
 notify pgrst,'reload schema';
-$retail_source_86fd19952b8e6534$;
+$retail_source_86fd19952b8e6534$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610230002_ingredients_and_composition_costs.sql','86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb','schema');
  end if;
 end;
-$retail_step_30$;
 
--- 31/33: 202610240001_shift_closing_details.sql
-do $retail_step_31$
+-- 31/39: 202610240001_shift_closing_details.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
   raise notice 'Aplicando 202610240001_shift_closing_details.sql';
-  execute $retail_source_d3204ba0e41d2977$
+  if exists(select 1 from pg_catalog.pg_attribute
+   where attrelid=to_regclass('public.retail_shifts') and attname in ('closing_denominations','ticket_count') and attnum>0 and not attisdropped) then
+   raise exception 'Hay columnas del cierre instaladas, pero la migración 202610240001_shift_closing_details.sql no figura en el historial'
+    using errcode='55000', hint='Detener y ejecutar supabase/maintenance/check_manual_schema_history.sql (solo lectura). Conciliar qué migraciones se aplicaron manualmente; una columna no prueba una migración completa. No borrar columnas, no omitir el paso y no ampliar el baseline automáticamente.';
+  end if;
+  execute replace($retail_source_d3204ba0e41d2977$
 alter table public.retail_shifts
  add column closing_denominations jsonb,
  add column ticket_count integer check(ticket_count is null or ticket_count>=0);
@@ -4333,19 +4438,17 @@ end $$;
 revoke all on function public.retail_sync_operation(jsonb) from public,anon;
 grant execute on function public.retail_sync_operation(jsonb) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_d3204ba0e41d2977$;
+$retail_source_d3204ba0e41d2977$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610240001_shift_closing_details.sql','d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759','schema');
  end if;
 end;
-$retail_step_31$;
 
--- 32/33: 202610260001_optional_depot.sql
-do $retail_step_32$
+-- 32/39: 202610260001_optional_depot.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
   raise notice 'Aplicando 202610260001_optional_depot.sql';
-  execute $retail_source_f221d19fcff7ac88$
+  execute replace($retail_source_f221d19fcff7ac88$
 alter table public.retail_stores add column depot_enabled boolean not null default false;
 
 create table public.retail_depot_balances (
@@ -4475,19 +4578,17 @@ end $$;
 revoke all on function public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text) from public,anon;
 grant execute on function public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_f221d19fcff7ac88$;
+$retail_source_f221d19fcff7ac88$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610260001_optional_depot.sql','f221d19fcff7ac881cdbeefc3d3546e625c464872038afb8b69d5491e90b1f5a','schema');
  end if;
 end;
-$retail_step_32$;
 
--- 33/33: 202610260002_create_composite_product.sql
-do $retail_step_33$
+-- 33/39: 202610260002_create_composite_product.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
   raise notice 'Aplicando 202610260002_create_composite_product.sql';
-  execute $retail_source_2e23fbafc73e0b69$
+  execute replace($retail_source_2e23fbafc73e0b69$
 create function public.retail_create_composite_product(p_store uuid,p_request uuid,p_data jsonb) returns uuid
 language plpgsql security definer set search_path='' as $$
 declare signature jsonb; previous public.retail_sync_receipts; category uuid;
@@ -4523,14 +4624,854 @@ end $$;
 revoke all on function public.retail_create_composite_product(uuid,uuid,jsonb) from public,anon;
 grant execute on function public.retail_create_composite_product(uuid,uuid,jsonb) to authenticated;
 notify pgrst,'reload schema';
-$retail_source_2e23fbafc73e0b69$;
+$retail_source_2e23fbafc73e0b69$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610260002_create_composite_product.sql','2e23fbafc73e0b697b607cae3b0587c9a709f13e4882b3a8ce244530eabb60a4','schema');
  end if;
 end;
-$retail_step_33$;
+
+-- 34/39: 202610260003_billing_fields.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610260003_billing_fields.sql') then
+  raise notice 'Aplicando 202610260003_billing_fields.sql';
+  execute replace($retail_source_2a42b0a16de67076$
+alter table public.retail_stores
+  add column cuit text,
+  add column razon_social text,
+  add column condicion_iva text check(condicion_iva is null or condicion_iva in ('RI','MO','EX')),
+  add column punto_venta_afip integer check(punto_venta_afip is null or (punto_venta_afip between 1 and 99998)),
+  add column iibb text,
+  add column inicio_actividades date,
+  add column billing_enabled boolean not null default false;
+
+alter table public.retail_stores
+  add constraint retail_stores_billing_enabled_check
+  check (
+    not billing_enabled or (
+      cuit is not null and length(trim(cuit)) >= 11 and
+      razon_social is not null and length(trim(razon_social)) >= 1 and
+      condicion_iva in ('RI','MO','EX') and
+      punto_venta_afip is not null and (punto_venta_afip between 1 and 99998)
+    )
+  );
+
+alter table public.retail_sales
+  add column cbte_tipo smallint,
+  add column cbte_nro bigint,
+  add column cae text,
+  add column cae_vto date,
+  add column billing_status text not null default 'none' check(billing_status in ('none','pending','authorized','error','retry')),
+  add column billing_error text,
+  add column billing_attempts smallint not null default 0 check(billing_attempts >= 0);
+
+create index retail_sales_billing_pending
+  on public.retail_sales(store_id, billing_status)
+  where billing_status in ('pending', 'retry', 'error');
+
+create function retail_private.initialize_sale_billing() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare
+  v_billing_enabled boolean;
+begin
+  if new.billing_status is null or new.billing_status = 'none' then
+    select billing_enabled into v_billing_enabled from public.retail_stores where id = new.store_id;
+    if coalesce(v_billing_enabled, false) then
+      new.billing_status := 'pending';
+    else
+      new.billing_status := 'none';
+    end if;
+  end if;
+  return new;
+end $$;
+revoke all on function retail_private.initialize_sale_billing() from public,anon,authenticated;
+
+create trigger retail_initialize_sale_billing
+  before insert on public.retail_sales
+  for each row execute function retail_private.initialize_sale_billing();
+
+create function public.retail_set_billing_settings(
+  p_store uuid,
+  p_cuit text,
+  p_razon_social text,
+  p_condicion_iva text,
+  p_punto_venta_afip integer,
+  p_iibb text,
+  p_inicio_actividades date,
+  p_billing_enabled boolean
+) returns void
+language plpgsql security definer set search_path='' as $$
+declare
+  v_cuit text := nullif(trim(p_cuit), '');
+  v_razon text := nullif(trim(p_razon_social), '');
+  v_condicion text := nullif(trim(p_condicion_iva), '');
+  v_iibb text := nullif(trim(p_iibb), '');
+  v_enabled boolean := coalesce(p_billing_enabled, false);
+begin
+  perform retail_private.require_permission(p_store, 'manage_store');
+
+  if v_cuit is not null then
+    if not (v_cuit ~ '^\d{2}-?\d{8}-?\d{1}$') then
+      raise exception 'El CUIT debe tener 11 dígitos numéricos válidos';
+    end if;
+  end if;
+
+  if v_condicion is not null and v_condicion not in ('RI', 'MO', 'EX') then
+    raise exception 'Condición frente al IVA inválida. Elegí Monotributo, Responsable Inscripto o Exento';
+  end if;
+
+  if p_punto_venta_afip is not null and (p_punto_venta_afip < 1 or p_punto_venta_afip > 99998) then
+    raise exception 'El punto de venta debe estar entre 1 y 99998';
+  end if;
+
+  if v_enabled then
+    if v_cuit is null or v_razon is null or v_condicion is null or p_punto_venta_afip is null then
+      raise exception 'Para activar la facturación completá CUIT, Razón Social, Condición frente al IVA y Punto de Venta';
+    end if;
+  end if;
+
+  update public.retail_stores
+  set
+    cuit = v_cuit,
+    razon_social = v_razon,
+    condicion_iva = v_condicion,
+    punto_venta_afip = p_punto_venta_afip,
+    iibb = v_iibb,
+    inicio_actividades = p_inicio_actividades,
+    billing_enabled = v_enabled
+  where id = p_store;
+end $$;
+
+revoke all on function public.retail_set_billing_settings(uuid,text,text,text,integer,text,date,boolean) from public,anon;
+grant execute on function public.retail_set_billing_settings(uuid,text,text,text,integer,text,date,boolean) to authenticated;
+
+create function public.retail_update_sale_billing(
+  p_store uuid,
+  p_sale uuid,
+  p_status text,
+  p_cbte_tipo smallint default null,
+  p_cbte_nro bigint default null,
+  p_cae text default null,
+  p_cae_vto date default null,
+  p_error text default null
+) returns void
+language plpgsql security definer set search_path='' as $$
+declare
+  s public.retail_sales;
+begin
+  if not (retail_private.has_permission(p_store, 'manage_store') or
+          retail_private.has_permission(p_store, 'sell') or
+          retail_private.has_permission(p_store, 'view_sales')) then
+    raise exception 'Permisos insuficientes para actualizar el comprobante fiscal';
+  end if;
+
+  select * into s from public.retail_sales
+  where id = p_sale and store_id = p_store for update;
+
+  if not found then
+    raise exception 'Venta no encontrada';
+  end if;
+
+  if p_status not in ('none', 'pending', 'authorized', 'error', 'retry') then
+    raise exception 'Estado de facturación inválido';
+  end if;
+
+  if p_status = 'authorized' then
+    if p_cae is null or trim(p_cae) = '' or p_cae_vto is null or p_cbte_tipo is null or p_cbte_nro is null then
+      raise exception 'Faltan datos de autorización (CAE, vencimiento o número de comprobante)';
+    end if;
+
+    update public.retail_sales
+    set
+      billing_status = 'authorized',
+      cbte_tipo = p_cbte_tipo,
+      cbte_nro = p_cbte_nro,
+      cae = trim(p_cae),
+      cae_vto = p_cae_vto,
+      billing_error = null
+    where id = p_sale;
+  elsif p_status = 'error' then
+    update public.retail_sales
+    set
+      billing_status = 'error',
+      billing_error = nullif(trim(p_error), ''),
+      billing_attempts = billing_attempts + 1
+    where id = p_sale;
+  else
+    update public.retail_sales
+    set
+      billing_status = p_status
+    where id = p_sale;
+  end if;
+end $$;
+
+revoke all on function public.retail_update_sale_billing(uuid,uuid,text,smallint,bigint,text,date,text) from public,anon;
+grant execute on function public.retail_update_sale_billing(uuid,uuid,text,smallint,bigint,text,date,text) to authenticated;
 
 notify pgrst,'reload schema';
-commit;
+$retail_source_2a42b0a16de67076$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610260003_billing_fields.sql','2a42b0a16de6707616bf9ca85fc249a83f55ee6b5976299b51197573391e6cd3','schema');
+ end if;
+end;
+
+-- 35/39: 202610260004_price_list_tree.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610260004_price_list_tree.sql') then
+  raise notice 'Aplicando 202610260004_price_list_tree.sql';
+  execute replace($retail_source_bb77060967eec30f$
+-- Legacy lists keep their catalog origin, percentages, branch and fixed prices.
+-- Cost is a virtual read-only origin, not a new sellable list or a product write.
+alter table public.retail_price_lists
+ add column base_kind text not null default 'catalog' check(base_kind in ('cost','catalog','list')),
+ add column parent_id uuid,
+ add column pricing_rules jsonb not null default '[]'::jsonb,
+ add column revision bigint not null default 0,
+ add constraint retail_price_list_parent foreign key(store_id,parent_id) references public.retail_price_lists(store_id,id),
+ add constraint retail_price_list_origin check((base_kind='list')=(parent_id is not null));
+create index retail_price_list_children on public.retail_price_lists(store_id,parent_id);
+
+create function retail_private.validate_price_tree() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare rule jsonb; parent public.retail_price_lists; cursor_id uuid; visited uuid[]; depth integer:=1; child_depth integer;
+begin
+ if tg_op='UPDATE' and new.store_id<>old.store_id then raise exception 'No se puede cambiar el comercio de una lista'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||new.store_id::text,0));
+ if jsonb_typeof(new.pricing_rules) is distinct from 'array' or jsonb_array_length(new.pricing_rules)>300 then raise exception 'La lista admite hasta 300 reglas'; end if;
+ for rule in select value from jsonb_array_elements(new.pricing_rules) loop
+  if coalesce(rule->>'scope','') not in ('category','brand','product') or coalesce(btrim(rule->>'target'),'')='' or
+     jsonb_typeof(rule->'adjustment') is distinct from 'number' then raise exception 'Completá el destino y porcentaje de cada regla'; end if;
+  if (rule->>'adjustment')::numeric<=-100 or (rule->>'adjustment')::numeric>10000 or round((rule->>'adjustment')::numeric,2)<>(rule->>'adjustment')::numeric then raise exception 'El ajuste debe estar entre -99,99 y 10.000, con hasta dos decimales'; end if;
+  if rule->>'scope'='category' and not exists(select 1 from public.retail_categories where store_id=new.store_id and id::text=rule->>'target') then raise exception 'Categoría no disponible en este comercio'; end if;
+  if rule->>'scope'='product' and not exists(select 1 from public.retail_products where store_id=new.store_id and id::text=rule->>'target') then raise exception 'Producto no disponible en este comercio'; end if;
+  if rule->>'scope'='brand' and (length(rule->>'target')>200 or rule->>'target'<>lower(btrim(rule->>'target'))) then raise exception 'La marca debe estar normalizada'; end if;
+ end loop;
+ if exists(select 1 from jsonb_array_elements(new.pricing_rules) r group by r->>'scope',r->>'target' having count(*)>1) then raise exception 'Hay reglas repetidas para el mismo destino'; end if;
+ visited:=array[new.id]; cursor_id:=new.parent_id;
+ while cursor_id is not null loop
+  if cursor_id=any(visited) then raise exception 'Una lista no puede depender de sí misma ni de una lista derivada de ella'; end if;
+  select * into parent from public.retail_price_lists where id=cursor_id and store_id=new.store_id;
+  if not found then raise exception 'La lista de origen no está disponible en este comercio'; end if;
+  if parent.branch_id is not null and parent.branch_id is distinct from new.branch_id then raise exception 'Una lista de sucursal solo puede originar listas de esa misma sucursal'; end if;
+  visited:=array_append(visited,cursor_id); depth:=depth+1; cursor_id:=parent.parent_id;
+  if depth>12 then raise exception 'Se permiten hasta 12 niveles de listas'; end if;
+ end loop;
+ if new.branch_id is not null and exists(select 1 from public.retail_price_lists where parent_id=new.id and store_id=new.store_id and branch_id is distinct from new.branch_id) then raise exception 'Primero revisá las sucursales de las listas derivadas'; end if;
+ with recursive children as (
+  select id,1 as level,array[new.id,id] as path from public.retail_price_lists where store_id=new.store_id and parent_id=new.id
+  union all select l.id,c.level+1,c.path||l.id from children c join public.retail_price_lists l on l.parent_id=c.id and l.store_id=new.store_id where not l.id=any(c.path) and c.level<12
+ ) select coalesce(max(level),0) into child_depth from children;
+ if depth+child_depth>12 then raise exception 'Este origen dejaría más de 12 niveles de listas'; end if;
+ if tg_op='UPDATE' then new.revision:=old.revision+1; end if;
+ return new;
+end $$;
+revoke all on function retail_private.validate_price_tree() from public,anon,authenticated;
+create trigger retail_validate_price_tree before insert or update on public.retail_price_lists
+ for each row execute function retail_private.validate_price_tree();
+
+-- RPC-only writes lock the store BEFORE rows, coordinating checkout and concurrent edits.
+-- RLS member reads and delegated policies remain; no new role is granted.
+revoke insert,update,delete on public.retail_price_lists from authenticated;
+revoke update(name,adjustment,active,branch_id) on public.retail_price_lists from authenticated;
+revoke insert,update,delete on public.retail_price_overrides from authenticated;
+
+create function public.retail_save_price_list_tree(p_store uuid,p_id uuid,p_name text,p_adjustment numeric,p_active boolean,p_branch uuid,p_base text,p_parent uuid,p_rules jsonb,p_revision bigint default 0)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare previous public.retail_price_lists;
+begin
+ if not retail_private.has_permission(p_store,'manage_price_lists') then raise exception 'Sin permiso para administrar listas' using errcode='42501'; end if;
+ if p_id is null then raise exception 'Falta el identificador de la lista'; end if;
+ if p_adjustment is null or p_adjustment::text in ('NaN','Infinity','-Infinity') or p_adjustment<=-100 or p_adjustment>10000 or round(p_adjustment,2)<>p_adjustment then raise exception 'Ingresá un ajuste entre -99,99 y 10.000, con hasta dos decimales'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||p_store::text,0));
+ select * into previous from public.retail_price_lists where id=p_id for update;
+ if found then
+  if previous.store_id<>p_store then raise exception 'Lista no disponible' using errcode='42501'; end if;
+  -- Retrying a committed request does not create another list or bump its revision.
+  if row(previous.name,previous.adjustment,previous.active,previous.branch_id,previous.base_kind,previous.parent_id,previous.pricing_rules)
+    is not distinct from row(btrim(p_name),p_adjustment,p_active,p_branch,p_base,p_parent,p_rules) then return p_id; end if;
+  if previous.revision is distinct from p_revision then raise exception 'La lista cambió en otro dispositivo. Actualizá los datos y revisá el borrador antes de guardarlo'; end if;
+  update public.retail_price_lists set name=btrim(p_name),adjustment=p_adjustment,active=p_active,branch_id=p_branch,base_kind=p_base,parent_id=p_parent,pricing_rules=p_rules where id=p_id and store_id=p_store;
+ else
+  insert into public.retail_price_lists(id,store_id,name,adjustment,active,branch_id,base_kind,parent_id,pricing_rules)
+   values(p_id,p_store,btrim(p_name),p_adjustment,p_active,p_branch,p_base,p_parent,p_rules);
+ end if;
+ return p_id;
+end $$;
+revoke all on function public.retail_save_price_list_tree(uuid,uuid,text,numeric,boolean,uuid,text,uuid,jsonb,bigint) from public,anon;
+grant execute on function public.retail_save_price_list_tree(uuid,uuid,text,numeric,boolean,uuid,text,uuid,jsonb,bigint) to authenticated;
+
+create function public.retail_save_price_override(p_store uuid,p_list uuid,p_product uuid,p_price numeric)
+returns void language plpgsql security definer set search_path='' as $$
+begin
+ if not retail_private.has_permission(p_store,'manage_price_lists') then raise exception 'Sin permiso para administrar listas' using errcode='42501'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||p_store::text,0));
+ if not exists(select 1 from public.retail_price_lists where id=p_list and store_id=p_store) or not exists(select 1 from public.retail_products where id=p_product and store_id=p_store) then raise exception 'Lista o producto no disponible en este comercio'; end if;
+ if p_price is null then
+  delete from public.retail_price_overrides where store_id=p_store and list_id=p_list and product_id=p_product;
+ else
+  insert into public.retail_price_overrides(store_id,list_id,product_id,price) values(p_store,p_list,p_product,p_price)
+   on conflict(list_id,product_id) do update set price=excluded.price;
+ end if;
+end $$;
+revoke all on function public.retail_save_price_override(uuid,uuid,uuid,numeric) from public,anon;
+grant execute on function public.retail_save_price_override(uuid,uuid,uuid,numeric) to authenticated;
+
+create function retail_private.product_list_price(p_product public.retail_products,p_list uuid,p_depth integer default 0)
+returns numeric language plpgsql security definer set search_path='' as $$
+declare list public.retail_price_lists; price numeric; rule jsonb; scope text; target text;
+begin
+ if p_depth>=12 then raise exception 'Revisá el origen de la lista: demasiados niveles'; end if;
+ if p_list is null then return p_product.price; end if;
+ select * into list from public.retail_price_lists where id=p_list and store_id=p_product.store_id;
+ if not found then raise exception 'Lista de origen no disponible'; end if;
+ select o.price into price from public.retail_price_overrides o where o.store_id=p_product.store_id and o.list_id=p_list and o.product_id=p_product.id;
+ if found then return price; end if;
+ if list.base_kind='cost' then
+  if p_product.cost<=0 then raise exception 'Falta cargar el costo de % para calcular esta lista',p_product.name; end if;
+  price:=p_product.cost;
+ elsif list.base_kind='list' then price:=retail_private.product_list_price(p_product,list.parent_id,p_depth+1);
+ else price:=p_product.price;
+ end if;
+ price:=greatest(0.01,round(price*(1+list.adjustment/100),2));
+ foreach scope in array array['category','brand','product'] loop
+  target:=case scope when 'category' then p_product.category_id::text when 'product' then p_product.id::text else lower(btrim(coalesce(p_product.brand,''))) end;
+  for rule in select value from jsonb_array_elements(list.pricing_rules) r where r->>'scope'=scope and r->>'target'=target loop
+   price:=greatest(0.01,round(price*(1+(rule->>'adjustment')::numeric/100),2));
+  end loop;
+ end loop;
+ if price>=1000000000000 then raise exception 'El precio calculado de % supera el límite permitido',p_product.name; end if;
+ return price;
+end $$;
+revoke all on function retail_private.product_list_price(public.retail_products,uuid,integer) from public,anon,authenticated;
+
+-- Preserve the real checkout and all subsequent stock, ledger, margin, permission,
+-- payment, receipt and idempotency protections. Replace only its price lookup.
+do $patch$
+declare definition text; previous text:=$old$   v_expected:=p.price;
+   if p_price_list is not null then
+    select price into v_expected from public.retail_price_overrides where store_id=s.store_id and list_id=p_price_list and product_id=p.id for share;
+    v_expected:=coalesce(v_expected,greatest(0.01,round(p.price*(1+v_list.adjustment/100),2)));
+   end if;$old$;
+begin
+ definition:=replace(pg_get_functiondef('public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb)'::regprocedure),E'\r','');
+ if position(previous in definition)=0 or position(' s:=retail_private.check_shift(p_shift);' in definition)=0 then
+  raise exception 'La definición de checkout no coincide con la versión esperada. No se aplicaron cambios; revisar instalación';
+ end if;
+ definition:=replace(definition,previous,'   v_expected:=retail_private.product_list_price(p,p_price_list);');
+ definition:=replace(definition,' s:=retail_private.check_shift(p_shift);',E' s:=retail_private.check_shift(p_shift);\n perform pg_advisory_xact_lock_shared(hashtextextended(''retail-pricing:''||s.store_id::text,0));');
+ execute definition;
+end $patch$;
+
+notify pgrst,'reload schema';
+$retail_source_bb77060967eec30f$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610260004_price_list_tree.sql','bb77060967eec30f15a7befb20989890ac312c90f76e002656fa6dfada36bf36','schema');
+ end if;
+exception when raise_exception then
+ if sqlerrm<>'La definición de checkout no coincide con la versión esperada. No se aplicaron cambios; revisar instalación' then raise; end if;
+ raise exception using errcode=sqlstate,message=sqlerrm,
+  detail='Huella del cuerpo checkout (LF): '||coalesce((select md5(replace(prosrc,chr(13),'')) from pg_catalog.pg_proc
+   where oid=to_regprocedure('public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb)')),'función ausente'),
+  hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
+end;
+
+-- 36/39: 202610260005_delete_price_lists.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610260005_delete_price_lists.sql') then
+  raise notice 'Aplicando 202610260005_delete_price_lists.sql';
+  if to_regprocedure('public.retail_save_price_list_tree(uuid,uuid,text,numeric,boolean,uuid,text,uuid,jsonb,bigint)') is null then
+   raise exception 'Falta una función del árbol de listas: %', 'public.retail_save_price_list_tree(uuid,uuid,text,numeric,boolean,uuid,text,uuid,jsonb,bigint)'
+    using errcode='55000', hint='La eliminación requiere 202610260004_price_list_tree.sql. Aplicá primero el paquete 004 de supabase/updates/ o usá schema.sql completo. Si el historial ya declara instalada esa migración, revisar la instalación con el diagnóstico de solo lectura; no borrar historial ni ampliar el baseline.';
+  end if;
+  if to_regprocedure('public.retail_save_price_override(uuid,uuid,uuid,numeric)') is null then
+   raise exception 'Falta una función del árbol de listas: %', 'public.retail_save_price_override(uuid,uuid,uuid,numeric)'
+    using errcode='55000', hint='La eliminación requiere 202610260004_price_list_tree.sql. Aplicá primero el paquete 004 de supabase/updates/ o usá schema.sql completo. Si el historial ya declara instalada esa migración, revisar la instalación con el diagnóstico de solo lectura; no borrar historial ni ampliar el baseline.';
+  end if;
+  if to_regprocedure('retail_private.product_list_price(public.retail_products,uuid,integer)') is null then
+   raise exception 'Falta una función del árbol de listas: %', 'retail_private.product_list_price(public.retail_products,uuid,integer)'
+    using errcode='55000', hint='La eliminación requiere 202610260004_price_list_tree.sql. Aplicá primero el paquete 004 de supabase/updates/ o usá schema.sql completo. Si el historial ya declara instalada esa migración, revisar la instalación con el diagnóstico de solo lectura; no borrar historial ni ampliar el baseline.';
+  end if;
+  execute replace($retail_source_540fb2b7146a1f68$
+-- Soft deletion retains sale FKs, fixed prices, rules and the author of the removal.
+alter table public.retail_price_lists
+ add column deleted_at timestamptz,
+ add column deleted_by uuid references auth.users(id),
+ add constraint retail_price_list_deleted_state check((deleted_at is null)=(deleted_by is null) and (deleted_at is null or not active));
+alter table public.retail_price_lists drop constraint retail_price_lists_store_id_name_key;
+create unique index retail_live_price_list_name on public.retail_price_lists(store_id,name) where deleted_at is null;
+
+drop policy member_read on public.retail_price_lists;
+create policy member_read on public.retail_price_lists for select to authenticated
+ using(retail_private.role_for(store_id) is not null and deleted_at is null);
+drop policy member_read on public.retail_price_overrides;
+create policy member_read on public.retail_price_overrides for select to authenticated
+ using(retail_private.role_for(store_id) is not null and exists(
+  select 1 from public.retail_price_lists l where l.id=list_id and l.store_id=retail_price_overrides.store_id and l.deleted_at is null
+ ));
+
+create or replace function retail_private.validate_price_tree() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare rule jsonb; parent public.retail_price_lists; cursor_id uuid; visited uuid[]; depth integer:=1; child_depth integer;
+begin
+ if tg_op='UPDATE' and new.store_id<>old.store_id then raise exception 'No se puede cambiar el comercio de una lista'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||new.store_id::text,0));
+ if tg_op='UPDATE' and old.deleted_at is not null then raise exception 'Esta lista fue eliminada. Actualizá los datos'; end if;
+ if new.deleted_at is not null then
+  if tg_op<>'UPDATE' then raise exception 'No se puede crear una lista eliminada'; end if;
+  if exists(select 1 from public.retail_price_lists where store_id=new.store_id and parent_id=new.id and deleted_at is null) then
+   raise exception 'Cambiá primero el origen de las listas derivadas antes de eliminar esta lista';
+  end if;
+  new.revision:=old.revision+1; return new;
+ end if;
+ if jsonb_typeof(new.pricing_rules) is distinct from 'array' or jsonb_array_length(new.pricing_rules)>300 then raise exception 'La lista admite hasta 300 reglas'; end if;
+ for rule in select value from jsonb_array_elements(new.pricing_rules) loop
+  if coalesce(rule->>'scope','') not in ('category','brand','product') or coalesce(btrim(rule->>'target'),'')='' or
+     jsonb_typeof(rule->'adjustment') is distinct from 'number' then raise exception 'Completá el destino y porcentaje de cada regla'; end if;
+  if (rule->>'adjustment')::numeric<=-100 or (rule->>'adjustment')::numeric>10000 or round((rule->>'adjustment')::numeric,2)<>(rule->>'adjustment')::numeric then raise exception 'El ajuste debe estar entre -99,99 y 10.000, con hasta dos decimales'; end if;
+  if rule->>'scope'='category' and not exists(select 1 from public.retail_categories where store_id=new.store_id and id::text=rule->>'target') then raise exception 'Categoría no disponible en este comercio'; end if;
+  if rule->>'scope'='product' and not exists(select 1 from public.retail_products where store_id=new.store_id and id::text=rule->>'target') then raise exception 'Producto no disponible en este comercio'; end if;
+  if rule->>'scope'='brand' and (length(rule->>'target')>200 or rule->>'target'<>lower(btrim(rule->>'target'))) then raise exception 'La marca debe estar normalizada'; end if;
+ end loop;
+ if exists(select 1 from jsonb_array_elements(new.pricing_rules) r group by r->>'scope',r->>'target' having count(*)>1) then raise exception 'Hay reglas repetidas para el mismo destino'; end if;
+ visited:=array[new.id]; cursor_id:=new.parent_id;
+ while cursor_id is not null loop
+  if cursor_id=any(visited) then raise exception 'Una lista no puede depender de sí misma ni de una lista derivada de ella'; end if;
+  select * into parent from public.retail_price_lists where id=cursor_id and store_id=new.store_id and deleted_at is null;
+  if not found then raise exception 'La lista de origen no está disponible. Elegí otra'; end if;
+  if parent.branch_id is not null and parent.branch_id is distinct from new.branch_id then raise exception 'Una lista de sucursal solo puede originar listas de esa misma sucursal'; end if;
+  visited:=array_append(visited,cursor_id); depth:=depth+1; cursor_id:=parent.parent_id;
+  if depth>12 then raise exception 'Se permiten hasta 12 niveles de listas'; end if;
+ end loop;
+ if new.branch_id is not null and exists(select 1 from public.retail_price_lists where parent_id=new.id and store_id=new.store_id and deleted_at is null and branch_id is distinct from new.branch_id) then raise exception 'Primero revisá las sucursales de las listas derivadas'; end if;
+ with recursive children as (
+  select id,1 as level,array[new.id,id] as path from public.retail_price_lists where store_id=new.store_id and parent_id=new.id and deleted_at is null
+  union all select l.id,c.level+1,c.path||l.id from children c join public.retail_price_lists l on l.parent_id=c.id and l.store_id=new.store_id where l.deleted_at is null and not l.id=any(c.path) and c.level<12
+ ) select coalesce(max(level),0) into child_depth from children;
+ if depth+child_depth>12 then raise exception 'Este origen dejaría más de 12 niveles de listas'; end if;
+ if tg_op='UPDATE' then new.revision:=old.revision+1; end if;
+ return new;
+end $$;
+revoke all on function retail_private.validate_price_tree() from public,anon,authenticated;
+
+-- Reject writes from stale clients and deleted ancestors, including idempotent-save
+-- fast paths that do not run a row trigger. Leave all price calculations intact.
+do $patch$
+declare signature text; anchor text; replacement text; definition text;
+begin
+ for signature,anchor,replacement in select * from (values
+  ('public.retail_save_price_list_tree(uuid,uuid,text,numeric,boolean,uuid,text,uuid,jsonb,bigint)',
+   'if previous.store_id<>p_store then raise exception ''Lista no disponible'' using errcode=''42501''; end if;',
+   E'if previous.store_id<>p_store then raise exception ''Lista no disponible'' using errcode=''42501''; end if;\n  if previous.deleted_at is not null then raise exception ''Esta lista fue eliminada. Actualizá los datos''; end if;'),
+  ('public.retail_save_price_override(uuid,uuid,uuid,numeric)',
+   'where id=p_list and store_id=p_store)',
+   'where id=p_list and store_id=p_store and deleted_at is null)'),
+  ('retail_private.product_list_price(public.retail_products,uuid,integer)',
+   'if not found then raise exception ''Lista de origen no disponible''; end if;',
+   'if not found or list.deleted_at is not null then raise exception ''Lista de origen no disponible. Actualizá los datos''; end if;')
+ ) as patches(signature,anchor,replacement)
+ loop
+  definition:=pg_get_functiondef(signature::regprocedure);
+  if (length(definition)-length(replace(definition,anchor,'')))/length(anchor)<>1 then
+   raise exception 'La definición de % no coincide con la versión esperada. No se aplicaron cambios; revisar instalación',signature;
+  end if;
+  execute replace(definition,anchor,replacement);
+ end loop;
+end $patch$;
+
+create function public.retail_delete_price_list(p_store uuid,p_list uuid,p_revision bigint)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare current_list public.retail_price_lists;
+begin
+ if not retail_private.has_permission(p_store,'manage_price_lists') then raise exception 'Sin permiso para eliminar listas' using errcode='42501'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||p_store::text,0));
+ select * into current_list from public.retail_price_lists where id=p_list and store_id=p_store for update;
+ if not found then raise exception 'Lista no disponible en este comercio'; end if;
+ -- A lost response can be retried without changing its original author or timestamp.
+ if current_list.deleted_at is not null then return p_list; end if;
+ if current_list.revision is distinct from p_revision then raise exception 'La lista cambió en otro dispositivo. Actualizá los datos y volvé a revisar antes de eliminarla'; end if;
+ if exists(select 1 from public.retail_price_lists where store_id=p_store and parent_id=p_list and deleted_at is null) then
+  raise exception 'Cambiá primero el origen de las listas derivadas antes de eliminar esta lista';
+ end if;
+ update public.retail_price_lists set active=false,deleted_at=clock_timestamp(),deleted_by=auth.uid() where id=p_list and store_id=p_store;
+ return p_list;
+end $$;
+revoke all on function public.retail_delete_price_list(uuid,uuid,bigint) from public,anon;
+grant execute on function public.retail_delete_price_list(uuid,uuid,bigint) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_540fb2b7146a1f68$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610260005_delete_price_lists.sql','540fb2b7146a1f68e89f462f43305d58798953d156be4e62e6944f0edccd2a69','schema');
+ end if;
+end;
+
+-- 37/39: 202610260006_billing_update_robustness.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610260006_billing_update_robustness.sql') then
+  raise notice 'Aplicando 202610260006_billing_update_robustness.sql';
+  execute replace($retail_source_97469041ab94b975$
+-- Eliminar firmas previas sobrecargadas para evitar conflicto de tipos (PGRST203) en PostgREST
+drop function if exists public.retail_update_sale_billing(uuid,uuid,text,smallint,bigint,text,date,text);
+drop function if exists public.retail_update_sale_billing(uuid,uuid,text,smallint,bigint,text,text,text);
+
+create or replace function public.retail_update_sale_billing(
+  p_store uuid,
+  p_sale uuid,
+  p_status text,
+  p_cbte_tipo smallint default null,
+  p_cbte_nro bigint default null,
+  p_cae text default null,
+  p_cae_vto text default null,
+  p_error text default null
+) returns void
+language plpgsql security definer set search_path='' as $$
+declare
+  s public.retail_sales;
+  v_vto date;
+begin
+  if not (retail_private.has_permission(p_store, 'manage_store') or
+          retail_private.has_permission(p_store, 'sell') or
+          retail_private.has_permission(p_store, 'view_sales')) then
+    raise exception 'Permisos insuficientes para actualizar el comprobante fiscal';
+  end if;
+
+  select * into s from public.retail_sales
+  where id = p_sale and store_id = p_store for update;
+
+  if not found then
+    raise exception 'Venta no encontrada';
+  end if;
+
+  if p_status not in ('none', 'pending', 'authorized', 'error', 'retry') then
+    raise exception 'Estado de facturación inválido';
+  end if;
+
+  if p_status = 'authorized' then
+    if p_cae is null or trim(p_cae) = '' or p_cae_vto is null or trim(p_cae_vto) = '' or p_cbte_tipo is null or p_cbte_nro is null then
+      raise exception 'Faltan datos de autorización (CAE, vencimiento o número de comprobante)';
+    end if;
+
+    begin
+      v_vto := trim(p_cae_vto)::date;
+    exception when others then
+      v_vto := current_date + 10;
+    end;
+
+    update public.retail_sales
+    set
+      billing_status = 'authorized',
+      cbte_tipo = p_cbte_tipo,
+      cbte_nro = p_cbte_nro,
+      cae = trim(p_cae),
+      cae_vto = v_vto,
+      billing_error = null
+    where id = p_sale;
+  elsif p_status = 'error' then
+    update public.retail_sales
+    set
+      billing_status = 'error',
+      billing_error = nullif(trim(p_error), ''),
+      billing_attempts = coalesce(billing_attempts, 0) + 1
+    where id = p_sale;
+  else
+    update public.retail_sales
+    set
+      billing_status = p_status
+    where id = p_sale;
+  end if;
+end $$;
+
+revoke all on function public.retail_update_sale_billing(uuid,uuid,text,smallint,bigint,text,text,text) from public,anon;
+grant execute on function public.retail_update_sale_billing(uuid,uuid,text,smallint,bigint,text,text,text) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_97469041ab94b975$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610260006_billing_update_robustness.sql','97469041ab94b975ce569c26fb60b2aba78d9f8a94c4c13a5567c47f14c576f2','schema');
+ end if;
+end;
+
+-- 38/39: 202610270001_store_billing_credentials.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610270001_store_billing_credentials.sql') then
+  raise notice 'Aplicando 202610270001_store_billing_credentials.sql';
+  execute replace($retail_source_5c5d202e9b944644$
+create table if not exists retail_private.store_billing_credentials (
+  store_id uuid primary key references public.retail_stores(id) on delete cascade,
+  arca_cert text not null,
+  arca_key text not null,
+  arca_environment text not null default 'homo' check (arca_environment in ('homo', 'prod')),
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id)
+);
+
+revoke all on retail_private.store_billing_credentials from public,anon,authenticated;
+
+-- RPC to securely set/update ARCA credentials for a store. Requires manage_store permission.
+create or replace function public.retail_set_billing_credentials(
+  p_store uuid,
+  p_cert text,
+  p_key text,
+  p_environment text default 'homo'
+) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+  if not retail_private.has_permission(p_store, 'manage_store') then
+    raise exception 'Solo administradores o propietarios pueden configurar certificados fiscales de ARCA';
+  end if;
+
+  if p_cert is null or trim(p_cert) = '' then
+    raise exception 'El certificado digital (.crt) es obligatorio';
+  end if;
+
+  if p_key is null or trim(p_key) = '' then
+    raise exception 'La clave privada (.key) es obligatoria';
+  end if;
+
+  if p_environment not in ('homo', 'prod') then
+    raise exception 'Entorno inválido. Debe ser "homo" (testing) o "prod" (producción)';
+  end if;
+
+  insert into retail_private.store_billing_credentials(
+    store_id, arca_cert, arca_key, arca_environment, updated_at, updated_by
+  ) values (
+    p_store, trim(p_cert), trim(p_key), p_environment, now(), auth.uid()
+  )
+  on conflict (store_id) do update set
+    arca_cert = excluded.arca_cert,
+    arca_key = excluded.arca_key,
+    arca_environment = excluded.arca_environment,
+    updated_at = now(),
+    updated_by = auth.uid();
+end $$;
+
+-- RPC to inspect the status of credentials without EVER exposing the private key or full certificate
+create or replace function public.retail_get_billing_credentials_status(
+  p_store uuid
+) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare
+  cred retail_private.store_billing_credentials;
+begin
+  if not retail_private.has_permission(p_store, 'manage_store') then
+    return jsonb_build_object('configured', false, 'error', 'Sin permisos');
+  end if;
+
+  select * into cred from retail_private.store_billing_credentials where store_id = p_store;
+
+  if not found then
+    return jsonb_build_object(
+      'configured', false,
+      'environment', 'homo',
+      'updated_at', null
+    );
+  end if;
+
+  return jsonb_build_object(
+    'configured', true,
+    'environment', cred.arca_environment,
+    'updated_at', cred.updated_at
+  );
+end $$;
+
+revoke all on function public.retail_set_billing_credentials(uuid,text,text,text) from public,anon;
+grant execute on function public.retail_set_billing_credentials(uuid,text,text,text) to authenticated;
+
+revoke all on function public.retail_get_billing_credentials_status(uuid) from public,anon;
+grant execute on function public.retail_get_billing_credentials_status(uuid) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_5c5d202e9b944644$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610270001_store_billing_credentials.sql','5c5d202e9b94464428e5417696fbc782491a023ad726f772b5693436ba16b9cb','schema');
+ end if;
+end;
+
+-- 39/39: 202610270002_primary_product_markup.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610270002_primary_product_markup.sql') then
+  raise notice 'Aplicando 202610270002_primary_product_markup.sql';
+  execute replace($retail_source_d9e8f398d415af14$
+alter table public.retail_products add column sale_markup numeric(7,2)
+ check(sale_markup is null or sale_markup between -99.99 and 10000);
+grant update(sale_markup) on public.retail_products to authenticated;
+alter table public.retail_price_lists add column is_primary boolean not null default false;
+create unique index retail_one_primary_price_list on public.retail_price_lists(store_id) where is_primary;
+
+create function retail_private.initialize_primary_price_list() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare label text:='Principal'; suffix integer:=1;
+begin
+ perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||new.id::text,0));
+ if exists(select 1 from public.retail_price_lists where store_id=new.id and is_primary) then return new; end if;
+ while exists(select 1 from public.retail_price_lists where store_id=new.id and name=label and deleted_at is null) loop
+  suffix:=suffix+1; label:='Principal '||suffix;
+ end loop;
+ insert into public.retail_price_lists(store_id,name,adjustment,active,base_kind,pricing_rules,is_primary)
+  values(new.id,label,0,true,'catalog','[]'::jsonb,true);
+ return new;
+end $$;
+revoke all on function retail_private.initialize_primary_price_list() from public,anon,authenticated;
+create trigger retail_initialize_primary_price_list after insert on public.retail_stores
+ for each row execute function retail_private.initialize_primary_price_list();
+
+-- The existing tree validator still checks cycles, branch rules and 12 levels.
+-- Do not flatten or delete a deep tree to force this migration to pass.
+do $backfill$
+declare shop record; primary_id uuid; label text; suffix integer;
+begin
+ for shop in select id from public.retail_stores order by id loop
+  perform pg_advisory_xact_lock(hashtextextended('retail-pricing:'||shop.id::text,0));
+  label:='Principal'; suffix:=1;
+  while exists(select 1 from public.retail_price_lists where store_id=shop.id and name=label and deleted_at is null) loop
+   suffix:=suffix+1; label:='Principal '||suffix;
+  end loop;
+  insert into public.retail_price_lists(store_id,name,adjustment,active,base_kind,pricing_rules,is_primary)
+   values(shop.id,label,0,true,'catalog','[]'::jsonb,true) returning id into primary_id;
+  update public.retail_price_lists set base_kind='list',parent_id=primary_id
+   where store_id=shop.id and not is_primary and deleted_at is null and base_kind in ('cost','catalog');
+ end loop;
+end $backfill$;
+
+create function retail_private.guard_primary_price_list() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if tg_op='DELETE' then
+  if old.is_primary then raise exception 'La lista principal se conserva. Editá el margen de los productos'; end if;
+  return old;
+ end if;
+ if tg_op='UPDATE' and new.is_primary is distinct from old.is_primary then raise exception 'No se puede cambiar la identidad de la lista principal'; end if;
+ if new.is_primary then
+  if not new.active or new.deleted_at is not null or new.branch_id is not null or new.base_kind<>'catalog'
+   or new.parent_id is not null or new.adjustment<>0 or new.pricing_rules<>'[]'::jsonb then
+   raise exception 'La principal usa el costo y porcentaje de cada producto, está activa para todo el comercio y no puede eliminarse';
+  end if;
+ elsif new.deleted_at is null and (new.base_kind<>'list' or new.parent_id is null) then
+  raise exception 'Elegí la lista principal o una de sus derivadas como origen';
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.guard_primary_price_list() from public,anon,authenticated;
+create trigger retail_primary_price_list before insert or update or delete on public.retail_price_lists
+ for each row execute function retail_private.guard_primary_price_list();
+
+create function retail_private.guard_primary_price_override() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.retail_price_lists where id=new.list_id and store_id=new.store_id and is_primary) then
+  raise exception 'Editá el costo y margen del producto para cambiar el precio principal. Los precios fijos se usan en las derivadas';
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.guard_primary_price_override() from public,anon,authenticated;
+create trigger retail_primary_price_override before insert or update on public.retail_price_overrides
+ for each row execute function retail_private.guard_primary_price_override();
+
+create function retail_private.derive_product_markup_price() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare calculated numeric;
+begin
+ if (tg_op='INSERT' and new.sale_markup is not null) or
+  (tg_op='UPDATE' and new.sale_markup is distinct from old.sale_markup) then
+  perform retail_private.require_permission(new.store_id,'manage_products');
+ end if;
+ if not new.sellable then new.sale_markup:=null; return new; end if;
+ if new.sale_markup is null then return new; end if;
+ if new.sale_markup not between -99.99 and 10000 then raise exception 'Revisá el porcentaje sobre costo'; end if;
+ if new.cost>0 then calculated:=greatest(0.01,round(new.cost*(1+new.sale_markup/100),2)); end if;
+ -- A deliberate manual price edit keeps existing price-only/bulk/import flows.
+ -- A cost-only change, or a form sending the calculated price, keeps its percent.
+ if tg_op='UPDATE' and new.sale_markup is not distinct from old.sale_markup and new.price is distinct from old.price
+  and (calculated is null or new.price<>calculated) then
+  new.sale_markup:=null; return new;
+ end if;
+ if calculated is not null then
+  if calculated>9999999999 then raise exception 'El precio calculado supera el límite permitido. Revisá costo y porcentaje'; end if;
+  new.price:=calculated;
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.derive_product_markup_price() from public,anon,authenticated;
+-- After component-derived cost, before the existing low-margin classifier.
+create trigger retail_zy_product_markup before insert or update on public.retail_products
+ for each row execute function retail_private.derive_product_markup_price();
+
+create function retail_private.check_product_markup_price() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare p public.retail_products;
+begin
+ select * into p from public.retail_products where id=new.id;
+ if found and p.sellable and p.sale_markup is not null then
+  if p.cost<=0 or p.price<>greatest(0.01,round(p.cost*(1+p.sale_markup/100),2)) then
+   raise exception 'Cargá un costo mayor a cero para calcular el precio principal de %',p.name;
+  end if;
+ end if;
+ return null;
+end $$;
+revoke all on function retail_private.check_product_markup_price() from public,anon,authenticated;
+-- Recipes are inserted and configured in one transaction; validate final cost.
+create constraint trigger retail_check_product_markup after insert or update on public.retail_products
+ deferrable initially deferred for each row execute function retail_private.check_product_markup_price();
+
+-- Extend the existing atomic recipe RPC, preserving its signature, permissions,
+-- stock/composition rules and request-id replay checks. No standalone product survives.
+do $composite$
+declare definition text;
+begin
+ if (select md5(replace(prosrc,E'\r','')) from pg_catalog.pg_proc
+  where oid='public.retail_create_composite_product(uuid,uuid,jsonb)'::regprocedure)<>'e0b520b78d301e2180f6a2a7a164df99' then
+  raise exception 'La creación de combos cambió. Revisar la definición antes de aplicar el porcentaje; no se omitió la validación';
+ end if;
+ definition:=replace(pg_get_functiondef('public.retail_create_composite_product(uuid,uuid,jsonb)'::regprocedure),E'\r','');
+ definition:=replace(definition,'min_stock,emoji,sellable)','min_stock,emoji,sellable,sale_markup)');
+ definition:=replace(definition,'0,0,4,''📦'',true);','0,0,4,''📦'',true,(p_data->>''sale_markup'')::numeric);');
+ if position('min_stock,emoji,sellable,sale_markup)' in definition)=0
+  or position('(p_data->>''sale_markup'')::numeric' in definition)=0 then raise exception 'No se encontró el alta atómica esperada para combos'; end if;
+ execute definition;
+end $composite$;
+
+create or replace function public.retail_active_price_list_for_branch(p_store uuid,p_branch uuid)
+returns uuid language plpgsql stable security invoker set search_path='' as $$
+declare v_list uuid;
+begin
+ if retail_private.role_for(p_store) is null then raise exception 'Sin acceso al comercio'; end if;
+ if not exists(select 1 from public.retail_branches where id=p_branch and store_id=p_store) then raise exception 'Sucursal no disponible'; end if;
+ select id into v_list from public.retail_price_lists where store_id=p_store and branch_id=p_branch and active and deleted_at is null;
+ if v_list is null then select id into v_list from public.retail_price_lists where store_id=p_store and is_primary and active and deleted_at is null; end if;
+ return v_list;
+end $$;
+revoke all on function public.retail_active_price_list_for_branch(uuid,uuid) from public,anon;
+grant execute on function public.retail_active_price_list_for_branch(uuid,uuid) to authenticated;
+
+create or replace function retail_private.enforce_branch_price_rule() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare v_list public.retail_price_lists; v_default uuid;
+begin
+ if new.price_list_id is not null then
+  select * into v_list from public.retail_price_lists where id=new.price_list_id and store_id=new.store_id and active and deleted_at is null for share;
+  if not found or (v_list.branch_id is not null and v_list.branch_id<>new.branch_id) then raise exception 'La lista de precios no está disponible para esta sucursal'; end if;
+ end if;
+ if retail_private.role_for(new.store_id)='cashier' then
+  v_default:=public.retail_active_price_list_for_branch(new.store_id,new.branch_id);
+  -- Old prepared carts/queues may use null for catalog, which is exactly the
+  -- neutral Principal price. Branch-specific derived lists remain mandatory.
+  if new.price_list_id is distinct from v_default and not(new.price_list_id is null and exists(
+   select 1 from public.retail_price_lists where id=v_default and store_id=new.store_id and is_primary)) then
+   raise exception 'Usá la lista de precios asignada a esta sucursal. Actualizá los datos antes de cobrar';
+  end if;
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.enforce_branch_price_rule() from public,anon,authenticated;
+notify pgrst,'reload schema';
+$retail_source_d9e8f398d415af14$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610270002_primary_product_markup.sql','d9e8f398d415af14d4bc1235f3d2023f755cc62ad7879aa3b257794f756e6a02','schema');
+ end if;
+end;
+
+
+ perform pg_notify('pgrst','reload schema');
+end;
+$retail_install$;
 -- Solo metadatos de instalación; no expone datos del comercio ni secretos.
 select filename,origin,registered_at from retail_private.schema_migrations order by filename;

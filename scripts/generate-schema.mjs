@@ -1,12 +1,42 @@
 // Local SQL packaging only: no database connection, dependencies, build or tests.
 import { createHash } from 'node:crypto';
-import { readFile, readdir, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
 const directory = new URL('../supabase/migrations/', import.meta.url);
 // User confirmed on 2026-10-23 that all current migrations were applied manually.
 // Keep this FIXED when adding migrations: never infer a new baseline from the last file.
 const confirmedManualBaseline = '202610230002_ingredients_and_composition_costs.sql';
+// Installer preflight only. Historical migration sources/checksums stay unchanged.
+const requiredPriceTreeFunctions = [
+  'public.retail_save_price_list_tree(uuid,uuid,text,numeric,boolean,uuid,text,uuid,jsonb,bigint)',
+  'public.retail_save_price_override(uuid,uuid,uuid,numeric)',
+  'retail_private.product_list_price(public.retail_products,uuid,integer)',
+];
+function prerequisites(name) {
+  if (name === '202610240001_shift_closing_details.sql') return `  if exists(select 1 from pg_catalog.pg_attribute
+   where attrelid=to_regclass('public.retail_shifts') and attname in ('closing_denominations','ticket_count') and attnum>0 and not attisdropped) then
+   raise exception 'Hay columnas del cierre instaladas, pero la migración 202610240001_shift_closing_details.sql no figura en el historial'
+    using errcode='55000', hint='Detener y ejecutar supabase/maintenance/check_manual_schema_history.sql (solo lectura). Conciliar qué migraciones se aplicaron manualmente; una columna no prueba una migración completa. No borrar columnas, no omitir el paso y no ampliar el baseline automáticamente.';
+  end if;
+`;
+  if (name !== '202610260005_delete_price_lists.sql') return '';
+  return requiredPriceTreeFunctions.map(signature => `  if to_regprocedure('${signature}') is null then
+   raise exception 'Falta una función del árbol de listas: %', '${signature}'
+    using errcode='55000', hint='La eliminación requiere 202610260004_price_list_tree.sql. Aplicá primero el paquete 004 de supabase/updates/ o usá schema.sql completo. Si el historial ya declara instalada esa migración, revisar la instalación con el diagnóstico de solo lectura; no borrar historial ni ampliar el baseline.';
+  end if;
+`).join('');
+}
+function failureContext(name) {
+  if (name !== '202610260004_price_list_tree.sql') return '';
+  return `exception when raise_exception then
+ if sqlerrm<>'La definición de checkout no coincide con la versión esperada. No se aplicaron cambios; revisar instalación' then raise; end if;
+ raise exception using errcode=sqlstate,message=sqlerrm,
+  detail='Huella del cuerpo checkout (LF): '||coalesce((select md5(replace(prosrc,chr(13),'')) from pg_catalog.pg_proc
+   where oid=to_regprocedure('public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb)')),'función ausente'),
+  hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
+`;
+}
 const names = (await readdir(directory)).filter(name => name.endsWith('.sql')).sort();
 const invalid = names.find(name => !/^\d{12,14}_[a-z0-9_]+\.sql$/.test(name));
 if (invalid) throw new Error(`Nombre de migración no admitido: ${invalid}. No se omitió silenciosamente del schema.`);
@@ -21,6 +51,7 @@ const migrations = await Promise.all(names.map(async (name, index) => {
   const body = wrapped[1];
   const tag = `retail_source_${checksum.slice(0, 16)}`;
   if (source.includes(`$${tag}$`)) throw new Error(`${name}: delimitador SQL en conflicto.`);
+  if (source.includes('$retail_install$')) throw new Error(`${name}: delimitador del instalador en conflicto; revisar sin alterar la migración.`);
   return { name, checksum, body, tag, order: index + 1 };
 }));
 
@@ -33,32 +64,32 @@ const sql = `-- AdministradorKiosco: schema consolidado generado desde migration
 -- al agregar archivos. Para otro entorno, revisar o vaciar antes de ejecutar.
 -- Una base existente sin historial ni baseline se rechaza ANTES de aplicar cambios.
 -- Reejecuciones omiten migraciones registradas y verifican su SHA-256.
+-- Cada cuerpo se ejecuta con LF, incluso si el editor/portapapeles introduce CRLF.
+-- Un único DO contiene manifiesto, comprobaciones y pasos: no usa tablas temporales.
 -- No incluye maintenance/, tests/, ni push-schedule.sql (requiere Vault y despliegue).
 -- Este archivo no fue ejecutado contra Supabase durante su preparación.
-begin;
-select pg_advisory_xact_lock(hashtextextended('administrador-kiosco:schema',0));
-select set_config('retail.schema_baseline', '${confirmedManualBaseline}', true);
-
-create schema if not exists retail_private;
-create table if not exists retail_private.schema_migrations (
- filename text primary key,
- sha256 text not null check(length(sha256)=64),
- origin text not null check(origin in ('schema','adopted')),
- registered_at timestamptz not null default now()
-);
-revoke all on retail_private.schema_migrations from public,anon,authenticated;
-create temporary table retail_schema_manifest (
- ordinal integer primary key, filename text unique not null, sha256 text not null
-) on commit drop;
-insert into retail_schema_manifest(ordinal,filename,sha256) values
-${migrations.map(migration => ` (${migration.order},'${migration.name}','${migration.checksum}')`).join(',\n')};
-
-do $retail_bootstrap$
-declare baseline text:=current_setting('retail.schema_baseline'); boundary integer; conflict text;
+do $retail_install$
+declare
+ manifest jsonb := $retail_schema_manifest_json$
+${JSON.stringify(migrations.map(migration => ({ ordinal: migration.order, filename: migration.name, sha256: migration.checksum })), null, 1)}
+$retail_schema_manifest_json$::jsonb;
+ baseline text; boundary integer; conflict text;
  existing_installation boolean;
 begin
+ perform pg_advisory_xact_lock(hashtextextended('administrador-kiosco:schema',0));
+ perform set_config('retail.schema_baseline', '${confirmedManualBaseline}', true);
+ baseline:=current_setting('retail.schema_baseline');
+ create schema if not exists retail_private;
+ create table if not exists retail_private.schema_migrations (
+  filename text primary key,
+  sha256 text not null check(length(sha256)=64),
+  origin text not null check(origin in ('schema','adopted')),
+  registered_at timestamptz not null default now()
+ );
+ revoke all on retail_private.schema_migrations from public,anon,authenticated;
+
  if baseline<>'' then
-  select ordinal into boundary from retail_schema_manifest where filename=baseline;
+  select ordinal into boundary from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) where filename=baseline;
   if boundary is null then raise exception 'Baseline desconocido: %. Usá el nombre completo de una migración del manifiesto',baseline; end if;
  end if;
  select exists(select 1 from pg_catalog.pg_class c join pg_catalog.pg_namespace n on n.oid=c.relnamespace
@@ -76,46 +107,135 @@ begin
    end if;
    -- Explicit operator declaration, NOT an inference from columns or row counts.
    insert into retail_private.schema_migrations(filename,sha256,origin)
-    select filename,sha256,'adopted' from retail_schema_manifest where ordinal<=boundary;
+    select filename,sha256,'adopted' from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) where ordinal<=boundary;
    raise notice 'Adoptadas % migraciones hasta %. Esta fecha registra la adopción, no su ejecución original',boundary,baseline;
   end if;
- elsif baseline<>'' and exists(select 1 from retail_schema_manifest m where m.ordinal<=boundary
+ elsif baseline<>'' and exists(select 1 from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) where m.ordinal<=boundary
   and not exists(select 1 from retail_private.schema_migrations h where h.filename=m.filename)) then
   raise exception 'La base ya tiene historial. No se permite ampliar baseline para saltar migraciones pendientes';
  end if;
  select h.filename into conflict from retail_private.schema_migrations h
-  left join retail_schema_manifest m on m.filename=h.filename
+  left join jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) on m.filename=h.filename
   where m.filename is null or m.sha256<>h.sha256 limit 1;
  if conflict is not null then
   raise exception 'El historial no coincide con este schema: %. No se aplicó ningún cambio. No editar migraciones registradas; preparar una nueva o usar la versión correcta del repositorio',conflict;
  end if;
- if exists(select 1 from retail_schema_manifest m join retail_private.schema_migrations h using(filename)
-  where exists(select 1 from retail_schema_manifest previous where previous.ordinal<m.ordinal
+ if exists(select 1 from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) join retail_private.schema_migrations h using(filename)
+  where exists(select 1 from jsonb_to_recordset(manifest) previous(ordinal integer,filename text,sha256 text) where previous.ordinal<m.ordinal
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
-end;
-$retail_bootstrap$;
-
 ${migrations.map(migration => `-- ${migration.order}/${migrations.length}: ${migration.name}
-do $retail_step_${migration.order}$
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='${migration.name}') then
   raise notice 'Aplicando ${migration.name}';
-  execute $${migration.tag}$
+${prerequisites(migration.name)}  execute replace($${migration.tag}$
 ${migration.body}
-$${migration.tag}$;
+$${migration.tag}$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('${migration.name}','${migration.checksum}','schema');
  end if;
-end;
-$retail_step_${migration.order}$;`).join('\n\n')}
+${failureContext(migration.name)}end;
+`).join('\n')}
 
-notify pgrst,'reload schema';
-commit;
+ perform pg_notify('pgrst','reload schema');
+end;
+$retail_install$;
 -- Solo metadatos de instalación; no expone datos del comercio ni secretos.
 select filename,origin,registered_at from retail_private.schema_migrations order by filename;
 `;
 const target = new URL('../supabase/schema.sql', import.meta.url);
 await writeFile(target, sql, 'utf8');
 console.log(`${fileURLToPath(target)}: ${migrations.length} migraciones consolidadas; sin conexiones a base de datos.`);
+
+// Optional small packages for the diagnosed installation already reconciled
+// through 202610260003. No baseline adoption and no historical source edits.
+if (process.argv.includes('--individual-updates')) {
+  const boundary = migrations.findIndex(migration => migration.name === '202610260003_billing_fields.sql');
+  if (boundary !== 33) throw new Error('Cambió el prefijo de 34 migraciones. Revisar la instalación antes de generar actualizaciones individuales.');
+  const updatesDirectory = new URL('../supabase/updates/', import.meta.url);
+  await mkdir(updatesDirectory, { recursive: true });
+  const manifest = JSON.stringify(migrations.map(migration => ({ ordinal: migration.order, filename: migration.name, sha256: migration.checksum })), null, 1);
+  for (const migration of migrations.slice(boundary + 1)) {
+    const update = `-- AdministradorKiosco: actualización individual ${migration.order}/${migrations.length}.
+-- Generado: node scripts/generate-schema.mjs --individual-updates. NO editar.
+-- Fuente: migrations/${migration.name}; SHA-256 ${migration.checksum}.
+-- Requiere historial conciliado y TODAS las migraciones anteriores registradas.
+-- Ejecutar este archivo COMPLETO en el proyecto correcto, de a uno y en orden.
+-- Un DO atómico: sin tablas temporales; registra solo si termina correctamente.
+-- Si ya está registrado con el mismo checksum, no repite el cuerpo SQL.
+-- No fue ejecutado remotamente durante su preparación.
+do $retail_install$
+declare
+ manifest jsonb := $retail_schema_manifest_json$
+${manifest}
+$retail_schema_manifest_json$::jsonb;
+ conflict text; missing text;
+begin
+ perform set_config('lock_timeout','10s',true);
+ perform pg_advisory_xact_lock(hashtextextended('administrador-kiosco:schema',0));
+ if to_regclass('retail_private.schema_migrations') is null then
+  raise exception 'Falta el historial de instalación. No se aplicó ${migration.name}'
+   using errcode='55000',hint='Revisar SUPABASE_SETUP.md y el diagnóstico de solo lectura. Este archivo no adopta migraciones ni reemplaza una conciliación pendiente.';
+ end if;
+ select h.filename into conflict from retail_private.schema_migrations h
+  left join jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) using(filename)
+  where m.filename is null or m.sha256<>h.sha256 limit 1;
+ if conflict is not null then
+  raise exception 'Historial distinto al paquete: %. No se modificó. Revisar versión del repositorio y diagnóstico',conflict;
+ end if;
+ if exists(select 1 from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text)
+  join retail_private.schema_migrations h using(filename)
+  where exists(select 1 from jsonb_to_recordset(manifest) previous(ordinal integer,filename text,sha256 text)
+   where previous.ordinal<m.ordinal and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
+  raise exception 'El historial tiene huecos. No se modificó: revisar diagnóstico antes de continuar';
+ end if;
+ if exists(select 1 from retail_private.schema_migrations where filename='${migration.name}') then
+  raise notice '${migration.name} ya está registrada con el mismo checksum. No se repitió';
+  return;
+ end if;
+ select m.filename into missing from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text)
+  where m.ordinal<${migration.order} and not exists(select 1 from retail_private.schema_migrations h where h.filename=m.filename)
+  order by m.ordinal limit 1;
+ if missing is not null then
+  raise exception 'Falta registrar la migración anterior %. No se aplicó ${migration.name}',missing
+   using errcode='55000',hint='Ejecutar las actualizaciones en orden. Si falta un paso manual anterior, conciliar primero; no insertar historial a mano.';
+ end if;
+ begin
+  raise notice 'Aplicando ${migration.name}';
+${prerequisites(migration.name)}  execute replace($${migration.tag}$
+${migration.body}
+$${migration.tag}$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('${migration.name}','${migration.checksum}','schema');
+ ${failureContext(migration.name)}end;
+ perform pg_notify('pgrst','reload schema');
+end;
+$retail_install$;
+select count(*) as migraciones,max(filename) as ultima_migracion from retail_private.schema_migrations;
+`;
+    await writeFile(new URL(migration.name, updatesDirectory), update, 'utf8');
+  }
+  console.log(`${fileURLToPath(updatesDirectory)}: ${migrations.length - boundary - 1} actualizaciones individuales; sin conexiones a base de datos.`);
+}
+
+// Explicit, installation-specific recovery packaging. NEVER advances the baseline,
+// runs SQL, or adopts later migrations from their presence. See SUPABASE_SETUP.md.
+if (process.argv.includes('--manual-history-recovery-20261027')) {
+  const recoveryBoundary = '202610260003_billing_fields.sql';
+  const pinned = migrations.filter(migration => migration.name <= recoveryBoundary);
+  if (pinned.length !== 34 || pinned.at(-1)?.name !== recoveryBoundary) {
+    throw new Error('El prefijo de recuperación cambió. Revisar el diagnóstico; no ampliar la adopción automáticamente.');
+  }
+  const recoveryTarget = new URL('../supabase/maintenance/adopt_manual_history_20261027.sql', import.meta.url);
+  const source = await readFile(recoveryTarget, 'utf8');
+  const marker = /-- BEGIN PINNED MANIFEST:[^\r\n]*\r?\n[\s\S]*?-- END PINNED MANIFEST/;
+  if (!marker.test(source)) throw new Error('Faltan los delimitadores del manifiesto de recuperación.');
+  const manifest = `-- BEGIN PINNED MANIFEST: generated only with the explicit recovery flag.
+ manifest jsonb := $retail_manual_manifest$
+${JSON.stringify(pinned.map(migration => ({ ordinal: migration.order, filename: migration.name, sha256: migration.checksum })), null, 1)}
+$retail_manual_manifest$::jsonb;
+-- END PINNED MANIFEST`;
+  await writeFile(recoveryTarget, source.replace(marker, () => manifest), 'utf8');
+  console.log(`${fileURLToPath(recoveryTarget)}: manifiesto fijo de 34 migraciones; solo empaquetado, sin aplicar SQL.`);
+}

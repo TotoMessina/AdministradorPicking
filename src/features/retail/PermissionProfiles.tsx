@@ -108,13 +108,19 @@ function ProfileForm({ storeId, profile, busy, run, onSaved, grantable }: { stor
 }
 
 export function PermissionProfileSettings({ storeId, profiles, busy, run, onSaved, grantable }: { storeId: string; profiles: PermissionProfile[]; busy: boolean; run: Run; onSaved: () => void; grantable?: Permission[] }) {
-  return <section className="permission-profiles"><h3>Perfiles de permisos</h3>
-    <p>Creá un perfil o elegí Editar para cambiar uno existente.</p>
-    <SettingsEditorGroup>{[...profiles, undefined].map(profile => <SettingsEditor key={profile?.id || 'new'} busy={busy}
-      label={profile ? `Editar ${profile.name}` : 'Crear perfil'}
-      summary={profile && <><strong>{profile.name}</strong><small>{profile.base_role === 'supervisor' ? 'Supervisor' : 'Cajero'} · {profile.permissions.length} acciones</small></>}>
-      {close => <ProfileForm storeId={storeId} profile={profile} busy={busy} run={run} grantable={grantable} onSaved={() => { close(); onSaved(); }} />}
-    </SettingsEditor>)}</SettingsEditorGroup>
+  return <section className="permission-profiles">
+    <SettingsEditorGroup>
+      <div className="permission-profile-new-wrapper">
+        <SettingsEditor key="new" busy={busy} label="+ Nuevo perfil">
+          {close => <ProfileForm storeId={storeId} busy={busy} run={run} grantable={grantable} onSaved={() => { close(); onSaved(); }} />}
+        </SettingsEditor>
+      </div>
+      {profiles.map(profile => <SettingsEditor key={profile.id} busy={busy}
+        label="Editar"
+        summary={<div className="permission-profile-summary"><strong>{profile.name}</strong><small>{profile.base_role === 'supervisor' ? 'Supervisor' : 'Cajero'} · {profile.permissions.length} acciones</small></div>}>
+        {close => <ProfileForm storeId={storeId} profile={profile} busy={busy} run={run} grantable={grantable} onSaved={() => { close(); onSaved(); }} />}
+      </SettingsEditor>)}
+    </SettingsEditorGroup>
   </section>;
 }
 

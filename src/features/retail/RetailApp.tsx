@@ -43,6 +43,7 @@ import { DelegatedSettings } from './DelegatedSettings';
 import { CashDesk } from "./CashDesk";
 import { PriceListSettings } from './BusinessSettings';
 import { SalesOverview } from './SalesOverview';
+import { authorizeSaleInvoice, processPendingSales } from '../../services/billingService';
 import { SaleLedgerControl } from './SaleLedgerControl';
 import { resolveSaleLedger } from './ledgerRouting';
 import { QuickProducts } from './QuickProducts';
@@ -324,7 +325,8 @@ function Workspace({
   const routingLedgers = ledgerSnapshot.current || ledgers;
   const ledgerForPayment = (method: KioscoSale['paymentMethod']) => resolveSaleLedger(routingLedgers, method, automaticLedger ? undefined : ledgerId);
   const ledgerName = automaticLedger ? 'Automático por medio de pago' : ledgers.find(l => l.id === ledgerId)?.name || 'Sin registro disponible';
-  const canChooseList = manager && saleLists.some(l => l.active);
+  const hasPrimaryList = saleLists.some(l => l.is_primary && l.active);
+  const canChooseList = manager && (saleLists.filter(l => l.active).length + (hasPrimaryList ? 0 : 1) > 1);
   const canChooseLedger = saleLedgers.filter(l => l.active).length > 1 || saleLedgers.some(l => l.id === ledgerId && !l.active);
   const mobileTabs = ['pos', 'cash', ...(canOpenCatalog ? ['catalog'] : []), ...(canOpenSettings ? ['settings'] : []), ...(!manager && can('submit_remito') ? ['remito'] : [])];
   const canOperate =
@@ -594,6 +596,17 @@ function Workspace({
       });
       checkoutRequest.current = { signature: "", id: "" };
       setLastSale(saved);
+      if (store.billing_enabled) {
+        void authorizeSaleInvoice(store, saved).then(authResult => {
+          if (authResult) {
+            const updateWithAuth = (s: KioscoSale) => s.id === saved.id ? { ...s, ...authResult } : s;
+            setLastSale(prev => prev ? updateWithAuth(prev) : prev);
+            setSales(prev => prev.map(updateWithAuth));
+            setAllStoreSales(prev => prev.map(updateWithAuth));
+            setTicket(prev => prev ? updateWithAuth(prev) : prev);
+          }
+        });
+      }
       void Promise.all([refresh(), refreshLedger()]).catch(err => {
         setError(
           "La venta se guardó. Actualizá los datos antes de seguir: " +
@@ -608,6 +621,26 @@ function Workspace({
     }
   };
   const refreshAll = () => { branchPricing.reload(); void run(async () => { await pendingRemitos.refresh(); }, "Datos actualizados"); };
+  const pendingBillingProcessing = useRef(false);
+  useEffect(() => {
+    if (!store?.billing_enabled || pendingBillingProcessing.current) return;
+    const candidates = sales.length > 0 ? sales : allStoreSales;
+    const pendingSales = candidates.filter(
+      (s) => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending',
+    );
+    if (pendingSales.length === 0) return;
+
+    pendingBillingProcessing.current = true;
+    void processPendingSales(store, pendingSales, (saleId, authResult) => {
+      const updateWithAuth = (s: KioscoSale) => (s.id === saleId ? { ...s, ...authResult } : s);
+      setLastSale((prev) => (prev ? updateWithAuth(prev) : prev));
+      setSales((prev) => prev.map(updateWithAuth));
+      setAllStoreSales((prev) => prev.map(updateWithAuth));
+      setTicket((prev) => (prev ? updateWithAuth(prev) : prev));
+    }).finally(() => {
+      pendingBillingProcessing.current = false;
+    });
+  }, [store, sales, allStoreSales]);
   useEffect(() => {
     if (pushEntry) window.history.replaceState(null, '', window.location.pathname + window.location.search);
   }, [pushEntry]);
@@ -671,7 +704,7 @@ function Workspace({
             className="pos-station-btn-select"
             aria-label="Seleccionar lista de precios"
           >
-            <option value="">Precio del catálogo</option>
+            {(!hasPrimaryList || !priceListId) && <option value="">Precio del catálogo</option>}
             {saleLists.map(l => (
               <option key={l.id} value={l.id} disabled={!l.active}>
                 {l.name}{!l.active && ' (inactiva)'}
@@ -1089,7 +1122,7 @@ function Workspace({
                   canCustomizeQuick={can('manage_quick_products')}
                   key={shift?.id}
                   storeName={store.name}
-                  products={productsForList(products, priceLists.find(l => l.id === priceListId), priceOverrides)}
+                  products={productsForList(products, priceLists.find(l => l.id === priceListId), priceOverrides, priceLists)}
                   cart={cart}
                   setCart={setCart}
                   onCompleteSale={completeSale}
@@ -1107,7 +1140,7 @@ function Workspace({
             </div>
             <div hidden={tab !== 'cash'}>
                 {canReviewSales && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Ver ventas' }]} />}
-                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canAttachInvoice={can('attach_invoice')} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
+                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} store={store} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canAttachInvoice={can('attach_invoice')} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
                   <details className="retail-panel"><summary className="ai-action"><AiIcon /> Explicar estos resultados con IA</summary><AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} /></details>
                 </div>}
                 <div hidden={canReviewSales && cashView !== 'shift'} role={canReviewSales ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={canReviewSales ? 'cash-tab-shift' : undefined}>
@@ -1143,7 +1176,7 @@ function Workspace({
             </div>
             {canOpenCatalog && <div hidden={tab !== 'catalog'}>
               <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, ...(can('manage_price_lists') ? [{ id: 'prices', label: 'Listas de precios' }] : []), ...(can('manage_transfers') ? [{ id: 'transfers', label: 'Transferencias' }] : [])]} />
-              {can('manage_price_lists') && <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={configurationBranches} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>}
+              {can('manage_price_lists') && <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={configurationBranches} categories={categories} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>}
             </div>}
             {manager && (
               <div hidden={tab !== 'catalog'}>
@@ -1181,6 +1214,7 @@ function Workspace({
             </div>}
             {manager && <div hidden={tab !== 'settings'}>
               <StoreSettings
+                active={!guiding && tab === 'settings'}
                 view={settingsView}
                 onViewChange={setSettingsView}
                 onOpenPrices={() => { setCatalogView('prices'); setTab('catalog'); }}
@@ -1237,6 +1271,7 @@ function Workspace({
         sale={ticket}
         isOpen={!!ticket}
         onClose={() => setTicket(null)}
+        store={store}
       />
       {!guiding && <AiAssistantWidget
         storeName={store.name}

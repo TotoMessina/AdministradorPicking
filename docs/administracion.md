@@ -4,6 +4,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 
 - [Inicio guiado](#inicio-guiado)
 - [Personas y perfiles](#personas-y-perfiles)
+- [Facturación electrónica ARCA (ex AFIP)](#facturacion-electronica-arca)
 
 <a id="inicio-guiado"></a>
 
@@ -98,4 +99,150 @@ En **http://localhost:3001/**, en un comercio de prueba y con las migraciones ap
 Estas verificaciones de navegador, móvil, Supabase/RLS, Groq, concurrencia, otros dispositivos y sincronización real quedan pendientes. No se realizaron pruebas con personas ni SQL remoto. 
 
 Sin perfil personalizado, Cajero conserva vender, ingresos, retiros, mover ventas propias de registro y enviar remitos; Supervisor agrega consulta de ventas asignadas. Reposición limitada solo suma stock sin cambiar costo; editar precio conserva atributos y comprueba el precio anterior. Supervisor se trata como cajero en RPC heredadas para conservar privacidad, sin falsear su rol real.
+
+<a id="facturacion-electronica-arca"></a>
+
+## Facturación electrónica ARCA (ex AFIP)
+
+### Alcance de Fase 1 — Configuración fiscal y base de datos
+
+La migración `supabase/migrations/202610260003_billing_fields.sql` (consolidada en `supabase/schema.sql`) añade la estructura requerida para emitir comprobantes fiscales electrónicos:
+
+- **Datos fiscales del comercio (`retail_stores`)**:
+  - `cuit`: CUIT de 11 dígitos, validado con algoritmo oficial Módulo 11.
+  - `razon_social`: denominación comercial o fiscal (hasta 120 caracteres).
+  - `condicion_iva`: `'MO'` (Monotributo - Factura C), `'RI'` (Responsable Inscripto - Facturas B y A), `'EX'` (IVA Exento).
+  - `punto_venta_afip`: número de punto de venta electrónico (1 a 99998).
+  - `iibb` e `inicio_actividades`: campos informativos opcionales.
+  - `billing_enabled`: interruptor opt-in (predeterminado `false`). Restricción `CHECK` a nivel de base: no puede ser `true` si faltan CUIT, Razón Social, Condición IVA o Punto de Venta.
+
+- **Campos fiscales por venta (`retail_sales`)**:
+  - `cbte_tipo`: código ARCA (ej. 6 = Factura B, 11 = Factura C).
+  - `cbte_nro`: número secuencial otorgado por ARCA.
+  - `cae`: Código de Autorización Electrónico (14 dígitos).
+  - `cae_vto`: fecha de vencimiento del CAE.
+  - `billing_status`: `'none'`, `'pending'`, `'authorized'`, `'error'`, `'retry'`.
+  - `billing_error`: descripción del último error de validación o comunicación.
+  - `billing_attempts`: contador de intentos de emisión.
+  - Trigger `retail_initialize_sale_billing`: asigna automáticamente `'pending'` al registrar ventas nuevas en comercios que tengan `billing_enabled = true`. Los comercios sin facturación o ventas anteriores permanecen en `'none'`.
+
+- **Seguridad, permisos y secretos**:
+  - Los datos fiscales solo pueden ser leídos por miembros del comercio y modificados por usuarios con permiso `manage_store` (owner o admin) mediante el RPC `retail_set_billing_settings`.
+  - La actualización del estado fiscal de una venta se realiza mediante el RPC `retail_update_sale_billing`, accesible a usuarios con permiso `manage_store`, `sell` o `view_sales`.
+  - Los certificados X.509 y claves privadas para el web service de ARCA (WSAA) se gestionan exclusivamente en el backend (Supabase Vault / Secrets). Nunca viajan ni se almacenan en el navegador del cliente.
+
+### Fases 2 y 3 — Servicio de facturación y flujo de venta
+
+- **Servicio y Edge Function (`billing-authorize`)**:
+  - Función de Supabase en [supabase/functions/billing-authorize/index.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/supabase/functions/billing-authorize/index.ts). Autentica la sesión del usuario mediante token Bearer y verifica permisos en el comercio.
+  - Soporta certificados digitales X.509 en Supabase Vault (`ARCA_CERT` y `ARCA_KEY`) y modo de simulación/homologación inicial con correlatividad secuencial de comprobantes y formato de CAE oficial de 14 dígitos.
+  - La lógica del cliente en [src/services/billingService.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/services/billingService.ts) determina el tipo de comprobante (Factura B para Responsable Inscripto o Factura C para Monotributo) y calcula el desglose de IVA 21%.
+  - Genera el código QR oficial de ARCA codificado en base64 según RG 4291/4892 (`https://www.afip.gob.ar/fe/qr/?p=...`).
+
+- **Flujo de venta no bloqueante**:
+  - Al completar el cobro en caja, la venta se guarda inmediatamente (en estado `'pending'` si el comercio tiene la facturación activada) y se dispara la solicitud en segundo plano. El cajero nunca espera la respuesta de ARCA para continuar operando.
+  - Si ARCA aprueba el comprobante, la venta se actualiza con CAE y número correlativo en la base de datos y se refresca el ticket en pantalla en tiempo real.
+  - Si ocurre un fallo de red o rechazo, la venta queda en estado `'error'` con el mensaje descriptivo y un botón de reintento en el historial de ventas.
+
+- **Ticket térmico con datos fiscales**:
+  - Si la venta está autorizada (`billingStatus === 'authorized'`), [ThermalReceiptModal.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/components/ThermalReceiptModal.tsx) muestra la denominación fiscal oficial, CUIT, Condición IVA, punto de venta y número correlativo (ej. `Factura B N° 0001-00000042`), el código QR escaneable de ARCA, el CAE y su fecha de vencimiento.
+  - Se suprime la leyenda de no validez fiscal cuando el comprobante está autorizado. Las ventas sin facturación o pendientes conservan el ticket convencional.
+
+### Fase 4 — Administración, monitoreo y exportación fiscal
+
+- **Panel de monitoreo en Mi Comercio ([BillingSettings.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/BillingSettings.tsx))**:
+  - Al tener la facturación activa, muestra un monitor en vivo con el Punto de Venta fiscal, la denominación y número del último comprobante emitido correlativo con su fecha/hora, y el estado de la cola de emisión (comprobantes pendientes o con error).
+  - Consulta los contadores solo al estar visible Mi comercio → Datos del comercio. Al salir, cancela las solicitudes del monitor; los borradores fiscales siguen montados. El estado de credenciales tampoco se consulta desde esa pantalla oculta.
+  - Un error o una espera de más de 15 segundos muestra **Reintentar consulta**. Los errores devueltos por Supabase y los contadores ausentes no se convierten en cero ni en “Al día”. Reintentar actualiza únicamente la lectura del monitor; no emite facturas ni cambia estados fiscales.
+  - Guía manual pendiente en **http://localhost:3001/**: en Vender, con la pestaña Red abierta, no deben iniciarse las tres consultas de métricas fiscales; al abrir Datos del comercio con facturación activa, debe aparecer una carga y luego datos válidos. Simular falta de conexión en datos de prueba: muestra error y reintento, sin “Al día”; restablecer conexión y reintentar: recupera métricas sin duplicar comprobantes. Navegar con un borrador fiscal: conserva sus campos. No se probaron estos recorridos en navegador/backend.
+- **Métricas fiscales en el Historial de Ventas ([SalesOverview.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/SalesOverview.tsx))**:
+  - Tarjetas de resumen con el importe total facturado con CAE y la cantidad de comprobantes emitidos en el período consultado.
+  - Alerta visible y conteo cuando existen comprobantes pendientes o con error.
+- **Filtro de facturación ARCA**:
+  - Permite filtrar el listado de ventas por: *Todos los estados fiscales*, *Autorizadas con CAE*, *Pendientes de CAE*, *Con error en ARCA* o *Sin comprobante fiscal (No fiscal)*.
+- **Reintento masivo e individual**:
+  - Cada venta en la tabla dispone de un botón de reintento directo en su badge de estado (`BillingStatusBadge`).
+  - La administración dispone de un botón masivo (*"Reintentar facturación de N ventas con error"*) para reprocesar en serie todas las ventas fallidas con una sola acción.
+- **Procesamiento de ventas offline reconectadas ([RetailApp.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/RetailApp.tsx) y [billingService.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/services/billingService.ts))**:
+  - Cuando se restablece la conexión y la cola offline sincroniza ventas al backend (`retail_sync_operation`), el trigger de la base inicializa su estado fiscal en `pending`.
+  - El sistema ejecuta un barrido automático en segundo plano (`processPendingSales`) para autorizar y obtener el CAE de cada venta sincronizada sin interrumpir las operaciones del cajero ni bloquear el punto de venta.
+- **Exportación contable completa en CSV ([pricing.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/pricing.ts))**:
+  - El archivo CSV de ventas incluye las columnas de auditoría fiscal: `Estado fiscal ARCA`, `Tipo comprobante`, `Nro comprobante`, `CAE` y `Vto CAE`.
+
+### Guía de Pruebas manuales — Circuito completo
+
+En **http://localhost:3001/**, con un comercio de prueba y schema aplicado en Supabase (`202610260003_billing_fields.sql`):
+
+1. **Configuración fiscal**:
+   - En **Mi comercio → Facturación electrónica ARCA**, cargar CUIT (`20-12345678-6`), Razón Social, Condición IVA (ej. Monotributo) y Punto de venta 1.
+   - Activar el interruptor de facturación electrónica y guardar.
+   - Verificar que aparece el panel de monitoreo con *Pto. Vta. N° 1* y estado *Al día*.
+2. **Venta con emisión fiscal electrónica**:
+   - Ir a **Vender**, armar un carrito y cobrar con cualquier medio de pago.
+   - Observar que el cobro se confirma de inmediato sin demoras.
+   - Abrir el ticket emitido: debe mostrar **Factura C**, número correlativo (ej. `0001-00000001`), CAE asignado de 14 dígitos, vencimiento a 10 días y el código QR de ARCA escaneable.
+   - Probar descargar el archivo `.txt` del ticket: incluye los datos fiscales oficiales y el enlace del QR.
+3. **Historial de ventas y filtros**:
+   - En **Caja → Ver ventas**, verificar que la métrica *Facturado con CAE (ARCA)* refleja el total y la cantidad de comprobantes.
+   - En la tabla de ventas, verificar el badge verde con el comprobante y CAE.
+   - Probar el filtro *Facturación ARCA → Autorizadas con CAE* y verificar que filtre correctamente.
+   - Probar la exportación CSV: abrir el archivo generado y comprobar las columnas de auditoría fiscal (`Estado fiscal ARCA`, `Tipo comprobante`, `Nro comprobante`, `CAE`, `Vto CAE`).
+4. **Reintento de facturación**:
+   - Si una venta queda en estado de error, verificar que en **Ver ventas** figure el banner de alerta y el botón de reintento (tanto individual en la fila como masivo).
+5. **Modo no fiscal (opt-in)**:
+   - Desactivar la facturación en **Mi comercio** y realizar una venta: debe generarse como ticket no fiscal estándar con la leyenda `COMPROBANTE NO VÁLIDO COMO FACTURA` y estado `none`.
+
+### Guía de Puesta en Marcha Real con ARCA (AFIP)
+
+Para que el sistema emita comprobantes reales con CAE y QR oficial ante ARCA (ex AFIP), el comerciante completa estos 4 pasos directamente desde la app en **Mi Comercio → Facturación electrónica ARCA**:
+
+1. **Punto de Venta Web Services en AFIP**:
+   - Ingresar con Clave Fiscal (nivel 3 o superior) a `afip.gob.ar`.
+   - En *Administración de Puntos de Venta y Domicilios*, agregar un nuevo punto de venta.
+   - **Crucial:** Seleccionar el sistema **"Factura Electrónica - Monotributo / Responsable Inscripto - Web Services"** (nunca Comprobantes en Línea ni Facturador Móvil).
+
+2. **Generación de Certificado Digital y Clave**:
+   - **Opción asistida (1 clic desde la app)**:
+     - En **Mi Comercio → Facturación electrónica ARCA → Guía paso a paso**, hacer clic en *"⚡ Generar pedido (.csr) y clave privada (.key) en 1 clic"*.
+     - El sistema genera el par de claves RSA-2048 y descarga automáticamente `pedido_afip.csr` y `privada_afip.key`.
+     - La clave privada queda además precargada en el formulario de la app.
+   - **Opción manual (OpenSSL)**:
+     - Copiar los comandos OpenSSL disponibles en la app para generar la clave y el pedido CSR.
+   - **En AFIP**:
+     - Entrar a *Administración de Certificados Digitales* → *Agregar Alias* (ej. `kiosco_pos`).
+     - Subir el archivo `pedido_afip.csr` y guardar.
+     - Descargar el archivo `.crt` emitido por AFIP.
+
+3. **Vincular el servicio Facturación Electrónica (WSFE)**:
+   - En AFIP, entrar a *Administrador de Relaciones de Clave Fiscal* → *Nueva Relación* → *Buscar Servicio*.
+   - Elegir **AFIP → Web Services → Facturación Electrónica** (WSFE).
+   - En "Representante", buscar y seleccionar el alias creado en el Paso 2 (`kiosco_pos`).
+   - Confirmar la relación.
+
+4. **Carga en la App y Prueba de Conexión en Vivo**:
+   - En **Mi Comercio → Facturación electrónica ARCA**:
+     - Cargar el archivo `.crt` descargado de AFIP y confirmar la clave privada `.key`.
+     - Seleccionar el entorno: **"Producción Oficial"**.
+     - Guardar los certificados de ARCA.
+     - Presionar el botón **"⚡ Probar conexión con ARCA"**:
+       - La app invoca la Edge Function en tiempo real.
+       - La función autentica en WSAA, consulta WSFE en AFIP y valida el Punto de Venta.
+       - Muestra el resultado oficial: último comprobante autorizado registrado en AFIP.
+     - Guardar los datos fiscales del comercio y activar el interruptor *"Activar facturación electrónica ARCA"*.
+
+### Despliegue de la Edge Function en Supabase
+
+Para que el backend procese las firmas CMS y solicitudes SOAP con AFIP:
+
+1. **Migración de base de datos**:
+   - Ejecutar en Supabase SQL Editor la migración [202610270001_store_billing_credentials.sql](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/supabase/migrations/202610270001_store_billing_credentials.sql) (crea `retail_private.store_billing_credentials` con RLS protegida para administradores).
+
+2. **Despliegue de Edge Function**:
+   ```bash
+   npx supabase functions deploy billing-authorize
+   ```
+   *Nota: La función usa `npm:node-forge@1.3.1` para generar firmas PKCS#7 / CMS compatibles con el WSAA de AFIP y soporta tanto credenciales por comercio en la base como variables de entorno de respaldo.*
+
+
+
 

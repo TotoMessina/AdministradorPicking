@@ -36,6 +36,8 @@ if (typeof window !== "undefined") {
 
 export interface ParseFileResult {
   text: string;
+  rawText?: string;
+  ocrConfidence?: number;
   previewUrl?: string;
   fileName: string;
   fileType: "pdf" | "image" | "text";
@@ -48,6 +50,7 @@ export interface ParseFileResult {
 export async function extractTextFromFile(
   file: File,
   onProgress?: (message: string) => void,
+  rotation = 0,
 ): Promise<ParseFileResult> {
   const fileName = file.name;
   const mime = file.type.toLowerCase();
@@ -57,10 +60,12 @@ export async function extractTextFromFile(
     onProgress?.("Cargando documento PDF…");
     const arrayBuffer = await file.arrayBuffer();
 
-    const pdf = await pdfjsLib.getDocument({
+    const loadingTask = pdfjsLib.getDocument({
       data: new Uint8Array(arrayBuffer),
       useSystemFonts: true,
-    }).promise;
+    });
+    try {
+    const pdf = await loadingTask.promise;
 
     let fullText = "";
     let firstPagePreview: string | undefined;
@@ -92,7 +97,26 @@ export async function extractTextFromFile(
       }
       if (currentLine.trim()) pageLines.push(currentLine.trim());
 
-      const pageText = pageLines.join("\n");
+      let pageText = pageLines.join("\n");
+      // Scans may appear on any page, even inside an otherwise digital PDF.
+      if (pageText.trim().length < 50) {
+        onProgress?.(`Leyendo imagen de página ${pageNum} de ${pdf.numPages}…`);
+        const base = page.getViewport({ scale: 1 });
+        const scale = Math.min(3, 2400 / base.width, 12000 / base.height, Math.sqrt(12000000 / (base.width * base.height)));
+        const viewport = page.getViewport({ scale });
+        const canvas = document.createElement('canvas');
+        canvas.width = Math.ceil(viewport.width); canvas.height = Math.ceil(viewport.height);
+        try {
+          const ctx = canvas.getContext('2d');
+          if (!ctx) throw new Error('No se pudo preparar la página del PDF.');
+          await page.render({ canvas, canvasContext: ctx, viewport }).promise;
+          const recognized = await recognizeTextWithOcr(canvas.toDataURL('image/png'), onProgress, rotation);
+          pageText = recognized.text;
+          if (!pageText.trim()) throw new Error(`No se encontró texto en la página ${pageNum}.`);
+        } catch {
+          throw new Error(`No se pudo leer la página ${pageNum} del PDF. Reintentá con conexión o subí una imagen nítida de esa página. No se analizó un PDF parcial.`);
+        } finally { canvas.width = canvas.height = 0; }
+      }
       fullText += (fullText ? "\n\n" : "") + `[Página ${pageNum}]\n` + pageText;
 
       // Render thumbnail preview for page 1
@@ -113,24 +137,15 @@ export async function extractTextFromFile(
       }
     }
 
-    // If PDF is a scanned image with no embedded text (less than 50 chars), perform OCR on page 1
-    if (fullText.replace(/\[Página \d+\]/g, "").trim().length < 50 && firstPagePreview) {
-      onProgress?.("PDF escaneado detectado: aplicando OCR optimizado…");
-      try {
-        const ocrText = await recognizeTextWithOcr(firstPagePreview, onProgress);
-        if (ocrText) fullText = ocrText;
-      } catch (ocrErr) {
-        console.warn("Fallo OCR en PDF escaneado:", ocrErr);
-      }
-    }
-
     return {
       text: cleanInvoiceOcrText(fullText.trim()),
+      rawText: fullText.trim(),
       previewUrl: firstPagePreview,
       fileName,
       fileType: "pdf",
       pageCount: pdf.numPages,
     };
+    } finally { await loadingTask.destroy(); }
   }
 
   // 2. Images (JPEG, PNG, WEBP, BMP)
@@ -142,10 +157,12 @@ export async function extractTextFromFile(
     const previewUrl = await readFileAsDataUrl(file);
 
     onProgress?.("Preprocesando y optimizando imagen para OCR…");
-    const text = await recognizeTextWithOcr(previewUrl, onProgress);
+    const recognized = await recognizeTextWithOcr(previewUrl, onProgress, rotation);
 
     return {
-      text: cleanInvoiceOcrText(text.trim()),
+      text: cleanInvoiceOcrText(recognized.text.trim()),
+      rawText: recognized.text.trim(),
+      ocrConfidence: recognized.confidence,
       previewUrl,
       fileName,
       fileType: "image",
@@ -153,11 +170,14 @@ export async function extractTextFromFile(
     };
   }
 
-  // 3. Fallback: Text file (.txt, .csv)
+  if (!/\.(txt|csv)$/i.test(fileName) && !mime.startsWith('text/'))
+    throw new Error('Formato no compatible. Usá PDF, JPG, PNG o WEBP; si es una foto HEIC, exportala como JPG.');
+  // 3. Text file (.txt, .csv)
   onProgress?.("Leyendo archivo de texto…");
   const text = await file.text();
   return {
     text: cleanInvoiceOcrText(text.trim()),
+    rawText: text.trim(),
     fileName,
     fileType: "text",
     pageCount: 1,
@@ -189,6 +209,8 @@ function isOcrNoiseLine(rawLine: string): boolean {
     .trim();
 
   if (!stripped) return true;
+  // A separate quantity/price/code column can contain even a single digit.
+  if (/\d/.test(stripped)) return false;
 
   // 2. Extraer caracteres alfanuméricos (incluye vocales con tilde, diéresis y eñes)
   const alnumMatches = stripped.match(/[a-zA-Z0-9áéíóúÁÉÍÓÚñÑüÜ]/g) || [];
@@ -258,7 +280,7 @@ export function cleanInvoiceOcrText(rawText: string): string {
     /\bcondici[oó]n\s+(frente\s+al\s+)?iva\b/i,           // Condición de IVA
     /\b(responsable\s+inscripto|monotributo|exento)\b/i,  // Tipo de contribuyente
     /\bpunto\s+de\s+venta\b|\bcomp\.?\s*nro\b/i,          // Punto de venta / número
-    /\b(original|duplicado|triplicado)\b/i,               // Tipo de copia
+    /^\s*(original|duplicado|triplicado)\s*$/i,          // Not products named "Original"
     /\bdocumento\s+no\s+v[aá]lido\b/i,                    // Leyenda no fiscal
     /\bpercepci[oó]n\b/i,                                 // Percepciones impositivas
     /\bp[aá]g(ina)?\s*\d+\s*(de|\/)\s*\d+/i,              // Paginación
@@ -289,7 +311,6 @@ export function cleanInvoiceOcrText(rawText: string): string {
       .replace(/\.{2,}/g, " ")
       .replace(/_{2,}/g, " ")
       .replace(/-{2,}/g, " ")
-      .replace(/\s+/g, " ")
       .trim();
 
     // Re-verificar si tras la limpieza la línea quedó vacía o reducida a ruido
@@ -309,8 +330,8 @@ export function cleanInvoiceOcrText(rawText: string): string {
  * 3. Aplica escala de grises suave SIN borrar píxeles por umbralizado forzado,
  *    permitiendo que el algoritmo Otsu adaptativo de Tesseract reconozca tinta clara y fondos desparejos.
  */
-async function preprocessImageForOcr(dataUrl: string): Promise<string> {
-  return new Promise((resolve) => {
+async function preprocessImageForOcr(dataUrl: string, rotation: number): Promise<string> {
+  return new Promise((resolve, reject) => {
     if (typeof window === "undefined" || typeof document === "undefined") {
       resolve(dataUrl);
       return;
@@ -320,8 +341,11 @@ async function preprocessImageForOcr(dataUrl: string): Promise<string> {
     img.crossOrigin = "anonymous";
     img.onload = () => {
       try {
-        const width = img.naturalWidth || img.width;
-        const height = img.naturalHeight || img.height;
+        const sideways = rotation % 180 !== 0;
+        const originalWidth = img.naturalWidth || img.width;
+        const originalHeight = img.naturalHeight || img.height;
+        const width = sideways ? originalHeight : originalWidth;
+        const height = sideways ? originalWidth : originalHeight;
 
         if (!width || !height) {
           resolve(dataUrl);
@@ -330,18 +354,10 @@ async function preprocessImageForOcr(dataUrl: string): Promise<string> {
 
         // 1. Escalamiento óptimo para OCR:
         // Tesseract funciona con máxima precisión con alturas de letra de 25-35px.
-        const maxDim = Math.max(width, height);
-        const minDim = Math.min(width, height);
-        let scale = 1;
-
-        if (maxDim > 2400) {
-          scale = 2000 / maxDim; // Reduce fotos pesadas de celulares modernos
-        } else if (maxDim < 1100 || minDim < 700) {
-          scale = Math.min(2.5, 1400 / maxDim); // Amplía imágenes pequeñas para dar grosor a los caracteres
-        }
-
-        const scaledW = Math.max(300, Math.round(width * scale));
-        const scaledH = Math.max(300, Math.round(height * scale));
+        // Preserve proportional letter size on long receipts; bound total memory.
+        const scale = Math.min(width < 1400 ? 2 : 1, 2400 / width, 12000 / height, Math.sqrt(12000000 / (width * height)));
+        const scaledW = Math.max(1, Math.round(width * scale));
+        const scaledH = Math.max(1, Math.round(height * scale));
 
         // 2. Margen de seguridad blanco (35px en cada lado):
         // Esto elimina por completo el error 'Image too small to scale 2x36 vs min width of 3'
@@ -364,7 +380,11 @@ async function preprocessImageForOcr(dataUrl: string): Promise<string> {
         // Renderizar imagen con suavizado de alta calidad
         ctx.imageSmoothingEnabled = true;
         ctx.imageSmoothingQuality = "high";
-        ctx.drawImage(img, padding, padding, scaledW, scaledH);
+        ctx.save();
+        ctx.translate(padding + scaledW / 2, padding + scaledH / 2);
+        ctx.rotate(rotation * Math.PI / 180);
+        ctx.drawImage(img, -originalWidth * scale / 2, -originalHeight * scale / 2, originalWidth * scale, originalHeight * scale);
+        ctx.restore();
 
         // 3. Conversión a escala de grises limpia (sin thresholding destructivo):
         const imgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
@@ -382,7 +402,8 @@ async function preprocessImageForOcr(dataUrl: string): Promise<string> {
         }
 
         ctx.putImageData(imgData, 0, 0);
-        resolve(canvas.toDataURL("image/jpeg", 0.95));
+        resolve(canvas.toDataURL("image/png"));
+        canvas.width = canvas.height = 0;
       } catch (err) {
         console.warn("Fallo preprocesamiento de imagen en canvas, usando original:", err);
         resolve(dataUrl);
@@ -390,7 +411,7 @@ async function preprocessImageForOcr(dataUrl: string): Promise<string> {
     };
 
     img.onerror = () => {
-      resolve(dataUrl);
+      reject(new Error('No se pudo abrir la imagen. Exportala como JPG, PNG o WEBP y volvé a subirla.'));
     };
 
     img.src = dataUrl;
@@ -404,8 +425,9 @@ async function preprocessImageForOcr(dataUrl: string): Promise<string> {
 async function recognizeTextWithOcr(
   imageUrl: string,
   onProgress?: (message: string) => void,
-): Promise<string> {
-  const optimizedUrl = await preprocessImageForOcr(imageUrl);
+  rotation = 0,
+): Promise<{ text: string; confidence: number }> {
+  const optimizedUrl = await preprocessImageForOcr(imageUrl, rotation);
 
   onProgress?.("Iniciando motor OCR de alta precisión…");
   const worker = await Tesseract.createWorker("spa", 1, {
@@ -418,6 +440,8 @@ async function recognizeTextWithOcr(
     errorHandler: (err) => {
       console.warn("Tesseract notice:", err);
     },
+  }).catch(() => {
+    throw new Error('No se pudo iniciar el lector de imágenes. Revisá la conexión para cargar el idioma español y volvé a leer. También podés pegar el texto manualmente.');
   });
 
   try {
@@ -430,22 +454,22 @@ async function recognizeTextWithOcr(
       preserve_interword_spaces: "1",
     });
 
-    let res = await worker.recognize(optimizedUrl);
-    let text = res.data.text || "";
+    const res = await worker.recognize(optimizedUrl, { rotateAuto: true });
+    let best = res.data;
 
     // Si por el formato de la imagen el bloque único capturó poco texto (< 60 caracteres),
     // reintenta en modo AUTO ('3')
-    if (text.trim().length < 60) {
+    if (best.text.trim().length < 60 || best.confidence < 75) {
+      onProgress?.('Revisando la distribución de columnas…');
       await worker.setParameters({
         tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       });
-      const retryRes = await worker.recognize(optimizedUrl);
-      if ((retryRes.data.text || "").trim().length > text.trim().length) {
-        text = retryRes.data.text;
-      }
+      const retryRes = await worker.recognize(optimizedUrl, { rotateAuto: true });
+      const score = (page: typeof best) => Math.sqrt((page.text.match(/[\p{L}\d]/gu) || []).length) * (page.confidence + 20);
+      if (score(retryRes.data) > score(best)) best = retryRes.data;
     }
 
-    return text;
+    return { text: best.text || '', confidence: best.confidence };
   } finally {
     await worker.terminate();
   }

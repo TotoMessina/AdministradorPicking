@@ -1,4 +1,5 @@
 import type { KioscoCartItem, KioscoProduct, KioscoSale, StockComponent } from '../types/kiosco';
+import { priceFromMarkup } from './productSalePrice';
 
 export const hasComposition = (product: Pick<KioscoProduct, 'stock_components'>) => !!product.stock_components?.length;
 /** A depot reserves physical units; virtual products already contain sale availability. */
@@ -36,13 +37,18 @@ export function inventorySaleUnits(item: Pick<KioscoSale['items'][number], 'prod
 /** A composed product has availability, never a second physical stock. No nested recipes. */
 export function withAvailableStock<T extends KioscoProduct>(products: T[]): T[] {
   const byId = new Map(products.map(product => [product.id, product]));
-  return products.map(product => !hasComposition(product) ? product : { ...product, cost: compositionCost(product.stock_components!, byId).cost, stock: Math.max(0, Math.min(
+  return products.map(product => {
+   const resolved = !hasComposition(product) ? product : { ...product, cost: compositionCost(product.stock_components!, byId).cost, stock: Math.max(0, Math.min(
     ...product.stock_components!.map(component => {
       const source = byId.get(component.product_id);
       return source && !hasComposition(source) && Number.isInteger(component.quantity) && component.quantity > 0
         ? Math.floor(stockForSale(source) / component.quantity) : 0;
     }),
-  )) });
+   )) };
+   if (resolved.sale_markup == null || resolved.sellable === false) return resolved;
+   try { return { ...resolved, price: priceFromMarkup(Number(resolved.cost), resolved.sale_markup), pricingError: undefined }; }
+   catch (error) { return { ...resolved, pricingError: error instanceof Error ? error.message : 'Revisá costo y porcentaje.' }; }
+  });
 }
 
 export function cartStockError(cart: Pick<KioscoCartItem, 'product' | 'qty'>[], products: KioscoProduct[]): string {

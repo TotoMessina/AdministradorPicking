@@ -1,4 +1,6 @@
 import { NumberInput } from '../../components/NumberInput';
+import { ProductMarkupField } from './ProductMarkupField';
+import { draftMarkupPrice } from '../../services/productSalePrice';
 import { AiIcon } from '../../components/AiIcon';
 import { useState, useMemo, useEffect, useRef, useId } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
@@ -6,6 +8,7 @@ import { SectionNav } from './SectionNav';
 import { PushSettings } from './PushSettings';
 import { StaffAccessForm } from './StaffAccessForm';
 import { CashierAccess } from './CashierAccess';
+import { StaffMemberAccessEditor } from './StaffMemberAccessEditor';
 import { PermissionProfileSettings, StaffProfileAssignment, usePermissionProfiles } from './PermissionProfiles';
 import { ProductPriceEditor } from './ProductPriceEditor';
 import { CategoryLabelEditor } from './CategoryLabelEditor';
@@ -18,6 +21,7 @@ import { NewCompositeEditor } from './NewCompositeEditor';
 import { compositionCost, hasComposition, stockForSale } from '../../services/productComposition';
 import { DepotSettings } from './DepotSettings';
 import { DepotHistory } from './DepotHistory';
+import { BillingSettings } from './BillingSettings';
 import { errorMessage } from './api';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
@@ -354,6 +358,7 @@ export function CatalogEditor({
     categoryId: defaultProductCategory(categories),
     emoji: "📦",
     price: "",
+    markup: '' as string | null,
     sellable: true,
     cost: "0",
     stock: "0",
@@ -375,7 +380,15 @@ export function CatalogEditor({
   latestProductDraft.current = formData;
   const saleUnit = { unit: 'unidad', kg: 'kg', lt: 'litro', pack: 'pack', box: 'caja' }[formData.unitType];
   const editingRecipeCost = editing && hasComposition(editing) ? compositionCost(editing.stock_components!, products) : null;
-  const draftMargin = productMargin(Number(formData.price), editingRecipeCost?.cost ?? Number(formData.cost), store.low_margin_threshold);
+  const pricingByMarkup = formData.sellable && formData.markup !== null;
+  const pricingCost = editingRecipeCost?.cost ?? Number(formData.cost);
+  const formSalePrice = pricingByMarkup ? draftMarkupPrice(pricingCost, formData.markup!) : Number(formData.price);
+  const draftMargin = productMargin(formSalePrice || 0, pricingCost, store.low_margin_threshold);
+  const suggestedPriceDraft = (previous: typeof formData, price: number) => ({
+    ...previous, price: String(price),
+    markup: previous.markup === null ? null : Number(previous.cost) > 0
+      ? String(Math.round((price / Number(previous.cost) - 1) * 10000) / 100) : previous.markup,
+  });
   const productOptionsSummary = [
     formData.unitType !== 'unit' ? `Venta por ${saleUnit}` : '',
     Number(formData.packSize) > 1 ? `Bulto de ${formData.packSize}` : '',
@@ -650,6 +663,7 @@ export function CatalogEditor({
       categoryId: defaultProductCategory(categories),
       emoji: "📦",
       price: "",
+      markup: '',
       sellable: true,
       cost: "0",
       stock: "0",
@@ -680,6 +694,7 @@ export function CatalogEditor({
       categoryId: p.categoryId,
       emoji: p.emoji || "📦",
       price: String(p.price),
+      markup: p.sale_markup == null ? null : String(p.sale_markup),
       sellable: p.sellable !== false,
       cost: String(p.cost || 0),
       stock: String(p.stock),
@@ -1156,7 +1171,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
 
   // Optional price review, requested by the user rather than by leaving an input.
   const reviewProductPrice = async () => {
-    const priceNum = parseFloat(formData.price);
+    const priceNum = formSalePrice || 0;
     const costNum = editingRecipeCost?.cost ?? parseFloat(formData.cost);
 
     // Solo si tiene cost cargado (> 0) y price válido (> 0)
@@ -1271,7 +1286,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     } else if (field === "price" && suggestion.estimatedPrice) {
       const numPrice = cleanSuggestionNumber(suggestion.estimatedPrice);
       if (numPrice) {
-        setFormData((prev) => ({ ...prev, price: String(numPrice) }));
+        setFormData((prev) => suggestedPriceDraft(prev, numPrice));
       }
     } else if (field === "cost" && suggestion.estimatedCost) {
       const numCost = cleanSuggestionNumber(suggestion.estimatedCost);
@@ -1292,6 +1307,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
         emoji: suggestion.emoji || prev.emoji,
         categoryId,
         price: numPrice ? String(numPrice) : prev.price,
+        markup: prev.markup === null ? null : numPrice && Number(numCost || prev.cost) > 0
+          ? String(Math.round((numPrice / Number(numCost || prev.cost) - 1) * 10000) / 100) : prev.markup,
         cost: numCost ? String(numCost) : prev.cost,
         brand: suggestion.brand || prev.brand,
         supplier: suggestion.supplier || prev.supplier,
@@ -1307,6 +1324,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     code: string;
     name: string;
     price: number;
+    sale_markup?: number | null;
     sellable: boolean;
     cost: number;
     stock: number;
@@ -1370,13 +1388,19 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
   const handleSubmit = async (e: React.FormEvent, review = false) => {
     e.preventDefault();
     if (busy || (review && isCheckingAnomalies)) return;
+    if (pricingByMarkup && formSalePrice === null) {
+      setProductReviewNote('Completá un costo mayor a cero y un porcentaje válido para calcular el precio principal.');
+      editorRef.current?.querySelector<HTMLInputElement>('[data-product-markup]')?.focus();
+      return;
+    }
 
     const p = {
       id: editing?.id || "",
       categoryId: formData.categoryId,
       code: formData.code.trim(),
       name: formData.name.trim(),
-      price: Number(formData.price),
+      price: formSalePrice || 0,
+      sale_markup: pricingByMarkup ? Number(formData.markup) : null,
       sellable: formData.sellable,
       cost: editingRecipeCost?.cost ?? (creatingComposition ? 0 : Number(formData.cost)),
       stock: creatingComposition ? 0 : Number(formData.stock),
@@ -1873,8 +1897,33 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               </select>
               {!formData.sellable && <small>Se repone y se usa en combos. No aparece en Vender ni necesita precio de venta.</small>}
             </label>}
+            <label>
+              Costo por {saleUnit} ($)
+              <NumberInput
+                name="cost"
+                disabled={creatingComposition || (!!editing && hasComposition(editing))}
+                type="number"
+                min={pricingByMarkup ? '0.01' : '0'}
+                step="0.01"
+                required
+                value={editingRecipeCost?.cost ?? (creatingComposition ? '' : formData.cost)}
+                onValueChange={(e) =>
+                  { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, cost: e })); }
+                }
+                placeholder="0.00"
+              />
+              {(creatingComposition || (editing && hasComposition(editing))) && <small>Se calcula sumando el costo de los componentes. Para cambiarlo, editá el costo de los insumos.</small>}
+              {!!editingRecipeCost?.missing.length && <small role="status">Falta cargar el costo de: {editingRecipeCost.missing.join(', ')}.</small>}
+            </label>
+            {formData.sellable && formData.markup !== null && <ProductMarkupField value={formData.markup}
+              onChange={markup => { invalidateProductSuggestions(); setFormData(prev => ({ ...prev, markup })); }} />}
+            {editing && formData.sellable && <label>Precio
+              <select value={formData.markup === null ? 'manual' : 'markup'} onChange={event => setFormData(prev => ({ ...prev,
+                price: String(formSalePrice || prev.price), markup: event.target.value === 'manual' ? null : prev.markup ?? (pricingCost > 0 ? String(Math.round((Number(prev.price) / pricingCost - 1) * 10000) / 100) : ''),
+              }))}><option value="markup">Por porcentaje sobre costo</option><option value="manual">Manual</option></select>
+            </label>}
             <label className="retail-price-field" hidden={!formData.sellable}>
-              Precio de venta por {saleUnit} ($)
+              Precio en la lista principal por {saleUnit} ($)
               <NumberInput
                 name="price"
                 disabled={!formData.sellable}
@@ -1882,8 +1931,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 min="0.01"
                 max="9999999999"
                 step="0.01"
-                required={formData.sellable}
-                value={formData.price}
+                required={formData.sellable && !pricingByMarkup}
+                readOnly={pricingByMarkup}
+                value={pricingByMarkup ? formSalePrice ?? '' : formData.price}
                 onValueChange={(e) =>
                   { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, price: e })); }
                 }
@@ -1934,10 +1984,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          setFormData((prev) => ({
-                            ...prev,
-                            price: String(priceValidation.suggestion),
-                          }));
+                          setFormData((prev) => suggestedPriceDraft(prev, priceValidation.suggestion));
                           setPriceValidation(null);
                         }}
                         title={`Aplicar precio sugerido de $${priceValidation.suggestion.toLocaleString("es-AR")}`}
@@ -1953,25 +2000,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 </div>
               )}
             </label>
-            <label>
-              Costo por {saleUnit} ($)
-              <NumberInput
-                name="cost"
-                disabled={creatingComposition || (!!editing && hasComposition(editing))}
-                type="number"
-                min="0"
-                step="0.01"
-                required
-                value={editingRecipeCost?.cost ?? (creatingComposition ? '' : formData.cost)}
-                onValueChange={(e) =>
-                  { invalidateProductSuggestions(); setFormData((prev) => ({ ...prev, cost: e })); }
-                }
-                placeholder="0.00"
-              />
-              {(creatingComposition || (editing && hasComposition(editing))) && <small>Se calcula sumando el costo de los componentes. Para cambiarlo, editá el costo de los insumos.</small>}
-              {!!editingRecipeCost?.missing.length && <small role="status">Falta cargar el costo de: {editingRecipeCost.missing.join(', ')}.</small>}
-            </label>
-            {formData.sellable && !creatingComposition && <ProductMarginStatus price={Number(formData.price)} cost={editingRecipeCost?.cost ?? Number(formData.cost)} threshold={store.low_margin_threshold} />}
+            {formData.sellable && !creatingComposition && <ProductMarginStatus price={formSalePrice || 0} cost={pricingCost} threshold={store.low_margin_threshold} />}
             <label>
               Fecha de vencimiento (opcional)
               <input
@@ -2411,7 +2440,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     placeholder="0.00"
                   />
                 </label>
-                {receiving && <ProductMarginStatus price={replenishTarget.price} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />}
+                {receiving && <ProductMarginStatus price={replenishTarget.sale_markup == null ? replenishTarget.price : draftMarkupPrice(canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost, String(replenishTarget.sale_markup)) ?? 0} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />}
               </div>
 
               <div className="replenish-input-grid" hidden={!receiving}>
@@ -4392,6 +4421,7 @@ export function StoreSettings({
   onSignOut,
   userEmail,
   onOpenAi,
+  active = true,
 }: {
   store: Store;
   categories: Category[];
@@ -4414,10 +4444,13 @@ export function StoreSettings({
   onSignOut?: () => void;
   userEmail?: string;
   onOpenAi?: () => void;
+  active?: boolean;
 }) {
   const view = ['general', 'locations', 'team', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
   const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
+  const [editingInviteId, setEditingInviteId] = useState<string | null>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
   const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
   const openMoreSection = (next: 'app' | 'ledgers', trigger: HTMLButtonElement) => {
@@ -4487,7 +4520,7 @@ export function StoreSettings({
           <div className="more-settings-container">
             {/* Columna Izquierda: Opciones y herramientas + Cuenta y comercios */}
             <div className="more-settings-column">
-              <DepotSettings key={store.id} store={store} busy={busy} run={run} active={view === 'more'} />
+              <DepotSettings key={`depot-${store.id}`} store={store} busy={busy} run={run} active={view === 'more'} />
               {/* Tarjeta 1: Opciones y herramientas */}
               <div className="store-settings-card">
                 <div className="store-settings-header">
@@ -4760,7 +4793,8 @@ export function StoreSettings({
       </div>
       <div className="settings-data settings-data-wide" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
         <StoreGeneralSettingsForm store={store} busy={busy} run={run} />
-        <MarginThresholdSettings key={store.id} store={store} busy={busy} run={run} />
+        <BillingSettings key={`billing-${store.id}`} store={store} busy={busy} run={run} active={active && view === 'general'} />
+        <MarginThresholdSettings key={`margin-${store.id}`} store={store} busy={busy} run={run} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
         <div className="locations-settings-container">
@@ -4842,8 +4876,10 @@ export function StoreSettings({
                         const profileName = staffProfiles.profiles.find((p) => p.id === i.profile_id)?.name;
                         const roleLabel = i.role === 'admin' ? 'Administrador' : i.role === 'supervisor' ? 'Supervisor' : 'Cajero';
 
+                        const isEditing = editingInviteId === i.id;
+
                         return (
-                          <div className="team-member-item" key={i.id}>
+                          <div className={`team-member-item${isEditing ? ' is-editing' : ''}`} key={i.id}>
                             <div className="team-member-main">
                               <div className="team-avatar team-avatar-pending">
                                 <Mail size={16} />
@@ -4867,70 +4903,56 @@ export function StoreSettings({
                                   )}
                                 </div>
                               </div>
-                              {role === 'owner' && (
-                                <button
-                                  type="button"
-                                  disabled={busy}
-                                  className="danger-button-outline"
-                                  onClick={() =>
-                                    void run(
-                                      () => retail.revokeInvite(store.id, i.id),
-                                      'Acceso pendiente eliminado',
-                                    )
-                                  }
-                                  title={`Revocar acceso de ${i.email}`}
-                                >
-                                  Revocar
-                                </button>
-                              )}
+                              <div className="team-member-actions">
+                                {(i.role === 'cashier' || i.role === 'supervisor') && (
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    className={`team-action-btn ${isEditing ? 'active' : ''}`}
+                                    onClick={() => setEditingInviteId(isEditing ? null : i.id)}
+                                    aria-expanded={isEditing}
+                                    title={`Configurar acceso de ${i.email}`}
+                                  >
+                                    <SlidersHorizontal size={14} />
+                                    <span>{isEditing ? 'Cerrar' : 'Editar acceso'}</span>
+                                  </button>
+                                )}
+                                {role === 'owner' && (
+                                  <button
+                                    type="button"
+                                    disabled={busy}
+                                    className="danger-button-outline"
+                                    onClick={() =>
+                                      void run(
+                                        () => retail.revokeInvite(store.id, i.id),
+                                        'Acceso pendiente eliminado',
+                                      )
+                                    }
+                                    title={`Revocar acceso de ${i.email}`}
+                                  >
+                                    Revocar
+                                  </button>
+                                )}
+                              </div>
                             </div>
 
-                            {(i.role === 'cashier' || i.role === 'supervisor') && (
-                              <div className="team-member-editors">
-                                <SettingsEditor
-                                  label={`Rol y perfil de ${i.email}`}
-                                  summary={<small>{profileName || 'Permisos habituales del rol'}</small>}
-                                  busy={busy || staffProfiles.loading || !!staffProfiles.error}
-                                >
-                                  {(close) => (
-                                    <StaffProfileAssignment
-                                      storeId={store.id}
-                                      targetId={i.id}
-                                      role={i.role as 'cashier' | 'supervisor'}
-                                      profileId={i.profile_id}
-                                      profiles={staffProfiles.profiles}
-                                      pending
-                                      busy={busy}
-                                      run={run}
-                                      close={close}
-                                    />
-                                  )}
-                                </SettingsEditor>
-                                <SettingsEditor
-                                  label={`Editar asignación de ${i.email}`}
-                                  summary={
-                                    <small>
-                                      {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas permitidas'}
-                                    </small>
-                                  }
-                                  busy={busy}
-                                >
-                                  {() => (
-                                    <CashierAccess
-                                      storeId={store.id}
-                                      targetId={i.id}
-                                      email={i.email}
-                                      branchId={i.branch_id}
-                                      registerId={i.register_id}
-                                      branches={branches}
-                                      registers={registers}
-                                      pending
-                                      busy={busy}
-                                      run={run}
-                                    />
-                                  )}
-                                </SettingsEditor>
-                              </div>
+                            {isEditing && (i.role === 'cashier' || i.role === 'supervisor') && (
+                              <StaffMemberAccessEditor
+                                storeId={store.id}
+                                targetId={i.id}
+                                email={i.email}
+                                role={i.role as 'cashier' | 'supervisor'}
+                                profileId={i.profile_id}
+                                profiles={staffProfiles.profiles}
+                                branchId={i.branch_id}
+                                registerId={i.register_id}
+                                branches={branches}
+                                registers={registers}
+                                pending
+                                busy={busy}
+                                run={run}
+                                onClose={() => setEditingInviteId(null)}
+                              />
                             )}
                           </div>
                         );
@@ -4960,9 +4982,10 @@ export function StoreSettings({
                       const emailDisplay = m.email || 'Email no disponible';
                       const initial = (emailDisplay[0] || 'U').toUpperCase();
                       const isCurrentUser = m.user_id === userId;
+                      const isEditing = editingMemberId === m.user_id;
 
                       return (
-                        <div className="team-member-item" key={m.user_id}>
+                        <div className={`team-member-item${isEditing ? ' is-editing' : ''}`} key={m.user_id}>
                           <div className="team-member-main">
                             <div className={`team-avatar avatar-${m.role}`}>
                               {initial}
@@ -4988,73 +5011,61 @@ export function StoreSettings({
                                 )}
                               </div>
                             </div>
-                            {role === 'owner' && m.role !== 'owner' && (
-                              <button
-                                type="button"
-                                disabled={busy}
-                                className="danger-button-outline"
-                                onClick={() => {
-                                  if (
-                                    window.confirm(
-                                      '¿Quitar el acceso de este usuario al comercio?',
+
+                            <div className="team-member-actions">
+                              {(m.role === 'cashier' || m.role === 'supervisor') && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  className={`team-action-btn ${isEditing ? 'active' : ''}`}
+                                  onClick={() => setEditingMemberId(isEditing ? null : m.user_id)}
+                                  aria-expanded={isEditing}
+                                  title={`Configurar acceso de ${emailDisplay}`}
+                                >
+                                  <SlidersHorizontal size={14} />
+                                  <span>{isEditing ? 'Cerrar' : 'Editar acceso'}</span>
+                                </button>
+                              )}
+                              {role === 'owner' && m.role !== 'owner' && (
+                                <button
+                                  type="button"
+                                  disabled={busy}
+                                  className="danger-button-outline"
+                                  onClick={() => {
+                                    if (
+                                      window.confirm(
+                                        '¿Quitar el acceso de este usuario al comercio?',
+                                      )
                                     )
-                                  )
-                                    void run(
-                                      () => retail.removeMember(store.id, m.user_id),
-                                      'Acceso revocado',
-                                    );
-                                }}
-                                title={`Quitar acceso a ${m.email}`}
-                              >
-                                Quitar
-                              </button>
-                            )}
+                                      void run(
+                                        () => retail.removeMember(store.id, m.user_id),
+                                        'Acceso revocado',
+                                      );
+                                  }}
+                                  title={`Quitar acceso a ${m.email}`}
+                                >
+                                  Quitar
+                                </button>
+                              )}
+                            </div>
                           </div>
 
-                          {(m.role === 'cashier' || m.role === 'supervisor') && (
-                            <div className="team-member-editors">
-                              <SettingsEditor
-                                label={`Rol y perfil de ${m.email}`}
-                                summary={<small>{profileName || 'Permisos habituales del rol'}</small>}
-                                busy={busy || staffProfiles.loading || !!staffProfiles.error}
-                              >
-                                {(close) => (
-                                  <StaffProfileAssignment
-                                    storeId={store.id}
-                                    targetId={m.user_id}
-                                    role={m.role as 'cashier' | 'supervisor'}
-                                    profileId={m.profile_id}
-                                    profiles={staffProfiles.profiles}
-                                    busy={busy}
-                                    run={run}
-                                    close={close}
-                                  />
-                                )}
-                              </SettingsEditor>
-                              <SettingsEditor
-                                label={`Editar asignación de ${m.email}`}
-                                summary={
-                                  <small>
-                                    {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas permitidas'}
-                                  </small>
-                                }
-                                busy={busy}
-                              >
-                                {() => (
-                                  <CashierAccess
-                                    storeId={store.id}
-                                    targetId={m.user_id}
-                                    email={m.email}
-                                    branchId={m.branch_id}
-                                    registerId={m.register_id}
-                                    branches={branches}
-                                    registers={registers}
-                                    busy={busy}
-                                    run={run}
-                                  />
-                                )}
-                              </SettingsEditor>
-                            </div>
+                          {isEditing && (m.role === 'cashier' || m.role === 'supervisor') && (
+                            <StaffMemberAccessEditor
+                              storeId={store.id}
+                              targetId={m.user_id}
+                              email={emailDisplay}
+                              role={m.role as 'cashier' | 'supervisor'}
+                              profileId={m.profile_id}
+                              profiles={staffProfiles.profiles}
+                              branchId={m.branch_id}
+                              registerId={m.register_id}
+                              branches={branches}
+                              registers={registers}
+                              busy={busy}
+                              run={run}
+                              onClose={() => setEditingMemberId(null)}
+                            />
                           )}
                         </div>
                       );
@@ -5105,7 +5116,9 @@ export function StoreSettings({
                     onSaved={staffProfiles.reload}
                   />
                 )}
-                <button type="button" className="text-button" disabled={busy || staffProfiles.loading} onClick={staffProfiles.reload}>Actualizar perfiles</button>
+                <button type="button" className="text-button team-refresh-profiles-btn" disabled={busy || staffProfiles.loading} onClick={staffProfiles.reload}>
+                  <RotateCcw size={13} /> Actualizar perfiles
+                </button>
               </div>
             </div>
           </div>

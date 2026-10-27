@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { retail, errorMessage, type PriceList } from './api';
 
 export function useBranchPriceList(store: string, branch: string, lists: PriceList[], manager: boolean, locked = false) {
-  const signature = JSON.stringify(lists.map(l => [l.id, l.active, l.branch_id || null]));
+  const signature = JSON.stringify(lists.map(l => [l.id, l.active, l.branch_id || null, !!l.is_primary]));
   const scope = JSON.stringify([store, branch, signature, manager]);
   const [retry, setRetry] = useState(0);
   const [selection, setSelection] = useState({ scope: '', branch: '', id: '', manual: false, ready: false, error: '' });
@@ -14,7 +14,7 @@ export function useBranchPriceList(store: string, branch: string, lists: PriceLi
     setSelection(previous => ({ ...previous, scope, branch, manual: previous.branch === branch && previous.manual, ready: false, error: '' }));
     void retail.branchPriceRule(store, branch).then(rule => {
       if (!active) return;
-      if (rule && !lists.some(l => l.id === rule && l.active && l.branch_id === branch)) throw new Error('La lista asignada cambió. Actualizá los datos antes de vender.');
+      if (rule && !lists.some(l => l.id === rule && l.active && (l.branch_id === branch || (l.is_primary && !l.branch_id)))) throw new Error('La lista asignada cambió. Actualizá los datos antes de vender.');
       setSelection(previous => {
         const keepManual = manager && previous.branch === branch && previous.manual && (!previous.id || lists.some(l => l.id === previous.id && l.active && (!l.branch_id || l.branch_id === branch)));
         return { scope, branch, id: keepManual ? previous.id : rule || '', manual: keepManual, ready: true, error: '' };

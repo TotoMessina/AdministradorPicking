@@ -1,22 +1,25 @@
 import { Fragment, useEffect, useState } from 'react';
 import type { KioscoSale } from '../../types/kiosco';
-import { retail, errorMessage, type Branch, type Register, type Shift, type SalesLedger, type Product } from './api';
+import { retail, errorMessage, type Branch, type Register, type Shift, type SalesLedger, type Product, type Store } from './api';
 import type { Run } from './Management';
 import { salesCsv } from './pricing';
 import { summarizeMargins } from './marginAnalytics';
 import { MarginSummary } from './MarginSummary';
 import { SaleLedgerControl } from './SaleLedgerControl';
+import { BillingStatusBadge } from './BillingStatus';
+import { retrySaleBilling } from '../../services/billingService';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-export function SalesOverview({ storeId, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canAttachInvoice = canManage, canMoveSale }: { storeId: string; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canAttachInvoice?: boolean; canMoveSale?: (s: KioscoSale) => boolean }) {
+export function SalesOverview({ storeId, store, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canAttachInvoice = canManage, canMoveSale }: { storeId: string; store?: Store; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canAttachInvoice?: boolean; canMoveSale?: (s: KioscoSale) => boolean }) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [period, setPeriod] = useState({ from: today(), to: today() });
   const [branch, setBranch] = useState('');
   const [ledger, setLedger] = useState('');
   const [invoice, setInvoice] = useState('');
+  const [billingFilter, setBillingFilter] = useState('');
   const [rows, setRows] = useState<KioscoSale[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,7 +33,18 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, p
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, [storeId, period, revision]);
-  const visible = rows.filter(s => (!branch || s.branchId === branch) && (!ledger || s.ledgerId === ledger) && (!invoice || (invoice === 'yes') === !!s.invoiceReference));
+  const visible = rows.filter(s =>
+    (!branch || s.branchId === branch) &&
+    (!ledger || s.ledgerId === ledger) &&
+    (!invoice || (invoice === 'yes') === !!s.invoiceReference) &&
+    (!billingFilter || (billingFilter === 'pending'
+      ? (s.billingStatus === 'pending' || s.billingStatus === 'retry')
+      : (s.billingStatus || 'none') === billingFilter))
+  );
+  const authorizedSales = rows.filter(s => s.billingStatus === 'authorized');
+  const pendingSales = rows.filter(s => s.billingStatus === 'pending' || s.billingStatus === 'retry');
+  const errorSales = rows.filter(s => s.billingStatus === 'error');
+  const hasFiscalActivity = store?.billing_enabled || authorizedSales.length > 0 || pendingSales.length > 0 || errorSales.length > 0;
   const exportAll = () => {
     const url = URL.createObjectURL(new Blob([salesCsv(rows)], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = `ventas-${canManage ? 'completas' : 'disponibles'}-${period.from}-${period.to}.csv`; link.click();
@@ -46,7 +60,32 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, p
     </form>
     <p>Período consultado: {period.from} al {period.to} · Hora de Argentina.</p>
     {loading ? <p role="status">Cargando todas las ventas del período…</p> : error ? <p role="alert">{error}</p> : <>
-      <div className="cash-metrics"><div><small>{canManage ? 'Total del comercio' : 'Total de ventas disponibles'}</small><strong>{money(rows.reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div><div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div></div>
+      <div className="cash-metrics">
+        <div><small>{canManage ? 'Total del comercio' : 'Total de ventas disponibles'}</small><strong>{money(rows.reduce((n, s) => n + s.total, 0))}</strong></div>
+        {hasFiscalActivity && (
+          <div>
+            <small>Facturado con CAE (ARCA)</small>
+            <strong style={{ color: '#15803d' }}>
+              {money(authorizedSales.reduce((n, s) => n + s.total, 0))}
+              <span style={{ fontSize: '12px', fontWeight: 'normal', color: 'var(--tone-muted)', marginLeft: '6px' }}>
+                ({authorizedSales.length} {authorizedSales.length === 1 ? 'cbte' : 'cbtes'})
+              </span>
+            </strong>
+          </div>
+        )}
+        {hasFiscalActivity && (pendingSales.length > 0 || errorSales.length > 0) && (
+          <div>
+            <small>Pendientes / Errores ARCA</small>
+            <strong style={{ color: errorSales.length > 0 ? '#b91c1c' : '#d97706' }}>
+              {pendingSales.length > 0 && `${pendingSales.length} pend.`}
+              {pendingSales.length > 0 && errorSales.length > 0 && ' · '}
+              {errorSales.length > 0 && `${errorSales.length} con error`}
+            </strong>
+          </div>
+        )}
+        <div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div>
+        <div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div>
+      </div>
       <MarginSummary summary={summarizeMargins(rows, products)} />
       <div className="table-scroll"><table><thead><tr><th>Sucursal</th><th>Cajas activas</th><th>Turnos abiertos</th><th>Ventas del período</th></tr></thead><tbody>{branches.map(b => <Fragment key={b.id}><tr><td>{b.name}</td><td>{registers.filter(r => r.branch_id === b.id && r.active).length}</td><td>{shifts.filter(s => !s.closed_at && registers.some(r => r.id === s.register_id && r.branch_id === b.id)).length}</td><td>{money(rows.filter(s => s.branchId === b.id).reduce((n, s) => n + s.total, 0))}</td></tr><tr><td colSpan={3}>Ventas excluyendo bajo margen · {b.name}</td><td>{money(summarizeMargins(rows.filter(s => s.branchId === b.id), products).standard.revenue)}</td></tr></Fragment>)}</tbody></table></div>
       {shifts.some(s => s.closed_at) && (
@@ -116,11 +155,70 @@ export function SalesOverview({ storeId, branches, registers, shifts, ledgers, p
         <label>Sucursal del informe<select value={branch} onChange={e => { setBranch(e.target.value); setLimit(50); }}><option value="">Todas las sucursales</option>{branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}</select></label>
         <label>Registro del informe<select value={ledger} onChange={e => { setLedger(e.target.value); setLimit(50); }}><option value="">Todos los registros</option>{ledgers.map(l => <option key={l.id} value={l.id}>{l.name}</option>)}</select></label>
         <label>Comprobante<select value={invoice} onChange={e => { setInvoice(e.target.value); setLimit(50); }}><option value="">Todos los estados</option><option value="yes">Con comprobante asociado</option><option value="no">Sin comprobante asociado</option></select></label>
+        {hasFiscalActivity && (
+          <label>Facturación ARCA<select value={billingFilter} onChange={e => { setBillingFilter(e.target.value); setLimit(50); }}>
+            <option value="">Todos los estados fiscales</option>
+            <option value="authorized">Autorizadas con CAE</option>
+            <option value="pending">Pendientes de CAE</option>
+            <option value="error">Con error en ARCA</option>
+            <option value="none">Sin comprobante fiscal (No fiscal)</option>
+          </select></label>
+        )}
       </div>
+      {canManage && errorSales.length > 0 && store && (
+        <div style={{ margin: '12px 0', padding: '10px 14px', background: 'rgba(220, 38, 38, 0.08)', borderRadius: '8px', border: '1px solid rgba(220, 38, 38, 0.25)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 10 }}>
+          <div style={{ fontSize: '13px', color: '#b91c1c' }}>
+            <strong>⚠️ Hay {errorSales.length} {errorSales.length === 1 ? 'venta' : 'ventas'} con error de autorización en ARCA.</strong>
+          </div>
+          <button
+            className="secondary-button"
+            disabled={busy}
+            onClick={async () => {
+              await run(async () => {
+                let successCount = 0;
+                for (const saleToRetry of errorSales) {
+                  try {
+                    const res = await retrySaleBilling(store, saleToRetry);
+                    if (res.billingStatus === 'authorized') {
+                      setRows(prev => prev.map(r => r.id === saleToRetry.id ? { ...r, ...res } : r));
+                      successCount++;
+                    }
+                  } catch {
+                    // Sigue con la siguiente venta
+                  }
+                }
+                if (successCount === 0) {
+                  throw new Error('No se pudo autorizar ninguna venta en ARCA. Verificá la conexión y el servicio de ARCA.');
+                }
+              }, 'Reintento completado.');
+            }}
+          >
+            Reintentar facturación de ventas con error ({errorSales.length})
+          </button>
+        </div>
+      )}
       <p>{visible.length} ventas en la consulta · {money(visible.reduce((n, s) => n + s.total, 0))}</p>
       <div className="table-scroll"><table><thead><tr><th>Venta</th><th>Sucursal / caja</th><th>Lista / registro</th><th>Total</th><th>Comprobante externo</th></tr></thead><tbody>
         {visible.slice(0, limit).map(s => <tr key={s.id}>
-          <td><button className="text-button" onClick={() => onTicket(s)}>{s.ticketNumber}</button><small>{s.date} {s.timestamp}</small></td>
+          <td>
+            <button className="text-button" onClick={() => onTicket(s)}>{s.ticketNumber}</button>
+            <small>{s.date} {s.timestamp}</small>
+            <BillingStatusBadge
+              sale={s}
+              puntoVenta={store?.punto_venta_afip || 1}
+              disabled={busy}
+              onRetry={canManage && store ? async (saleToRetry) => {
+                await run(async () => {
+                  const res = await retrySaleBilling(store, saleToRetry);
+                  if (res.billingStatus === 'authorized') {
+                    setRows(prev => prev.map(r => r.id === saleToRetry.id ? { ...r, ...res } : r));
+                  } else {
+                    throw new Error(res.billingError || 'Error al procesar comprobante en ARCA');
+                  }
+                }, 'Comprobante fiscal autorizado en ARCA.');
+              } : undefined}
+            />
+          </td>
           <td>{s.branchName}<small>{s.registerName}</small></td>
           <td>{s.priceListName}<SaleLedgerControl storeId={storeId} sale={s} ledgers={ledgers} disabled={busy} showHistory={canManage || !!canMoveSale?.(s)} canMove={canMoveSale ? canMoveSale(s) : canManage}
             onMoved={saved => {

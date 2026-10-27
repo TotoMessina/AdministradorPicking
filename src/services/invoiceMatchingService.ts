@@ -72,16 +72,19 @@ export function rankCatalogMatches(line: string, code: string | null | undefined
 }
 
 /** Runs after extraction, so supplier identity is available without changing PDF/OCR. */
-export async function linkInvoiceItems(storeId: string, supplier: string, lines: InvoiceLinkInput[], products: Product[]): Promise<InvoiceLinkResult[]> {
+export async function linkInvoiceItems(storeId: string, supplier: string, lines: InvoiceLinkInput[], products: Product[], signal?: AbortSignal): Promise<InvoiceLinkResult[]> {
+  signal?.throwIfAborted();
   const catalog = products.filter(product => product.active !== false);
   const byId = new Map(catalog.map(product => [product.id, product]));
   const memory = (await getMappings(storeId, supplier)).filter(mapping => byId.has(mapping.product_id));
+  signal?.throwIfAborted();
   const aliases = memory.map(mapping => ({ ...byId.get(mapping.product_id)!, name: mapping.invoice_text, brand: undefined, code: '' }));
   const result: InvoiceLinkResult[] = [];
   // Repeated lines count as one use of an alias in this analysis.
   const recordedUses = new Map<string, SupplierMapping | null>();
   // Bounded candidate catalogs and batches keep large catalogs/invoices out of a single completion.
   for (let offset = 0; offset < lines.length; offset += 12) {
+    signal?.throwIfAborted();
     const batch = lines.slice(offset, offset + 12);
     const rankings = batch.map(line => {
       const matches = [
@@ -118,13 +121,14 @@ Detectá pack_size_detected (unidades por bulto), 1 si indica unidades sueltas, 
 invoiced_cost es el precio ORIGINAL por unidad facturada (bulto o suelto), nunca el total del renglón. unit_cost debe ser costo de UNA unidad individual: invoiced_cost / pack_size_detected si se facturan bultos; si quantity_unit="unit", usá pack_size_detected=1 y unit_cost=invoiced_cost. No multipliques por quantity ni dividas dos veces. Si invoiced_cost es null, devolvé unit_cost=null. La app verifica el cálculo con los importes extraídos.
 Proponé suggested_alias en minúsculas, sin tildes, expandiendo abreviaturas solo cuando estén respaldadas por el catálogo. Ejemplo: "ALF JORG CHOC X24" puede sugerir "alfajor jorgito negro 55g x24" si el candidato confirma esa variante y tamaño. No inventes datos; el alias no reemplaza invoice_line ni confirma el vínculo.
 Explicá division_reason solo con los importes disponibles: por ejemplo "pack de 24 → costo unitario = $2400/24 = $100". Si no hay división indicá que son unidades sueltas; sin costo conocido devolvé una cadena vacía.
-Respondé SOLO JSON: {"items":[{"line_index":0,"invoice_line":"descripción original exacta","matched_product_id":null,"matched_product_name":"","confidence":0.0,"pack_size_detected":null,"unit_cost":null,"division_reason":"explicación breve del cálculo","reason":"motivo breve en español","suggested_alias":"nombre normalizado sugerido"}]}. Incluí una respuesta por cada línea, conservando line_index, incluso si las descripciones se repiten. confidence es de 0 a 1.` }], { maxTokens: 3200, temperature: 0.1 });
+Respondé SOLO JSON: {"items":[{"line_index":0,"invoice_line":"descripción original exacta","matched_product_id":null,"matched_product_name":"","confidence":0.0,"pack_size_detected":null,"unit_cost":null,"division_reason":"explicación breve del cálculo","reason":"motivo breve en español","suggested_alias":"nombre normalizado sugerido"}]}. Incluí una respuesta por cada línea, conservando line_index, incluso si las descripciones se repiten. confidence es de 0 a 1.` }], { maxTokens: 3200, temperature: 0.1, signal });
       const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
       const parsed: unknown = JSON.parse(cleaned);
       if (parsed && typeof parsed === 'object' && 'items' in parsed && Array.isArray(parsed.items)) answers = parsed.items;
       else unavailable = true;
-    } catch { unavailable = true; }
+    } catch { signal?.throwIfAborted(); unavailable = true; }
     for (const [index, context] of contexts.entries()) {
+      signal?.throwIfAborted();
       const matches = answers.filter((answer): answer is Record<string, unknown> => !!answer && typeof answer === 'object' && 'line_index' in answer && answer.line_index === index);
       const answer = matches.length === 1 ? matches[0] : undefined;
       // Validate both the identity and row index; malformed model output never confirms a new link.

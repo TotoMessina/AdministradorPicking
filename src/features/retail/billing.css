@@ -1,0 +1,322 @@
+/* Estilos sobrios y consistentes para Facturación Electrónica ARCA */
+
+.retail-app .billing-settings-card {
+  margin-top: 16px;
+}
+
+.retail-app .billing-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin-block: 16px;
+}
+
+.retail-app .billing-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.retail-app .billing-field label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--tone-text);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.retail-app .billing-field small {
+  color: var(--tone-muted);
+  font-weight: normal;
+  font-size: 12px;
+}
+
+.retail-app .billing-cuit-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.retail-app .billing-cuit-input-wrap input {
+  width: 100%;
+  padding-right: 32px;
+  font-family: monospace, inherit;
+  letter-spacing: 0.5px;
+}
+
+.retail-app .billing-cuit-status {
+  position: absolute;
+  right: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.retail-app .billing-cuit-valid {
+  color: #16a34a;
+}
+
+.retail-app .billing-cuit-invalid {
+  color: #dc2626;
+}
+
+.retail-app .billing-info-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  background: var(--tone-soft);
+  border: 1px solid var(--tone-border);
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--tone-text);
+  margin-block: 14px;
+}
+
+.retail-app .billing-info-banner svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--tone-muted);
+}
+
+.retail-app .billing-switch-section {
+  padding-block: 12px;
+  border-top: 1px solid var(--tone-border);
+  border-bottom: 1px solid var(--tone-border);
+  margin-block: 14px;
+}
+
+.retail-app .billing-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+
+.retail-app .billing-status-authorized {
+  background: var(--tone-success-bg, #ecfdf5);
+  color: var(--tone-success-text, #065f46);
+  border: 1px solid var(--tone-success-border, #a7f3d0);
+}
+
+.retail-app .billing-status-pending {
+  background: var(--tone-warning-bg, #fefce8);
+  color: var(--tone-warning-text, #854d0e);
+  border: 1px solid var(--tone-warning-border, #fef08a);
+}
+
+.retail-app .billing-status-error {
+  background: var(--tone-danger-bg, #fef2f2);
+  color: var(--tone-danger-text, #991b1b);
+  border: 1px solid var(--tone-danger-border, #fecaca);
+}
+
+.retail-app .billing-status-none {
+  background: var(--tone-soft);
+  color: var(--tone-muted);
+  border: 1px solid var(--tone-border);
+}
+
+.retail-app .billing-status-retry-btn {
+  padding: 2px 6px;
+  margin-left: 6px;
+  font-size: 11px;
+  cursor: pointer;
+  border-radius: 4px;
+  border: 1px solid currentColor;
+  background: transparent;
+  color: inherit;
+}
+
+.retail-app .billing-status-retry-btn:hover {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.retail-app .billing-guide-box {
+  background: color-mix(in srgb, #0284c7 6%, transparent);
+  border: 1px solid color-mix(in srgb, #0284c7 25%, transparent);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 20px;
+}
+
+.retail-app .billing-guide-step {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.retail-app .billing-guide-step:last-child {
+  margin-bottom: 0;
+}
+
+.retail-app .billing-guide-step-num {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: #0284c7;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.retail-app .billing-guide-step-body h4 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tone-text);
+}
+
+.retail-app .billing-guide-step-body p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--tone-muted);
+}
+
+.retail-app .billing-credentials-box {
+  background: var(--tone-soft);
+  border: 1px solid var(--tone-border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-block: 16px;
+}
+
+.retail-app .billing-credentials-box h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.retail-app .billing-file-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-block: 8px;
+}
+
+.retail-app .billing-file-picker input[type="file"] {
+  display: none;
+}
+
+.retail-app .billing-file-picker label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 6px;
+  border: 1px dashed var(--tone-border);
+  cursor: pointer;
+  font-size: 12px;
+  background: var(--bg-surface, #fff);
+  width: fit-content;
+}
+
+.retail-app .billing-file-picker label:hover {
+  border-color: #0284c7;
+}
+
+.retail-app .billing-test-box {
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  margin-top: 10px;
+}
+
+.retail-app .billing-test-success {
+  background: #ecfdf5;
+  color: #065f46;
+  border: 1px solid #a7f3d0;
+}
+
+.retail-app .billing-test-error {
+  background: #fef2f2;
+  color: #991b1b;
+  border: 1px solid #fecaca;
+}
+
+.retail-app .billing-checklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+  padding: 12px;
+  background: var(--tone-soft);
+  border: 1px solid var(--tone-border);
+  border-radius: 8px;
+}
+
+.retail-app .billing-checklist-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  line-height: 1.3;
+}
+
+.retail-app .billing-checklist-dot {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-size: 11px;
+}
+
+.retail-app .billing-checklist-done {
+  background: #16a34a;
+  color: #fff;
+}
+
+.retail-app .billing-checklist-pending {
+  background: var(--tone-border);
+  color: var(--tone-muted);
+}
+
+.retail-app .billing-code-box {
+  background: #1e293b;
+  color: #f1f5f9;
+  border-radius: 6px;
+  padding: 10px 14px;
+  font-family: monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 8px;
+  position: relative;
+  overflow-x: auto;
+  white-space: pre-wrap;
+  word-break: break-all;
+}
+
+.retail-app .billing-alert-tip {
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  padding: 10px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  line-height: 1.4;
+  margin-block: 8px;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
