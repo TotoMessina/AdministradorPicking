@@ -82,6 +82,10 @@ Si era la lista activa de una sucursal, la confirmación avisa que las próximas
 
 **Cambio autorizado al instalar 202610270002:** se crea Principal por comercio y las listas existentes que partían de Costo o Catálogo pasan a depender de ella. Se conservan porcentajes, reglas, precios fijos, ramas, IDs y asignaciones. Sus precios se recalculan: antes costo $100 con +50% daba $150; si Principal vale $130, ahora da $195. Los fijos siguen prevaleciendo. Si ya existe el nombre Principal, se usa un nombre disponible. No se reescriben productos anteriores ni tickets. Se conserva el límite de 12 niveles: si agregar Principal lo supera, la actualización se revierte y exige revisar el árbol; no se aplana ni borra información. Un costo faltante bloquea solo los productos que dependan de él, con mensaje para cargarlo; no usa costo cero como precio ni inventa un precio alternativo. El fijo explícito de esa lista puede definir un precio sin depender del costo.
 
+**Listas desde Costo (202610270004):** además de derivar de Principal, una lista nueva puede partir de **Costo** (botón **Derivar lista** en Costo de reposición, o **Desde → Costo** al editar). Costo $100 con +30% da $130 y sigue al costo del producto; sin costo cargado ese producto muestra el aviso en lugar de precio, salvo un fijo. La actualización solo cambia la validación del backend: no mueve ni recalcula las listas existentes. No se admiten nuevas raíces de Catálogo porque equivalen a Principal. Interfaz, backend y venta sin conexión calculan igual; crear o editar listas sigue requiriendo conexión.
+
+**Consultar una lista:** muestra costo y precio en la lista, solo de los productos con cambios propios (precio fijo o ajuste por categoría/marca/producto; en Principal, porcentaje sobre costo), con el cambio indicado bajo el precio. Paginado de a 20 con Anterior/Siguiente. **Mostrar → Todos los productos** permite ver el resto y fijarles precio. Costo de reposición muestra todos los productos.
+
 En **Productos y stock → Listas de precios**, cada lista tiene un campo **Sucursal**:
 
 - **Todas las sucursales**: lista global. Un administrador puede elegirla desde cualquier local.
@@ -258,37 +262,59 @@ Las fotos son referencias privadas sin tokens. Storage comprueba pertenencia al 
 
 ## Transferencias
 
-Dependencia incluida en schema (no ejecutar por separado): [202610190003_stock_transfers.sql](../supabase/migrations/202610190003_stock_transfers.sql) en Supabase después de las migraciones anteriores y publicar el frontend actualizado. No requiere variables de entorno nuevas.
+**Productos y stock → Transferencias** reúne un mapa de sucursales y depósito, las pestañas **Productos / Dinero** y su historial. Elegir un nodo o un recorrido filtra el historial; no cambia el origen de un borrador existente. Las líneas punteadas son conexiones posibles, no movimientos realizados. Las flechas y sus totales corresponden al historial cargado, no a todo el historial del comercio. Se consultan 100 registros nuevos por página y se muestran 25 por vez; **Cargar historial anterior** recupera páginas adicionales. Los aportes/retiros externos aparecen en el historial de dinero, sin inventar otra sucursal en el mapa.
 
-El administrador accede desde **Productos y stock → Transferencias**. Elige sucursal de origen y destino, busca productos por nombre/código, los agrega y completa cantidades en unidades individuales. Repetir **Agregar** sobre el mismo producto aumenta su cantidad. El lector puede agregar un código exacto mediante Enter. Se permiten hasta 200 productos distintos y cantidades enteras positivas de hasta 1.000.000 por producto; las notas son opcionales y admiten 2.000 caracteres.
+### Activación y compatibilidad
 
-**Registrar transferencia pendiente** crea un registro de traslado físico. **Confirmar** marca su recepción/confirmación administrativa; **Cancelar** anula un pendiente y conserva su historial. Una transferencia confirmada no puede cancelarse y una cancelada no puede confirmarse. Se guardan creador/fecha y revisor/fecha. Los nombres de los productos se toman del catálogo al crear el registro y quedan como fotografía histórica.
+SQL preparado localmente, **sin aplicar**: `202610280002_location_funds.sql` y `202610280003_location_inventory.sql`. Aplicar los paquetes homónimos de `supabase/updates/` en orden, después de los pasos anteriores y con su historial, según [Instalación de Supabase](../SUPABASE_SETUP.md#transferencias-por-ubicación-y-fondos). No ejecutar las fuentes de migrations sueltas ni adoptar historial manualmente. Publicar también el frontend actualizado.
 
-El historial muestra origen, destino, fecha, artículos/cantidades, notas y estado, con filtro por **Todas / Pendientes / Confirmadas / Canceladas**. Se muestran 25 registros por vez con opción de cargar más. **Actualizar historial** vuelve a consultar, y al entrar en la subpestaña o recuperar foco/conexión se refrescan los datos. El borrador se conserva al pasar entre subpestañas del catálogo mientras el componente permanece abierto.
+El modo inicial sigue siendo stock compartido. La migración no reparte existencias ni activa el nuevo modo en ningún comercio. Para activarlo, el administrador debe:
 
-### Inventario y permisos
+1. Sincronizar **todos los dispositivos**, resolver conflictos y cerrar los turnos. La app comprueba la cola de este dispositivo y el servidor comprueba los turnos abiertos; el backend no puede descubrir colas que siguen desconectadas en otro equipo.
+2. Confirmar o cancelar los registros anteriores pendientes. Son constancias: no se reproducen como movimientos de stock.
+3. En Transferencias, elegir la sucursal que posee actualmente el stock del salón y pulsar **Activar stock por sucursal y depósito**. Si está repartido físicamente, elegir una ubicación inicial y registrar después los traslados necesarios para reflejar la distribución real.
 
-Las transferencias son exclusivamente registros internos. Crear, confirmar o cancelar no llama a reposición, no actualiza `retail_products.stock` y no genera entradas/salidas de inventario. El stock sigue siendo compartido por la tienda; no se calcula disponibilidad por sucursal ni se comprueba una existencia por local que el sistema no lleva.
+La activación deja el depósito tal como estaba y asigna todo el saldo del salón a la sucursal elegida. Las demás empiezan en cero; no se duplican productos ni cantidades. Queda un registro de quién activó, cuándo y con qué sucursal. Reintentar la misma activación no redistribuye saldos. Una vez activado, no se permite apagar depósito ni volver a stock compartido borrando asignaciones.
 
-El [depósito opcional](productos-y-stock.md#deposito-opcional) es una separación real entre salón y depósito del comercio, accesible desde Reponer. No cambia esta sección de transferencias entre sucursales ni transforma sus registros anteriores en movimientos de inventario.
+`retail_products.stock` conserva el total físico del comercio. Las existencias de sucursales más depósito deben sumar ese total; las operaciones que no lo cumplen se revierten. Los nodos muestran unidades de productos activos sincronizadas con el servidor, no el saldo de ventas offline pendientes; ante un fallo se identifica el último dato o la falta de datos.
 
-Las funciones comprueban que las dos sucursales sean diferentes y pertenezcan al mismo comercio. Cada producto debe existir, estar activo al crear el registro y pertenecer al comercio. Se ignoran nombres proporcionados por el cliente y se guarda el nombre real del catálogo. Se rechazan productos repetidos en llamadas directas: hay que enviar una sola línea con su cantidad total.
+### Productos: traslado real y registro anterior
 
-La interfaz y las RPC de crear/confirmar/cancelar exigen administración o `manage_transfers`. Las lecturas mantienen RLS por comercio; ver metadatos no concede permiso de escritura. La tabla no permite eludir las funciones y su auditoría mediante escritura directa. No se habilita borrado de registros.
+**Nueva transferencia** permite elegir origen/destino, buscar por nombre/código o agregar un código exacto con Enter. Incluye hasta 200 productos físicos, con cantidades enteras entre 1 y 1.000.000; los combos se trasladan por sus componentes. Las notas son opcionales. El selector de destino excluye el origen.
 
-La creación usa un identificador opcional de solicitud para que reintentar el mismo formulario después de un fallo de red no duplique la transferencia. La RPC sigue aceptando los cinco parámetros principales; `p_request` es opcional. Confirmación/cancelación bloquean la fila y son idempotentes: repetir una decisión ya guardada devuelve su identificador. Una revisión simultánea conserva la primera decisión válida.
+**Registrar pendiente** conserva la solicitud, pero no reserva ni mueve stock. **Confirmar traslado** descuenta del origen y suma al destino en una sola transacción, validando la disponibilidad actual. Si falta algún producto, no se mueve ninguno. **Cancelar** conserva la solicitud sin afectar existencias. Una decisión terminal no puede convertirse en la otra; repetir la misma confirmación no vuelve a descontar. Se guardan creador, revisor, fechas y nombres de productos.
 
-La consulta y las acciones requieren conexión. No se encolan transferencias como movimientos de stock offline. Un error conserva el formulario para reintentar; si la operación se guardó pero falla la carga del historial, usar **Actualizar historial**. La consulta del historial no fuerza la recarga de todos los datos offline del comercio.
+El total físico, costos y precios no cambian por trasladar. Los movimientos con depósito también quedan en su auditoría. El historial anterior sigue visible con **Registro anterior · sin movimiento de stock**; confirmar un registro antiguo nunca lo transforma retroactivamente en un traslado de inventario.
+
+Vender usa el saldo de la sucursal de la caja: paquetes, sueltos y combos consumen las unidades/componentes de esa misma sucursal, sin tomar mercadería de otra o del depósito. Reponer, ajustes, CSV y facturas muestran la sucursal de ingreso; un cambio de distribución mientras una importación está abierta exige confirmar la ubicación y conserva las filas. Los remitos con sucursal conservan su destino; los anteriores sin sucursal permiten elegirla al aprobar. El catálogo, las listas y la valoración total siguen siendo compartidos.
+
+La venta offline preparada conserva su cola y descuenta localmente la sucursal conocida; al sincronizar se valida en el servidor. Una configuración vieja o existencias consumidas por otro dispositivo pueden producir un conflicto que se conserva para resolver, sin borrar la operación ni asignarla automáticamente a otro local. Crear/confirmar traslados y activar requieren conexión y cola local vacía.
+
+### Dinero: fondos separados de los turnos
+
+Cada sucursal y el depósito tienen un fondo independiente, inicialmente cero. **Nueva transferencia → Aporte / saldo inicial** registra dinero externo con motivo; **Entre ubicaciones** descuenta de un fondo y acredita el otro; **Retiro del fondo** registra una salida externa. El importe admite hasta dos decimales y el motivo es obligatorio. No se permiten fondos negativos.
+
+Estos movimientos **no** alteran apertura, cierre, efectivo esperado, movimientos de caja, ventas ni métricas de un turno. No se deduce un saldo inicial de las ventas existentes. El historial conserva actor, fecha, origen, destino, importe y motivo, sin edición ni borrado. Los reintentos de una misma solicitud usan un identificador estable; una respuesta perdida no debe duplicar el movimiento. Dos solicitudes distintas son dos movimientos, aunque tengan el mismo importe.
+
+Los fondos requieren conexión; no se encolan offline. Un error mantiene el borrador. **Cerrar y conservar**, cambiar de pestaña o navegar dentro de Productos conserva por separado los borradores de productos/dinero mientras la pantalla sigue montada. No se promete conservar un formulario no enviado después de cerrar la app.
+
+### Permisos
+
+`manage_transfers` permite consultar y revisar traslados de productos. El nuevo `manage_funds` permite consultar fondos y registrar aportes, retiros y transferencias; se concede explícitamente desde perfiles. Los perfiles anteriores no reciben este permiso automáticamente. Administrador/propietario conservan su alcance; un cajero/supervisor sin permiso no puede acceder por interfaz, REST ni RPC. La activación inicial es exclusiva de administrador/propietario. RLS limita las lecturas al comercio autorizado y las tablas de saldos/historial no admiten escritura directa.
 
 ### Guía de Pruebas
 
-1. Aplicar la migración y abrir `http://localhost:3001/` como administrador. Tener dos sucursales **Centro** y **Barrio** y un producto con stock total **100**.
-2. Entrar en **Productos y stock → Transferencias**. Seleccionar Centro como origen y Barrio como destino. Buscar el producto, agregarlo, ingresar **12** unidades y una nota. Registrar la transferencia.
-3. Debe aparecer **Pendiente** en el historial con sucursales, producto, 12 unidades, nota y fecha. El stock total debe seguir en **100**.
-4. Pulsar **Confirmar**: debe pasar a **Confirmada**, registrar el revisor/fecha y conservar stock **100**. Repetir la confirmación por API o desde dos sesiones no debe duplicar registros ni modificar inventario.
-5. Crear otra transferencia y pulsar **Cancelar**: debe mostrarse **Cancelada**, conservar el registro y el stock **100**. No debe poder confirmarse después. Las confirmadas tampoco deben ofrecer cancelación.
-6. Probar los filtros de estado, abrir el detalle de productos y actualizar el historial. Cambiar entre Listas de precios y Transferencias antes de guardar debe conservar el borrador dentro de Catálogo.
-7. Intentar origen igual a destino, cantidad cero, fraccionaria, negativa o superior a 1.000.000: el formulario/RPC deben impedir el registro. Las llamadas con sucursales o productos de otro comercio también deben rechazarse.
-8. Con una sola sucursal, debe indicarse que hacen falta dos. Un cajero sin `manage_transfers` no debe ver las acciones de transferencias ni poder crear/confirmar/cancelar por RPC. Con ese permiso explícito, debe poder usar esas acciones dentro de su comercio, sin modificar el stock global.
-9. Desconectar antes de crear: debe mostrarse el error y conservar productos/cantidades/notas. Reconectar y reintentar con los mismos datos no debe duplicar la solicitud si el servidor ya la había guardado.
+**Pendiente de ejecución manual**, en un comercio de prueba y http://localhost:3001/; no generar ventas ficticias en producción.
 
+1. **SQL y compatibilidad:** aplicar los paquetes nuevos en orden y volver a ejecutarlos mediante su historial. Esperado: aplicación una vez, sin duplicar tablas/saldos; un comercio no activado conserva su stock compartido y sus registros anteriores.
+2. **Distribución inicial:** preparar Centro y Barrio, stock físico 100 y depósito 20, sincronizar todos los dispositivos y cerrar turnos. Elegir Centro y activar. Esperado: Centro 80, Barrio 0, depósito 20, total 100. Repetir no vuelve a distribuir. Con un turno abierto o traslado antiguo pendiente, la activación se rechaza sin cambios.
+3. **Mapa e historial:** seleccionar Centro y luego un recorrido, quitar filtros y navegar con Tab/Enter. Esperado: historial filtrado coherente, foco visible, borradores sin cambios. En móvil el diagrama se desplaza dentro de su región y no ensancha toda la página.
+4. **Traslado:** crear Centro → Barrio por 12 unidades. Esperado: pendiente sin cambiar saldos; confirmar deja 68 / 12 / 20, total 100. Depósito → Barrio por 5 deja 68 / 17 / 15. Cancelar otro pendiente no mueve unidades. El registro anterior queda identificado y no descuenta.
+5. **Concurrencia y red:** dos sesiones intentan mover el mismo stock insuficiente; esperado: nunca negativo ni traslado parcial. Repetir confirmación/doble clic/respuesta perdida no duplica el descuento. Desconectar conserva formulario y permite reintentar con la misma solicitud.
+6. **Venta y reposición:** vender desde Barrio, luego un combo cuyos componentes estén allí. Esperado: solo Barrio pierde unidades, incluido consumo de componentes. Reponer por bultos, importar CSV/factura y aprobar remito: cantidades ingresan una vez en la sucursal indicada y se conserva la conversión. Un remito antiguo sin sucursal exige destino. Editar precio no redistribuye stock.
+7. **Offline preparado:** cargar configuración y catálogo actualizados, desconectar y vender en la caja de Barrio. Esperado: disponibilidad local por sucursal y cola conservada; al reconectar sincroniza una vez. Si otro dispositivo agotó el saldo, se informa conflicto sin borrar el ticket pendiente. No se pueden confirmar traslados sin conexión.
+8. **Fondos:** aportar $10.000 al depósito y transferir $2.000 a Centro. Esperado: $8.000 / $2.000, historial con motivo y ninguna modificación en efectivo esperado del turno. Retirar más del saldo se rechaza; concurrencia, doble clic y respuesta perdida no duplican una misma solicitud.
+9. **Perfiles y aislamiento:** probar cajero sin permisos, con solo `manage_transfers`, con solo `manage_funds` y administrador; repetir contra otro comercio por REST/RPC. Esperado: solo las operaciones/lecturas autorizadas. Conceder/revocar fondos debe reflejarse al actualizar los permisos; no altera asignaciones ni acceso a movimientos de turnos ajenos.
+10. **Borradores y tamaños:** escribir una transferencia de productos, cambiar a dinero y escribir otro borrador, navegar a Listas y volver. Esperado: ambos conservados; cerrar uno conserva el otro. Revisar una sucursal y muchas, nombres largos, teclado virtual y botones alcanzables en móvil. Falta de conexión/SQL muestra un error accionable, sin saldos ficticios ni bloqueo de Vender.
+
+Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0. No se aplicó SQL ni se probaron navegador, móvil, backend o concurrencia; TypeScript no valida migraciones, RLS ni la presentación visual.

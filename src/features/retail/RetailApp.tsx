@@ -50,7 +50,7 @@ import { QuickProducts } from './QuickProducts';
 import { catalogPermissions, settingsPermissions, type Permission } from './permissions';
 import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
-import { hasComposition } from '../../services/productComposition';
+import { hasComposition, productsAtBranch } from '../../services/productComposition';
 import { disconnectPushOnLogout, initialPushIntent, readPushIntent } from './push';
 import { PushWelcome } from './PushWelcome';
 import { useMobileScreenMotion } from './useMobileExperience';
@@ -59,7 +59,7 @@ import { OfflineStatus } from './OfflineStatus';
 import { useBranchPriceList } from './useBranchPriceList';
 import { QuickRemito } from './QuickRemito';
 import { usePendingReplenishments } from './usePendingReplenishments';
-import { StockTransfers } from './StockTransfers';
+import { LocationTransfers } from './LocationTransfers';
 import { GuidedStart } from './GuidedStart';
 type Tab = "pos" | "cash" | "catalog" | "settings" | "ai" | "remito";
 export function RetailApp({ session }: { session: Session }) {
@@ -373,7 +373,7 @@ function Workspace({
       nextRole === 'owner' || nextRole === 'admin' || nextPermissions.includes('manage_staff') ? retail.members(store.id) : Promise.resolve([]),
       nextRole === 'owner' || nextRole === 'admin' || nextPermissions.includes('manage_staff') ? retail.invitations(store.id) : Promise.resolve([]),
       nextRole === 'owner' || nextRole === 'admin' || nextPermissions.includes('view_sales') || nextPermissions.includes('use_ai') ? retail.allSales(store.id).catch(() => []) : Promise.resolve([]),
-      nextRole !== 'owner' && nextRole !== 'admin' && nextPermissions.some(action => ['manage_locations', 'manage_staff', 'manage_transfers', 'manage_price_lists', 'review_remitos'].includes(action))
+      nextRole !== 'owner' && nextRole !== 'admin' && nextPermissions.some(action => ['manage_locations', 'manage_staff', 'manage_transfers', 'manage_funds', 'manage_price_lists', 'review_remitos'].includes(action))
         ? retail.managementLocations(store.id).then(value => ({ value, error: '' })).catch(e => ({ value: null, error: errorMessage(e) }))
         : Promise.resolve({ value: null, error: '' }),
     ]);
@@ -1122,7 +1122,7 @@ function Workspace({
                   canCustomizeQuick={can('manage_quick_products')}
                   key={shift?.id}
                   storeName={store.name}
-                  products={productsForList(products, priceLists.find(l => l.id === priceListId), priceOverrides, priceLists)}
+                  products={productsForList(productsAtBranch(products, store.branch_inventory_enabled ? branchId : undefined), priceLists.find(l => l.id === priceListId), priceOverrides, priceLists)}
                   cart={cart}
                   setCart={setCart}
                   onCompleteSale={completeSale}
@@ -1175,14 +1175,15 @@ function Workspace({
                 </div>
             </div>
             {canOpenCatalog && <div hidden={tab !== 'catalog'}>
-              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, ...(can('manage_price_lists') ? [{ id: 'prices', label: 'Listas de precios' }] : []), ...(can('manage_transfers') ? [{ id: 'transfers', label: 'Transferencias' }] : [])]} />
+              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, ...(can('manage_price_lists') ? [{ id: 'prices', label: 'Listas de precios' }] : []), ...(can('manage_transfers') || can('manage_funds') ? [{ id: 'transfers', label: 'Transferencias' }] : [])]} />
               {can('manage_price_lists') && <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={configurationBranches} categories={categories} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>}
             </div>}
             {manager && (
               <div hidden={tab !== 'catalog'}>
-              <div hidden={catalogView !== 'transfers'} role="tabpanel" id="catalog-panel-transfers" aria-labelledby="catalog-tab-transfers"><StockTransfers key={store.id} storeId={store.id} branches={branches} products={products} run={run} busy={busy} active={!guiding && tab === 'catalog' && catalogView === 'transfers'} /></div>
+              <div hidden={catalogView !== 'transfers'} role="tabpanel" id="catalog-panel-transfers" aria-labelledby="catalog-tab-transfers"><LocationTransfers key={store.id} store={store} branches={branches} products={products} run={run} busy={busy} canStock={can('manage_transfers')} canFunds={can('manage_funds')} isAdmin={manager} active={!guiding && tab === 'catalog' && catalogView === 'transfers'} /></div>
               <div hidden={catalogView !== 'products'} role="tabpanel" id="catalog-panel-products" aria-labelledby="catalog-tab-products">
               <CatalogEditor
+                initialBranchId={branchId}
                 active={!guiding && tab === 'catalog' && catalogView === 'products'}
                 store={store}
                 products={products}
@@ -1202,12 +1203,12 @@ function Workspace({
             )}
             {!manager && canOpenCatalog && <div hidden={tab !== 'catalog'}>
               {managementLocationError && <p role="alert">{managementLocationError}</p>}
-              {can('manage_transfers') && <div hidden={catalogView !== 'transfers'}><StockTransfers storeId={store.id} branches={configurationBranches} products={products} run={run} busy={busy} active={!guiding && tab === 'catalog' && catalogView === 'transfers'} /></div>}
+              {(can('manage_transfers') || can('manage_funds')) && <div hidden={catalogView !== 'transfers'}><LocationTransfers key={store.id} store={store} branches={configurationBranches} products={products} run={run} busy={busy} canStock={can('manage_transfers')} canFunds={can('manage_funds')} isAdmin={manager} active={!guiding && tab === 'catalog' && catalogView === 'transfers'} /></div>}
               <div hidden={catalogView !== 'products'}>
               {can('manage_quick_products') && branchId && <section className="retail-panel"><p>Sucursal de la botonera: <strong>{branches.find(branch => branch.id === branchId)?.name}</strong></p>
                 <QuickProducts storeId={store.id} branchId={branchId} products={products} manager onAdd={() => {}} disabled={busy} editorOnly />
               </section>}
-              <CatalogEditor store={store} products={products} categories={categories} role={role} run={run} busy={busy}
+              <CatalogEditor initialBranchId={branchId} store={store} products={products} categories={categories} role={role} run={run} busy={busy}
                 active={!guiding && tab === 'catalog' && catalogView === 'products'} allowRestock={can('replenish_stock')} allowPriceEdit={can('edit_prices')} permissions={permissions}
                 pendingRemitos={pendingRemitos.records} pendingRemitoError={pendingRemitos.error} branches={configurationBranches} onRefreshRemitos={() => void pendingRemitos.refresh()} onReviewedRemito={pendingRemitos.reviewed} />
               </div>

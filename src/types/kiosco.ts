@@ -17,6 +17,8 @@ export interface KioscoProduct {
   sellable?: boolean; // false: insumo con stock, no se vende directamente
   stock: number; // Total físico; en compuestos, disponibilidad calculada.
   depotStock?: number; // Parte del total guardada en depósito (0 si no se usa).
+  branchStocks?: Record<string, number>; // Physical allocation when location inventory is active.
+  stockBranchId?: string; // Sale context only; aggregate stock is never replaced.
   pack_size?: number | null; // Unidades individuales por bulto de compra.
   stock_components?: StockComponent[]; // Por venta: unidades consumidas de productos con stock propio.
   margin_group?: MarginGroup | null;

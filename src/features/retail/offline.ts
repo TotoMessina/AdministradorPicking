@@ -194,11 +194,14 @@ async function localWrite(user: string, method: string, args: unknown[]) {
       const products = need(findCached<Product[]>(s, 'products', store));
       const rows = (method === 'replenishProductStock' ? [{ id: args[1], newStock: args[2], newCost: args[3], quantityAdded: args[4] }] : args[1]) as { id: string; newStock: number; newCost?: number; quantityAdded?: number }[];
       if (!rows.length || rows.length > 10000 || new Set(rows.map(r => r.id)).size !== rows.length) throw new Error('La reposición debe contener productos distintos');
-      const request = method === 'replenishProductStock' ? args[5] as { id: string; at: string } | undefined : undefined;
+      const request = method === 'replenishProductStock' ? args[5] as { id: string; at: string; branch?: string } | undefined : undefined;
+      const scoped = (s.cache[key('stores', [])] as Store[] | undefined)?.find(entry => entry.id === store)?.branch_inventory_enabled;
+      const branch = request?.branch || (method === 'replenishStockBatch' ? args[2] as string | undefined : undefined);
+      if (scoped && !branch) throw new Error('Elegí la sucursal donde recibís la mercadería. El borrador se conserva.');
       const prior = request?.id && s.queue.find(entry => entry.operation.id === request.id)?.operation;
       if (prior) {
         const expected = rows.map(row => ({ product: row.id, delta: row.quantityAdded, cost: row.newCost ?? null }));
-        if (prior.kind !== 'stock' || prior.store !== store || prior.at !== request?.at || JSON.stringify(prior.items) !== JSON.stringify(expected)) throw new Error('La solicitud corresponde a otra reposición. Revisá los datos.');
+        if (prior.kind !== 'stock' || prior.store !== store || prior.at !== request?.at || prior.branch !== branch || JSON.stringify(prior.items) !== JSON.stringify(expected)) throw new Error('La solicitud corresponde a otra reposición. Revisá los datos.');
         return rows.map(row => ({ id: row.id }));
       }
       const items = rows.map(row => {
@@ -210,6 +213,12 @@ async function localWrite(user: string, method: string, args: unknown[]) {
         if (row.newCost !== undefined && product.sale_markup != null && amount(row.newCost) <= 0)
           throw new Error(`Cargá un costo mayor a cero para calcular el precio principal de ${product.name}.`);
         product.stock += delta;
+        if (scoped && branch) {
+          if (!product.branchStocks) throw new Error('Actualizá el catálogo con conexión antes de reponer por sucursal.');
+          const next = (product.branchStocks[branch] || 0) + delta;
+          if (next < 0) throw new Error('No alcanza el stock de esta sucursal para ese ajuste.');
+          product.branchStocks = { ...product.branchStocks, [branch]: next };
+        }
         if (row.newCost !== undefined) product.cost = amount(row.newCost);
         if (row.newCost !== undefined) {
           const cachedStore = (s.cache[key('stores', [])] as Store[] | undefined)?.find(entry => entry.id === store);
@@ -220,7 +229,7 @@ async function localWrite(user: string, method: string, args: unknown[]) {
       const cachedStore = (s.cache[key('stores', [])] as Store[] | undefined)?.find(entry => entry.id === store);
       updateProductCaches(s, store, withAvailableStock(products).map(product => hasComposition(product) || product.sale_markup != null
         ? { ...product, margin_group: productMargin(product.price, product.cost, cachedStore?.low_margin_threshold).group } : product));
-      s.revision++; s.queue.push({ operation: { id: request?.id || randomUUID(), kind: 'stock', store, at: request?.at || at, items } });
+      s.revision++; s.queue.push({ operation: { id: request?.id || randomUUID(), kind: 'stock', store, at: request?.at || at, items, ...(branch ? { branch } : {}) } });
       return rows.map(row => ({ id: row.id }));
     }
     if (method === 'checkout') shiftId = String(args[1]);
@@ -274,8 +283,10 @@ async function localWrite(user: string, method: string, args: unknown[]) {
             item.marginGroup = 'standard'; item.unitCost = null;
           }
         }
-        updateProductCaches(s, store, consumeSaleStock(products, sale.items));
         const register = regs.find(r => r.id === shift!.register_id)!;
+        const branchInventory = (s.cache[key('stores', [])] as Store[] | undefined)?.find(entry => entry.id === store)?.branch_inventory_enabled;
+        if (branchInventory && !register.branch_id) throw new Error('Esta caja necesita una sucursal asignada. Pedile a un administrador que la revise antes de vender.');
+        updateProductCaches(s, store, consumeSaleStock(products, sale.items, branchInventory ? register.branch_id || undefined : undefined));
         const branch = need(findCached<Branch[]>(s, 'branches', store)).find(b => b.id === register.branch_id);
         const list = findCached<PriceList[]>(s, 'priceLists', store)?.find(l => l.id === sale.priceListId);
         if (sale.priceListId && (!list || !list.active || (list.branch_id && list.branch_id !== register.branch_id))) throw new Error('La lista de precios no está disponible para esta sucursal');
@@ -402,7 +413,7 @@ export function withOffline<T extends Remote>(source: T): T {
       if (property === 'savePriceListTree' || property === 'savePriceList' || property === 'savePriceOverride' || property === 'deletePriceList') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar listas o precios fijos. El borrador se conserva.');
       });
-      if (property === 'archiveProduct' || property === 'restoreProduct') await transaction(user, state => {
+      if (property === 'archiveProduct' || property === 'restoreProduct' || property === 'deleteProductPermanently') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de eliminar o restaurar productos.');
       });
       if (property === 'saveProduct') await transaction(user, state => {
@@ -426,6 +437,39 @@ export function withOffline<T extends Remote>(source: T): T {
             if (method === 'priceLists') state.cache[k] = (value as PriceList[]).filter(row => row.id !== list);
             if (method === 'priceOverrides') state.cache[k] = (value as PriceOverride[]).filter(row => row.list_id !== list);
             if (method === 'branchPriceRule' && value === list) state.cache[k] = primary?.id || null;
+          }
+        }, true);
+        event();
+      }
+      if (property === 'archiveProduct' || property === 'deleteProductPermanently') {
+        const store = String(args[0]); const productId = String(args[1]);
+        await transaction(user, state => {
+          state.revision++;
+          for (const [k, value] of Object.entries(state.cache)) {
+            const [method, parameters] = JSON.parse(k);
+            if (parameters[0] !== store) continue;
+            if (method === 'products' && Array.isArray(value)) {
+              state.cache[k] = (value as Product[]).filter(row => row.id !== productId);
+            }
+            if (method === 'quickProducts' && Array.isArray(value)) {
+              state.cache[k] = (value as { product_id: string }[]).filter(row => row.product_id !== productId);
+            }
+            if (method === 'popularProducts' && Array.isArray(value)) {
+              state.cache[k] = (value as { product_id: string }[]).filter(row => row.product_id !== productId);
+            }
+          }
+        }, true);
+        event();
+      }
+      if (property === 'restoreProduct') {
+        const store = String(args[0]);
+        await transaction(user, state => {
+          state.revision++;
+          for (const k of Object.keys(state.cache)) {
+            const [method, parameters] = JSON.parse(k);
+            if (parameters[0] === store && method === 'products') {
+              delete state.cache[k];
+            }
           }
         }, true);
         event();

@@ -5,7 +5,9 @@ import { hasComposition, withAvailableStock } from '../../services/productCompos
 import { closingCashDenominations, type CashDenominations } from '../../services/cashDenominations';
 import { syncOffline, withOffline } from './offline';
 import { createStoreOnce, onboarding } from './onboarding';
+import { locationTransfers } from './locationTransferApi';
 import { movementDetails, VOUCHER_BUCKET, voucherExtension, voucherMimeType, voucherPath, voucherReference } from './vouchers';
+import { toInvoiceFormat, type InvoiceFormat, type StoredInvoiceFormat } from '../../services/invoiceFormatService';
 import { REMITO_BUCKET, remitoExtension, remitoPath, remitoReference, type PendingReplenishment, type PendingReplenishmentItem } from './remitos';
 export type { PendingReplenishment, PendingReplenishmentItem } from './remitos';
 import type { Permission, PermissionProfile, StaffBaseRole } from './permissions';
@@ -23,6 +25,7 @@ export interface Store {
   currency: string;
   low_margin_threshold?: number;
   depot_enabled?: boolean;
+  branch_inventory_enabled?: boolean;
   cuit?: string | null;
   razon_social?: string | null;
   condicion_iva?: CondicionIva | null;
@@ -125,6 +128,16 @@ export interface Movement {
   category?: string;
   voucher_url?: string | null;
   supplier_name?: string | null;
+}
+export interface Supplier {
+  id: string;
+  store_id: string;
+  name: string;
+  supplier_key: string;
+  /** Descuento habitual del comercio con este proveedor, sobre el costo facturado. */
+  discount_percent: number;
+  notes: string | null;
+  revision: number;
 }
 export interface Member {
   profile_id?: string | null;
@@ -331,6 +344,8 @@ async function lookupOpenFoodFacts(code: string): Promise<EanLookupResult> {
 }
 
 const remoteRetail = {
+  enableBranchInventory: locationTransfers.enable,
+  reviewLocationTransfer: locationTransfers.review,
   async quickProducts(store: string, branch: string) {
     return result<{ product_id: string; position: number }[]>(supabase.from('retail_quick_products').select('product_id,position').eq('store_id', store).eq('branch_id', branch).order('position'));
   },
@@ -505,6 +520,15 @@ const remoteRetail = {
       return [];
     });
     const depot = new Map((balances || []).map(row => [row.product_id, Number(row.quantity)]));
+    const locationMode = await result<{ branch_inventory_enabled?: boolean }>(supabase.from('retail_stores').select('*').eq('id', store).single());
+    const branchRows = locationMode.branch_inventory_enabled
+      ? await allRows<{ product_id: string; branch_id: string; quantity: number }>((from, to) => supabase.from('retail_branch_stock').select('product_id,branch_id,quantity').eq('store_id', store).order('product_id').order('branch_id').range(from, to)) : [];
+    const branchStock = new Map<string, Record<string, number>>();
+    for (const row of branchRows) {
+      const allocations = branchStock.get(row.product_id) || {};
+      allocations[row.branch_id] = Number(row.quantity);
+      branchStock.set(row.product_id, allocations);
+    }
     return withAvailableStock<Product>(rows.map((p) => ({
       id: p.id,
       categoryId: p.category_id,
@@ -516,6 +540,7 @@ const remoteRetail = {
       cost: Number(p.cost),
       stock: p.stock,
       depotStock: depot.get(p.id) || 0,
+      ...(locationMode.branch_inventory_enabled ? { branchStocks: branchStock.get(p.id) || {} } : {}),
       minStock: p.min_stock,
       emoji: p.emoji,
       active: p.active,
@@ -594,6 +619,7 @@ const remoteRetail = {
     p: Omit<Product, "category">,
     edit: boolean,
     expectedStock?: number,
+    stockBranch?: string,
   ) {
     if (p.pack_size != null && (!Number.isInteger(p.pack_size) || p.pack_size < 1 || p.pack_size > 2147483647)) throw new Error('Las unidades por bulto deben ser un número entero mayor o igual a 1.');
     const values: Record<string, unknown> = {
@@ -618,6 +644,10 @@ const remoteRetail = {
       ...(p.expiry_date !== undefined ? { expiry_date: p.expiry_date || null } : {}),
       ...(p.last_restocked_at !== undefined ? { last_restocked_at: p.last_restocked_at || null } : {}),
     };
+    if (stockBranch) return result<{ id: string }>(supabase.rpc('retail_save_product_at_branch', {
+      p_store: store, p_values: { ...values, ...(edit ? { id: p.id } : {}) }, p_edit: edit,
+      p_expected: expectedStock ?? p.stock, p_branch: stockBranch,
+    }));
     if (edit)
       return result<{ id: string }>(
         supabase
@@ -658,6 +688,11 @@ const remoteRetail = {
       p_store: store, p_product: id, p_active: true, p_request: request, p_reason: null, p_expected: null,
     }));
   },
+  async deleteProductPermanently(store: string, id: string) {
+    return result(supabase.rpc('retail_delete_product_permanently', {
+      p_store: store, p_product: id,
+    }));
+  },
   async productDeletionHistory(store: string, search = '', cursor?: { recorded_at: string; id: string }) {
     let query = supabase.from('retail_product_deletions')
       .select('id,product_id,product_name,product_code,event_type,occurred_at,recorded_at,actor_email,reason')
@@ -678,11 +713,11 @@ const remoteRetail = {
     newStock: number,
     newCost?: number,
     _quantityAdded?: number,
-    request?: { id: string; at: string },
+    request?: { id: string; at: string; branch?: string },
   ) {
     // Preserve the durable stock contract even without IndexedDB.
     if (_quantityAdded !== undefined) return result(supabase.rpc('retail_sync_operation', { p_operation: {
-      id: request?.id || randomUUID(), kind: 'stock', store, at: request?.at || new Date().toISOString(),
+      id: request?.id || randomUUID(), kind: 'stock', store, at: request?.at || new Date().toISOString(), ...(request?.branch ? { branch: request.branch } : {}),
       items: [{ product: productId, delta: _quantityAdded, cost: newCost ?? null }],
     } }));
     const values: Record<string, unknown> = {
@@ -705,7 +740,12 @@ const remoteRetail = {
   async replenishStockBatch(
     store: string,
     items: { id: string; newStock: number; newCost?: number; quantityAdded?: number }[],
+    stockBranch?: string,
   ) {
+    if (stockBranch) return result(supabase.rpc('retail_sync_operation', { p_operation: {
+      id: randomUUID(), kind: 'stock', store, at: new Date().toISOString(), branch: stockBranch,
+      items: items.map(item => ({ product: item.id, delta: item.quantityAdded, cost: item.newCost ?? null })),
+    } }));
     const results = [];
     const nowIso = new Date().toISOString();
     for (const item of items) {
@@ -1002,7 +1042,8 @@ const remoteRetail = {
       p_store: store, p_branch: branchId || null, p_image_url: imageUrl, p_extracted_text: extractedText || null, p_items: items, p_notes: notes.trim() || null,
     }));
   },
-  async approvePendingReplenishment(store: string, id: string, items?: PendingReplenishmentItem[]): Promise<string> {
+  async approvePendingReplenishment(store: string, id: string, items?: PendingReplenishmentItem[], branchId?: string): Promise<string> {
+    if (branchId) return result<string>(supabase.rpc('retail_approve_replenishment_at_branch', { p_store: store, p_id: id, p_items: items ?? null, p_branch: branchId }));
     return result<string>(supabase.rpc('retail_approve_replenishment', { p_store: store, p_id: id, p_items: items ?? null }));
   },
   async rejectPendingReplenishment(store: string, id: string, reason: string): Promise<string> {
@@ -1020,8 +1061,9 @@ const remoteRetail = {
   async setDepot(store: string, enabled: boolean) {
     return result(supabase.rpc('retail_set_depot', { p_store: store, p_enabled: enabled }));
   },
-  async depotOperation(store: string, product: string, quantity: number, action: DepotAction, request: string, cost?: number, note?: string) {
-    return result<string>(supabase.rpc('retail_depot_operation', {
+  async depotOperation(store: string, product: string, quantity: number, action: DepotAction, request: string, cost?: number, note?: string, stockBranch?: string) {
+    return result<string>(supabase.rpc(stockBranch ? 'retail_depot_operation_at_branch' : 'retail_depot_operation', {
+      ...(stockBranch ? { p_branch: stockBranch } : {}),
       p_store: store, p_product: product, p_quantity: quantity, p_action: action, p_request: request,
       p_cost: cost ?? null, p_note: note?.trim() || null,
     }));
@@ -1115,6 +1157,40 @@ const remoteRetail = {
         price: typeof u.price === "number" ? u.price : u.newPrice,
       })),
     }));
+  },
+  async suppliers(storeId: string): Promise<Supplier[]> {
+    const rows = await allRows<Supplier>((from, to) =>
+      supabase.from("retail_suppliers").select("*").eq("store_id", storeId).order("name").range(from, to),
+    );
+    return rows.map((row) => ({ ...row, discount_percent: Number(row.discount_percent) }));
+  },
+  async saveSupplier(storeId: string, supplier: { id?: string; name: string; discount_percent: number; notes?: string | null; revision?: number }) {
+    return result<Supplier>(supabase.rpc("retail_save_supplier", {
+      p_store: storeId, p_id: supplier.id || null, p_name: supplier.name,
+      p_discount: supplier.discount_percent, p_notes: supplier.notes?.trim() || null, p_expected: supplier.revision ?? null,
+    }));
+  },
+  async deleteSupplier(storeId: string, supplier: Supplier) {
+    return result(supabase.rpc("retail_delete_supplier", { p_store: storeId, p_id: supplier.id, p_expected: supplier.revision }));
+  },
+  /** Learned invoice layouts; rows with an unknown shape are ignored, so those invoices use AI. */
+  async supplierInvoiceFormats(storeId: string): Promise<StoredInvoiceFormat[]> {
+    const rows = await allRows<StoredInvoiceFormat>((from, to) =>
+      supabase.from("retail_supplier_invoice_formats").select("supplier_key,supplier_name,format,samples,local_reads")
+        .eq("store_id", storeId).order("supplier_key").range(from, to),
+    );
+    return rows.flatMap((row) => {
+      const format = toInvoiceFormat(row.format);
+      return format ? [{ ...row, format, samples: Number(row.samples), local_reads: Number(row.local_reads) }] : [];
+    });
+  },
+  async saveSupplierInvoiceFormat(storeId: string, supplier: string, format: InvoiceFormat, samples: number, localRead: boolean) {
+    return result(supabase.rpc("retail_save_supplier_invoice_format", {
+      p_store: storeId, p_supplier: supplier, p_format: format, p_samples: samples, p_local_read: localRead,
+    }));
+  },
+  async deleteSupplierInvoiceFormat(storeId: string, supplier: string) {
+    return result(supabase.rpc("retail_delete_supplier_invoice_format", { p_store: storeId, p_supplier: supplier }));
   },
   async getDistributors(storeId: string): Promise<string[]> {
     const rows = await allRows<{ supplier: string | null }>((from, to) =>

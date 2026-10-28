@@ -4,6 +4,8 @@ import './foundation.css';
 import './workspace.css';
 import './settings.css';
 import './tools.css';
+import './invoice-review.css';
+import './location-transfers.css';
 import './responsive.css';
 import './mobile-native.css';
 import './store-settings-sober.css';

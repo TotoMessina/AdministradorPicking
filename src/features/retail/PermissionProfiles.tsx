@@ -22,6 +22,7 @@ const shortLabels: Record<Permission, string> = {
   manage_price_lists: 'Listas de precios',
   review_remitos: 'Revisar remitos',
   manage_transfers: 'Transferencias',
+  manage_funds: 'Fondos por ubicación',
   attach_invoice: 'Asociar comprobantes',
   manage_store: 'Datos, ticket y margen',
   manage_locations: 'Locales y cajas',
@@ -35,7 +36,7 @@ const shortLabels: Record<Permission, string> = {
 const permissionGroups: { label: string; permissions: Permission[] }[] = [
   { label: 'Caja y ventas', permissions: ['sell', 'cash_income', 'cash_withdrawal', 'move_sale_ledger', 'view_sales', 'attach_invoice'] },
   { label: 'Productos y stock', permissions: ['manage_products', 'replenish_stock', 'edit_prices', 'manage_compositions', 'delete_products', 'manage_quick_products', 'manage_price_lists'] },
-  { label: 'Mercadería', permissions: ['submit_remito', 'review_remitos', 'manage_transfers'] },
+  { label: 'Mercadería y fondos', permissions: ['submit_remito', 'review_remitos', 'manage_transfers', 'manage_funds'] },
   { label: 'Mi comercio', permissions: ['manage_store', 'manage_locations', 'manage_categories', 'manage_ledgers'] },
   { label: 'Personas y análisis', permissions: ['manage_staff', 'manage_profiles', 'use_ai'] },
 ];

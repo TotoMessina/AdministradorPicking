@@ -1,6 +1,6 @@
 # Supabase: instalación y actualización desde schema
 
-El instalador completo es **[supabase/schema.sql](supabase/schema.sql)**. Contiene las **39 migraciones actuales**, en orden de nombre completo, y registra cada una en `retail_private.schema_migrations`. Para la instalación ya conciliada hasta la 003, también está disponible la [actualización en cinco archivos pequeños](#actualización-individual-después-de-conciliar-34-migraciones), con el mismo historial. Una instalación manual con historial desalineado requiere primero la conciliación específica descrita abajo.
+El instalador completo es **[supabase/schema.sql](supabase/schema.sql)**. Contiene las **45 migraciones actuales**, en orden de nombre completo, y registra cada una en `retail_private.schema_migrations`. Para la instalación ya conciliada hasta la 003, también está disponible la [actualización en archivos individuales](#actualización-individual-después-de-conciliar-34-migraciones), con el mismo historial. Una instalación manual con historial desalineado requiere primero la conciliación específica descrita abajo.
 
 ## Proyecto y alcance
 
@@ -30,7 +30,7 @@ Si faltan migraciones intermedias o hubo una ejecución fallida, no declarar com
 3. Revisar errores y el resultado final: `filename`, `origin` y `registered_at`. Un error revierte la transacción completa, incluido su historial; no continuar ejecutando fragmentos.
 4. Actualizar la app y el catálogo en los dispositivos una vez confirmada la instalación.
 
-En una **base nueva de Supabase**, sin objetos retail, el archivo ejecuta las 39 migraciones y registra `origin=schema`; el baseline de adopción no omite nada en ese caso. Se requieren los servicios habituales de Supabase Auth/Storage.
+En una **base nueva de Supabase**, sin objetos retail, el archivo ejecuta las 45 migraciones y registra `origin=schema`; el baseline de adopción no omite nada en ese caso. Se requieren los servicios habituales de Supabase Auth/Storage.
 
 El depósito se instala **apagado** para todos los comercios, sin redistribuir existencias. La activación es posterior y voluntaria desde Mi comercio. El total sigue en productos; los balances y movimientos se protegen con RLS/RPC y un trigger de disponibilidad. No modifica las transferencias entre sucursales. Ver [alcance, permisos y pruebas](docs/productos-y-stock.md#deposito-opcional). Instalar SQL no certifica la operación offline, la concurrencia ni los permisos: validar en un entorno de prueba antes de usarlo.
 
@@ -40,7 +40,7 @@ Manifiesto, comprobaciones y migraciones corren en **un único bloque `DO` atóm
 
 ## Actualización individual después de conciliar 34 migraciones
 
-Se prepararon cinco archivos en `supabase/updates/`, con un paso por consulta. Esto reduce el SQL enviado en cada consulta, pero no demuestra que el tamaño causara `Failed to fetch`: si ni `select 1` responde, resolver primero la comunicación con el dashboard.
+Se prepararon siete archivos en `supabase/updates/`, con un paso por consulta. Esto reduce el SQL enviado en cada consulta, pero no demuestra que el tamaño causara `Failed to fetch`: si ni `select 1` responde, resolver primero la comunicación con el dashboard.
 
 Estos paquetes requieren que el historial ya tenga registradas todas las migraciones hasta `202610260003_billing_fields.sql` (34 entradas), mediante la conciliación o una instalación normal. **No volver a ejecutar los archivos originales de migrations para este recorrido:** los paquetes conservan las fuentes, normalizan CRLF, validan dependencias y registran el checksum en la misma operación que aplica el cambio.
 
@@ -53,14 +53,37 @@ En el SQL Editor de AdministradorKiosco, ejecutar **un archivo completo por vez*
 | 3 | [202610260006_billing_update_robustness.sql](supabase/updates/202610260006_billing_update_robustness.sql) | Corrección de firma de la función de facturación | 37 |
 | 4 | [202610270001_store_billing_credentials.sql](supabase/updates/202610270001_store_billing_credentials.sql) | Almacenamiento privado de credenciales fiscales por comercio | 38 |
 | 5 | [202610270002_primary_product_markup.sql](supabase/updates/202610270002_primary_product_markup.sql) | Principal global, porcentaje por producto y recálculo de listas existentes | 39 |
+| 6 | [202610270003_suppliers.sql](supabase/updates/202610270003_suppliers.sql) | Proveedores por comercio con su descuento; no modifica productos, costos ni alias | 40 |
+| 7 | [202610270004_cost_price_lists.sql](supabase/updates/202610270004_cost_price_lists.sql) | Vuelve a permitir listas nuevas desde Costo (Costo +X%); no modifica listas, precios ni asignaciones existentes | 41 |
+| 8 | [202610270005_supplier_invoice_formats.sql](supabase/updates/202610270005_supplier_invoice_formats.sql) | Memoria del formato de factura por proveedor (lectura sin IA); tabla nueva, no modifica proveedores, alias, productos ni costos | 42 |
+| 9 | [202610280001_supplier_alias_usage_repair.sql](supabase/updates/202610280001_supplier_alias_usage_repair.sql) | Repara la memoria de alias cuando `202610200002_supplier_alias_usage.sql` quedó registrada sin efecto (función de 6 parámetros, error «Falta instalar la base de datos» al compartir vínculos). Idempotente; no modifica alias guardados | 43 |
+| 10 | [202610280002_location_funds.sql](supabase/updates/202610280002_location_funds.sql) | Fondos e historial por ubicación; permiso explícito `manage_funds`, sin tocar turnos | 44 |
+| 11 | [202610280003_location_inventory.sql](supabase/updates/202610280003_location_inventory.sql) | Inventario por sucursal optativo, distribución inicial explícita y traslados reales; total físico conservado | 45 |
 
-Cada archivo incluye su manifiesto JSON en un solo `DO`, sin tablas temporales. Toma el mismo bloqueo que schema (espera máxima de bloqueo de 10 segundos), rechaza checksums distintos, entradas desconocidas, huecos o dependencias faltantes. **Si el archivo ya está registrado con el mismo checksum, lo omite**, incluso si el intento anterior perdió su respuesta. No adopta migraciones ni amplía el baseline. El `SELECT` final devuelve cantidad y última migración; si la instalación ya tiene las 39, permanecerá en 39 en cada paso.
+**Si se ejecutó a mano una fuente de `migrations/`** (por ejemplo, existe `retail_supplier_invoice_formats` pero el historial termina antes de `202610270005`), el paquete correspondiente fallará porque el objeto ya existe. Comprobar primero con la consulta de historial. Si la 005 no está registrada y la tabla está vacía, retirar solo esos objetos con este bloque, que se detiene si hay datos o registro, y seguir con los paquetes en orden:
+
+```sql
+do $cleanup$
+begin
+  if exists(select 1 from retail_private.schema_migrations where filename = '202610270005_supplier_invoice_formats.sql') then
+    raise exception '202610270005 está registrada: no retirar sus objetos';
+  end if;
+  if exists(select 1 from public.retail_supplier_invoice_formats) then
+    raise exception 'Hay formatos guardados: no retirar la tabla';
+  end if;
+  drop function if exists public.retail_save_supplier_invoice_format(uuid,text,jsonb,integer,boolean);
+  drop function if exists public.retail_delete_supplier_invoice_format(uuid,text);
+  drop table public.retail_supplier_invoice_formats;
+end $cleanup$;
+```
+
+Cada archivo incluye su manifiesto JSON en un solo `DO`, sin tablas temporales. Toma el mismo bloqueo que schema (espera máxima de bloqueo de 10 segundos), rechaza checksums distintos, entradas desconocidas, huecos o dependencias faltantes. **Si el archivo ya está registrado con el mismo checksum, lo omite**, incluso si el intento anterior perdió su respuesta. No adopta migraciones ni amplía el baseline. El `SELECT` final devuelve cantidad y última migración; si la instalación ya tiene las 43, permanecerá en 43 en cada paso.
 
 Cada archivo confirma su propia transacción: si falla el segundo, el primero sigue registrado y el segundo no. No continuar con el siguiente hasta resolver el error. Tras perder una respuesta, consultar el historial antes de repetir; no ejecutar varios paquetes en paralelo ni mezclarlos con schema. Al terminar, el instalador completo también reconocerá estos pasos y no volverá a ejecutarlos. Completar el recorrido antes de usar las funciones nuevas.
 
 Para regenerarlos desde las mismas fuentes: `node scripts/generate-schema.mjs --individual-updates`. Este comando solo empaqueta archivos locales. La frontera de esta actualización es la 003 ya conciliada; agregar una migración no amplía el baseline. No editar los paquetes ni las migraciones históricas para resolver un error de checksum.
 
-Verificaciones ejecutadas: lectura de fuentes/dependencias y generación local de los cinco paquetes. La app pasó `npx tsc --noEmit -p tsconfig.app.json` tras integrar el porcentaje por producto. No se ejecutaron SQL remoto, builds ni otras pruebas automatizadas; TypeScript no valida estos paquetes SQL. Pendiente manual: comprobar conteos 35 → 36 → 37 → 38 → 39 (o salto de pasos ya aplicados), reejecución sin duplicados, validaciones de permisos y funcionamiento del backend. Guía en **http://localhost:3001/**, con datos de prueba: editar un porcentaje y recargar (persiste), cobrar con lista derivada y pago mixto (precio correcto y un ticket), eliminar una lista sin derivadas (conserva ventas) e intentar eliminar otra con derivadas (se bloquea). Consultar un cierre anterior (conserva conteo y billetes). No crear ventas ficticias en producción.
+Verificaciones ejecutadas: lectura de fuentes/dependencias y generación local de los once paquetes. La app pasó `npx tsc --noEmit -p tsconfig.app.json` tras integrar el porcentaje por producto. No se ejecutaron SQL remoto, builds ni otras pruebas automatizadas; TypeScript no valida estos paquetes SQL. Pendiente manual: comprobar conteos 35 → 36 → 37 → 38 → 39 (o salto de pasos ya aplicados), reejecución sin duplicados, validaciones de permisos y funcionamiento del backend. Guía en **http://localhost:3001/**, con datos de prueba: editar un porcentaje y recargar (persiste), cobrar con lista derivada y pago mixto (precio correcto y un ticket), eliminar una lista sin derivadas (conserva ventas) e intentar eliminar otra con derivadas (se bloquea). Consultar un cierre anterior (conserva conteo y billetes). No crear ventas ficticias en producción.
 
 ### Error: retail_schema_manifest no existe
 
@@ -92,7 +115,7 @@ select count(*) as migraciones,
 from retail_private.schema_migrations;
 ```
 
-Con las fuentes actuales, 39 entradas y último archivo `202610270002_primary_product_markup.sql` indican que todos los pasos están registrados; comprobar igualmente checksum/orden mediante schema y funcionamiento según las guías, sin repetir la recuperación manual. 34 entradas hasta `202610260003_billing_fields.sql` indican que no se ven cambios posteriores confirmados: la instalación puede no haber terminado o seguir ejecutándose. Compartir el resultado y revisar actividad antes de reenviarla. Si el historial no existe o hay otra cantidad/último archivo, compartir ese resultado; no inventar registros para completar el número esperado.
+Con las fuentes actuales, 43 entradas y último archivo `202610280001_supplier_alias_usage_repair.sql` indican que todos los pasos están registrados; comprobar igualmente checksum/orden mediante schema y funcionamiento según las guías, sin repetir la recuperación manual. 34 entradas hasta `202610260003_billing_fields.sql` indican que no se ven cambios posteriores confirmados: la instalación puede no haber terminado o seguir ejecutándose. Compartir el resultado y revisar actividad antes de reenviarla. Si el historial no existe o hay otra cantidad/último archivo, compartir ese resultado; no inventar registros para completar el número esperado.
 
 Si la consulta pequeña funciona pero schema vuelve a perder la respuesta, registrar cuánto tardó y el error completo. El SQL Editor tiene un [límite de un minuto para consultas largas](https://supabase.com/kb/troubleshooting/avoiding-timeouts-in-long-running-queries-6nmbdN); el mensaje de fetch aislado no demuestra que se alcanzó ese límite. Revisar actividad/logs y estado registrado antes de elegir otro método de aplicación autorizado. No aumentar timeouts ni cancelar consultas por iniciativa propia.
 
@@ -143,7 +166,7 @@ Pasos manuales para este incidente:
 
 1. Confirmar el proyecto AdministradorKiosco y conservar el respaldo correspondiente. Si la sesión está abortada, ejecutar `ROLLBACK;`.
 2. Ejecutar **todo** `supabase/maintenance/adopt_manual_history_20261027.sql`. Resultado esperado: **34 entradas**, hasta `202610260003_billing_fields.sql`, sin repetir sus cuerpos SQL. La fecha registrada corresponde a la adopción. Repetir antes de schema no duplica entradas. Si falla una validación, detenerse y compartir el error; no quitar validaciones ni insertar filas a mano.
-3. Solo si terminó correctamente, ejecutar **todo** `supabase/schema.sql` actualizado. Debe omitir esas 34 y aplicar las pendientes: árbol 004, eliminación 005, robustez de facturación 006 credenciales por comercio `202610270001_store_billing_credentials.sql` y Principal por porcentaje `202610270002_primary_product_markup.sql`. El archivo actual contiene **39 entradas**; se conservaron esas fuentes de facturación incorporadas por otro trabajo.
+3. Solo si terminó correctamente, ejecutar **todo** `supabase/schema.sql` actualizado. Debe omitir esas 34 y aplicar las pendientes: árbol 004, eliminación 005, robustez de facturación 006 credenciales por comercio `202610270001_store_billing_credentials.sql`, Principal por porcentaje `202610270002_primary_product_markup.sql` proveedores `202610270003_suppliers.sql`, listas desde Costo `202610270004_cost_price_lists.sql` formato de factura por proveedor `202610270005_supplier_invoice_formats.sql` y reparación de alias `202610280001_supplier_alias_usage_repair.sql`. El archivo actual contiene **45 entradas**; se conservaron esas fuentes de facturación incorporadas por otro trabajo.
 4. Revisar el resultado final y repetir schema: debe omitir todos los pasos registrados. Desde entonces usar schema, **no repetir el script específico de recuperación** después de instalar migraciones posteriores, porque rechaza historiales que exceden su límite fijo.
 5. En **http://localhost:3001/**, abrir Productos → Listas de precios, editar un porcentaje de prueba y recargar: conserva el valor. Eliminar una lista de prueba sin derivadas: desaparece sin modificar tickets anteriores. Intentar eliminar una con derivadas: se bloquea y permite revisar el origen. Consultar un cierre existente: conserva conteo, tickets y billetes. No crear ventas ficticias en producción.
 
@@ -203,3 +226,20 @@ Las migraciones originales se conservan como fuente, historial y referencia de h
 5. Abrir http://localhost:3001/: ingresar, consultar catálogo, editar un producto y recorrer apertura → venta → cierre solo en datos de prueba. Repetir con cajero/administrador, insumos/combos y otro dispositivo según las guías.
 
 Ejecutado durante la consolidación: generación local del archivo y revisión de fuentes/enlaces. No se ejecutó SQL en ningún entorno, no se verificó el backend y no se hicieron builds ni pruebas automatizadas. TypeScript no valida el SQL generado.
+
+## Transferencias por ubicación y fondos
+
+Preparado el 28/10/2026, **sin ejecutar SQL remoto**. El generador produjo 45 migraciones consolidadas y 11 paquetes individuales; esa generación no comprueba la sintaxis ni el comportamiento en PostgreSQL.
+
+En una base con historial al día hasta `202610280001_supplier_alias_usage_repair.sql`, ejecutar completos y por separado:
+
+1. [202610280002_location_funds.sql](supabase/updates/202610280002_location_funds.sql): agrega fondos/ledger por ubicación, RLS y `manage_funds`. Los saldos nacen en cero; no toma efectivo ni movimientos de turnos. Los perfiles existentes no reciben el permiso automáticamente.
+2. [202610280003_location_inventory.sql](supabase/updates/202610280003_location_inventory.sql): agrega saldos por sucursal, auditoría de activación, traslados y contexto para las operaciones existentes. Conserva las validaciones de sus RPC mediante envoltorios; no elimina datos ni cambia el stock de un comercio al instalar.
+
+Si faltan pasos anteriores, completar primero los paquetes de la tabla en orden; no saltar comprobaciones de historial ni usar migrations sueltas. Schema completo es la alternativa con el mismo historial, no otro procedimiento que deba ejecutarse adicionalmente. El historial impide repetir una migración ya registrada.
+
+Actualizar el frontend y todos los dispositivos antes de activar inventario independiente. Sincronizar colas **en todos los equipos**, resolver conflictos y cerrar turnos. La activación en **Productos y stock → Transferencias** asigna el salón a una sucursal elegida, mantiene depósito y las demás sucursales empiezan en cero. Se bloquea con turnos abiertos o registros de traslado anteriores pendientes. No se puede detectar desde el servidor una cola que permanezca desconectada en otro equipo: coordinar esta preparación es necesario.
+
+No se habilita un apagado que borre/redistribuya existencias; los clientes antiguos no pueden ajustar stock sin el contexto requerido después de activar. Los nuevos fondos no se vinculan a arqueos. [Guía de Pruebas en localhost:3001, saldos de ejemplo y permisos](docs/operacion-y-mercaderia.md#transferencias).
+
+Pendiente: aplicar en base de prueba, comprobar RLS/RPC, concurrencia, respuesta perdida y reejecución del paquete; luego revisar navegador/móvil y venta offline preparada. TypeScript pasó sin errores, pero no valida SQL. No se ejecutaron builds ni pruebas adicionales.

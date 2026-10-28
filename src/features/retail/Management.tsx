@@ -20,6 +20,7 @@ import { ProductCompositionEditor } from './ProductCompositionEditor';
 import { NewCompositeEditor } from './NewCompositeEditor';
 import { compositionCost, hasComposition, stockForSale } from '../../services/productComposition';
 import { DepotSettings } from './DepotSettings';
+import { SupplierSettings } from './SupplierSettings';
 import { DepotHistory } from './DepotHistory';
 import { BillingSettings } from './BillingSettings';
 import { errorMessage } from './api';
@@ -241,6 +242,7 @@ export function CatalogEditor({
   pendingRemitos = [],
   pendingRemitoError = '',
   branches = [],
+  initialBranchId,
   onRefreshRemitos = () => {},
   onReviewedRemito = () => {},
   guided = false,
@@ -259,6 +261,7 @@ export function CatalogEditor({
   pendingRemitos?: PendingReplenishment[];
   pendingRemitoError?: string;
   branches?: Branch[];
+  initialBranchId?: string;
   onRefreshRemitos?: () => void;
   onReviewedRemito?: (id: string) => void;
   guided?: boolean;
@@ -268,6 +271,11 @@ export function CatalogEditor({
   permissions?: import('./permissions').Permission[];
 }) {
   const [editing, setEditing] = useState<Product | null>(null);
+  const [stockBranchId, setStockBranchId] = useState(initialBranchId || branches.find(branch => branch.is_default)?.id || branches[0]?.id || '');
+  useEffect(() => {
+    if (!stockBranchId && branches.length) setStockBranchId(initialBranchId || branches.find(branch => branch.is_default)?.id || branches[0].id);
+  }, [stockBranchId, initialBranchId, branches]);
+  const operationBranch = store.branch_inventory_enabled ? stockBranchId : undefined;
   const [adding, setAdding] = useState(guided);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -735,12 +743,13 @@ export function CatalogEditor({
   const [receiveInDepot, setReceiveInDepot] = useState(false);
   const [replenishError, setReplenishError] = useState('');
   const [replenishDepotMode, setReplenishDepotMode] = useState(false);
+  const [replenishBranchMode, setReplenishBranchMode] = useState(false);
   const replenishSaving = useRef(false);
-  const depotModeChanged = !!replenishTarget && replenishDepotMode !== !!store.depot_enabled;
+  const depotModeChanged = !!replenishTarget && (replenishDepotMode !== !!store.depot_enabled || replenishBranchMode !== !!store.branch_inventory_enabled);
   const receiving = !store.depot_enabled || replenishTask === 'receive';
   const replenishCurrent = products.find(p => p.id === replenishTarget?.id) || replenishTarget;
   const movingLimit = receiving ? 1000000 : replenishTask === 'to_salon'
-    ? (replenishCurrent?.depotStock || 0) : replenishCurrent ? stockForSale(replenishCurrent) : 0;
+    ? (replenishCurrent?.depotStock || 0) : replenishCurrent ? store.branch_inventory_enabled ? replenishCurrent.branchStocks?.[stockBranchId] || 0 : stockForSale(replenishCurrent) : 0;
   const closeReplenish = () => {
     if (busy || replenishSaving.current) return;
     setReplenishTarget(null);
@@ -755,6 +764,8 @@ export function CatalogEditor({
 
   // Bulk CSV replenishment states
   const [isCsvModalOpen, setIsCsvModalOpen] = useState(false);
+  const [csvStockBranch, setCsvStockBranch] = useState(operationBranch);
+  const openCsv = () => { setCsvStockBranch(operationBranch); setIsCsvModalOpen(true); };
   const [csvParseResult, setCsvParseResult] = useState<CsvParseResult | null>(null);
   const [csvFileName, setCsvFileName] = useState("");
   const [csvSupplier, setCsvSupplier] = useState("");
@@ -771,6 +782,7 @@ export function CatalogEditor({
     restockRequest.current = { signature: '', id: '', at: '' };
     setReplenishTarget(p);
     setReplenishDepotMode(!!store.depot_enabled);
+    setReplenishBranchMode(!!store.branch_inventory_enabled);
     setReplenishTask(store.depot_enabled && p.depotStock ? 'to_salon' : 'receive');
     setReceiveInDepot(!!store.depot_enabled);
     setReplenishError('');
@@ -791,21 +803,21 @@ export function CatalogEditor({
     const validCost = receiving && canEditCatalog && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
     const depotAction = store.depot_enabled && (!receiving || receiveInDepot);
     const note = receiving ? [replenishSupplier.trim(), replenishNotes.trim()].filter(Boolean).join(' · ') : undefined;
-    const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null, depotAction ? replenishTask : 'salon', depotAction ? note : null]);
+    const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null, depotAction ? replenishTask : 'salon', depotAction ? note : null, operationBranch]);
     if (restockRequest.current.signature !== signature) restockRequest.current = { signature, id: randomUUID(), at: new Date().toISOString() };
 
     replenishSaving.current = true; setReplenishError('');
     let success = false;
     try { success = await run(
       async () => { try {
-        if (depotAction) return await retail.depotOperation(store.id, replenishTarget.id, replenishmentUnits, replenishTask, restockRequest.current.id, validCost, note);
+        if (depotAction) return await retail.depotOperation(store.id, replenishTarget.id, replenishmentUnits, replenishTask, restockRequest.current.id, validCost, note, operationBranch);
         return await retail.replenishProductStock(
           store.id,
           replenishTarget.id,
           newStock,
           validCost,
           replenishmentUnits,
-          restockRequest.current,
+          { ...restockRequest.current, branch: operationBranch },
         );
       } catch (reason) { setReplenishError(errorMessage(reason)); throw reason; } },
       receiving ? `Mercadería recibida: +${replenishmentUnits.toLocaleString('es-AR')} u. de ${replenishTarget.name}` : 'Stock trasladado. El total no cambió.',
@@ -866,6 +878,7 @@ export function CatalogEditor({
 
   const handleConfirmBulkCsvReplenish = async () => {
     if (!csvParseResult || csvParseResult.validRows.length === 0) return;
+    if (csvStockBranch !== operationBranch || busy || isProcessingCsv) return;
 
     setIsProcessingCsv(true);
     const batch = csvParseResult.validRows.map((r) => ({
@@ -886,7 +899,7 @@ export function CatalogEditor({
     }));
 
     const success = await run(
-      () => retail.replenishStockBatch(store.id, batch),
+      () => retail.replenishStockBatch(store.id, batch, operationBranch),
       `Reposición masiva aplicada: +${csvParseResult.totalUnitsToAdd} unidades en ${csvParseResult.matchedCount} productos`,
     );
 
@@ -1351,6 +1364,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
             { ...productToSave, stock_components: editing?.stock_components },
             !!editing,
             editing && hasComposition(editing) ? 0 : editing?.stock,
+            operationBranch,
           );
           savedId = saved.id;
           return saved;
@@ -1553,16 +1567,20 @@ ${JSON.stringify(catalogSample, null, 2)}`;
   }, [currentPage, totalPages]);
   return (
     <div className="retail-panel" ref={panelRef}>
+      {store.branch_inventory_enabled && <label className="inventory-branch-context">Sucursal para ingresos y ajustes
+        <select aria-label="Sucursal donde ingresa o se ajusta el stock" value={stockBranchId} disabled={busy || !active || productEditing || priceEditing || compositionEditing || deletionEditing || !!replenishTarget || isInvoiceModalOpen || isCsvModalOpen} onChange={event => setStockBranchId(event.target.value)}>
+          <option value="" disabled>Elegir sucursal</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+        </select><small>El total del comercio no se duplica. El ajuste se asigna a esta sucursal.</small>
+      </label>}
       <div className="section-heading" hidden={!guided && (productEditing || priceEditing || compositionEditing || deletionEditing)}>
         <div>
           <h2>{guided ? 'Tus productos' : 'Productos e inventario'}</h2>
           <p>
-            El catálogo y las existencias se comparten entre las cajas de este
-            comercio.
+            {store.branch_inventory_enabled ? 'Catálogo compartido. Existencias independientes por sucursal.' : 'El catálogo y las existencias se comparten entre las cajas de este comercio.'}
           </p>
         </div>
         <div className="catalog-actions-row">
-          {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={() => setIsCsvModalOpen(true)}>Importar desde CSV / Excel</button>}
+          {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={openCsv}>Importar desde CSV / Excel</button>}
           {!guided && (canEditCatalog || canRestock || can('edit_prices')) && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
           {store.depot_enabled && <small>CSV, facturas y remitos ingresan en salón. Para guardarlos en depósito, usá Reponer.</small>}
           <button
@@ -1579,7 +1597,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             type="button"
             className="secondary-button"
             disabled={busy || !categories.length}
-            onClick={() => setIsCsvModalOpen(true)}
+            onClick={openCsv}
             hidden={!canRestock}
             title="Cargar stock masivo desde archivo CSV / Excel"
           >
@@ -2361,7 +2379,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       onClick={() => { setReplenishTask(task.id); setReplenishError(''); }}>{task.label}</button>)}
                 </div>
                 <div className="depot-summary" role="status">
-                  <span>Salón: <strong>{replenishCurrent ? stockForSale(replenishCurrent).toLocaleString('es-AR') : '0'}</strong></span>
+                  <span>{store.branch_inventory_enabled ? branches.find(branch => branch.id === stockBranchId)?.name || 'Sucursal' : 'Salón'}: <strong>{replenishCurrent ? (store.branch_inventory_enabled ? replenishCurrent.branchStocks?.[stockBranchId] || 0 : stockForSale(replenishCurrent)).toLocaleString('es-AR') : '0'}</strong></span>
                   <span>Depósito: <strong>{(replenishCurrent?.depotStock || 0).toLocaleString('es-AR')}</strong></span>
                   <span>Total: <strong>{replenishCurrent?.stock.toLocaleString('es-AR')}</strong></span>
                 </div>
@@ -2521,6 +2539,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </div>
 
             <div className="csv-modal-body">
+              {csvStockBranch !== operationBranch && <div className="info-banner" role="status">Cambió la distribución del inventario. La carga ingresará en {branches.find(branch => branch.id === operationBranch)?.name || 'el stock compartido'}. <button type="button" className="secondary-button" disabled={busy || isProcessingCsv} onClick={() => setCsvStockBranch(operationBranch)}>Confirmar ubicación</button></div>}
               {/* Sección 1: Descargar planilla */}
               <div className="csv-step-box">
                 <div className="step-badge">Paso 1</div>
@@ -2724,6 +2743,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 disabled={
                   busy ||
                   isProcessingCsv ||
+                  csvStockBranch !== operationBranch ||
                   !csvParseResult ||
                   csvParseResult.matchedCount === 0
                 }
@@ -3284,6 +3304,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       {isInvoiceModalOpen && (
         <InvoiceAnalyzer
           storeId={store.id}
+          stockBranchId={operationBranch}
+          stockBranchName={branches.find(branch => branch.id === operationBranch)?.name}
           products={products}
           categories={categories}
           onClose={() => setIsInvoiceModalOpen(false)}
@@ -3457,7 +3479,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       <span className={stockForSale(p) <= p.minStock ? "stock-low" : "stock-pill"}>
                         {p.stock.toLocaleString('es-AR')} {stockForSale(p) <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
                       </span>
-                      {store.depot_enabled && !hasComposition(p) && <small className="depot-stock-detail">Salón: {stockForSale(p).toLocaleString('es-AR')} · Depósito: {(p.depotStock || 0).toLocaleString('es-AR')}</small>}
+                      {store.depot_enabled && !hasComposition(p) && <small className="depot-stock-detail">{store.branch_inventory_enabled ? `Sucursal: ${(p.branchStocks?.[stockBranchId] || 0).toLocaleString('es-AR')}` : `Salón: ${stockForSale(p).toLocaleString('es-AR')}`} · Depósito: {(p.depotStock || 0).toLocaleString('es-AR')}</small>}
                     </td>
                   )}
                   {visibleColumns.minStock && (
@@ -3640,7 +3662,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       )}
       </div>
       <div hidden={guided || productEditing || priceEditing || compositionEditing || deletionEditing}>
-      {!guided && can('review_remitos') && <PendingReplenishments store={store.id} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
+      {!guided && can('review_remitos') && <PendingReplenishments store={store.id} branchInventory={!!store.branch_inventory_enabled} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
       {/* AI Critical Stock Replenishment Card */}
       {!guided && can('use_ai') && criticalProducts.length > 0 && (
         <section
@@ -4764,6 +4786,7 @@ export function StoreSettings({
 
               </div>
             </div>
+            <SupplierSettings key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'more'} />
           </div>
         </div>
       )}

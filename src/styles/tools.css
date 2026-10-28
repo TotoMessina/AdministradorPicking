@@ -128,6 +128,7 @@
 .inv-supplier-content { flex: 1; min-width: 0; }
 .inv-supplier-input-wrap, .inv-supplier-display { display: flex; align-items: center; gap: 8px; }
 .inv-supplier-input { flex: 1; }
+button.inv-supplier-display { padding: 2px 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
 .inv-small-btn, .inv-small-select, .inv-expand-btn { min-height: 32px; font-size: 11px; padding: 6px 8px; }
 .inv-toolbar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 16px; }
 .inv-search-box { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 180px; }
@@ -163,6 +164,19 @@
 .invoice-provider-field { display: grid; gap: 6px; margin-top: 16px; font-size: 12px; }
 .invoice-provider-field span, .invoice-link-fields span { color: var(--tone-muted); font-size: 11px; }
 .invoice-link-summary { padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-canvas); font-size: 12px; }
+.inv-supplier-bar.inv-supplier-bar-discount { flex-wrap: wrap; }
+.inv-supplier-discount { display: flex; flex-direction: column; gap: 3px; padding-left: 14px; border-left: 1px solid var(--tone-border); }
+.inv-supplier-discount-field { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--tone-muted); }
+.inv-supplier-discount-field input { width: 72px; text-align: right; font-variant-numeric: tabular-nums; }
+.inv-supplier-discount small { color: var(--tone-muted); font-size: 11px; max-width: 260px; }
+.inv-supplier-discount small.inv-supplier-discount-error { color: var(--tone-danger); }
+.inv-supplier-discount .text-button { align-self: flex-start; font-size: 11px; padding: 0; }
+.invoice-format-note { margin: 0 0 10px; padding: 10px 12px; border-left: 3px solid var(--tone-accent); background: var(--tone-canvas); border-radius: 6px; font-size: 12px; }
+.invoice-format-note .text-button { padding: 0; font-size: inherit; }
+@media (max-width: 640px) {
+  .inv-supplier-discount { flex-basis: 100%; padding-left: 0; padding-top: 10px; border-left: 0; border-top: 1px solid var(--tone-border); }
+  .inv-supplier-discount small { max-width: none; }
+}
 .invoice-link-status.known { color: #276345; background: #eff8f2; }
 .invoice-link-status.pending { color: #805512; background: #fff8e7; }
 .invoice-link-status.missing { color: var(--tone-danger); background: var(--tone-danger-soft); }

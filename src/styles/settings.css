@@ -1558,6 +1558,17 @@
   gap: 10px;
 }
 
+.supplier-summary-row {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.supplier-summary-row small {
+  flex-basis: 100%;
+  color: var(--tone-muted);
+  font-size: 12px;
+}
+
 .category-pill-icon {
   width: 28px;
   height: 28px;

@@ -30,6 +30,17 @@ type Props = { storeId: string; lists: PriceList[]; overrides: PriceOverride[]; 
 type Session = { key: string; draft: PriceList; existing: boolean };
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 const percent = (value: number) => `${value > 0 ? '+' : ''}${Number(value).toLocaleString('es-AR')}%`;
+const PAGE_SIZE = 20;
+const ruleLabels = { category: 'Categoría', brand: 'Marca', product: 'Producto' } as const;
+// Own changes of a list: its fixed price or a specific rule reaching the product.
+// Principal has neither; its own change is the product percentage over cost.
+function ownChanges(product: Product, list: PriceList, fixed: PriceOverride | undefined): string[] {
+  if (list.is_primary) return product.sale_markup == null ? [] : [`${percent(product.sale_markup)} sobre costo`];
+  if (fixed) return ['Precio fijo'];
+  const brand = (product.brand || '').trim().toLowerCase();
+  return (list.pricing_rules || []).filter(r => r.target === (r.scope === 'category' ? product.categoryId : r.scope === 'product' ? product.id : brand))
+    .map(r => `${ruleLabels[r.scope]} ${percent(r.adjustment)}`);
+}
 const origin = (list: PriceList) => list.base_kind === 'list' ? list.parent_id || 'missing' : list.base_kind || 'catalog';
 const sourceName = (source: string, lists: PriceList[]) => source === 'cost' ? 'Costo' : source === 'catalog' ? 'Catálogo' : lists.find(l => l.id === source)?.name || 'Origen no disponible';
 
@@ -44,6 +55,8 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
   const primary = lists.find(l => l.is_primary);
   const [selected, setSelected] = useState('cost');
   const [query, setQuery] = useState('');
+  const [showAll, setShowAll] = useState(false);
+  const [page, setPage] = useState(0);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [active, setActive] = useState('');
   const [percentageTarget, setPercentageTarget] = useState({ key: '', request: 0 });
@@ -56,11 +69,18 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
     }
   }, [active, selected]);
   const list = lists.find(l => l.id === selected);
-  const matches = products.filter(p => p.sellable !== false && `${p.name} ${p.code}`.toLowerCase().includes(query.toLowerCase()));
-  const visible = matches.slice(0, 50);
+  const fixedFor = (productId: string) => overrides.find(o => o.list_id === selected && o.product_id === productId);
+  const changesFor = (p: Product) => list ? ownChanges(p, list, fixedFor(p.id)) : [];
+  const onlyChanged = !!list && !showAll;
+  const matches = products.filter(p => p.sellable !== false && `${p.name} ${p.code}`.toLowerCase().includes(query.toLowerCase())
+    && (!onlyChanged || changesFor(p).length > 0));
+  const pageCount = Math.max(1, Math.ceil(matches.length / PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const visible = matches.slice(currentPage * PAGE_SIZE, (currentPage + 1) * PAGE_SIZE);
   const priced = selected === 'cost' ? visible.map(p => ({ ...p, price: Number(p.cost), pricingError: p.cost > 0 ? undefined : 'Costo sin cargar' })) : productsForList(visible, list, overrides, lists);
   const start = (source: string, existing?: PriceList, percentage = false) => {
-    if (!existing && primary && ['cost', 'catalog'].includes(source)) source = primary.id;
+    // Costo stays a valid root; a second catalog root would duplicate Principal.
+    if (!existing && primary && source === 'catalog') source = primary.id;
     const key = existing ? existing.id : `new:${source}`;
     if (!sessions.some(s => s.key === key)) {
       const parent = lists.find(l => l.id === source);
@@ -79,7 +99,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
     if (!heading.current?.closest('[hidden]')) heading.current?.focus();
   };
   const inspect = (id: string) => {
-    setSelected(id); setActive('');
+    setSelected(id); setActive(''); setPage(0);
     if (active) focusPreview.current = true;
     else if (!preview.current?.closest('[hidden]')) preview.current?.focus();
   };
@@ -268,6 +288,12 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
             {selected === 'cost' && (
               <span className="price-viewing-badge">Viendo costos</span>
             )}
+            {primary && (
+              <button type="button" className="price-action-link price-action-add" disabled={busy} onClick={() => start('cost')} aria-label="Crear lista derivada desde Costo" title="Crear una lista con un porcentaje sobre el costo">
+                <Plus size={13} aria-hidden="true" />
+                <span>Derivar lista</span>
+              </button>
+            )}
           </div>
         </div>
 
@@ -303,22 +329,30 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
       </div>)}</div>
     <section className="price-list-preview" aria-label="Consulta de precios" hidden={!!active}>
       <div className="price-preview-heading"><h3 ref={preview} tabIndex={-1}>{sourceName(selected, lists)}</h3>{list && !list.is_primary && <button type="button" className="price-percent" disabled={busy} onClick={() => start(origin(list), list, true)} aria-label={`Editar porcentaje de ${list.name}: ${percent(list.adjustment)}`}><Pencil size={12} aria-hidden="true" /> {percent(list.adjustment)}</button>}</div>
-      <label className="price-preview-search">Buscar producto<input value={query} onChange={e => setQuery(e.target.value)} placeholder="Nombre o código" /></label>
-      <SettingsEditorGroup><div className="table-scroll"><table><thead><tr><th>Producto</th><th>Costo</th>{selected !== 'cost' && <th>Precio</th>}{list && !list.is_primary && <th>Precio fijo</th>}</tr></thead><tbody>{priced.map(p => {
-        const fixed = overrides.find(o => o.list_id === selected && o.product_id === p.id);
-        return <tr key={p.id}><th scope="row">{p.name}<small>{p.code}</small></th><td>{p.cost > 0 ? money(p.cost) : 'Sin cargar'}</td>{selected !== 'cost' && <td>{p.pricingError || money(p.price)}</td>}{list && !list.is_primary && <td><div role="group" aria-label={`Precio fijo de ${p.name}`}><SettingsEditor key={selected + p.id} busy={busy} label={fixed ? 'Editar' : 'Fijar'} summary={fixed ? money(Number(fixed.price)) : undefined}>{closeFixed => <form className="inline-form" onSubmit={async e => {
+      <div className="price-preview-filters">
+        <label className="price-preview-search">Buscar producto<input value={query} onChange={e => { setQuery(e.target.value); setPage(0); }} placeholder="Nombre o código" /></label>
+        {list && <label className="price-preview-search">Mostrar<select value={showAll ? 'all' : 'changed'} onChange={e => { setShowAll(e.target.value === 'all'); setPage(0); }}><option value="changed">Con cambios en esta lista</option><option value="all">Todos los productos</option></select></label>}
+      </div>
+      <SettingsEditorGroup><div className="table-scroll"><table><thead><tr><th>Producto</th><th>Costo</th>{selected !== 'cost' && <th>Precio en la lista</th>}{list && !list.is_primary && <th>Precio fijo</th>}</tr></thead><tbody>{priced.map(p => {
+        const fixed = fixedFor(p.id);
+        const changes = changesFor(p);
+        return <tr key={p.id}><th scope="row">{p.name}<small>{p.code}</small></th><td>{p.cost > 0 ? money(p.cost) : 'Sin cargar'}</td>{selected !== 'cost' && <td>{p.pricingError || money(p.price)}{!!changes.length && <small className="price-change-note">{changes.join(' · ')}</small>}</td>}{list && !list.is_primary && <td><div role="group" aria-label={`Precio fijo de ${p.name}`}><SettingsEditor key={selected + p.id} busy={busy} label={fixed ? 'Editar' : 'Fijar'} summary={fixed ? money(Number(fixed.price)) : undefined}>{closeFixed => <form className="inline-form" onSubmit={async e => {
           e.preventDefault(); const value = String(new FormData(e.currentTarget).get('price'));
           if (await run(() => retail.savePriceOverride(storeId, list.id, p.id, value === '' ? null : Number(value)), value === '' ? 'Se aplican las reglas de la lista' : 'Precio fijo guardado')) closeFixed();
         }}><label>Precio fijo ($)<NumberInput name="price" min="0.01" max="999999999999.99" step="0.01" defaultValue={fixed?.price} placeholder="Usar reglas" /></label><button className="secondary-button" disabled={busy}>Guardar</button></form>}</SettingsEditor></div></td>}</tr>;
       })}</tbody></table></div></SettingsEditorGroup>
-      {!matches.length && <p className="price-flow-empty">No hay productos para mostrar.</p>}
-      <small className="price-list-count">{priced.length} de {matches.length} productos</small>
+      {!matches.length && <p className="price-flow-empty" role="status">{onlyChanged && !query ? (list?.is_primary ? 'Ningún producto tiene porcentaje sobre costo. Se usa su precio de catálogo.' : 'Esta lista no tiene precios fijos ni ajustes específicos: todos sus productos usan el ajuste general. Elegí Mostrar → Todos los productos para ver o fijar precios.') : 'No hay productos para mostrar.'}</p>}
+      {!!matches.length && <nav className="price-list-pages" aria-label="Páginas de productos">
+        <button type="button" className="secondary-button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Anterior</button>
+        <span role="status">Página {currentPage + 1} de {pageCount} · {currentPage * PAGE_SIZE + 1}–{currentPage * PAGE_SIZE + visible.length} de {matches.length} productos{onlyChanged ? ' con cambios' : ''}</span>
+        <button type="button" className="secondary-button" disabled={currentPage >= pageCount - 1} onClick={() => setPage(currentPage + 1)}>Siguiente</button>
+      </nav>}
     </section>
     </div>
     <details className="price-list-guide"><summary><CircleHelp size={14} aria-hidden="true" /> Cómo se calcula</summary>
       <p>Los ajustes se aplican en cadena: general → categoría → marca → producto. $100 +50% −10% = $135, redondeando a centavos en cada paso.</p>
       <p>Un precio fijo reemplaza los ajustes de esa lista. Dejalo vacío para volver al cálculo. Las derivadas parten del resultado de su origen.</p>
-      <p>Costo es solo consulta. La principal usa el costo y porcentaje del producto; los precios manuales anteriores se conservan. Las demás listas heredan su precio. Una lista activa de sucursal tiene prioridad allí; en otro caso se usa la principal. No se modifican tickets ni carritos iniciados.</p>
+      <p>Costo es solo consulta, pero podés derivar listas desde él: Costo +30% sobre $100 da $130 y se recalcula al cambiar el costo. La principal usa el costo y porcentaje del producto; los precios manuales anteriores se conservan. Las demás listas heredan el precio de su origen. Una lista activa de sucursal tiene prioridad allí; en otro caso se usa la principal. No se modifican tickets ni carritos iniciados.</p>
     </details>
   </section>;
 }
@@ -410,7 +444,7 @@ function PriceListEditor({ session, active, percentageFocus, lists, overrides, p
     </section>
     <div hidden={deleteOpen}><fieldset disabled={busy || saving || !active || deleteOpen}>
       <label>Nombre<input required maxLength={80} value={draft.name} onChange={e => update({ name: e.target.value })} placeholder="Base, Mayorista, Empleados…" /></label>
-      {!draft.is_primary && <><div className="price-list-fields"><label>Desde<select value={source} onChange={e => update({ base_kind: e.target.value === 'cost' ? 'cost' : e.target.value === 'catalog' ? 'catalog' : 'list', parent_id: ['cost', 'catalog'].includes(e.target.value) ? null : e.target.value })}>{!lists.some(l => l.is_primary) && <><option value="cost">Costo</option><option value="catalog">Catálogo</option></>}{draft.base_kind === 'list' && !lists.some(l => l.id === source && !unavailableParents.has(l.id)) && <option value={source} disabled>Origen no disponible · elegí otro</option>}{lists.filter(l => !unavailableParents.has(l.id)).map(l => <option key={l.id} value={l.id}>{l.name}{l.active ? '' : ' (inactiva)'}</option>)}</select></label>
+      {!draft.is_primary && <><div className="price-list-fields"><label>Desde<select value={source} onChange={e => update({ base_kind: e.target.value === 'cost' ? 'cost' : e.target.value === 'catalog' ? 'catalog' : 'list', parent_id: ['cost', 'catalog'].includes(e.target.value) ? null : e.target.value })}><option value="cost">Costo</option>{(!lists.some(l => l.is_primary) || source === 'catalog') && <option value="catalog">Catálogo</option>}{draft.base_kind === 'list' && !lists.some(l => l.id === source && !unavailableParents.has(l.id)) && <option value={source} disabled>Origen no disponible · elegí otro</option>}{lists.filter(l => !unavailableParents.has(l.id)).map(l => <option key={l.id} value={l.id}>{l.name}{l.active ? '' : ' (inactiva)'}</option>)}</select></label>
         <AdjustmentField label="Ajuste general" value={draft.adjustment} onChange={adjustment => update({ adjustment })} fieldRef={generalInput} />
       </div>
       <div className="price-rule-heading"><h4>Ajustes específicos{rules.length ? ` · ${rules.length}` : ''}</h4><button type="button" className="secondary-button" disabled={rules.length >= 300} onClick={() => {

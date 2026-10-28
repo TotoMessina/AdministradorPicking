@@ -1,0 +1,72 @@
+/* Location graph and its operational workspace. No global table/control overrides. */
+.location-transfers { container: location-transfers / inline-size; }
+.location-transfers > .section-heading p { color: var(--tone-muted); }
+.location-transfer-tabs { display: flex; flex-wrap: wrap; gap: 6px; padding: 5px; width: fit-content; border-radius: 10px; background: var(--tone-soft); margin-bottom: 18px; }
+.location-transfer-tabs button { border-color: transparent; background: transparent; color: var(--tone-muted); }
+.location-transfer-tabs button[aria-pressed='true'] { background: var(--tone-surface); color: var(--tone-accent); border-color: var(--tone-border); box-shadow: var(--shadow-sm); }
+.location-transfer-setup { display: grid; gap: 10px; padding: 18px; margin-bottom: 18px; background: var(--tone-accent-soft); border: 1px solid var(--tone-border); border-radius: 10px; }
+.location-transfer-setup p { color: var(--tone-text); font-size: 13px; }
+.location-transfer-setup label { display: grid; gap: 6px; width: min(100%, 350px); }
+.location-transfer-setup > button { justify-self: start; }
+.transfer-flow { border: 1px solid var(--tone-border); border-radius: 12px; overflow: hidden; background: var(--tone-canvas); }
+.transfer-flow-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 16px; font-size: 12px; color: var(--tone-muted); background: var(--tone-surface); border-bottom: 1px solid var(--tone-border); }
+.transfer-flow-scroll { max-width: 100%; max-height: 520px; overflow: auto; overscroll-behavior: contain; }
+.transfer-flow-canvas { position: relative; min-width: 780px; background-image: radial-gradient(var(--tone-border) 1px, transparent 1px); background-size: 18px 18px; }
+.transfer-flow-canvas > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; color: var(--tone-accent); }
+.transfer-flow-guide { fill: none; stroke: var(--tone-border-strong); stroke-width: 1.5; stroke-dasharray: 5 6; }
+.transfer-flow-arrow { fill: none; stroke: var(--tone-accent); stroke-width: 2.5; }
+.transfer-flow-node { position: absolute; height: 90px; display: flex; align-items: center; justify-content: start; gap: 10px; padding: 12px; border: 1px solid var(--tone-border-strong); border-radius: 12px; text-align: left; background: var(--tone-surface); box-shadow: var(--shadow-sm); }
+.transfer-flow-node > svg { color: #276345; flex-shrink: 0; }
+.transfer-flow-node.is-depot { background: var(--tone-accent-soft); border-color: var(--tone-accent); }
+.transfer-flow-node.is-depot > svg { color: var(--tone-accent); }
+.transfer-flow-node > span { display: grid; gap: 6px; min-width: 0; }
+.transfer-flow-node strong { font-size: 14px; overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.transfer-flow-node small { font-size: 11px; color: var(--tone-muted); font-weight: 400; font-variant-numeric: tabular-nums; }
+.transfer-flow-node[aria-pressed='true'] { outline: 3px solid var(--tone-accent); outline-offset: 3px; }
+.transfer-flow-routes { display: flex; flex-wrap: wrap; gap: 8px; padding: 14px; background: var(--tone-surface); border-top: 1px solid var(--tone-border); }
+.transfer-flow-routes button { flex-wrap: wrap; font-size: 12px; text-align: left; justify-content: start; }
+.transfer-flow-routes small { flex-basis: 100%; color: var(--tone-muted); font-size: 11px; font-weight: 400; }
+.transfer-flow-routes [aria-pressed='true'] { background: var(--tone-accent-soft); border-color: var(--tone-accent); }
+.transfer-flow-empty { padding: 18px; color: var(--tone-muted); font-size: 13px; }
+.location-transfer-composer { margin-top: 20px; padding: 20px; border: 1px solid var(--tone-border-strong); border-radius: 12px; background: var(--tone-canvas); }
+.location-transfer-composer-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.location-transfer-composer fieldset { min-width: 0; display: grid; gap: 16px; margin: 0; padding: 0; border: 0; }
+.location-transfer-composer label { display: grid; gap: 6px; min-width: 0; }
+.location-transfer-composer p { font-size: 12px; color: var(--tone-muted); }
+.location-transfer-composer > .primary-button { justify-self: start; }
+.location-transfer-route { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 14px; align-items: end; }
+.location-transfer-route > svg { align-self: center; margin-top: 22px; color: var(--tone-muted); }
+.location-transfer-route > label:only-child { grid-column: 1 / -1; }
+.location-transfer-product-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 8px; }
+.location-transfer-product-results button { justify-content: space-between; text-align: left; }
+.location-transfer-product-results small, .location-transfer-items small { display: block; color: var(--tone-muted); font-size: 11px; font-weight: 400; margin-top: 4px; }
+.location-transfer-items { display: grid; gap: 8px; list-style: none; margin: 0; padding: 0; }
+.location-transfer-items > li { display: grid; grid-template-columns: minmax(0, 1fr) 120px auto; gap: 12px; align-items: center; padding: 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.location-transfer-items strong { font-size: 13px; overflow-wrap: anywhere; }
+.location-transfer-items input { width: 100%; }
+.location-transfer-history-heading { margin-top: 28px; }
+.location-transfer-history-heading small { color: var(--tone-muted); font-size: 11px; }
+.location-transfer-history { list-style: none; padding: 0; margin: 16px 0; display: grid; gap: 12px; }
+.location-transfer-history > li > article { display: grid; gap: 10px; padding: 16px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.location-transfer-record-heading { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-size: 12px; }
+.location-transfer-record-heading time { margin-right: auto; color: var(--tone-muted); }
+.location-transfer-record-heading > strong { color: #276345; font-variant-numeric: tabular-nums; }
+.location-transfer-record-route, .location-transfer-record-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.location-transfer-record-route { font-size: 14px; }
+.location-transfer-history details { font-size: 12px; }
+.location-transfer-history summary { width: fit-content; cursor: pointer; padding: 5px 0; }
+.location-transfer-history details ul { padding-left: 20px; margin-top: 8px; line-height: 1.8; }
+.location-transfer-history p { font-size: 13px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.location-transfer-history article > small { color: var(--tone-muted); font-size: 11px; }
+.inventory-branch-context { display: grid; gap: 6px; max-width: 420px; margin-bottom: 20px; }
+.inventory-branch-context small { font-size: 11px; color: var(--tone-muted); }
+@container location-transfers (max-width: 620px) {
+  .location-transfers > .section-heading { align-items: stretch; flex-direction: column; }
+  .location-transfers > .section-heading > button { width: 100%; }
+  .location-transfer-route { grid-template-columns: minmax(0, 1fr); }
+  .location-transfer-route > svg { display: none; }
+  .location-transfer-composer { padding: 14px; }
+  .location-transfer-items > li { grid-template-columns: minmax(0, 1fr) auto; }
+  .location-transfer-items > li > span { grid-column: 1 / -1; }
+  .location-transfer-record-actions button { min-height: 44px; }
+}

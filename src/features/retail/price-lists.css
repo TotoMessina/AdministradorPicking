@@ -388,7 +388,11 @@
 .price-preview-search { display: grid; gap: 6px; margin-block: 16px; }
 .price-list-preview .team-row { padding-block: 6px; border-bottom: 0; }
 .price-list-preview .settings-editor-open { margin-block: 0; padding: 8px; }
-.price-list-count { display: block; margin-top: 12px; color: var(--tone-muted); }
+.price-preview-filters { display: flex; flex-wrap: wrap; gap: 0 12px; }
+.price-preview-filters > .price-preview-search { flex: 1 1 200px; }
+.price-change-note { display: block; font-size: 11px; color: var(--tone-muted); }
+.price-list-pages { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+.price-list-pages > span { font-size: 12px; color: var(--tone-muted); text-align: center; }
 .price-list-guide { margin-top: 20px; }
 .price-list-settings .price-list-guide > summary { color: var(--tone-muted); font-size: 12px; font-weight: 500; }
 .price-list-guide p { max-width: 680px; font-size: 12px; margin-top: 10px; }

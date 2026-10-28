@@ -1,6 +1,6 @@
 # AdministradorKiosco
 
-Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caja, catálogo, stock compartido por comercio, sucursales y permisos efectivos en backend. Emisión optativa de comprobantes fiscales electrónicos ARCA (ex AFIP) con CAE y QR oficial.
+Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caja, catálogo compartido, stock por comercio o por sucursal/depósito con activación explícita, fondos por ubicación y permisos efectivos en backend. Emisión optativa de comprobantes fiscales electrónicos ARCA (ex AFIP) con CAE y QR oficial.
 
 ## Empezar
 

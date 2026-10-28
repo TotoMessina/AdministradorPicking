@@ -10,6 +10,7 @@ import { PushSettings } from './PushSettings';
 import { MarginThresholdSettings } from './MarginThresholdSettings';
 import { DepotSettings } from './DepotSettings';
 import { BillingSettings } from './BillingSettings';
+import { SupplierSettings } from './SupplierSettings';
 import { retail, type Store, type Branch, type Category, type Register, type SalesLedger, type Member, type Invitation } from './api';
 import type { Permission } from './permissions';
 
@@ -27,6 +28,7 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
     ...(can('manage_locations') ? [{ id: 'locations', label: 'Locales y cajas' }] : []),
     ...(team ? [{ id: 'team', label: 'Personas y perfiles' }] : []),
     ...(can('manage_categories') ? [{ id: 'categories', label: 'Categorías' }] : []),
+    ...(can('manage_products') ? [{ id: 'suppliers', label: 'Proveedores' }] : []),
     ...(can('manage_ledgers') ? [{ id: 'ledgers', label: 'Registros de ventas' }] : []),
     { id: 'app', label: 'App y avisos' },
   ];
@@ -41,6 +43,7 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
     {can('manage_categories') && <div hidden={selected !== 'categories'}><h3>Categorías de productos</h3>{categories.map(category => <SettingsEditor key={category.id} label="Cambiar nombre" summary={<strong>{category.name}</strong>} busy={busy}>
       {close => <CategoryLabelEditor category={category} storeId={store.id} busy={busy} run={run} close={close} />}
     </SettingsEditor>)}</div>}
+    {can('manage_products') && <div hidden={selected !== 'suppliers'}><SupplierSettings key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} /></div>}
     {team && <div hidden={selected !== 'team'}>
       {profiles.error && <p role="alert">{profiles.error}</p>}
       <button type="button" className="text-button" onClick={profiles.reload} disabled={busy || profiles.loading}>Actualizar perfiles</button>

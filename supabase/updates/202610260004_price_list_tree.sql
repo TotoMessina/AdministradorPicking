@@ -1,4 +1,4 @@
--- AdministradorKiosco: actualización individual 35/39.
+-- AdministradorKiosco: actualización individual 35/46.
 -- Generado: node scripts/generate-schema.mjs --individual-updates. NO editar.
 -- Fuente: migrations/202610260004_price_list_tree.sql; SHA-256 bb77060967eec30f15a7befb20989890ac312c90f76e002656fa6dfada36bf36.
 -- Requiere historial conciliado y TODAS las migraciones anteriores registradas.
@@ -204,6 +204,41 @@ declare
   "ordinal": 39,
   "filename": "202610270002_primary_product_markup.sql",
   "sha256": "d9e8f398d415af14d4bc1235f3d2023f755cc62ad7879aa3b257794f756e6a02"
+ },
+ {
+  "ordinal": 40,
+  "filename": "202610270003_suppliers.sql",
+  "sha256": "9f007483d72681a7d849f29714756c7fbfb83e6146d35d4ba80d9fbd78518f05"
+ },
+ {
+  "ordinal": 41,
+  "filename": "202610270004_cost_price_lists.sql",
+  "sha256": "abe5683734a54251ad3e49ee9235ee1b9a9607081b9a6b04927e902cdfe56d0b"
+ },
+ {
+  "ordinal": 42,
+  "filename": "202610270005_supplier_invoice_formats.sql",
+  "sha256": "62535c0e844930c8af0840aa80c582f265c0a8919b8cdabb4f83cb7cf0a41509"
+ },
+ {
+  "ordinal": 43,
+  "filename": "202610280001_supplier_alias_usage_repair.sql",
+  "sha256": "e6eee2d43a1a62cc232ada97415baa8b591f83572848c8877f26444b82db583a"
+ },
+ {
+  "ordinal": 44,
+  "filename": "202610280002_location_funds.sql",
+  "sha256": "f22cae1d60cb383ca0f76216dc20e303370a2018266199f8650aa7beb77f8ada"
+ },
+ {
+  "ordinal": 45,
+  "filename": "202610280003_location_inventory.sql",
+  "sha256": "baa181aa8cc76f1bc973e914a77fe568f3f30228979d682a67ac3571ce3cc14d"
+ },
+ {
+  "ordinal": 46,
+  "filename": "202610280004_permanent_product_deletion.sql",
+  "sha256": "c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368"
  }
 ]
 $retail_schema_manifest_json$::jsonb;

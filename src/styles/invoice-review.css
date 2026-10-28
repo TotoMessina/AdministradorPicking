@@ -1,0 +1,114 @@
+/* Spreadsheet review stays a table on small screens; only details open on demand. */
+.invoice-modal.invoice-modal-review { width: min(100%, 1520px); }
+.invoice-modal .invoice-sheet {
+  --invoice-stock-ink: #276345;
+  --invoice-stock-soft: #eff8f2;
+  --invoice-price-ink: #1d4ed8;
+  --invoice-price-soft: #eff6ff;
+  --invoice-review-ink: #805512;
+  --invoice-review-soft: #fff8e7;
+  min-width: 0;
+  margin-top: 16px;
+}
+.invoice-modal .invoice-sheet-toolbar,
+.invoice-modal .invoice-sheet-pages { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 0; font-size: 12px; color: var(--tone-muted); }
+.invoice-modal .invoice-sheet-toolbar { justify-content: space-between; }
+.invoice-modal .invoice-sheet-add { color: var(--tone-accent); border-color: var(--tone-accent); background: var(--tone-accent-soft); }
+.invoice-modal .invoice-sheet-pages > span { margin-right: auto; }
+.invoice-modal .invoice-sheet-scroll {
+  max-width: 100%;
+  max-height: min(62dvh, 640px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  scroll-padding: 54px 12px 12px 240px;
+  border: 1px solid var(--tone-border-strong);
+  border-radius: 9px;
+}
+.invoice-modal .invoice-sheet-table { width: 100%; min-width: 1360px; table-layout: fixed; border-collapse: separate; border-spacing: 0; font-size: 12px; }
+.invoice-modal .invoice-sheet-table :is(th, td) { padding: 8px; text-align: left; vertical-align: top; border: 0; border-right: 1px solid var(--tone-border); border-bottom: 1px solid var(--tone-border); background: var(--tone-surface); overflow-wrap: anywhere; }
+.invoice-modal .invoice-sheet-table tr > :last-child { border-right: 0; }
+.invoice-modal .invoice-sheet-table tbody > tr:last-child > * { border-bottom: 0; }
+.invoice-modal .invoice-sheet-table thead th { position: sticky; top: 0; z-index: 2; background: var(--tone-soft); padding-block: 12px; font-size: 11px; font-weight: 650; white-space: nowrap; }
+.invoice-modal .invoice-sheet-table thead th[data-group='product'] { color: var(--tone-accent); background: var(--tone-accent-soft); box-shadow: inset 0 3px var(--tone-accent); }
+.invoice-modal .invoice-sheet-table thead th[data-group='stock'] { color: var(--invoice-stock-ink); background: var(--invoice-stock-soft); box-shadow: inset 0 3px var(--invoice-stock-ink); }
+.invoice-modal .invoice-sheet-table thead th[data-group='price'] { color: var(--invoice-price-ink); background: var(--invoice-price-soft); box-shadow: inset 0 3px var(--invoice-price-ink); }
+.invoice-modal .invoice-sheet-table .invoice-sheet-product { position: sticky; left: 0; z-index: 1; width: 230px; box-shadow: 1px 0 var(--tone-border-strong); }
+.invoice-modal .invoice-sheet-table thead .invoice-sheet-product { z-index: 3; }
+.invoice-modal .invoice-sheet-table tbody th { white-space: normal; color: var(--tone-ink); font-size: 12px; }
+.invoice-modal .invoice-sheet-category { width: 155px; }
+.invoice-modal .invoice-sheet-code { width: 145px; }
+.invoice-modal .invoice-sheet-money { width: 115px; }
+.invoice-modal .invoice-sheet-action { width: 155px; }
+.invoice-modal .invoice-sheet-table tbody > tr[data-invoice-row]:focus-within > * { background: var(--tone-accent-soft); }
+.invoice-modal .invoice-sheet-table :is(input, select) { width: 100%; max-width: 100%; min-width: 0; min-height: 36px; padding: 6px 7px; border-color: transparent; border-radius: 4px; font-size: 13px; font-weight: 400; scroll-margin-block: 54px 12px; }
+.invoice-modal .invoice-sheet-table :is(input, select):hover { border-color: var(--tone-border-strong); }
+.invoice-modal .invoice-sheet-table :is(input, select):focus { border-color: var(--tone-accent); outline: 2px solid var(--tone-accent); outline-offset: 0; }
+.invoice-modal .invoice-sheet-table input[data-column]:not([data-column='name']):not([data-column='code']) { text-align: right; font-variant-numeric: tabular-nums; }
+.invoice-modal .invoice-sheet-table [aria-invalid='true'] { border-color: var(--tone-danger); background: var(--tone-danger-soft); }
+.invoice-modal .invoice-sheet-name { display: flex; align-items: baseline; gap: 5px; }
+.invoice-modal .invoice-sheet-name input { flex: 1; }
+.invoice-modal .invoice-sheet-name > strong { display: block; min-width: 0; padding: 6px 0; line-height: 1.4; }
+.invoice-modal .invoice-sheet-number { flex-shrink: 0; font-size: 10px; color: var(--tone-muted); font-weight: 400; }
+.invoice-modal .invoice-sheet-state { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding-left: 7px; margin-top: 3px; font-size: 10px; color: var(--tone-muted); font-weight: 400; }
+.invoice-modal .invoice-sheet-state > span { display: inline-flex; align-items: center; gap: 4px; }
+.invoice-modal .invoice-sheet-state > span:first-child { padding: 3px 6px; border-radius: 5px; font-weight: 600; background: var(--tone-soft); }
+.invoice-modal .invoice-sheet-table tr[data-state='new'] { --invoice-row-color: var(--invoice-price-ink); --invoice-row-soft: var(--invoice-price-soft); }
+.invoice-modal .invoice-sheet-table tr[data-state='linked'] { --invoice-row-color: var(--invoice-stock-ink); --invoice-row-soft: var(--invoice-stock-soft); }
+.invoice-modal .invoice-sheet-table tr[data-state='pending'] { --invoice-row-color: var(--invoice-review-ink); --invoice-row-soft: var(--invoice-review-soft); }
+.invoice-modal .invoice-sheet-table tr[data-state='skipped'] { --invoice-row-color: var(--tone-muted); --invoice-row-soft: var(--tone-soft); }
+.invoice-modal .invoice-sheet-table tr[data-state] > .invoice-sheet-product { box-shadow: inset 3px 0 var(--invoice-row-color), 1px 0 var(--tone-border-strong); }
+.invoice-modal .invoice-sheet-table tr[data-state] .invoice-sheet-state > span:first-child { color: var(--invoice-row-color); background: var(--invoice-row-soft); }
+.invoice-modal .invoice-sheet-state .invoice-sheet-ai { min-height: 26px; padding: 3px 5px; font-size: 10px; }
+.invoice-modal .invoice-sheet-code-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.invoice-modal .invoice-sheet-code-actions button { min-height: 28px; padding: 4px 0; border-color: transparent; color: var(--tone-accent); background: transparent; font-size: 10px; }
+.invoice-modal .invoice-sheet-catalog { display: grid; gap: 10px; padding: 12px; border: 1px solid var(--ai-border); border-radius: 8px; background: var(--tone-surface); }
+.invoice-modal .invoice-sheet-catalog ul { display: grid; gap: 8px; list-style: none; padding: 0; margin: 0; }
+.invoice-modal .invoice-sheet-catalog li { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding-top: 8px; border-top: 1px solid var(--tone-border); }
+.invoice-modal .invoice-sheet-catalog li > div { flex: 1; min-width: 160px; }
+.invoice-modal .invoice-sheet-catalog li span { display: block; color: var(--tone-muted); font-size: 11px; }
+.invoice-modal .invoice-sheet-catalog > button { justify-self: start; }
+.invoice-modal .invoice-sheet-table small { display: block; margin-top: 4px; font-size: 10px; color: var(--tone-muted); font-weight: 400; }
+.invoice-modal .invoice-sheet-table .invoice-sheet-net { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.invoice-modal .invoice-sheet-table .invoice-sheet-warning { color: var(--tone-danger); }
+.invoice-modal .invoice-sheet-table .invoice-sheet-cost-change { color: var(--invoice-review-ink); }
+.invoice-modal .invoice-sheet-table input[aria-invalid='true']:focus { outline-color: var(--tone-danger); }
+.invoice-modal .invoice-sheet-total { text-align: right; font-variant-numeric: tabular-nums; padding-top: 15px; }
+.invoice-modal .invoice-sheet-table tr:not(.invoice-sheet-skipped) > .invoice-sheet-total { color: var(--invoice-stock-ink); background: var(--invoice-stock-soft); }
+.invoice-modal .invoice-sheet-table .invoice-sheet-sale-price { background: var(--invoice-price-soft); }
+.invoice-modal .invoice-sheet-table .invoice-sheet-sale-price input { color: var(--invoice-price-ink); border-color: color-mix(in srgb, var(--invoice-price-ink) 24%, white); font-weight: 650; }
+.invoice-modal .invoice-sheet-table select[data-action='create_new'] { color: var(--invoice-price-ink); background: var(--invoice-price-soft); }
+.invoice-modal .invoice-sheet-table select[data-action='link'] { color: var(--invoice-review-ink); background: var(--invoice-review-soft); }
+.invoice-modal .invoice-sheet-code-text { font-family: var(--font-mono); font-size: 11px; }
+.invoice-modal .invoice-sheet-row-actions { display: flex; flex-wrap: wrap; gap: 3px 8px; margin-top: 5px; }
+.invoice-modal .invoice-sheet-row-actions button { min-height: 28px; padding: 4px 0; border-color: transparent; background: transparent; color: var(--tone-muted); font-size: 11px; }
+.invoice-modal .invoice-sheet-row-actions .invoice-sheet-confirm { padding-inline: 6px; color: var(--invoice-stock-ink); border-color: color-mix(in srgb, var(--invoice-stock-ink) 30%, white); background: var(--invoice-stock-soft); }
+.invoice-modal .invoice-sheet-table .invoice-sheet-skipped > * { background: var(--tone-canvas); color: var(--tone-muted); }
+.invoice-modal .invoice-sheet-table .invoice-sheet-details-row > td { padding: 0; background: var(--tone-canvas); }
+.invoice-modal .invoice-sheet-details { position: sticky; left: 0; width: min(100%, 1050px); max-width: calc(100vw - 120px); padding: 16px; display: grid; gap: 12px; }
+.invoice-modal .invoice-sheet-details p { color: var(--tone-muted); font-size: 12px; }
+.invoice-modal .invoice-sheet-detail-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.invoice-modal .invoice-sheet-detail-actions button { min-height: 34px; padding: 6px 10px; font-size: 12px; }
+.invoice-modal .invoice-sheet-detail-actions [aria-pressed='true'] { color: var(--tone-accent); border-color: var(--tone-accent); background: var(--tone-accent-soft); }
+.invoice-modal .invoice-sheet-link { display: grid; gap: 12px; }
+.invoice-modal .invoice-sheet-link :is(input, select) { border-color: var(--tone-border-strong); min-height: 42px; }
+.invoice-modal .invoice-sheet-empty { padding: 28px; text-align: center; color: var(--tone-muted); }
+.invoice-modal .invoice-sheet .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+@media (max-width: 600px) {
+  .invoice-modal .invoice-sheet-table { min-width: 1290px; }
+  .invoice-modal .invoice-sheet-table .invoice-sheet-product { width: 175px; }
+  .invoice-modal .invoice-sheet-scroll { scroll-padding-left: 185px; }
+  .invoice-modal .invoice-sheet-table :is(input, select) { font-size: 16px; min-height: 44px; }
+  .invoice-modal .invoice-sheet-row-actions button,
+  .invoice-modal .invoice-sheet-detail-actions button,
+  .invoice-modal .invoice-sheet-code-actions button,
+  .invoice-modal .invoice-sheet-state .invoice-sheet-ai { min-height: 44px; }
+  .invoice-modal .invoice-sheet-details { max-width: calc(100vw - 62px); padding: 12px; }
+  .invoice-modal .invoice-sheet-link .invoice-link-fields { grid-template-columns: minmax(0, 1fr); }
+}
+html[data-mobile-keyboard] .invoice-modal .invoice-sheet-scroll { max-height: calc(var(--visual-height) * .5); }
+
+@media (max-width: 400px) {
+  .invoice-modal .invoice-sheet-table .invoice-sheet-product { width: 130px; }
+  .invoice-modal .invoice-sheet-scroll { scroll-padding-left: 140px; }
+}

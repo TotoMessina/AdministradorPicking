@@ -209,6 +209,41 @@ declare
   "ordinal": 39,
   "filename": "202610270002_primary_product_markup.sql",
   "sha256": "d9e8f398d415af14d4bc1235f3d2023f755cc62ad7879aa3b257794f756e6a02"
+ },
+ {
+  "ordinal": 40,
+  "filename": "202610270003_suppliers.sql",
+  "sha256": "9f007483d72681a7d849f29714756c7fbfb83e6146d35d4ba80d9fbd78518f05"
+ },
+ {
+  "ordinal": 41,
+  "filename": "202610270004_cost_price_lists.sql",
+  "sha256": "abe5683734a54251ad3e49ee9235ee1b9a9607081b9a6b04927e902cdfe56d0b"
+ },
+ {
+  "ordinal": 42,
+  "filename": "202610270005_supplier_invoice_formats.sql",
+  "sha256": "62535c0e844930c8af0840aa80c582f265c0a8919b8cdabb4f83cb7cf0a41509"
+ },
+ {
+  "ordinal": 43,
+  "filename": "202610280001_supplier_alias_usage_repair.sql",
+  "sha256": "e6eee2d43a1a62cc232ada97415baa8b591f83572848c8877f26444b82db583a"
+ },
+ {
+  "ordinal": 44,
+  "filename": "202610280002_location_funds.sql",
+  "sha256": "f22cae1d60cb383ca0f76216dc20e303370a2018266199f8650aa7beb77f8ada"
+ },
+ {
+  "ordinal": 45,
+  "filename": "202610280003_location_inventory.sql",
+  "sha256": "baa181aa8cc76f1bc973e914a77fe568f3f30228979d682a67ac3571ce3cc14d"
+ },
+ {
+  "ordinal": 46,
+  "filename": "202610280004_permanent_product_deletion.sql",
+  "sha256": "c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368"
  }
 ]
 $retail_schema_manifest_json$::jsonb;
@@ -264,7 +299,7 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
--- 1/39: 202610010001_retail_multistore.sql
+-- 1/46: 202610010001_retail_multistore.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
   raise notice 'Aplicando 202610010001_retail_multistore.sql';
@@ -501,7 +536,7 @@ $retail_source_f24b734005cc1623$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 2/39: 202610020001_catalog_global_and_segmentation.sql
+-- 2/46: 202610020001_catalog_global_and_segmentation.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
   raise notice 'Aplicando 202610020001_catalog_global_and_segmentation.sql';
@@ -791,7 +826,7 @@ $retail_source_bca9c54fa75c2a89$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 3/39: 202610070001_harden_global_catalog_immutability.sql
+-- 3/46: 202610070001_harden_global_catalog_immutability.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
   raise notice 'Aplicando 202610070001_harden_global_catalog_immutability.sql';
@@ -888,7 +923,7 @@ $retail_source_f3ff59ec39b6e574$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 4/39: 202610130001_branches_prices_ledgers.sql
+-- 4/46: 202610130001_branches_prices_ledgers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
   raise notice 'Aplicando 202610130001_branches_prices_ledgers.sql';
@@ -1083,7 +1118,7 @@ $retail_source_e86fe143f886cd85$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 5/39: 202610140001_web_push.sql
+-- 5/46: 202610140001_web_push.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
   raise notice 'Aplicando 202610140001_web_push.sql';
@@ -1229,7 +1264,7 @@ $retail_source_918efe9a5d3313e3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 6/39: 202610150001_cashier_access.sql
+-- 6/46: 202610150001_cashier_access.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
   raise notice 'Aplicando 202610150001_cashier_access.sql';
@@ -1395,7 +1430,7 @@ $retail_source_a30006ceabfa2ca5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 7/39: 202610160001_offline_pos.sql
+-- 7/46: 202610160001_offline_pos.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
   raise notice 'Aplicando 202610160001_offline_pos.sql';
@@ -1509,7 +1544,7 @@ $retail_source_770c916876fcdabf$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 8/39: 202610160002_offline_queue.sql
+-- 8/46: 202610160002_offline_queue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
   raise notice 'Aplicando 202610160002_offline_queue.sql';
@@ -1635,7 +1670,7 @@ $retail_source_ffb2f924480094f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 9/39: 202610160003_pack_size.sql
+-- 9/46: 202610160003_pack_size.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
   raise notice 'Aplicando 202610160003_pack_size.sql';
@@ -1651,7 +1686,7 @@ $retail_source_e8f486a53e369954$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 10/39: 202610160004_margin_groups.sql
+-- 10/46: 202610160004_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
   raise notice 'Aplicando 202610160004_margin_groups.sql';
@@ -1706,7 +1741,7 @@ $retail_source_8a5790ed3a1371e6$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 11/39: 202610160005_branch_price_rules.sql
+-- 11/46: 202610160005_branch_price_rules.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
   raise notice 'Aplicando 202610160005_branch_price_rules.sql';
@@ -1760,7 +1795,7 @@ $retail_source_7899d29739b25999$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 12/39: 202610190001_justified_withdrawal.sql
+-- 12/46: 202610190001_justified_withdrawal.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
   raise notice 'Aplicando 202610190001_justified_withdrawal.sql';
@@ -1940,7 +1975,7 @@ $retail_source_029b5843eacab94f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 13/39: 202610190001_store_onboarding.sql
+-- 13/46: 202610190001_store_onboarding.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
   raise notice 'Aplicando 202610190001_store_onboarding.sql';
@@ -2057,7 +2092,7 @@ $retail_source_e5b8362448949bce$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 14/39: 202610190002_pending_replenishments.sql
+-- 14/46: 202610190002_pending_replenishments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
   raise notice 'Aplicando 202610190002_pending_replenishments.sql';
@@ -2226,7 +2261,7 @@ $retail_source_3ddd179e5609126a$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 15/39: 202610190003_stock_transfers.sql
+-- 15/46: 202610190003_stock_transfers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
   raise notice 'Aplicando 202610190003_stock_transfers.sql';
@@ -2333,7 +2368,7 @@ $retail_source_cab05c3785465fba$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 16/39: 202610200001_supplier_mappings.sql
+-- 16/46: 202610200001_supplier_mappings.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
   raise notice 'Aplicando 202610200001_supplier_mappings.sql';
@@ -2424,7 +2459,7 @@ $retail_source_d4841853f82adbd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 17/39: 202610200002_supplier_alias_usage.sql
+-- 17/46: 202610200002_supplier_alias_usage.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
   raise notice 'Aplicando 202610200002_supplier_alias_usage.sql';
@@ -2491,7 +2526,7 @@ $retail_source_1adc3ce4519abbb2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 18/39: 202610200003_product_expiry.sql
+-- 18/46: 202610200003_product_expiry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
   raise notice 'Aplicando 202610200003_product_expiry.sql';
@@ -2506,7 +2541,7 @@ $retail_source_77d1f8c0f62da284$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 19/39: 202610210001_ledger_routing.sql
+-- 19/46: 202610210001_ledger_routing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
   raise notice 'Aplicando 202610210001_ledger_routing.sql';
@@ -2637,7 +2672,7 @@ $retail_source_f19dc026535013c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 20/39: 202610210002_staff_profiles.sql
+-- 20/46: 202610210002_staff_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
   raise notice 'Aplicando 202610210002_staff_profiles.sql';
@@ -2803,7 +2838,7 @@ $retail_source_ca6e73c2c8993bc2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 21/39: 202610210003_ledger_lock_order.sql
+-- 21/46: 202610210003_ledger_lock_order.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
   raise notice 'Aplicando 202610210003_ledger_lock_order.sql';
@@ -2851,7 +2886,7 @@ $retail_source_b9f318a08145ad1e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 22/39: 202610210004_delegated_catalog_actions.sql
+-- 22/46: 202610210004_delegated_catalog_actions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
   raise notice 'Aplicando 202610210004_delegated_catalog_actions.sql';
@@ -2969,7 +3004,7 @@ $retail_source_bcfa6664c406dd00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 23/39: 202610220001_product_compositions.sql
+-- 23/46: 202610220001_product_compositions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
   raise notice 'Aplicando 202610220001_product_compositions.sql';
@@ -3127,7 +3162,7 @@ $retail_source_ef088735e7a84900$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 24/39: 202610220002_loose_cigarettes.sql
+-- 24/46: 202610220002_loose_cigarettes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
   raise notice 'Aplicando 202610220002_loose_cigarettes.sql';
@@ -3235,7 +3270,7 @@ $retail_source_e943d579b3d7ed4e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 25/39: 202610220003_product_deletion_history.sql
+-- 25/46: 202610220003_product_deletion_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
   raise notice 'Aplicando 202610220003_product_deletion_history.sql';
@@ -3340,7 +3375,7 @@ $retail_source_458a93d670539dd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 26/39: 202610220004_standard_categories.sql
+-- 26/46: 202610220004_standard_categories.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
   raise notice 'Aplicando 202610220004_standard_categories.sql';
@@ -3442,7 +3477,7 @@ $retail_source_85e889e22c9dcc55$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 27/39: 202610220005_category_labels.sql
+-- 27/46: 202610220005_category_labels.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
   raise notice 'Aplicando 202610220005_category_labels.sql';
@@ -3473,7 +3508,7 @@ $retail_source_e975aa6c462d6ee5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 28/39: 202610220006_complete_permission_profiles.sql
+-- 28/46: 202610220006_complete_permission_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
   raise notice 'Aplicando 202610220006_complete_permission_profiles.sql';
@@ -4111,7 +4146,7 @@ $retail_source_913347ffd59472a5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 29/39: 202610230001_automatic_margin_groups.sql
+-- 29/46: 202610230001_automatic_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
   raise notice 'Aplicando 202610230001_automatic_margin_groups.sql';
@@ -4177,7 +4212,7 @@ $retail_source_6cd429e7679685c4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 30/39: 202610230002_ingredients_and_composition_costs.sql
+-- 30/46: 202610230002_ingredients_and_composition_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
   raise notice 'Aplicando 202610230002_ingredients_and_composition_costs.sql';
@@ -4280,7 +4315,7 @@ $retail_source_86fd19952b8e6534$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 31/39: 202610240001_shift_closing_details.sql
+-- 31/46: 202610240001_shift_closing_details.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
   raise notice 'Aplicando 202610240001_shift_closing_details.sql';
@@ -4444,7 +4479,7 @@ $retail_source_d3204ba0e41d2977$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 32/39: 202610260001_optional_depot.sql
+-- 32/46: 202610260001_optional_depot.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
   raise notice 'Aplicando 202610260001_optional_depot.sql';
@@ -4584,7 +4619,7 @@ $retail_source_f221d19fcff7ac88$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 33/39: 202610260002_create_composite_product.sql
+-- 33/46: 202610260002_create_composite_product.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
   raise notice 'Aplicando 202610260002_create_composite_product.sql';
@@ -4630,7 +4665,7 @@ $retail_source_2e23fbafc73e0b69$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 34/39: 202610260003_billing_fields.sql
+-- 34/46: 202610260003_billing_fields.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260003_billing_fields.sql') then
   raise notice 'Aplicando 202610260003_billing_fields.sql';
@@ -4814,7 +4849,7 @@ $retail_source_2a42b0a16de67076$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 35/39: 202610260004_price_list_tree.sql
+-- 35/46: 202610260004_price_list_tree.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260004_price_list_tree.sql') then
   raise notice 'Aplicando 202610260004_price_list_tree.sql';
@@ -4974,7 +5009,7 @@ exception when raise_exception then
   hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
 end;
 
--- 36/39: 202610260005_delete_price_lists.sql
+-- 36/46: 202610260005_delete_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260005_delete_price_lists.sql') then
   raise notice 'Aplicando 202610260005_delete_price_lists.sql';
@@ -5104,7 +5139,7 @@ $retail_source_540fb2b7146a1f68$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 37/39: 202610260006_billing_update_robustness.sql
+-- 37/46: 202610260006_billing_update_robustness.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260006_billing_update_robustness.sql') then
   raise notice 'Aplicando 202610260006_billing_update_robustness.sql';
@@ -5190,7 +5225,7 @@ $retail_source_97469041ab94b975$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 38/39: 202610270001_store_billing_credentials.sql
+-- 38/46: 202610270001_store_billing_credentials.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270001_store_billing_credentials.sql') then
   raise notice 'Aplicando 202610270001_store_billing_credentials.sql';
@@ -5286,7 +5321,7 @@ $retail_source_5c5d202e9b944644$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 39/39: 202610270002_primary_product_markup.sql
+-- 39/46: 202610270002_primary_product_markup.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270002_primary_product_markup.sql') then
   raise notice 'Aplicando 202610270002_primary_product_markup.sql';
@@ -5466,6 +5501,900 @@ notify pgrst,'reload schema';
 $retail_source_d9e8f398d415af14$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610270002_primary_product_markup.sql','d9e8f398d415af14d4bc1235f3d2023f755cc62ad7879aa3b257794f756e6a02','schema');
+ end if;
+end;
+
+-- 40/46: 202610270003_suppliers.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610270003_suppliers.sql') then
+  raise notice 'Aplicando 202610270003_suppliers.sql';
+  execute replace($retail_source_9f007483d72681a7$
+-- Registered suppliers per store, with the discount this store gets from each one.
+-- The invoice review uses it when the discount appears only in the invoice totals.
+create table public.retail_suppliers (
+ id uuid primary key default gen_random_uuid(),
+ store_id uuid not null references public.retail_stores(id),
+ name text not null check(length(btrim(name)) between 1 and 120 and name = btrim(name)),
+ supplier_key text not null check(supplier_key <> '' and supplier_key = retail_private.normalize_supplier(name)),
+ discount_percent numeric(5,2) not null default 0 check(discount_percent >= 0 and discount_percent < 100),
+ notes text check(notes is null or length(notes) <= 300),
+ revision integer not null default 1 check(revision >= 1),
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now(),
+ unique(store_id, supplier_key)
+);
+
+alter table public.retail_suppliers enable row level security;
+-- Every member may read (the invoice review needs the discount); writes use the checked RPCs.
+create policy member_read on public.retail_suppliers for select to authenticated
+ using(retail_private.role_for(store_id) is not null);
+revoke all on public.retail_suppliers from public, anon, authenticated;
+grant select on public.retail_suppliers to authenticated;
+
+-- p_id null creates; otherwise p_expected must match the current revision.
+create function public.retail_save_supplier(
+ p_store uuid, p_id uuid, p_name text, p_discount numeric, p_notes text default null, p_expected integer default null
+) returns public.retail_suppliers
+language plpgsql security definer set search_path='' as $$
+declare result public.retail_suppliers; clean_name text; clean_key text; clean_notes text;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ clean_name:=btrim(regexp_replace(coalesce(p_name,''),'[[:space:]]+',' ','g'));
+ clean_key:=retail_private.normalize_supplier(clean_name);
+ if clean_key='' or length(clean_name)>120 then raise exception 'Ingresá el nombre del proveedor (hasta 120 caracteres)' using errcode='22023'; end if;
+ if p_discount is null or p_discount::text in ('NaN','Infinity','-Infinity') or p_discount<0 or p_discount>=100 then
+   raise exception 'El descuento debe ser un porcentaje desde 0 y menor a 100' using errcode='22023';
+ end if;
+ if round(p_discount,2)<>p_discount then raise exception 'Usá hasta dos decimales para el descuento' using errcode='22023'; end if;
+ clean_notes:=nullif(btrim(coalesce(p_notes,'')),'');
+ if length(clean_notes)>300 then raise exception 'Las notas admiten hasta 300 caracteres' using errcode='22023'; end if;
+ if exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.supplier_key=clean_key and s.id is distinct from p_id) then
+   raise exception 'Ya existe un proveedor con ese nombre en el comercio' using errcode='23505';
+ end if;
+ if p_id is null then
+   insert into public.retail_suppliers(store_id,name,supplier_key,discount_percent,notes)
+   values(p_store,clean_name,clean_key,p_discount,clean_notes)
+   returning * into result;
+   return result;
+ end if;
+ update public.retail_suppliers s set name=clean_name,supplier_key=clean_key,discount_percent=p_discount,
+   notes=clean_notes,revision=s.revision+1,updated_at=now()
+ where s.id=p_id and s.store_id=p_store and s.revision=p_expected
+ returning * into result;
+ if not found then raise exception 'Otra persona cambió o eliminó este proveedor. Actualizá los datos y revisá antes de guardar' using errcode='40001'; end if;
+ return result;
+end $$;
+
+create function public.retail_delete_supplier(p_store uuid, p_id uuid, p_expected integer) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ -- Products and alias memory keep their supplier text; only the discount record is removed.
+ delete from public.retail_suppliers where id=p_id and store_id=p_store and revision=p_expected;
+ if not found then raise exception 'Otra persona cambió o eliminó este proveedor. Actualizá los datos y revisá antes de eliminar' using errcode='40001'; end if;
+end $$;
+
+revoke all on function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer) from public,anon;
+revoke all on function public.retail_delete_supplier(uuid,uuid,integer) from public,anon;
+grant execute on function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer) to authenticated;
+grant execute on function public.retail_delete_supplier(uuid,uuid,integer) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_9f007483d72681a7$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610270003_suppliers.sql','9f007483d72681a7d849f29714756c7fbfb83e6146d35d4ba80d9fbd78518f05','schema');
+ end if;
+end;
+
+-- 41/46: 202610270004_cost_price_lists.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610270004_cost_price_lists.sql') then
+  raise notice 'Aplicando 202610270004_cost_price_lists.sql';
+  execute replace($retail_source_abe5683734a54251$
+-- Lists may start again from product cost (Costo +X%) besides Principal and its
+-- derived lists. Existing lists, prices, fixed prices and assignments are not
+-- touched: only the guard from 202610270002 accepts the cost origin again.
+-- A second catalog root stays blocked because Principal already is that price.
+create or replace function retail_private.guard_primary_price_list() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if tg_op='DELETE' then
+  if old.is_primary then raise exception 'La lista principal se conserva. Editá el margen de los productos'; end if;
+  return old;
+ end if;
+ if tg_op='UPDATE' and new.is_primary is distinct from old.is_primary then raise exception 'No se puede cambiar la identidad de la lista principal'; end if;
+ if new.is_primary then
+  if not new.active or new.deleted_at is not null or new.branch_id is not null or new.base_kind<>'catalog'
+   or new.parent_id is not null or new.adjustment<>0 or new.pricing_rules<>'[]'::jsonb then
+   raise exception 'La principal usa el costo y porcentaje de cada producto, está activa para todo el comercio y no puede eliminarse';
+  end if;
+ elsif new.deleted_at is null and not ((new.base_kind='list' and new.parent_id is not null)
+  or (new.base_kind='cost' and new.parent_id is null)) then
+  raise exception 'Elegí Costo, la lista principal o una de sus derivadas como origen';
+ end if;
+ return new;
+end $$;
+revoke all on function retail_private.guard_primary_price_list() from public,anon,authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_abe5683734a54251$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610270004_cost_price_lists.sql','abe5683734a54251ad3e49ee9235ee1b9a9607081b9a6b04927e902cdfe56d0b','schema');
+ end if;
+end;
+
+-- 42/46: 202610270005_supplier_invoice_formats.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610270005_supplier_invoice_formats.sql') then
+  raise notice 'Aplicando 202610270005_supplier_invoice_formats.sql';
+  if to_regclass('public.retail_supplier_invoice_formats') is not null then
+   raise exception 'La tabla de formatos ya existe, pero 202610270005_supplier_invoice_formats.sql no figura en el historial'
+    using errcode='55000', hint='No borrar la tabla ni marcar el paso a mano. Ver SUPABASE_SETUP.md: ejecutar primero los paquetes anteriores hasta 202610270004 y luego maintenance/adopt_supplier_invoice_formats.sql completo. Solo concilia si estructura, funciones y permisos coinciden; conserva los formatos.';
+  end if;
+  execute replace($retail_source_62535c0e844930c8$
+-- Invoice column layout learned per supplier after a confirmed import.
+-- When the next invoice of that supplier matches it, the review reads it locally without Groq.
+-- Keyed by the normalized supplier text, like the alias memory: it works for unregistered suppliers too.
+create table public.retail_supplier_invoice_formats (
+ store_id uuid not null references public.retail_stores(id),
+ supplier_key text not null check(supplier_key <> '' and length(supplier_key) <= 120),
+ supplier_name text not null check(length(btrim(supplier_name)) between 1 and 120),
+ format jsonb not null check(jsonb_typeof(format) = 'object' and (format->>'version') = '1' and pg_column_size(format) <= 1000),
+ samples integer not null default 0 check(samples >= 0),
+ local_reads integer not null default 0 check(local_reads >= 0),
+ updated_at timestamptz not null default now(),
+ primary key(store_id, supplier_key)
+);
+
+alter table public.retail_supplier_invoice_formats enable row level security;
+-- Every member may read it (invoice review); writes use the checked RPCs.
+create policy member_read on public.retail_supplier_invoice_formats for select to authenticated
+ using(retail_private.role_for(store_id) is not null);
+revoke all on public.retail_supplier_invoice_formats from public, anon, authenticated;
+grant select on public.retail_supplier_invoice_formats to authenticated;
+
+-- Any member who imports an invoice may teach or confirm the layout, as with supplier aliases.
+-- p_local_read=true only confirms a layout that already read this invoice without AI.
+create function public.retail_save_supplier_invoice_format(
+ p_store uuid, p_supplier text, p_format jsonb, p_samples integer, p_local_read boolean default false
+) returns public.retail_supplier_invoice_formats
+language plpgsql security definer set search_path='' as $$
+declare result public.retail_supplier_invoice_formats; clean_name text; clean_key text;
+begin
+ if auth.uid() is null or retail_private.role_for(p_store) is null then
+   raise exception 'Sin acceso al comercio' using errcode='42501';
+ end if;
+ clean_name:=left(btrim(regexp_replace(coalesce(p_supplier,''),'[[:space:]]+',' ','g')),120);
+ clean_key:=retail_private.normalize_supplier(clean_name);
+ if clean_key='' then raise exception 'Indicá el proveedor para recordar el formato' using errcode='22023'; end if;
+ if p_format is null or jsonb_typeof(p_format)<>'object' or (p_format->>'version') is distinct from '1' or pg_column_size(p_format)>1000 then
+   raise exception 'Formato de factura inválido' using errcode='22023';
+ end if;
+ if p_samples is null or p_samples<1 then raise exception 'El formato necesita renglones confirmados' using errcode='22023'; end if;
+ insert into public.retail_supplier_invoice_formats as existing(store_id,supplier_key,supplier_name,format,samples,local_reads)
+ values(p_store,clean_key,clean_name,p_format,p_samples,case when p_local_read then 1 else 0 end)
+ on conflict(store_id,supplier_key) do update set
+   supplier_name=excluded.supplier_name,
+   format=excluded.format,
+   -- A different layout starts over; the same one accumulates confirmations.
+   samples=case when existing.format=excluded.format then existing.samples+excluded.samples else excluded.samples end,
+   local_reads=case when existing.format=excluded.format then existing.local_reads+excluded.local_reads else excluded.local_reads end,
+   updated_at=now()
+ returning * into result;
+ return result;
+end $$;
+
+create function public.retail_delete_supplier_invoice_format(p_store uuid, p_supplier text) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ delete from public.retail_supplier_invoice_formats
+ where store_id=p_store and supplier_key=retail_private.normalize_supplier(p_supplier);
+end $$;
+
+revoke all on function public.retail_save_supplier_invoice_format(uuid,text,jsonb,integer,boolean) from public,anon;
+revoke all on function public.retail_delete_supplier_invoice_format(uuid,text) from public,anon;
+grant execute on function public.retail_save_supplier_invoice_format(uuid,text,jsonb,integer,boolean) to authenticated;
+grant execute on function public.retail_delete_supplier_invoice_format(uuid,text) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_62535c0e844930c8$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610270005_supplier_invoice_formats.sql','62535c0e844930c8af0840aa80c582f265c0a8919b8cdabb4f83cb7cf0a41509','schema');
+ end if;
+end;
+
+-- 43/46: 202610280001_supplier_alias_usage_repair.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610280001_supplier_alias_usage_repair.sql') then
+  raise notice 'Aplicando 202610280001_supplier_alias_usage_repair.sql';
+  execute replace($retail_source_e6eee2d43a1a62cc$
+-- Some conciliated installations registered 202610200002_supplier_alias_usage.sql without its effects:
+-- they keep the six-argument upsert, so the app's alias sharing fails with "function not found".
+-- Recreate that migration's objects idempotently; on complete installations this changes nothing.
+drop function if exists public.retail_upsert_supplier_mapping(uuid,text,text,uuid,text,integer);
+create or replace function public.retail_upsert_supplier_mapping(
+ p_store uuid, p_supplier text, p_invoice_text text, p_product_id uuid, p_product_name text,
+ p_pack_size integer default null, p_confidence numeric default 1,
+ p_usage_only boolean default false, p_mapping_id uuid default null
+) returns public.retail_supplier_mappings
+language plpgsql security invoker set search_path='' as $$
+declare result public.retail_supplier_mappings;
+begin
+ if auth.uid() is null or retail_private.role_for(p_store) is null then
+   raise exception 'Sin acceso al comercio' using errcode='42501';
+ end if;
+ if p_confidence is null or p_confidence < 0 or p_confidence > 1 then
+   raise exception 'La confianza debe estar entre cero y uno' using errcode='22023';
+ end if;
+ if p_usage_only then
+   update public.retail_supplier_mappings m set times_used=m.times_used+1,last_used_at=now()
+   where m.id=p_mapping_id and m.store_id=p_store and m.supplier=retail_private.normalize_supplier(p_supplier)
+     and m.invoice_text=btrim(p_invoice_text) and m.product_id=p_product_id
+     and m.pack_size_detected is not distinct from p_pack_size
+     and m.confidence>=0.85 and m.times_used>=3
+   returning m.* into result;
+   if not found then raise exception 'El alias cambió o fue eliminado. Actualizá la memoria del proveedor.'; end if;
+   return result;
+ end if;
+ insert into public.retail_supplier_mappings as existing
+   (store_id,supplier,invoice_text,product_id,product_name,pack_size_detected,confidence)
+ values(p_store,retail_private.normalize_supplier(p_supplier),btrim(p_invoice_text),p_product_id,btrim(p_product_name),p_pack_size,p_confidence)
+ on conflict(store_id,supplier,invoice_text) do update set
+   times_used=case when existing.product_id=excluded.product_id and existing.pack_size_detected is not distinct from excluded.pack_size_detected
+     then existing.times_used+1 else 1 end,
+   product_id=excluded.product_id,product_name=excluded.product_name,pack_size_detected=excluded.pack_size_detected,
+   confidence=excluded.confidence,last_used_at=now()
+ returning * into result;
+ return result;
+end;
+$$;
+
+do $repair$
+begin
+ if not exists(select 1 from pg_policies where schemaname='public' and tablename='retail_supplier_mappings' and policyname='member_delete') then
+   create policy member_delete on public.retail_supplier_mappings for delete to authenticated
+    using(retail_private.role_for(store_id) is not null);
+ end if;
+end $repair$;
+grant delete on public.retail_supplier_mappings to authenticated;
+
+create or replace function public.retail_delete_supplier_mapping(p_store uuid,p_supplier text,p_mapping_id uuid) returns void
+language plpgsql security invoker set search_path='' as $$
+begin
+ if auth.uid() is null or retail_private.role_for(p_store) is null then
+   raise exception 'Sin acceso al comercio' using errcode='42501';
+ end if;
+ delete from public.retail_supplier_mappings where id=p_mapping_id and store_id=p_store
+   and supplier=retail_private.normalize_supplier(p_supplier);
+end;
+$$;
+
+revoke all on function public.retail_upsert_supplier_mapping(uuid,text,text,uuid,text,integer,numeric,boolean,uuid) from public,anon;
+revoke all on function public.retail_delete_supplier_mapping(uuid,text,uuid) from public,anon;
+grant execute on function public.retail_upsert_supplier_mapping(uuid,text,text,uuid,text,integer,numeric,boolean,uuid) to authenticated;
+grant execute on function public.retail_delete_supplier_mapping(uuid,text,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_e6eee2d43a1a62cc$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610280001_supplier_alias_usage_repair.sql','e6eee2d43a1a62cc232ada97415baa8b591f83572848c8877f26444b82db583a','schema');
+ end if;
+end;
+
+-- 44/46: 202610280002_location_funds.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610280002_location_funds.sql') then
+  raise notice 'Aplicando 202610280002_location_funds.sql';
+  execute replace($retail_source_f22cae1d60cb383c$
+-- Funds are separate from shifts, cash movements, sales and expected cash.
+alter table public.retail_permission_profiles drop constraint retail_permission_profiles_permissions_check;
+alter table public.retail_permission_profiles add constraint retail_permission_profiles_permissions_check check(permissions <@ array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai']::text[]);
+create or replace function public.retail_permissions(p_store uuid) returns text[] language sql stable security invoker set search_path='' as $$
+ select coalesce(array_agg(action order by action),'{}'::text[]) from unnest(array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai']::text[]) action where retail_private.has_permission(p_store,action);
+$$;
+
+create table public.retail_location_funds (
+ store_id uuid not null references public.retail_stores(id), location text not null,
+ balance numeric(16,2) not null default 0 check(balance>=0 and balance::text not in ('NaN','Infinity','-Infinity')),
+ primary key(store_id,location),
+ check(location='depot' or location ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+);
+create table public.retail_fund_transfers (
+ id uuid primary key, store_id uuid not null references public.retail_stores(id),
+ from_location text, to_location text, amount numeric(16,2) not null check(amount>0 and amount::text<>'NaN'),
+ note text not null check(length(btrim(note)) between 1 and 1000),
+ created_by uuid not null references auth.users(id), actor_email text, created_at timestamptz not null default now(),
+ check(from_location is not null or to_location is not null),
+ check(from_location is null or to_location is null or from_location<>to_location),
+ foreign key(store_id,from_location) references public.retail_location_funds(store_id,location),
+ foreign key(store_id,to_location) references public.retail_location_funds(store_id,location)
+);
+create index retail_fund_transfer_history on public.retail_fund_transfers(store_id,created_at desc,id);
+alter table public.retail_location_funds enable row level security;
+alter table public.retail_fund_transfers enable row level security;
+create policy authorized_read on public.retail_location_funds for select to authenticated using(retail_private.has_permission(store_id,'manage_funds'));
+create policy authorized_read on public.retail_fund_transfers for select to authenticated using(retail_private.has_permission(store_id,'manage_funds'));
+revoke all on public.retail_location_funds,public.retail_fund_transfers from public,anon,authenticated;
+grant select on public.retail_location_funds,public.retail_fund_transfers to authenticated;
+
+create function public.retail_move_location_funds(p_store uuid,p_from text,p_to text,p_amount numeric,p_note text,p_request uuid)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare prior public.retail_fund_transfers; loc text; source_balance numeric; target_balance numeric;
+ note text:=btrim(p_note);
+begin
+ perform retail_private.require_permission(p_store,'manage_funds');
+ if p_request is null or p_amount is null or p_amount::text in ('NaN','Infinity','-Infinity')
+  or p_amount<=0 or p_amount>999999999999.99 or round(p_amount,2)<>p_amount then raise exception 'Ingresá un importe positivo con hasta dos decimales'; end if;
+ if note is null or length(note) not between 1 and 1000 then raise exception 'Escribí un motivo de hasta 1.000 caracteres'; end if;
+ if (p_from is null and p_to is null) or p_from=p_to then raise exception 'Elegí un origen y un destino diferentes'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('fund-request:'||p_request::text,0));
+ select * into prior from public.retail_fund_transfers where id=p_request;
+ if found then
+  if prior.store_id<>p_store or prior.created_by<>auth.uid() or prior.from_location is distinct from p_from
+   or prior.to_location is distinct from p_to or prior.amount<>p_amount or prior.note<>note then raise exception 'La solicitud corresponde a otro movimiento'; end if;
+  return prior.id;
+ end if;
+ -- Serialize account updates, including first-use rows. No negative source balances.
+ perform pg_advisory_xact_lock(hashtextextended('fund-store:'||p_store::text,0));
+ foreach loc in array array[p_from,p_to] loop
+  if loc is null then continue; end if;
+  if loc<>'depot' and not exists(select 1 from public.retail_branches where store_id=p_store and id::text=loc) then raise exception 'La ubicación no pertenece a este comercio'; end if;
+  insert into public.retail_location_funds(store_id,location) values(p_store,loc) on conflict do nothing;
+ end loop;
+ if p_from is not null then
+  select balance into source_balance from public.retail_location_funds where store_id=p_store and location=p_from for update;
+  if source_balance<p_amount then raise exception 'El fondo de origen no tiene saldo suficiente. Actualizá los saldos'; end if;
+  update public.retail_location_funds set balance=balance-p_amount where store_id=p_store and location=p_from;
+ end if;
+ if p_to is not null then
+  select balance into target_balance from public.retail_location_funds where store_id=p_store and location=p_to for update;
+  if target_balance+p_amount>999999999999.99 then raise exception 'El saldo resultante supera el límite permitido'; end if;
+  update public.retail_location_funds set balance=balance+p_amount where store_id=p_store and location=p_to;
+ end if;
+ insert into public.retail_fund_transfers(id,store_id,from_location,to_location,amount,note,created_by,actor_email)
+ values(p_request,p_store,p_from,p_to,p_amount,note,auth.uid(),auth.jwt()->>'email');
+ return p_request;
+end $$;
+revoke all on function public.retail_move_location_funds(uuid,text,text,numeric,text,uuid) from public,anon;
+grant execute on function public.retail_move_location_funds(uuid,text,text,numeric,text,uuid) to authenticated;
+
+create or replace function public.retail_management_locations(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if not (retail_private.has_permission(p_store,'manage_locations') or retail_private.has_permission(p_store,'manage_staff') or retail_private.has_permission(p_store,'manage_transfers') or retail_private.has_permission(p_store,'manage_funds') or retail_private.has_permission(p_store,'manage_price_lists') or retail_private.has_permission(p_store,'review_remitos')) then raise exception 'Sin permiso para consultar esta configuración' using errcode='42501'; end if;
+ return jsonb_build_object(
+  'branches',(select coalesce(jsonb_agg(to_jsonb(b) order by b.name),'[]'::jsonb) from public.retail_branches b where b.store_id=p_store),
+  'registers',(select coalesce(jsonb_agg(to_jsonb(r) order by r.name),'[]'::jsonb) from public.retail_registers r where r.store_id=p_store));
+end $$;
+notify pgrst,'reload schema';
+$retail_source_f22cae1d60cb383c$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610280002_location_funds.sql','f22cae1d60cb383ca0f76216dc20e303370a2018266199f8650aa7beb77f8ada','schema');
+ end if;
+end;
+
+-- 45/46: 202610280003_location_inventory.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610280003_location_inventory.sql') then
+  raise notice 'Aplicando 202610280003_location_inventory.sql';
+  execute replace($retail_source_baa181aa8cc76f1b$
+alter table public.retail_stores add column branch_inventory_enabled boolean not null default false;
+alter table public.retail_depot_movements add column branch_id uuid,
+ add foreign key(store_id,branch_id) references public.retail_branches(store_id,id);
+create table public.retail_branch_stock (
+ store_id uuid not null, branch_id uuid not null, product_id uuid not null,
+ quantity integer not null check(quantity>=0), primary key(store_id,branch_id,product_id),
+ foreign key(store_id,branch_id) references public.retail_branches(store_id,id),
+ foreign key(store_id,product_id) references public.retail_products(store_id,id)
+);
+create table public.retail_inventory_activations (
+ store_id uuid primary key references public.retail_stores(id), branch_id uuid not null,
+ created_by uuid not null references auth.users(id), created_at timestamptz not null default now(),
+ foreign key(store_id,branch_id) references public.retail_branches(store_id,id)
+);
+alter table public.retail_branch_stock enable row level security;
+alter table public.retail_inventory_activations enable row level security;
+create policy member_read on public.retail_branch_stock for select to authenticated using(retail_private.role_for(store_id) is not null);
+create policy manager_read on public.retail_inventory_activations for select to authenticated using(retail_private.role_for(store_id) in ('owner','admin'));
+revoke all on public.retail_branch_stock,public.retail_inventory_activations from public,anon,authenticated;
+grant select on public.retail_branch_stock,public.retail_inventory_activations to authenticated;
+
+create function public.retail_location_stock_summary(p_store uuid) returns jsonb language plpgsql stable security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_transfers');
+ return (select coalesce(jsonb_agg(to_jsonb(t)),'[]'::jsonb) from (
+  select 'depot'::text as location,coalesce(sum(d.quantity),0) as quantity from public.retail_depot_balances d
+   join public.retail_products p on p.id=d.product_id and p.store_id=d.store_id where d.store_id=p_store and p.active
+  union all
+  select b.id::text,coalesce(sum(s.quantity) filter(where p.active),0) from public.retail_branches b
+   left join public.retail_branch_stock s on s.branch_id=b.id and s.store_id=b.store_id
+   left join public.retail_products p on p.id=s.product_id and p.store_id=s.store_id where b.store_id=p_store group by b.id
+ ) t);
+end $$;
+revoke all on function public.retail_location_stock_summary(uuid) from public,anon;
+grant execute on function public.retail_location_stock_summary(uuid) to authenticated;
+
+create function retail_private.inventory_location(p_store uuid,p_location text) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ if p_location is null or (p_location<>'depot' and not exists(select 1 from public.retail_branches where store_id=p_store and id::text=p_location)) then raise exception 'Elegí una ubicación de este comercio'; end if;
+end $$;
+revoke all on function retail_private.inventory_location(uuid,text) from public,anon,authenticated;
+
+create function public.retail_enable_branch_inventory(p_store uuid,p_branch uuid) returns void
+language plpgsql security definer set search_path='' as $$
+declare prior public.retail_inventory_activations;
+begin
+ if coalesce(retail_private.role_for(p_store),'') not in ('owner','admin') then raise exception 'Solo un administrador puede distribuir el inventario inicial' using errcode='42501'; end if;
+ perform 1 from public.retail_stores where id=p_store for update;
+ select * into prior from public.retail_inventory_activations where store_id=p_store;
+ if found then
+  if prior.branch_id<>p_branch then raise exception 'El inventario ya fue distribuido. Usá una transferencia para moverlo'; end if;
+  return;
+ end if;
+ perform retail_private.inventory_location(p_store,p_branch::text);
+ if exists(select 1 from public.retail_shifts where store_id=p_store and closed_at is null) then raise exception 'Cerrá los turnos y sincronizá todos los dispositivos antes de distribuir el stock'; end if;
+ if exists(select 1 from public.retail_stock_transfers where store_id=p_store and status='pending') then raise exception 'Confirmá o cancelá los traslados anteriores pendientes antes de distribuir el stock'; end if;
+ perform 1 from public.retail_products where store_id=p_store order by id for update;
+ insert into public.retail_branch_stock(store_id,branch_id,product_id,quantity)
+ select p_store,p_branch,p.id,p.stock-coalesce(d.quantity,0) from public.retail_products p
+ left join public.retail_depot_balances d on d.store_id=p_store and d.product_id=p.id
+ where p.store_id=p_store and jsonb_array_length(p.stock_components)=0;
+ insert into public.retail_inventory_activations(store_id,branch_id,created_by) values(p_store,p_branch,auth.uid());
+ update public.retail_stores set branch_inventory_enabled=true,depot_enabled=true where id=p_store;
+end $$;
+
+create function retail_private.guard_branch_inventory_setting() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ if new.branch_inventory_enabled and not new.depot_enabled then raise exception 'El depósito forma parte del inventario por ubicación. Conservá sus saldos y usá Transferencias'; end if;
+ if new.branch_inventory_enabled is distinct from old.branch_inventory_enabled then
+  if not new.branch_inventory_enabled or not exists(select 1 from public.retail_inventory_activations where store_id=new.id) then raise exception 'El inventario por sucursal se activa distribuyendo el stock, y no se desactiva borrando saldos'; end if;
+  if coalesce(retail_private.role_for(new.id),'') not in ('owner','admin') then raise exception 'Solo el administrador puede distribuir el inventario' using errcode='42501'; end if;
+ end if;
+ return new;
+end $$;
+create trigger retail_branch_inventory_setting before update of branch_inventory_enabled,depot_enabled on public.retail_stores for each row execute function retail_private.guard_branch_inventory_setting();
+
+-- Coordinate activation with existing stock writers and shift openings, including REST.
+create function retail_private.lock_inventory_setting() returns trigger language plpgsql security definer set search_path='' as $$
+begin
+ perform 1 from public.retail_stores where id=new.store_id for share;
+ return new;
+end $$;
+create trigger retail_lock_inventory_setting before insert or update of stock on public.retail_products for each row execute function retail_private.lock_inventory_setting();
+create trigger retail_lock_shift_inventory_setting before insert on public.retail_shifts for each row execute function retail_private.lock_inventory_setting();
+
+-- Product.stock remains the aggregate. A transaction explicitly identifies the branch.
+create function retail_private.allocate_branch_stock() returns trigger language plpgsql security definer set search_path='' as $$
+declare delta bigint; loc text; current_qty integer;
+begin
+ if not exists(select 1 from public.retail_stores where id=new.store_id and branch_inventory_enabled) then return new; end if;
+ delta:=new.stock-case when tg_op='INSERT' then 0 else old.stock end;
+ if delta=0 then return new; end if;
+ loc:=nullif(current_setting('retail.inventory_location',true),'');
+ if loc in ('depot','conversion') then return new; end if;
+ perform retail_private.inventory_location(new.store_id,loc);
+ insert into public.retail_branch_stock(store_id,branch_id,product_id,quantity) values(new.store_id,loc::uuid,new.id,0) on conflict do nothing;
+ select quantity into current_qty from public.retail_branch_stock where store_id=new.store_id and branch_id=loc::uuid and product_id=new.id for update;
+ if current_qty::bigint+delta not between 0 and 2147483647 then raise exception 'Stock insuficiente de % en esta sucursal, o cantidad fuera de límite. Actualizá el catálogo',new.name; end if;
+ update public.retail_branch_stock set quantity=(current_qty::bigint+delta)::integer where store_id=new.store_id and branch_id=loc::uuid and product_id=new.id;
+ return new;
+end $$;
+create trigger retail_allocate_branch_stock after insert or update of stock on public.retail_products for each row execute function retail_private.allocate_branch_stock();
+
+create function retail_private.check_location_stock_total() returns trigger language plpgsql security definer set search_path='' as $$
+declare p public.retail_products; pid uuid; sid uuid; qty bigint;
+begin
+ if tg_table_name='retail_products' then pid:=new.id; sid:=new.store_id;
+ elsif tg_op='DELETE' then pid:=old.product_id; sid:=old.store_id;
+ else pid:=new.product_id; sid:=new.store_id; end if;
+ if not exists(select 1 from public.retail_stores where id=sid and branch_inventory_enabled) then return null; end if;
+ select * into p from public.retail_products where store_id=sid and id=pid;
+ if not found then return null; end if;
+ select coalesce(sum(quantity),0) into qty from public.retail_branch_stock where store_id=sid and product_id=pid;
+ qty:=qty+coalesce((select quantity from public.retail_depot_balances where store_id=sid and product_id=pid),0);
+ if qty<>p.stock then raise exception 'Las existencias por ubicación no coinciden con el total de %. La operación se revirtió',p.name; end if;
+ return null;
+end $$;
+create constraint trigger retail_location_product_total after insert or update on public.retail_products deferrable initially deferred for each row execute function retail_private.check_location_stock_total();
+create constraint trigger retail_location_branch_total after insert or update or delete on public.retail_branch_stock deferrable initially deferred for each row execute function retail_private.check_location_stock_total();
+create constraint trigger retail_location_depot_total after insert or update or delete on public.retail_depot_balances deferrable initially deferred for each row execute function retail_private.check_location_stock_total();
+
+-- Keep all existing checkout/billing/pricing/permission logic inside its original body.
+alter function public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb) rename to retail_checkout_before_locations;
+revoke all on function public.retail_checkout_before_locations(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb) from public,anon,authenticated;
+create function public.retail_checkout(p_shift uuid,p_request uuid,p_method text,p_paid numeric,p_items jsonb,p_price_list uuid default null,p_ledger uuid default null,p_payments jsonb default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare branch uuid; saved uuid; previous text:=current_setting('retail.inventory_location',true);
+begin
+ select r.branch_id into branch from public.retail_shifts s join public.retail_registers r on r.id=s.register_id and r.store_id=s.store_id where s.id=p_shift;
+ perform 1 from public.retail_stores where id=(select store_id from public.retail_shifts where id=p_shift) for share;
+ perform set_config('retail.inventory_location',coalesce(branch::text,''),true);
+ saved:=public.retail_checkout_before_locations(p_shift,p_request,p_method,p_paid,p_items,p_price_list,p_ledger,p_payments);
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return saved;
+end $$;
+alter function public.retail_sync_operation(jsonb) rename to retail_sync_before_locations;
+revoke all on function public.retail_sync_before_locations(jsonb) from public,anon,authenticated;
+create function public.retail_sync_operation(p_operation jsonb) returns jsonb language plpgsql security definer set search_path='' as $$
+declare saved jsonb; branch uuid; previous text:=current_setting('retail.inventory_location',true);
+begin
+ if retail_private.role_for((p_operation->>'store')::uuid) is null then raise exception 'Sin acceso al comercio' using errcode='42501'; end if;
+ perform 1 from public.retail_stores where id=(p_operation->>'store')::uuid for share;
+ if p_operation->>'kind'='stock' then perform set_config('retail.inventory_location',coalesce(p_operation->>'branch',''),true); end if;
+ if p_operation->>'kind'='sale' then
+  select r.branch_id into branch from public.retail_shifts s join public.retail_registers r on r.id=s.register_id and r.store_id=s.store_id
+   where s.id=(p_operation->>'shift')::uuid and s.store_id=(p_operation->>'store')::uuid;
+  perform set_config('retail.inventory_location',coalesce(branch::text,''),true);
+ end if;
+ saved:=public.retail_sync_before_locations(p_operation);
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return saved;
+end $$;
+
+-- REST product permissions still apply; branch is context for the stock delta only.
+create function public.retail_save_product_at_branch(p_store uuid,p_values jsonb,p_edit boolean,p_expected integer,p_branch uuid)
+returns jsonb language plpgsql security invoker set search_path='' as $$
+declare columns_sql text; expressions_sql text; assignment_sql text; saved uuid; previous text:=current_setting('retail.inventory_location',true); product_id uuid;
+ allowed text[]:=array['category_id','code','name','price','sale_markup','cost','stock','min_stock','emoji','active','sellable','brand','supplier','supplier_code','tags','unit_type','pack_size','expiry_date','last_restocked_at'];
+begin
+ if p_values is null or jsonb_typeof(p_values)<>'object' or p_edit is null then raise exception 'Datos del producto incompletos'; end if;
+ product_id:=(p_values->>'id')::uuid;
+ if exists(select 1 from jsonb_object_keys(p_values) k where k<>all(allowed||array['id'])) then raise exception 'Campos de producto no admitidos'; end if;
+ if not exists(select 1 from public.retail_branches where store_id=p_store and id=p_branch) then raise exception 'Elegí la sucursal del stock'; end if;
+ perform set_config('retail.inventory_location',p_branch::text,true);
+ select string_agg(format('%I',k),','),string_agg(format('(jsonb_populate_record(null::public.retail_products,$1)).%I',k),','),
+  string_agg(format('%I=(jsonb_populate_record(null::public.retail_products,$1)).%I',k,k),',')
+ into columns_sql,expressions_sql,assignment_sql from jsonb_object_keys(p_values) k where k=any(allowed);
+ if p_edit then
+  execute 'update public.retail_products set '||assignment_sql||' where store_id=$2 and id=$3 and active and stock=$4 returning id' into saved using p_values,p_store,product_id,p_expected;
+ else
+  execute 'insert into public.retail_products(store_id,'||columns_sql||') select $2,'||expressions_sql||' returning id' into saved using p_values,p_store;
+ end if;
+ if saved is null then raise exception 'El producto cambió o no tenés permiso. Actualizá y revisá el borrador'; end if;
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return jsonb_build_object('id',saved);
+end $$;
+
+alter function public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text) rename to retail_depot_before_locations;
+revoke all on function public.retail_depot_before_locations(uuid,uuid,integer,text,uuid,numeric,text) from public,anon,authenticated;
+create function public.retail_depot_operation_at_branch(p_store uuid,p_product uuid,p_quantity integer,p_action text,p_request uuid,p_branch uuid,p_cost numeric default null,p_note text default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare saved uuid; current_qty integer; previous text:=current_setting('retail.inventory_location',true); enabled boolean;
+begin
+ if not retail_private.has_permission(p_store,'manage_products') then perform retail_private.require_permission(p_store,'replenish_stock'); end if;
+ select branch_inventory_enabled into enabled from public.retail_stores where id=p_store for share;
+ if coalesce(enabled,false) then
+  perform retail_private.inventory_location(p_store,p_branch::text);
+  perform 1 from public.retail_products where id=p_product and store_id=p_store for update;
+  if exists(select 1 from public.retail_depot_movements where id=p_request) then
+   if not exists(select 1 from public.retail_depot_movements where id=p_request and store_id=p_store and branch_id=p_branch) then raise exception 'La solicitud de depósito corresponde a otra sucursal'; end if;
+   return public.retail_depot_before_locations(p_store,p_product,p_quantity,p_action,p_request,p_cost,p_note);
+  end if;
+  insert into public.retail_branch_stock(store_id,branch_id,product_id,quantity) values(p_store,p_branch,p_product,0) on conflict do nothing;
+  select quantity into current_qty from public.retail_branch_stock where store_id=p_store and branch_id=p_branch and product_id=p_product for update;
+  if p_action='to_depot' and current_qty<p_quantity then raise exception 'No alcanza el stock de esta sucursal'; end if;
+ end if;
+ perform set_config('retail.inventory_location','depot',true);
+ saved:=public.retail_depot_before_locations(p_store,p_product,p_quantity,p_action,p_request,p_cost,p_note);
+ update public.retail_depot_movements set branch_id=p_branch where id=saved and store_id=p_store;
+ if coalesce(enabled,false) and p_action in ('to_depot','to_salon') then
+  update public.retail_branch_stock set quantity=quantity+case when p_action='to_salon' then p_quantity else -p_quantity end
+   where store_id=p_store and branch_id=p_branch and product_id=p_product;
+ end if;
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return saved;
+end $$;
+create function public.retail_depot_operation(p_store uuid,p_product uuid,p_quantity integer,p_action text,p_request uuid,p_cost numeric default null,p_note text default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+begin
+ if exists(select 1 from public.retail_stores where id=p_store and branch_inventory_enabled) then raise exception 'Elegí una sucursal y actualizá la app para operar con depósito'; end if;
+ return public.retail_depot_before_locations(p_store,p_product,p_quantity,p_action,p_request,p_cost,p_note);
+end $$;
+
+alter function public.retail_approve_replenishment(uuid,uuid,jsonb) rename to retail_approve_before_locations;
+revoke all on function public.retail_approve_before_locations(uuid,uuid,jsonb) from public,anon,authenticated;
+create function public.retail_approve_replenishment(p_store uuid,p_id uuid,p_items jsonb default null) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare branch uuid; saved uuid; previous text:=current_setting('retail.inventory_location',true);
+begin
+ select branch_id into branch from public.retail_pending_replenishments where store_id=p_store and id=p_id;
+ perform 1 from public.retail_stores where id=p_store for share;
+ perform set_config('retail.inventory_location',coalesce(branch::text,''),true);
+ saved:=public.retail_approve_before_locations(p_store,p_id,p_items);
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return saved;
+end $$;
+
+create function public.retail_approve_replenishment_at_branch(p_store uuid,p_id uuid,p_items jsonb,p_branch uuid) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare r public.retail_pending_replenishments;
+begin
+ perform retail_private.require_permission(p_store,'review_remitos');
+ perform 1 from public.retail_stores where id=p_store for share;
+ perform retail_private.inventory_location(p_store,p_branch::text);
+ select * into r from public.retail_pending_replenishments where store_id=p_store and id=p_id for update;
+ if not found then raise exception 'Remito no disponible'; end if;
+ if r.branch_id is not null and r.branch_id<>p_branch then raise exception 'El remito pertenece a otra sucursal'; end if;
+ if r.branch_id is null and r.status='pending' then
+  update public.retail_pending_replenishments set branch_id=p_branch where id=r.id;
+ end if;
+ return public.retail_approve_replenishment(p_store,p_id,p_items);
+end $$;
+revoke all on function public.retail_approve_replenishment_at_branch(uuid,uuid,jsonb,uuid) from public,anon;
+grant execute on function public.retail_approve_replenishment_at_branch(uuid,uuid,jsonb,uuid) to authenticated;
+
+-- Unit conversion preserves each branch's proportion rather than allocating it again.
+alter function public.retail_enable_loose_cigarettes(uuid,uuid,uuid,jsonb) rename to retail_loose_before_locations;
+revoke all on function public.retail_loose_before_locations(uuid,uuid,uuid,jsonb) from public,anon,authenticated;
+create function public.retail_enable_loose_cigarettes(p_store uuid,p_packet uuid,p_request uuid,p_data jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare saved uuid; depot_qty integer; factor integer; previous text:=current_setting('retail.inventory_location',true);
+begin
+ perform retail_private.require_permission(p_store,'manage_compositions');
+ perform 1 from public.retail_stores where id=p_store for share;
+ perform pg_advisory_xact_lock(hashtextextended(p_request::text,0));
+ if not exists(select 1 from public.retail_stores where id=p_store and branch_inventory_enabled)
+  or exists(select 1 from public.retail_loose_unit_conversions where id=p_request) then return public.retail_loose_before_locations(p_store,p_packet,p_request,p_data); end if;
+ perform 1 from public.retail_products where store_id=p_store and id=p_packet for update;
+ select quantity into depot_qty from public.retail_depot_balances where store_id=p_store and product_id=p_packet;
+ update public.retail_depot_balances set quantity=0 where store_id=p_store and product_id=p_packet;
+ perform set_config('retail.inventory_location','conversion',true);
+ saved:=public.retail_loose_before_locations(p_store,p_packet,p_request,p_data);
+ factor:=(p_data->>'units')::integer;
+ insert into public.retail_branch_stock(store_id,branch_id,product_id,quantity)
+ select store_id,branch_id,saved,(quantity::bigint*factor)::integer from public.retail_branch_stock where store_id=p_store and product_id=p_packet
+ on conflict(store_id,branch_id,product_id) do update set quantity=excluded.quantity;
+ update public.retail_branch_stock set quantity=0 where store_id=p_store and product_id=p_packet;
+ insert into public.retail_depot_balances(store_id,product_id,quantity) values(p_store,saved,(coalesce(depot_qty,0)::bigint*factor)::integer)
+ on conflict(product_id) do update set quantity=excluded.quantity;
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return saved;
+end $$;
+
+create table public.retail_location_transfers (
+ id uuid primary key, store_id uuid not null references public.retail_stores(id),
+ from_location text not null,to_location text not null, items jsonb not null,
+ status text not null default 'pending' check(status in ('pending','confirmed','cancelled')),
+ notes text, created_by uuid not null references auth.users(id), actor_email text,created_at timestamptz not null default now(),
+ reviewed_by uuid references auth.users(id),reviewed_at timestamptz,
+ check(from_location<>to_location),check(jsonb_typeof(items)='array' and jsonb_array_length(items) between 1 and 200),
+ check((status='pending' and reviewed_by is null and reviewed_at is null) or(status<>'pending' and reviewed_by is not null and reviewed_at is not null))
+);
+create index retail_location_transfer_history on public.retail_location_transfers(store_id,created_at desc,id);
+alter table public.retail_location_transfers enable row level security;
+create policy authorized_read on public.retail_location_transfers for select to authenticated using(retail_private.has_permission(store_id,'manage_transfers'));
+revoke all on public.retail_location_transfers from public,anon,authenticated;
+grant select on public.retail_location_transfers to authenticated;
+
+create function public.retail_create_location_transfer(p_store uuid,p_from text,p_to text,p_items jsonb,p_notes text,p_request uuid)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare prior public.retail_location_transfers; item jsonb; canonical jsonb; snapshot jsonb:='[]'; p public.retail_products;
+begin
+ perform retail_private.require_permission(p_store,'manage_transfers');
+ perform retail_private.inventory_location(p_store,p_from); perform retail_private.inventory_location(p_store,p_to);
+ if p_from=p_to or p_request is null or p_items is null or jsonb_typeof(p_items)<>'array' or length(coalesce(p_notes,''))>2000 then raise exception 'Revisá origen, destino, productos y notas'; end if;
+ if jsonb_array_length(p_items) not between 1 and 200 then raise exception 'Incluí entre 1 y 200 productos'; end if;
+ for item in select value from jsonb_array_elements(p_items) loop
+  if coalesce(item->>'product_id','')!~*'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+   or coalesce(item->>'qty','')!~'^[1-9][0-9]{0,6}$' or (item->>'qty')::integer>1000000 then raise exception 'Usá cantidades enteras de 1 a 1.000.000'; end if;
+ end loop;
+ if (select count(distinct x->>'product_id') from jsonb_array_elements(p_items) x)<>jsonb_array_length(p_items) then raise exception 'Incluí cada producto una sola vez'; end if;
+ select jsonb_agg(jsonb_build_object('product_id',x->>'product_id','qty',(x->>'qty')::integer) order by x->>'product_id') into canonical from jsonb_array_elements(p_items) x;
+ perform pg_advisory_xact_lock(hashtextextended('location-transfer:'||p_request::text,0));
+ select * into prior from public.retail_location_transfers where id=p_request;
+ if found then
+  if prior.store_id<>p_store or prior.created_by<>auth.uid() or prior.from_location<>p_from or prior.to_location<>p_to or prior.notes is distinct from nullif(btrim(p_notes),'')
+   or (select jsonb_agg(jsonb_build_object('product_id',x->>'product_id','qty',(x->>'qty')::integer) order by x->>'product_id') from jsonb_array_elements(prior.items) x)<>canonical then raise exception 'La solicitud corresponde a otra transferencia'; end if;
+  return prior.id;
+ end if;
+ if not exists(select 1 from public.retail_stores where id=p_store and branch_inventory_enabled) then raise exception 'Primero distribuí el stock actual entre ubicaciones'; end if;
+ for item in select value from jsonb_array_elements(canonical) loop
+  select * into p from public.retail_products where store_id=p_store and id=(item->>'product_id')::uuid and active;
+  if not found or jsonb_array_length(p.stock_components)>0 then raise exception 'Transferí productos físicos o los componentes del combo'; end if;
+  snapshot:=snapshot||jsonb_build_array(item||jsonb_build_object('product_name',p.name));
+ end loop;
+ insert into public.retail_location_transfers(id,store_id,from_location,to_location,items,notes,created_by,actor_email)
+ values(p_request,p_store,p_from,p_to,snapshot,nullif(btrim(p_notes),''),auth.uid(),auth.jwt()->>'email');
+ return p_request;
+end $$;
+
+create function public.retail_review_location_transfer(p_store uuid,p_id uuid,p_confirm boolean) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare t public.retail_location_transfers; item jsonb; source_qty integer; destination_qty integer; pid uuid; qty integer; depot_qty integer; branch uuid; product_name text; total integer; depot_after integer; movement_id uuid; movement_action text;
+begin
+ perform retail_private.require_permission(p_store,'manage_transfers');
+ if p_confirm is null then raise exception 'Indicá si confirmás o cancelás'; end if;
+ select * into t from public.retail_location_transfers where id=p_id and store_id=p_store for update;
+ if not found then raise exception 'Transferencia no disponible'; end if;
+ if (p_confirm and t.status='confirmed') or (not p_confirm and t.status='cancelled') then return t.id; end if;
+ if t.status<>'pending' then raise exception 'La transferencia ya fue revisada. Actualizá el historial'; end if;
+ if p_confirm then
+  perform 1 from public.retail_stores where id=p_store for share;
+  for item in (select value from jsonb_array_elements(t.items) order by (value->>'product_id')) loop
+   pid:=(item->>'product_id')::uuid; qty:=(item->>'qty')::integer;
+   perform 1 from public.retail_products where id=pid and store_id=p_store and active and jsonb_array_length(stock_components)=0 for update;
+   if not found then raise exception 'Un producto ya no está disponible para transferir'; end if;
+   if t.from_location='depot' or t.to_location='depot' then
+    branch:=(case when t.from_location='depot' then t.to_location else t.from_location end)::uuid;
+    insert into public.retail_branch_stock(store_id,branch_id,product_id,quantity) values(p_store,branch,pid,0) on conflict do nothing;
+    insert into public.retail_depot_balances(store_id,product_id,quantity) values(p_store,pid,0) on conflict do nothing;
+    select quantity into source_qty from public.retail_branch_stock where store_id=p_store and branch_id=branch and product_id=pid for update;
+    select quantity into depot_qty from public.retail_depot_balances where store_id=p_store and product_id=pid for update;
+    if (t.from_location='depot' and depot_qty<qty) or (t.to_location='depot' and source_qty<qty) then raise exception 'No alcanza el stock de origen. Actualizá existencias'; end if;
+    depot_after:=case when t.from_location='depot' then depot_qty - qty else depot_qty + qty end;
+    update public.retail_branch_stock set quantity=case when t.from_location='depot' then quantity + qty else quantity - qty end where store_id=p_store and branch_id=branch and product_id=pid;
+    update public.retail_depot_balances set quantity=depot_after where store_id=p_store and product_id=pid;
+    select name,stock into product_name,total from public.retail_products where id=pid and store_id=p_store;
+    movement_id:=md5(t.id::text||pid::text)::uuid; movement_action:=case when t.from_location='depot' then 'to_salon' else 'to_depot' end;
+    insert into public.retail_depot_movements(id,store_id,product_id,product_name,action,quantity,total_after,depot_after,actor_id,actor_email,branch_id,payload)
+    values(movement_id,p_store,pid,product_name,movement_action,qty,total,depot_after,auth.uid(),auth.jwt()->>'email',branch,
+     jsonb_build_object('product',pid,'quantity',qty,'action',movement_action,'cost',null,'note','Transferencia '||t.id::text));
+   else
+    insert into public.retail_branch_stock(store_id,branch_id,product_id,quantity) values(p_store,t.from_location::uuid,pid,0),(p_store,t.to_location::uuid,pid,0) on conflict do nothing;
+    perform 1 from public.retail_branch_stock where store_id=p_store and product_id=pid and branch_id in (t.from_location::uuid,t.to_location::uuid) order by branch_id for update;
+    select quantity into source_qty from public.retail_branch_stock where store_id=p_store and branch_id=t.from_location::uuid and product_id=pid;
+    select quantity into destination_qty from public.retail_branch_stock where store_id=p_store and branch_id=t.to_location::uuid and product_id=pid;
+    if source_qty<qty or destination_qty::bigint+qty>2147483647 then raise exception 'No alcanza el stock de origen o el destino supera el límite. Actualizá existencias'; end if;
+    update public.retail_branch_stock set quantity=case when branch_id=t.from_location::uuid then quantity - qty else quantity + qty end where store_id=p_store and product_id=pid and branch_id in (t.from_location::uuid,t.to_location::uuid);
+   end if;
+  end loop;
+ end if;
+ update public.retail_location_transfers set status=case when p_confirm then 'confirmed' else 'cancelled' end,reviewed_by=auth.uid(),reviewed_at=now() where id=t.id;
+ return t.id;
+end; $$;
+
+-- Old clients cannot silently create non-inventory transfers after activation.
+alter function public.retail_create_transfer(uuid,uuid,uuid,jsonb,text,uuid) rename to retail_create_transfer_before_locations;
+revoke all on function public.retail_create_transfer_before_locations(uuid,uuid,uuid,jsonb,text,uuid) from public,anon,authenticated;
+create function public.retail_create_transfer(p_store uuid,p_from_branch uuid,p_to_branch uuid,p_items jsonb,p_notes text,p_request uuid default null) returns uuid
+language plpgsql security definer set search_path='' as $$
+begin
+ perform 1 from public.retail_stores where id=p_store for share;
+ if exists(select 1 from public.retail_stores where id=p_store and branch_inventory_enabled) then raise exception 'Actualizá la app y usá las transferencias por ubicación'; end if;
+ return public.retail_create_transfer_before_locations(p_store,p_from_branch,p_to_branch,p_items,p_notes,p_request);
+end $$;
+
+revoke all on function public.retail_enable_branch_inventory(uuid,uuid),public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb),public.retail_sync_operation(jsonb),public.retail_save_product_at_branch(uuid,jsonb,boolean,integer,uuid),public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text),public.retail_depot_operation_at_branch(uuid,uuid,integer,text,uuid,uuid,numeric,text),public.retail_approve_replenishment(uuid,uuid,jsonb),public.retail_enable_loose_cigarettes(uuid,uuid,uuid,jsonb),public.retail_create_location_transfer(uuid,text,text,jsonb,text,uuid),public.retail_review_location_transfer(uuid,uuid,boolean),public.retail_create_transfer(uuid,uuid,uuid,jsonb,text,uuid) from public,anon;
+grant execute on function public.retail_enable_branch_inventory(uuid,uuid),public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb),public.retail_sync_operation(jsonb),public.retail_save_product_at_branch(uuid,jsonb,boolean,integer,uuid),public.retail_depot_operation(uuid,uuid,integer,text,uuid,numeric,text),public.retail_depot_operation_at_branch(uuid,uuid,integer,text,uuid,uuid,numeric,text),public.retail_approve_replenishment(uuid,uuid,jsonb),public.retail_enable_loose_cigarettes(uuid,uuid,uuid,jsonb),public.retail_create_location_transfer(uuid,text,text,jsonb,text,uuid),public.retail_review_location_transfer(uuid,uuid,boolean),public.retail_create_transfer(uuid,uuid,uuid,jsonb,text,uuid) to authenticated;
+revoke all on function retail_private.allocate_branch_stock(),retail_private.check_location_stock_total(),retail_private.guard_branch_inventory_setting(),retail_private.lock_inventory_setting() from public,anon,authenticated;
+notify pgrst,'reload schema';
+$retail_source_baa181aa8cc76f1b$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610280003_location_inventory.sql','baa181aa8cc76f1bc973e914a77fe568f3f30228979d682a67ac3571ce3cc14d','schema');
+ end if;
+end;
+
+-- 46/46: 202610280004_permanent_product_deletion.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610280004_permanent_product_deletion.sql') then
+  raise notice 'Aplicando 202610280004_permanent_product_deletion.sql';
+  execute replace($retail_source_c066941e7a7c08d3$
+-- Limpieza preventiva de productos inactivos huérfanos que hayan quedado fijados en la botonera
+delete from public.retail_quick_products q
+where not exists (
+  select 1 from public.retail_products p
+  where p.id = q.product_id and p.store_id = q.store_id and p.active
+);
+
+-- Actualizar retail_set_product_active para quitar automáticamente de la botonera al archivar/desactivar
+create or replace function public.retail_set_product_active(p_store uuid,p_product uuid,p_active boolean,p_request uuid,p_reason text default null,p_expected jsonb default null)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare product public.retail_products; previous public.retail_product_deletions; actor_role text;
+ reason text:=nullif(trim(p_reason),''); payload jsonb; dependencies text;
+begin
+ perform 1 from public.retail_members where store_id=p_store and user_id=auth.uid() for share;
+ actor_role:=retail_private.role_for(p_store);
+ perform retail_private.require_permission(p_store,'delete_products');
+ if p_product is null or p_request is null or p_active is null or coalesce(length(reason),0)>500 then raise exception 'Revisá el producto y el motivo (hasta 500 caracteres)'; end if;
+ payload:=jsonb_build_object('active',p_active,'reason',reason,'expected',p_expected);
+ perform pg_advisory_xact_lock(hashtextextended(p_request::text,0));
+ select * into previous from public.retail_product_deletions where id=p_request;
+ if found then
+  if previous.store_id<>p_store or previous.product_id<>p_product or previous.actor_id is distinct from auth.uid() or previous.request_payload is distinct from payload then raise exception 'La solicitud corresponde a otra acción'; end if;
+  return previous.id;
+ end if;
+ -- Same lock order as checkout and composition configuration.
+ perform pg_advisory_xact_lock(hashtextextended('retail-composition:'||p_store::text,0));
+ select * into product from public.retail_products where store_id=p_store and id=p_product for update;
+ if not found then raise exception 'El producto ya no está disponible'; end if;
+ if product.active=p_active then
+  if p_active then raise exception 'El producto ya está activo. Actualizá el historial';
+  else raise exception 'El producto ya está eliminado del catálogo. Actualizá los datos'; end if;
+ end if;
+ if p_expected is not null and jsonb_build_object('name',product.name,'code',product.code,'stock',product.stock,'components',product.stock_components) is distinct from p_expected then
+  raise exception 'El producto o su stock cambió. Actualizá el catálogo y revisá la eliminación';
+ end if;
+ if not p_active then
+  select string_agg(name,', ') into dependencies from (
+   select distinct p.name from public.retail_products p cross join lateral jsonb_array_elements(p.stock_components) c
+   where p.store_id=p_store and p.active and c->>'product_id'=p_product::text order by p.name limit 5
+  ) names;
+  if dependencies is not null then raise exception 'Se usa en: %. Quitalo de esos componentes o eliminá primero esos combos/atados',dependencies; end if;
+ else
+  if exists(select 1 from jsonb_array_elements(product.stock_components) c
+   left join public.retail_products component on component.store_id=p_store and component.id=(c->>'product_id')::uuid
+   where component.id is null or not component.active or jsonb_array_length(component.stock_components)>0) then
+   raise exception 'Para restaurar este producto, restaurá primero sus componentes y revisá que tengan stock propio';
+  end if;
+ end if;
+ perform set_config('retail.product_deletion_context',jsonb_build_object('store_id',p_store,'product_id',p_product,'request_id',p_request,'reason',reason,'payload',payload)::text,true);
+ update public.retail_products set active=p_active where store_id=p_store and id=p_product;
+ if not p_active then
+  delete from public.retail_quick_products where store_id=p_store and product_id=p_product;
+ end if;
+ perform set_config('retail.product_deletion_context','',true);
+ return p_request;
+end $$;
+
+revoke all on function public.retail_set_product_active(uuid,uuid,boolean,uuid,text,jsonb) from public,anon;
+grant execute on function public.retail_set_product_active(uuid,uuid,boolean,uuid,text,jsonb) to authenticated;
+
+-- Función para eliminación física definitiva del producto y sus referencias
+create or replace function public.retail_delete_product_permanently(p_store uuid, p_product uuid)
+returns void language plpgsql security definer set search_path='' as $$
+declare
+ product public.retail_products;
+ dependencies text;
+begin
+ perform 1 from public.retail_members where store_id=p_store and user_id=auth.uid() for share;
+ perform retail_private.require_permission(p_store, 'delete_products');
+
+ perform pg_advisory_xact_lock(hashtextextended('retail-composition:'||p_store::text, 0));
+ select * into product from public.retail_products where store_id=p_store and id=p_product for update;
+ if not found then
+  raise exception 'El producto ya no existe';
+ end if;
+
+ -- Validar si es componente de otros productos activos o inactivos
+ select string_agg(name, ', ') into dependencies from (
+  select distinct p.name from public.retail_products p cross join lateral jsonb_array_elements(p.stock_components) c
+  where p.store_id=p_store and c->>'product_id'=p_product::text order by p.name limit 5
+ ) names;
+ if dependencies is not null then
+  raise exception 'No se puede eliminar definitivamente: se usa como componente en: %. Quitalo de esas recetas primero.', dependencies;
+ end if;
+
+ -- Validar remitos pendientes de revisión
+ if exists (
+  select 1 from public.retail_pending_replenishments r cross join lateral jsonb_array_elements(r.items) i
+  where r.store_id=p_store and r.status='pending' and i->>'product_id'=p_product::text
+ ) then
+  raise exception 'El producto está incluido en remitos pendientes de revisión';
+ end if;
+
+ -- Limpieza de registros dependientes
+ delete from public.retail_quick_products where store_id=p_store and product_id=p_product;
+ delete from public.retail_price_overrides where store_id=p_store and product_id=p_product;
+ if to_regclass('public.retail_depot_balances') is not null then
+  execute 'delete from public.retail_depot_balances where store_id=$1 and product_id=$2' using p_store, p_product;
+ end if;
+ if to_regclass('public.retail_depot_movements') is not null then
+  execute 'delete from public.retail_depot_movements where store_id=$1 and product_id=$2' using p_store, p_product;
+ end if;
+ if to_regclass('public.retail_branch_stock') is not null then
+  execute 'delete from public.retail_branch_stock where store_id=$1 and product_id=$2' using p_store, p_product;
+ end if;
+ if to_regclass('public.retail_supplier_product_mappings') is not null then
+  execute 'delete from public.retail_supplier_product_mappings where store_id=$1 and product_id=$2' using p_store, p_product;
+ end if;
+ if to_regclass('public.retail_cigarette_conversions') is not null then
+  execute 'delete from public.retail_cigarette_conversions where store_id=$1 and (packet_id=$2 or unit_product_id=$2)' using p_store, p_product;
+ end if;
+ delete from public.retail_stock_movements where store_id=p_store and product_id=p_product;
+ delete from public.retail_product_deletions where store_id=p_store and product_id=p_product;
+
+ -- Eliminar físicamente el producto
+ delete from public.retail_products where store_id=p_store and id=p_product;
+end $$;
+
+revoke all on function public.retail_delete_product_permanently(uuid, uuid) from public, anon;
+grant execute on function public.retail_delete_product_permanently(uuid, uuid) to authenticated;
+
+$retail_source_c066941e7a7c08d3$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610280004_permanent_product_deletion.sql','c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368','schema');
  end if;
 end;
 

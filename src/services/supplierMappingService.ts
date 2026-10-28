@@ -113,7 +113,11 @@ export function migrateLocalMappings(storeId: string): Promise<void> {
     for (const group of groups) {
       for (const mapping of group.mappings) {
         const supplier = normalizeSupplierText(group.supplier);
-        await upload(storeId, supplier, mapping);
+        try { await upload(storeId, supplier, mapping); }
+        catch (error) {
+          // A link to a product that no longer exists can never be shared; keeping it would block the rest.
+          if ((error as { code?: string } | null)?.code !== '23503') throw error;
+        }
         acknowledge(storeId, supplier, mapping);
       }
     }

@@ -3,7 +3,11 @@ import { priceFromMarkup } from './productSalePrice';
 
 export const hasComposition = (product: Pick<KioscoProduct, 'stock_components'>) => !!product.stock_components?.length;
 /** A depot reserves physical units; virtual products already contain sale availability. */
-export const stockForSale = (product: KioscoProduct) => Math.max(0, product.stock - (hasComposition(product) ? 0 : (product.depotStock || 0)));
+export const stockForSale = (product: KioscoProduct) => Math.max(0, !hasComposition(product) && product.branchStocks && product.stockBranchId
+  ? product.branchStocks[product.stockBranchId] || 0 : product.stock - (hasComposition(product) ? 0 : (product.depotStock || 0)));
+export const productsAtBranch = <T extends KioscoProduct>(products: T[], branch?: string) => withAvailableStock(products.map(product => ({ ...product,
+  ...(branch ? { branchStocks: product.branchStocks || {} } : {}), stockBranchId: branch || undefined,
+})));
 /** Zero cost means unknown, as in margin analytics. Never show a partial recipe as a complete cost. */
 export function compositionCost(components: StockComponent[], products: KioscoProduct[] | ReadonlyMap<string, KioscoProduct>) {
   const byId = Array.isArray(products) ? new Map(products.map(product => [product.id, product])) : products;
@@ -95,7 +99,8 @@ export function availableForCart(product: KioscoProduct, cart: KioscoCartItem[],
   })));
 }
 
-export function consumeSaleStock<T extends KioscoProduct>(products: T[], items: KioscoSale['items']): T[] {
+export function consumeSaleStock<T extends KioscoProduct>(products: T[], items: KioscoSale['items'], branch?: string): T[] {
+  if (branch) products = productsAtBranch(products, branch);
   const cart = items.filter(item => item.productId).map(item => {
     const product = products.find(product => product.id === item.productId);
     if (!product) throw new Error(`${item.name} ya no está disponible. Actualizá el catálogo.`);
@@ -106,5 +111,8 @@ export function consumeSaleStock<T extends KioscoProduct>(products: T[], items: 
   const used = new Map<string, number>();
   for (const { product, qty } of cart) for (const part of stockRequirements(product))
     used.set(part.product_id, (used.get(part.product_id) || 0) + part.quantity * qty);
-  return withAvailableStock(products.map(product => hasComposition(product) ? product : { ...product, stock: product.stock - (used.get(product.id) || 0) }));
+  return withAvailableStock(products.map(product => hasComposition(product) ? { ...product, stockBranchId: undefined } : {
+    ...product, stockBranchId: undefined, stock: product.stock - (used.get(product.id) || 0),
+    ...(product.branchStocks && branch ? { branchStocks: { ...product.branchStocks, [branch]: (product.branchStocks[branch] || 0) - (used.get(product.id) || 0) } } : {}),
+  }));
 }

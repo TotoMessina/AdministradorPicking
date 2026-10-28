@@ -14,6 +14,11 @@ const requiredPriceTreeFunctions = [
   'retail_private.product_list_price(public.retail_products,uuid,integer)',
 ];
 function prerequisites(name) {
+  if (name === '202610270005_supplier_invoice_formats.sql') return `  if to_regclass('public.retail_supplier_invoice_formats') is not null then
+   raise exception 'La tabla de formatos ya existe, pero 202610270005_supplier_invoice_formats.sql no figura en el historial'
+    using errcode='55000', hint='No borrar la tabla ni marcar el paso a mano. Ver SUPABASE_SETUP.md: ejecutar primero los paquetes anteriores hasta 202610270004 y luego maintenance/adopt_supplier_invoice_formats.sql completo. Solo concilia si estructura, funciones y permisos coinciden; conserva los formatos.';
+  end if;
+`;
   if (name === '202610240001_shift_closing_details.sql') return `  if exists(select 1 from pg_catalog.pg_attribute
    where attrelid=to_regclass('public.retail_shifts') and attname in ('closing_denominations','ticket_count') and attnum>0 and not attisdropped) then
    raise exception 'Hay columnas del cierre instaladas, pero la migración 202610240001_shift_closing_details.sql no figura en el historial'
@@ -238,4 +243,41 @@ $retail_manual_manifest$::jsonb;
 -- END PINNED MANIFEST`;
   await writeFile(recoveryTarget, source.replace(marker, () => manifest), 'utf8');
   console.log(`${fileURLToPath(recoveryTarget)}: manifiesto fijo de 34 migraciones; solo empaquetado, sin aplicar SQL.`);
+}
+
+// Explicit recovery for one manually installed migration, never the baseline.
+// Source-derived metadata is packaged locally; no SQL is run here.
+if (process.argv.includes('--supplier-format-recovery')) {
+  const migration = migrations.find(item => item.name === '202610270005_supplier_invoice_formats.sql');
+  if (!migration || migration.order !== 42) throw new Error('Cambió la frontera de formatos. Revisar la recuperación antes de generar.');
+  const functionSpecs = [
+    { name: 'retail_save_supplier_invoice_format', signature: 'public.retail_save_supplier_invoice_format(uuid,text,jsonb,integer,boolean)', arg_names: ['p_store', 'p_supplier', 'p_format', 'p_samples', 'p_local_read'], defaults: 1, returns_table: true },
+    { name: 'retail_delete_supplier_invoice_format', signature: 'public.retail_delete_supplier_invoice_format(uuid,text)', arg_names: ['p_store', 'p_supplier'], defaults: 0, returns_table: false },
+  ];
+  const expectedFunctions = functionSpecs.map(({ name, ...spec }) => {
+    const match = migration.body.match(new RegExp(`create function public\\.${name}\\([\\s\\S]*?as \\$\\$([\\s\\S]*?)\\$\\$;`, 'i'));
+    if (!match) throw new Error(`No se pudo obtener el cuerpo de ${name}. No se generó su recuperación.`);
+    return { ...spec, body_hash: createHash('md5').update(match[1]).digest('hex') };
+  });
+  const table = migration.body.match(/create table public\.retail_supplier_invoice_formats \([\s\S]*?\n\);/i)?.[0];
+  if (!table || !table.includes('references public.retail_stores(id)')) throw new Error('Cambió la tabla de formatos. Revisar la comparación de estructura.');
+  const reference = table.replace('create table public.retail_supplier_invoice_formats', 'create temporary table retail_expected_invoice_format')
+    .replace('references public.retail_stores(id)', '').replace(/\);$/, ') on commit drop;');
+  const recoveryTarget = new URL('../supabase/maintenance/adopt_supplier_invoice_formats.sql', import.meta.url);
+  const source = await readFile(recoveryTarget, 'utf8');
+  const marker = /-- BEGIN FORMAT RECOVERY METADATA:[^\r\n]*\r?\n[\s\S]*?-- END FORMAT RECOVERY METADATA/;
+  if (!marker.test(source)) throw new Error('Faltan los delimitadores de la recuperación de formatos.');
+  const metadata = `-- BEGIN FORMAT RECOVERY METADATA: generated with --supplier-format-recovery.
+ manifest jsonb := $format_manifest$
+${JSON.stringify(migrations.map(item => ({ ordinal: item.order, filename: item.name, sha256: item.checksum })), null, 1)}
+$format_manifest$::jsonb;
+ expected_functions jsonb := $format_functions$
+${JSON.stringify(expectedFunctions, null, 1)}
+$format_functions$::jsonb;
+ expected_table_sql text := $format_reference$
+${reference}
+$format_reference$;
+-- END FORMAT RECOVERY METADATA`;
+  await writeFile(recoveryTarget, source.replace(marker, () => metadata), 'utf8');
+  console.log(`${fileURLToPath(recoveryTarget)}: recuperación exclusiva de 202610270005; sin aplicar SQL ni ampliar baseline.`);
 }

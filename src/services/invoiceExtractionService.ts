@@ -1,4 +1,4 @@
-import { groqChat, GroqError } from './groqService';
+import { estimateTokens, getRetryDelay, groqChat, GroqError, isRateLimitError, isRequestTooLarge, REQUEST_TOKEN_BUDGET } from './groqService';
 
 export interface ExtractedInvoiceItem {
   invoice_line: string;
@@ -10,6 +10,8 @@ export interface ExtractedInvoiceItem {
   unitsPerPack?: number;
   quantityUnit?: 'unit' | 'pack';
   category?: string;
+  /** The AI could not read this line: quantity and cost must be completed by hand. */
+  unread?: boolean;
 }
 export interface ExtractedInvoice {
   proveedor: string;
@@ -46,8 +48,11 @@ export function prepareInvoiceExtractionText(raw: string) {
 
 class InvoiceOutputError extends Error {}
 
+/** Automatic waits for the per-minute limit in one analysis; after them the user decides. */
+const MAX_RATE_WAITS = 6;
+
 /** Accept canonical JSON numbers and amounts printed in Argentine invoices. Unknown is never zero. */
-function invoiceNumber(value: unknown): number | undefined {
+export function invoiceNumber(value: unknown): number | undefined {
   if (typeof value === 'number') return Number.isFinite(value) && value >= 0 ? value : undefined;
   if (typeof value !== 'string' || !value.trim()) return undefined;
   let number = value.trim().replace(/^(?:ARS|\$)\s*/i, '').replace(/\s/g, '');
@@ -59,98 +64,114 @@ function invoiceNumber(value: unknown): number | undefined {
 }
 
 function parseExtraction(raw: string): ExtractedInvoice {
-  const cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-  const start = cleaned.search(/[\[{]/);
-  const end = Math.max(cleaned.lastIndexOf('}'), cleaned.lastIndexOf(']'));
+  let cleaned = raw.trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '').trim();
+  const startObj = cleaned.indexOf('{');
+  const startArr = cleaned.indexOf('[');
+  let start = -1;
+  if (startObj >= 0 && startArr >= 0) start = Math.min(startObj, startArr);
+  else if (startObj >= 0) start = startObj;
+  else if (startArr >= 0) start = startArr;
+
   let data: unknown;
-  try { data = JSON.parse(start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned); }
-  catch {
-    throw new InvoiceOutputError('La IA devolvió una respuesta incompleta o con formato inválido.');
+  if (start >= 0) {
+    cleaned = cleaned.slice(start);
+    try {
+      data = JSON.parse(cleaned);
+    } catch {
+      // Intentar auto-reparación si el JSON quedó cortado al final o tiene caracteres de cierre faltantes
+      const lastBrace = cleaned.lastIndexOf('}');
+      if (lastBrace > 0) {
+        const candidate = cleaned.slice(0, lastBrace + 1);
+        const repairs = [
+          candidate + ']}',
+          candidate + '}',
+          candidate + ']',
+          candidate,
+        ];
+        for (const rep of repairs) {
+          try {
+            data = JSON.parse(rep);
+            break;
+          } catch {}
+        }
+      }
+    }
   }
-  const rows = Array.isArray(data) ? data : record(data) ? data.items ?? data.productos : undefined;
+  if (!data) {
+    try { data = JSON.parse(raw); }
+    catch {
+      throw new InvoiceOutputError('La IA devolvió una respuesta incompleta o con formato inválido.');
+    }
+  }
+  const rows = Array.isArray(data) ? data : record(data) ? data.items ?? data.productos ?? data.articulos : undefined;
   if (!Array.isArray(rows)) throw new InvoiceOutputError('La IA no devolvió una lista de productos.');
   const items = rows.map((row, index): ExtractedInvoiceItem => {
     if (!record(row)) throw new InvoiceOutputError(`La IA devolvió un renglón inválido (${index + 1}).`);
-    const original = text(row.invoice_line) || text(row.rawName) || text(row.name);
+    const original = text(row.invoice_line) || text(row.rawName) || text(row.descripcion) || text(row.name);
     if (!original) throw new InvoiceOutputError(`El renglón ${index + 1} no tiene descripción.`);
     return {
-      invoice_line: original, name: text(row.name) || original,
-      code: text(row.code) || text(row.rawCode) || (typeof row.code === 'number' && Number.isSafeInteger(row.code) ? String(row.code) : undefined),
+      invoice_line: original, name: text(row.name) || text(row.descripcion) || original,
+      code: text(row.code) || text(row.codigo) || text(row.rawCode) || (typeof row.code === 'number' && Number.isSafeInteger(row.code) ? String(row.code) : undefined),
       // Missing/unreadable quantities remain invalid for manual review, never default to one.
-      qty: invoiceNumber(row.qty) ?? 0,
-      cost: invoiceNumber(row.cost), unitCost: invoiceNumber(row.unitCost),
-      unitsPerPack: invoiceNumber(row.unitsPerPack),
+      qty: invoiceNumber(row.qty ?? row.cantidad) ?? 0,
+      cost: invoiceNumber(row.cost ?? row.precio ?? row.precio_unitario),
+      unitCost: invoiceNumber(row.unitCost ?? row.costo_unitario),
+      unitsPerPack: invoiceNumber(row.unitsPerPack ?? row.unidades_por_bulto),
       quantityUnit: row.quantityUnit === 'unit' || row.quantityUnit === 'pack' ? row.quantityUnit : undefined,
-      category: text(row.category) || undefined,
+      category: text(row.category ?? row.categoria) || undefined,
     };
   });
-  return { proveedor: record(data) ? text(data.proveedor) : '', items };
+  return { proveedor: record(data) ? text(data.proveedor ?? data.supplier) : '', items };
 }
 
 /** Bound both input and output. Completed parts survive a retry in the same editor. */
 export async function extractInvoiceProducts(
   invoiceText: string,
   buildPrompt: (part: string) => string,
-  options: { cache: Map<string, ExtractedInvoice>; onProgress: (message: string) => void; signal: AbortSignal },
+  options: { cache: Map<string, ExtractedInvoice>; onProgress: (message: string) => void; signal: AbortSignal; supplierKnown?: boolean },
 ): Promise<ExtractedInvoice> {
   const prepared = prepareInvoiceExtractionText(invoiceText);
-  const parts: string[][] = [];
-  let lines: string[] = [], length = 0;
-  for (const line of prepared.text.split('\n').filter(Boolean)) {
-    if (line.length > 6000) throw new Error('El texto tiene una línea demasiado larga. Separá los productos en renglones desde Ver / editar texto detectado y reintentá.');
-    if (lines.length && (lines.length >= 35 || length + line.length > 3500)) {
-      parts.push(lines); lines = []; length = 0;
-    }
-    lines.push(line); length += line.length + 1;
+  const allLines = prepared.text.split('\n').filter(Boolean);
+  if (!allLines.length) {
+    return { proveedor: '', items: [] };
   }
-  if (lines.length) parts.push(lines);
-  const header = prepared.text.split('\n').slice(0, 8).join('\n').slice(0, 800);
-  const readPart = async (part: string[], label: string, depth = 0): Promise<ExtractedInvoice> => {
-    options.signal.throwIfAborted();
-    options.onProgress(`Extrayendo productos: parte ${label}…`);
-    const prompt = `Cabecera SOLO para identificar proveedor (quien emite/vende la factura, no el cliente receptor), no extraer sus productos:\n${header}\n\n${buildPrompt(part.join('\n'))}`;
-    let parsed = options.cache.get(prompt);
-    if (!parsed) {
-      const controller = new AbortController();
-      const abort = () => controller.abort();
-      options.signal.addEventListener('abort', abort, { once: true });
-      const timeout = setTimeout(abort, 45000);
-      try {
-        const response = await groqChat([{ role: 'user', content: prompt }], {
-          maxTokens: 3000, temperature: 0, responseFormat: 'json_object', signal: controller.signal,
-        });
-        options.signal.throwIfAborted();
-        parsed = parseExtraction(response);
-      } catch (error) {
-        options.signal.throwIfAborted();
-        if (controller.signal.aborted && !options.signal.aborted)
-          throw new Error('No se recibió respuesta de Groq en 45 segundos. Revisá la conexión y reintentá; las partes completadas y el texto se conservan.');
-        if (error instanceof GroqError && error.code === 'NETWORK_ERROR')
-          throw new Error('No se pudo conectar con Groq. El texto y las partes completadas se conservan. Si tampoco cargan productos o ventas, revisá la conexión del navegador antes de reintentar.');
-        const formatFailure = error instanceof InvoiceOutputError || error instanceof GroqError
-          && ['OUTPUT_TRUNCATED', 'json_validate_failed', 'JSON_GENERATION_FAILED'].includes(error.code);
-        if (formatFailure && depth < 2 && part.length > 1) {
-          // Never accept the complete-looking prefix of a truncated response: re-read the whole failed part.
-          clearTimeout(timeout);
-          options.onProgress(`Releyendo la parte ${label} en bloques más chicos…`);
-          const middle = Math.ceil(part.length / 2);
-          const first = await readPart(part.slice(0, middle), `${label} · 1/2`, depth + 1);
-          const second = await readPart(part.slice(middle), `${label} · 2/2`, depth + 1);
-          parsed = { proveedor: first.proveedor || second.proveedor, items: [...first.items, ...second.items] };
-        } else if (formatFailure) {
-          throw new Error(`No se pudo interpretar la parte ${label}, que empieza con «${part[0].slice(0, 80)}». Revisá esos renglones en Ver / editar texto detectado. Lo completado se conserva y no se modificó el stock.`);
-        } else throw error;
-      } finally { clearTimeout(timeout); options.signal.removeEventListener('abort', abort); }
-      // An empty extraction can be a header, but allow a subsequent attempt to review it again.
-      if (parsed.items.length) options.cache.set(prompt, parsed);
-    }
-    return parsed;
-  };
+
+  // Las facturas habituales (hasta 60 líneas) se envían en una única consulta limpia y directa
+  const CHUNK_SIZE = 50;
+  const parts: string[][] = [];
+  for (let i = 0; i < allLines.length; i += CHUNK_SIZE) {
+    parts.push(allLines.slice(i, i + CHUNK_SIZE));
+  }
+
   const result: ExtractedInvoice = { proveedor: '', items: [] };
+
   for (let index = 0; index < parts.length; index++) {
-    const parsed = await readPart(parts[index], `${index + 1} de ${parts.length}`);
-    if (!result.proveedor) result.proveedor = parsed.proveedor;
+    options.signal.throwIfAborted();
+    const part = parts[index];
+    const label = parts.length > 1 ? ` (bloque ${index + 1} de ${parts.length})` : '';
+    options.onProgress(`Analizando productos con IA${label}…`);
+
+    const prompt = buildPrompt(part.join('\n'));
+    let parsed = options.cache.get(prompt);
+
+    if (!parsed) {
+      const response = await groqChat([{ role: 'user', content: prompt }], {
+        maxTokens: Math.min(3000, Math.max(1500, 500 + part.length * 100)),
+        temperature: 0.1,
+        signal: options.signal,
+      });
+      options.signal.throwIfAborted();
+      parsed = parseExtraction(response);
+      if (parsed.items.length) {
+        options.cache.set(prompt, parsed);
+      }
+    }
+
+    if (!result.proveedor && parsed.proveedor) {
+      result.proveedor = parsed.proveedor;
+    }
     result.items.push(...parsed.items);
   }
+
   return result;
 }

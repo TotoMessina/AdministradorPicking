@@ -67,7 +67,7 @@ function apiError(payload: unknown, status: number, headers?: Headers): GroqErro
   );
 }
 
-export const FALLBACK_FAST_MODEL = 'llama-3.1-8b-instant';
+export const FALLBACK_FAST_MODEL = DEFAULT_MODEL === 'qwen/qwen3.8-27b' ? 'llama-3.1-8b-instant' : 'qwen/qwen3.8-27b';
 
 export function isRateLimitError(err: unknown): boolean {
   if (err instanceof GroqError) {
@@ -88,6 +88,22 @@ export function isRateLimitError(err: unknown): boolean {
     );
   }
   return false;
+}
+
+/**
+ * Groq checks input plus requested output against the per-minute token limit (8.000 on qwen/qwen3.8-27b).
+ * A request above it is rejected every time, so waiting never fixes it.
+ */
+export const REQUEST_TOKEN_BUDGET = 7200;
+
+/** Conservative estimate (Spanish text, JSON and amounts), including the base system prompt. */
+export function estimateTokens(text: string): number {
+  return Math.ceil((text.length + BASE_SYSTEM_PROMPT.length) / 3);
+}
+
+export function isRequestTooLarge(err: unknown): boolean {
+  return err instanceof GroqError && (err.status === 413 || err.code === 'request_too_large'
+    || /request too large|reduce your message size/i.test(err.message));
 }
 
 export function getRetryDelay(err: unknown, defaultSecs = 3): number {
@@ -163,6 +179,7 @@ export async function groqChat(
   messages: readonly GroqMessage[],
   options: GroqOptions = {},
 ): Promise<string> {
+  const currentModel = options.model ?? DEFAULT_MODEL;
   try {
     const response = await request(messages, options, false);
     const payload = parseJSON(await response.text(), response.status);
@@ -176,6 +193,22 @@ export async function groqChat(
       throw new GroqError('La respuesta JSON alcanzó su límite de salida y quedó incompleta.', response.status, 'OUTPUT_TRUNCATED');
     return first.message.content;
   } catch (error) {
+    const isModelNotFound = error instanceof GroqError && (error.code === 'model_not_found' || error.status === 404);
+    const isDailyExhausted = error instanceof GroqError && error.status === 429 && /per day|\(TPD\)|\(RPD\)/i.test(error.message);
+    if ((isModelNotFound || isDailyExhausted) && FALLBACK_FAST_MODEL && currentModel !== FALLBACK_FAST_MODEL && !options.signal?.aborted) {
+      try {
+        const fallbackResponse = await request(messages, { ...options, model: FALLBACK_FAST_MODEL }, false);
+        const payload = parseJSON(await fallbackResponse.text(), fallbackResponse.status);
+        checkAbort(options.signal);
+        if (isRecord(payload) && payload.error) throw apiError(payload, fallbackResponse.status);
+        const first = isRecord(payload) && Array.isArray(payload.choices) ? payload.choices[0] : undefined;
+        if (isRecord(first) && isRecord(first.message) && typeof first.message.content === 'string') {
+          return first.message.content;
+        }
+      } catch {
+        // Ignorar fallo del fallback y arrojar el error original normalizado
+      }
+    }
     throw normalizeError(error, options.signal);
   }
 }
@@ -187,8 +220,25 @@ export async function groqStream(
   options: GroqOptions = {},
 ): Promise<void> {
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+  const currentModel = options.model ?? DEFAULT_MODEL;
+  let response: Response;
   try {
-    const response = await request(messages, options, true);
+    response = await request(messages, options, true);
+  } catch (error) {
+    const isModelNotFound = error instanceof GroqError && (error.code === 'model_not_found' || error.status === 404);
+    const isDailyExhausted = error instanceof GroqError && error.status === 429 && /per day|\(TPD\)|\(RPD\)/i.test(error.message);
+    if ((isModelNotFound || isDailyExhausted) && FALLBACK_FAST_MODEL && currentModel !== FALLBACK_FAST_MODEL && !options.signal?.aborted) {
+      try {
+        response = await request(messages, { ...options, model: FALLBACK_FAST_MODEL }, true);
+      } catch {
+        throw normalizeError(error, options.signal);
+      }
+    } else {
+      throw normalizeError(error, options.signal);
+    }
+  }
+
+  try {
     if (!response.body) throw new GroqError('Groq no devolvió un stream.', response.status, 'MISSING_STREAM');
     if (!response.headers.get('content-type')?.toLowerCase().includes('text/event-stream')) {
       await response.body.cancel();
