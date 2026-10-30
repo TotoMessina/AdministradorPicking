@@ -9,9 +9,10 @@ export interface LocationTransfer {
 }
 export interface FundTransfer {
   id: string; from_location: string | null; to_location: string | null; amount: number;
-  note: string; created_at: string; actor_email: string | null;
+  note: string; created_at: string; actor_email: string | null; shift_id?: string | null;
 }
 export interface LocationFund { location: string; balance: number }
+export interface OpenShiftCash { location: string; cash: number; shifts: number }
 async function ready(requireClean: boolean) {
   if (navigator.onLine === false) throw new Error('Necesitás conexión para operar entre ubicaciones. Los borradores se conservan.');
   const state = await offlineStatus();
@@ -46,6 +47,12 @@ export const locationTransfers = {
     const { data, error } = await supabase.rpc('retail_location_stock_summary', { p_store: store });
     if (error) throw error;
     return (data || []) as { location: string; quantity: number }[];
+  },
+  /** Vacío para quien no administra; si falta la migración, los saldos siguen disponibles. */
+  async openShiftCash(store: string) {
+    const { data, error } = await supabase.rpc('retail_open_shift_cash', { p_store: store });
+    if (error) return [] as OpenShiftCash[];
+    return ((data || []) as OpenShiftCash[]).map(row => ({ ...row, cash: Number(row.cash), shifts: Number(row.shifts) }));
   },
   async funds(store: string) {
     if (navigator.onLine === false) throw new Error('Conectate para consultar los fondos.');

@@ -100,6 +100,7 @@ export function CashDesk({
   const [includeDenominations, setIncludeDenominations] = useState(false);
   const [denominationDraft, setDenominationDraft] = useState<CashDenominationDraft>({});
   const [closingError, setClosingError] = useState('');
+  const [closeAsked, setCloseAsked] = useState(false);
   const [ticketCount, setTicketCount] = useState<number | null>(shift?.ticket_count ?? null);
   const availableTickets = new Set(sales.map(sale => sale.id)).size;
   const closingTickets = Math.max(ticketCount ?? 0, availableTickets);
@@ -395,24 +396,20 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       countedRef.current?.focus();
                       return;
                     }
+                    if (!closeAsked) { setCloseAsked(true); return; }
+                    setCloseAsked(false);
                     if (
-                      window.confirm(
-                        `¿Cerrar el turno de ${register?.name} con ${money(Number(counted))} contados?`,
+                      await run(
+                        () => retail.closeShift(shift.id, Number(counted), denominations),
+                        `Turno cerrado. Conteo guardado: ${money(Number(counted))}.`,
                       )
                     ) {
-                      if (
-                        await run(
-                          () => retail.closeShift(shift.id, Number(counted), denominations),
-                          `Turno cerrado. Conteo guardado: ${money(Number(counted))}.`,
-                        )
-                      ) {
-                        setCounted("");
-                        setIncludeDenominations(false);
-                        setDenominationDraft({});
-                        setClosingError('');
-                        setAiAnalysis(null);
-                        setAiError(null);
-                      }
+                      setCounted("");
+                      setIncludeDenominations(false);
+                      setDenominationDraft({});
+                      setClosingError('');
+                      setAiAnalysis(null);
+                      setAiError(null);
                     }
                   }}
                 >
@@ -428,13 +425,13 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       placeholder="0"
                       disabled={!active || currentTask !== 'close' || busy}
                       value={counted}
-                      onValueChange={(e) => { setCounted(e); setClosingError(''); }}
+                      onValueChange={(e) => { setCounted(e); setClosingError(''); setCloseAsked(false); }}
                     />
                   </label>
                   <CashDenominationFields enabled={includeDenominations} draft={denominationDraft} disabled={!active || currentTask !== 'close' || busy}
-                    onEnabledChange={value => { setIncludeDenominations(value); setClosingError(''); }}
-                    onChange={(denomination, value) => { setDenominationDraft(previous => ({ ...previous, [denomination]: value })); setClosingError(''); }}
-                    onUseTotal={total => { setCounted(String(total)); setClosingError(''); countedRef.current?.focus(); }} />
+                    onEnabledChange={value => { setIncludeDenominations(value); setClosingError(''); setCloseAsked(false); }}
+                    onChange={(denomination, value) => { setDenominationDraft(previous => ({ ...previous, [denomination]: value })); setClosingError(''); setCloseAsked(false); }}
+                    onUseTotal={total => { setCounted(String(total)); setClosingError(''); setCloseAsked(false); countedRef.current?.focus(); }} />
                   {closingError && <p className="movement-error" role="alert">{closingError}</p>}
                   {counted !== "" && (
                     cashierMode ? (
@@ -462,8 +459,14 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       {onSell && <button type="button" className="text-button" onClick={onSell}>Ir a Vender</button>}
                     </div>
                   )}
+                  {closeAsked && (
+                    <div className="info-banner" role="status">
+                      <span>¿Cerrar el turno de {register?.name} con {money(Number(counted))} contados?</span>
+                      <button type="button" className="text-button" onClick={() => setCloseAsked(false)}>Volver</button>
+                    </div>
+                  )}
                   <button disabled={!active || currentTask !== 'close' || busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
-                    Cerrar turno
+                    {closeAsked ? 'Confirmar cierre' : 'Cerrar turno'}
                   </button>
                 </form>
                 <div className="cash-optional-analysis" hidden={cashierMode}>

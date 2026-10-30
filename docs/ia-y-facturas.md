@@ -11,6 +11,8 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 
 ## Lectura de facturas
 
+**Proveedores → Facturas → Subir foto de factura** abre el mismo importador con la sucursal elegida en Productos y al cerrarlo vuelve a Facturas. En la revisión, **Confirmar los N seguros** confirma de una vez los vínculos con confianza de 85% o más, costo leído y sin conflicto de código ni de presentación; los dudosos siguen uno por uno.
+
 **Productos → Más herramientas → Importar factura de compra** mantiene la lectura local con Tesseract y el análisis voluntario con Groq. Subir una imagen no modifica productos ni stock. El modelo general y la configuración por entorno se conservan; no se agrega otro proveedor de IA ni dependencias.
 
 La lectura conserva proporciones de fotos y tickets largos, limita el tamaño total del lienzo y evita una compresión JPEG adicional. Si el primer OCR tiene poco texto o baja confianza, compara otra distribución de columnas. La limpieza conserva cantidades/códigos aislados y productos con «Original» en el nombre. Los PDF escaneados se leen página por página a resolución propia, en lugar de usar solo la miniatura de la primera. Si no puede leer una página, informa cuál y no presenta un documento parcial como completo.

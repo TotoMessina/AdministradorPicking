@@ -12,12 +12,14 @@ type SupplierView = 'accounts' | 'payments' | 'documents' | 'profiles';
  * Proveedores en cuatro vistas, una por tarea. Las vistas quedan montadas para conservar
  * los borradores al cambiar; `version` actualiza los saldos después de cada cambio.
  */
-export function SupplierAccountSection({ storeId, busy, run, active, canManage, canAccount }: {
+export function SupplierAccountSection({ storeId, busy, run, active, canManage, canAccount, onUploadInvoice }: {
   storeId: string; busy: boolean; run: Run; active: boolean;
   /** Fichas, comprobantes y costos (`manage_products`). */
   canManage: boolean;
   /** Ver saldos y registrar pagos (`manage_supplier_accounts`). */
   canAccount: boolean;
+  /** Abre el importador de facturas; requiere `manage_products` y al menos una categoría. */
+  onUploadInvoice?: () => void;
 }) {
   const views: { id: SupplierView; label: string }[] = [
     ...(canAccount ? [{ id: 'accounts' as const, label: 'Cuentas' }, { id: 'payments' as const, label: 'Pagos' }] : []),
@@ -50,7 +52,7 @@ export function SupplierAccountSection({ storeId, busy, run, active, canManage, 
       <SupplierPayments storeId={storeId} busy={busy} run={run} active={showing('payments')} version={version} onChanged={changed} intent={intent} onIntentDone={clearIntent} />
     </div>}
     <div hidden={view !== 'documents'}>
-      <PurchaseInvoiceList storeId={storeId} busy={busy} run={run} active={showing('documents')} version={version} onChanged={changed} canManage={canManage} canAccount={canAccount} onPay={pay} focus={documentFocus} />
+      <PurchaseInvoiceList storeId={storeId} busy={busy} run={run} active={showing('documents')} version={version} onChanged={changed} canManage={canManage} canAccount={canAccount} onPay={pay} focus={documentFocus} onUploadPhoto={onUploadInvoice} />
     </div>
     {canManage && <div hidden={view !== 'profiles'} className="suppliers-settings-container">
       <SupplierSettings storeId={storeId} busy={busy} run={run} active={showing('profiles')} />

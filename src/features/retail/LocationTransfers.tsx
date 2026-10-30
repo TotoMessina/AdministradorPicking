@@ -1,18 +1,25 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ArrowRight, Banknote, Check, Loader2, Package, Plus, RefreshCw, Trash2, X } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, Banknote, Check, Loader2, Package, Plus, RefreshCw, X } from 'lucide-react';
 import { NumberInput } from '../../components/NumberInput';
 import { randomUUID } from '../../utils/uuid';
 import { hasComposition } from '../../services/productComposition';
 import { normalizeSupplierText } from '../../services/supplierMappingService';
 import { errorMessage, retail, type Store, type Branch, type Product } from './api';
 import type { Run } from './Management';
-import { locationTransfers, type LocationTransfer, type FundTransfer, type LocationFund } from './locationTransferApi';
+import { locationTransfers, type LocationTransfer, type FundTransfer, type LocationFund, type OpenShiftCash } from './locationTransferApi';
 import { TransferFlowMap, type TransferMapRoute } from './TransferFlowMap';
 
 type HistoryStock = LocationTransfer & { legacy?: boolean };
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 const statuses = { pending: 'Pendiente', confirmed: 'Confirmada', cancelled: 'Cancelada' };
 const transferKey = (from: string, to: string) => `${from}>${to}`;
+type SheetSort = 'name' | 'code' | 'category' | 'origin' | 'destination' | 'min' | 'need' | 'qty';
+const sheetColumns: { key: SheetSort; label: string; numeric?: boolean }[] = [
+  { key: 'name', label: 'Producto' }, { key: 'code', label: 'Código' }, { key: 'category', label: 'Categoría' },
+  { key: 'origin', label: 'Origen', numeric: true }, { key: 'destination', label: 'Destino', numeric: true },
+  { key: 'min', label: 'Mín.', numeric: true }, { key: 'need', label: 'Falta', numeric: true }, { key: 'qty', label: 'A transferir', numeric: true },
+];
+const sheetLimit = 300;
 
 export function LocationTransfers({ store, branches, products, run, busy, active, canStock, canFunds, isAdmin }: {
   store: Store; branches: Branch[]; products: Product[]; run: Run; busy: boolean; active: boolean;
@@ -27,6 +34,9 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const [items, setItems] = useState<{ product_id: string; qty: number }[]>([]);
   const [notes, setNotes] = useState('');
   const [query, setQuery] = useState('');
+  const [pickView, setPickView] = useState<'missing' | 'all' | 'chosen'>('missing');
+  const [sheetSort, setSheetSort] = useState<{ key: SheetSort; descending: boolean }>({ key: 'name', descending: false });
+  const [pickCategory, setPickCategory] = useState('');
   const [fundFrom, setFundFrom] = useState('depot');
   const [fundTo, setFundTo] = useState('');
   const [fundKind, setFundKind] = useState<'transfer' | 'income' | 'withdrawal'>('transfer');
@@ -38,6 +48,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const [fundHistory, setFundHistory] = useState<FundTransfer[]>([]);
   const [funds, setFunds] = useState<LocationFund[]>([]);
   const [fundsLoaded, setFundsLoaded] = useState(false);
+  const [openCash, setOpenCash] = useState<OpenShiftCash[]>([]);
   const [stockError, setStockError] = useState('');
   const [fundError, setFundError] = useState('');
   const [formError, setFormError] = useState('');
@@ -62,8 +73,26 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const catalog = useMemo(() => products.filter(product => product.active !== false && !hasComposition(product)), [products]);
   const byId = useMemo(() => new Map(catalog.map(product => [product.id, product])), [catalog]);
   const searchText = normalizeSupplierText(query);
-  const matches = searchText ? catalog.filter(product => normalizeSupplierText(`${product.name} ${product.code}`).includes(searchText)).slice(0, 15) : [];
-  const atLocation = (product: Product, id: string) => id === 'depot' ? product.depotStock || 0 : product.branchStocks?.[id] || 0;
+  const atLocation = useCallback((product: Product, id: string) => id === 'depot' ? product.depotStock || 0 : product.branchStocks?.[id] || 0, []);
+  // Lo que el destino necesita y el origen tiene: la lista se puede recorrer sin buscar.
+  const inOrigin = useMemo(() => catalog.filter(product => atLocation(product, stockFrom) > 0).sort((a, b) => a.name.localeCompare(b.name)), [catalog, stockFrom, atLocation]);
+  const missing = useMemo(() => stockTo ? inOrigin.filter(product => atLocation(product, stockTo) <= product.minStock) : [], [inOrigin, stockTo, atLocation]);
+  const suggested = (product: Product) => Math.min(atLocation(product, stockFrom), Math.max(product.minStock - atLocation(product, stockTo), 1));
+  const categories = useMemo(() => [...new Set(inOrigin.map(product => product.category))].filter(Boolean).sort(), [inOrigin]);
+  const quantityOf = new Map(items.map(item => [item.product_id, item.qty]));
+  const shownView = pickView === 'chosen' && items.length ? 'chosen' : pickView === 'missing' && missing.length ? 'missing' : 'all';
+  const needAt = (product: Product) => stockTo ? Math.max(product.minStock - atLocation(product, stockTo), 0) : 0;
+  const sheetValue = (product: Product, key: SheetSort) => key === 'name' ? product.name : key === 'code' ? product.code : key === 'category' ? product.category
+    : key === 'origin' ? atLocation(product, stockFrom) : key === 'destination' ? (stockTo ? atLocation(product, stockTo) : 0)
+    : key === 'min' ? product.minStock : key === 'need' ? needAt(product) : quantityOf.get(product.id) || 0;
+  const matches = (searchText ? catalog.filter(product => normalizeSupplierText(`${product.name} ${product.code}`).includes(searchText)) : shownView === 'chosen' ? catalog.filter(product => quantityOf.has(product.id)) : shownView === 'missing' ? missing : inOrigin)
+    .filter(product => !pickCategory || product.category === pickCategory)
+    .sort((a, b) => {
+      const left = sheetValue(a, sheetSort.key), right = sheetValue(b, sheetSort.key);
+      const order = typeof left === 'number' && typeof right === 'number' ? left - right : String(left).localeCompare(String(right), 'es', { numeric: true });
+      return (sheetSort.descending ? -order : order) || a.name.localeCompare(b.name);
+    });
+  const units = items.reduce((total, item) => total + item.qty, 0);
 
   const load = useCallback(async () => {
     const turn = ++generation.current;
@@ -74,9 +103,11 @@ export function LocationTransfers({ store, branches, products, run, busy, active
       canFunds ? locationTransfers.funds(store.id) : Promise.resolve([] as LocationFund[]),
       canFunds ? locationTransfers.fundHistory(store.id) : Promise.resolve([] as FundTransfer[]),
       canStock ? locationTransfers.stockSummary(store.id) : Promise.resolve([] as { location: string; quantity: number }[]),
+      canFunds ? locationTransfers.openShiftCash(store.id) : Promise.resolve([] as OpenShiftCash[]),
     ]);
     if (turn !== generation.current) return;
-    const [stock, legacy, balances, cash, inventory] = results;
+    const [stock, legacy, balances, cash, inventory, shiftCash] = results;
+    setOpenCash(shiftCash.status === 'fulfilled' ? shiftCash.value : []);
     if (stock.status === 'fulfilled') {
       const older: HistoryStock[] = legacy.status === 'fulfilled' ? legacy.value.map(row => ({ ...row, from_location: row.from_branch_id, to_location: row.to_branch_id, legacy: true })) : [];
       setStockHistory([...stock.value, ...older].sort((a, b) => b.created_at.localeCompare(a.created_at)));
@@ -116,17 +147,46 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const add = (product: Product) => {
     if (disabled) return;
     if (!items.some(item => item.product_id === product.id) && items.length >= 200) { setFormError('Podés incluir hasta 200 productos.'); return; }
+    if ((quantityOf.get(product.id) || 0) >= atLocation(product, stockFrom)) { setFormError(`No hay más ${product.name} en ${placeName(stockFrom)}.`); return; }
+    setFormError('');
     setItems(previous => previous.some(item => item.product_id === product.id) ? previous.map(item => item.product_id === product.id ? { ...item, qty: Math.min(1000000, item.qty + 1) } : item) : [...previous, { product_id: product.id, qty: 1 }]);
     setQuery(''); search.current?.focus();
   };
-  const submit = async () => {
+  const setQuantity = (product: Product, value: string) => {
+    const qty = Math.min(Math.floor(Number(value)) || 0, atLocation(product, stockFrom));
+    setFormError('');
+    setItems(previous => qty <= 0 ? previous.filter(item => item.product_id !== product.id)
+      : previous.some(item => item.product_id === product.id) ? previous.map(item => item.product_id === product.id ? { ...item, qty } : item)
+      : previous.length >= 200 ? previous : [...previous, { product_id: product.id, qty }]);
+    if (qty > 0 && !quantityOf.has(product.id) && items.length >= 200) setFormError('Podés incluir hasta 200 productos.');
+  };
+  const sortBy = (key: SheetSort, numeric?: boolean) => setSheetSort(previous => previous.key === key ? { key, descending: !previous.descending } : { key, descending: !!numeric });
+  const moveCell = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (!['Enter', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    const cells = [...(form.current?.querySelectorAll<HTMLInputElement>('.location-transfer-sheet input') ?? [])];
+    const next = cells[cells.indexOf(event.currentTarget) + (event.key === 'ArrowUp' ? -1 : 1)];
+    next?.focus(); next?.select();
+  };
+  const addMissing = () => {
+    if (disabled) return;
+    const pending = missing.filter(product => !quantityOf.has(product.id));
+    const fresh = pending.slice(0, 200 - items.length);
+    setItems(previous => [...previous, ...fresh.map(product => ({ product_id: product.id, qty: suggested(product) }))]);
+    setFormError(fresh.length < pending.length ? 'Podés incluir hasta 200 productos. Agregá el resto en otra transferencia.' : '');
+  };
+  const submit = async (now = true) => {
     if (disabled || working.current) return;
     if (mode === 'stock') {
       if (!canStock || !store.branch_inventory_enabled || !places.some(place => place.id === stockFrom) || !places.some(place => place.id === stockTo) || stockFrom === stockTo || !items.length
         || items.some(item => !byId.has(item.product_id) || !Number.isSafeInteger(item.qty) || item.qty <= 0 || item.qty > 1000000)) { setFormError('Elegí dos ubicaciones diferentes y productos con cantidades enteras positivas.'); return; }
       const signature = JSON.stringify([store.id, stockFrom, stockTo, [...items].sort((a, b) => a.product_id.localeCompare(b.product_id)), notes.trim()]);
       if (stockRequest.current.signature !== signature) stockRequest.current = { signature, id: randomUUID() };
-      if (await execute('stock', () => locationTransfers.create(store.id, stockFrom, stockTo, items, notes, stockRequest.current.id), 'Transferencia pendiente registrada')) {
+      const created = async () => {
+        await locationTransfers.create(store.id, stockFrom, stockTo, items, notes, stockRequest.current.id);
+        if (now) await locationTransfers.review(store.id, stockRequest.current.id, true);
+      };
+      if (await execute('stock', created, now ? 'Stock trasladado entre ubicaciones' : 'Transferencia pendiente registrada')) {
         setItems([]); setNotes(''); setQuery(''); stockRequest.current = { signature: '', id: '' }; setComposing(false); setFilter('all');
       }
     } else {
@@ -143,6 +203,13 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const review = (row: HistoryStock, confirm: boolean) => void execute(row.id,
     () => row.legacy ? confirm ? retail.confirmTransfer(store.id, row.id) : retail.cancelTransfer(store.id, row.id) : retail.reviewLocationTransfer(store.id, row.id, confirm),
     confirm ? row.legacy ? 'Registro anterior confirmado' : 'Stock trasladado entre ubicaciones' : 'Transferencia cancelada');
+  const openFund = (kind: typeof fundKind, location: string) => {
+    setFundKind(kind);
+    if (kind !== 'income') setFundFrom(location);
+    if (kind !== 'transfer') setFundTo(location);
+    if (kind === 'transfer') setFundTo(previous => previous === location ? '' : previous);
+    setComposing(true); setFormError('');
+  };
   const clearSelection = () => { setSelectedNode(''); setSelectedRoute(''); setVisible(25); };
   const routes = useMemo(() => {
     const grouped = new Map<string, TransferMapRoute>();
@@ -182,6 +249,12 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     finally { if (turn === generation.current) setLoading(false); }
   };
   const newTransfer = () => {
+    if (mode === 'stock' && !items.length && !selectedNode && stockSummary) {
+      const fullest = [...stockSummary].sort((a, b) => Number(b.quantity) - Number(a.quantity))[0]?.location;
+      const others = branches.filter(branch => branch.id !== fullest);
+      if (fullest && places.some(place => place.id === fullest)) setStockFrom(fullest);
+      if (others.length === 1) setStockTo(others[0].id);
+    }
     if (selectedNode && (mode === 'stock' ? !items.length && !notes : !amount && !fundNote)) {
       if (mode === 'stock') { setStockFrom(selectedNode); if (stockTo === selectedNode) setStockTo(''); }
       else { setFundFrom(selectedNode); if (fundTo === selectedNode) setFundTo(''); }
@@ -210,23 +283,85 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     <TransferFlowMap nodes={nodes} routes={routes} selectedNode={selectedNode} selectedRoute={selectedRoute}
       onNode={id => { setSelectedNode(previous => previous === id ? '' : id); setSelectedRoute(''); setVisible(25); }}
       onRoute={id => { setSelectedRoute(previous => previous === id ? '' : id); setSelectedNode(''); setVisible(25); }} onClear={clearSelection} />
+    {mode === 'money' && <div className="location-fund-sheet" role="region" aria-label="Saldos por ubicación" tabIndex={0}>
+      <table>
+        <caption className="sr-only">Saldo de cada ubicación y efectivo en turnos abiertos</caption>
+        <thead><tr><th scope="col">Ubicación</th><th scope="col" className="is-number">Saldo</th><th scope="col" className="is-number">En cajas abiertas</th><th scope="col">Acciones</th></tr></thead>
+        <tbody>{places.map(place => {
+          const balance = funds.find(fund => fund.location === place.id)?.balance || 0, open = openCash.find(row => row.location === place.id);
+          return <tr key={place.id}>
+            <th scope="row">{place.name}</th>
+            <td className={`is-number${balance < 0 ? ' is-negative' : ''}`}>{fundsLoaded ? money(balance) : '—'}</td>
+            <td className="is-number">{open ? `${money(open.cash)} · ${open.shifts} ${open.shifts === 1 ? 'turno' : 'turnos'}` : '—'}</td>
+            <td><div className="location-fund-actions">
+              <button type="button" className="secondary-button" disabled={disabled} onClick={() => openFund('income', place.id)}>Ingreso</button>
+              <button type="button" className="secondary-button" disabled={disabled || balance <= 0} onClick={() => openFund('transfer', place.id)}>Enviar</button>
+              <button type="button" className="secondary-button" disabled={disabled || balance <= 0} onClick={() => openFund('withdrawal', place.id)}>Salida</button>
+            </div></td>
+          </tr>;
+        })}</tbody>
+      </table>
+    </div>}
     {composing && <form ref={form} className="location-transfer-composer retail-form" onSubmit={event => { event.preventDefault(); void submit(); }}>
       <div className="location-transfer-composer-heading"><h3>{mode === 'stock' ? 'Transferir productos' : 'Mover dinero'}</h3><button type="button" className="text-button" disabled={!!saving} onClick={() => setComposing(false)}><X size={15} /> Cerrar y conservar</button></div>
       <fieldset disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)}>
         {mode === 'stock' ? <>
           <div className="location-transfer-route">{locationSelect('Origen', stockFrom, setStockFrom)}<ArrowRight size={18} aria-hidden="true" />{locationSelect('Destino', stockTo, setStockTo, stockFrom)}</div>
-          <label>Agregar producto<input ref={search} value={query} placeholder="Nombre o código" onChange={event => setQuery(event.target.value)} onKeyDown={event => {
-            if (event.key !== 'Enter') return; event.preventDefault();
-            const product = catalog.find(row => row.code.trim() === query.trim()) || (matches.length === 1 ? matches[0] : undefined); if (product) add(product);
-          }} /></label>
-          {!!searchText && <div className="location-transfer-product-results">{matches.length ? matches.map(product => <button type="button" key={product.id} onClick={() => add(product)}><span>{product.name}<small>{atLocation(product, stockFrom).toLocaleString('es-AR')} disponibles en origen</small></span><Plus size={15} /></button>) : <p>Sin coincidencias. Los combos se trasladan por sus componentes.</p>}</div>}
-          {items.length > 0 && <ul className="location-transfer-items">{items.map(item => <li key={item.product_id}><span><strong>{byId.get(item.product_id)?.name || 'Producto no disponible'}</strong><small>{byId.get(item.product_id) ? atLocation(byId.get(item.product_id)!, stockFrom).toLocaleString('es-AR') : '—'} disponibles en origen</small></span>
-            <label>Unidades<NumberInput min={1} max={1000000} required value={item.qty} onValueChange={value => setItems(previous => previous.map(row => row.product_id === item.product_id ? { ...row, qty: Number(value) } : row))} /></label>
-            <button type="button" className="icon-button" aria-label={`Quitar ${byId.get(item.product_id)?.name || 'producto'}`} onClick={() => setItems(previous => previous.filter(row => row.product_id !== item.product_id))}><Trash2 size={16} /></button></li>)}</ul>}
+          {stockTo && missing.length > 0 && <div className="location-transfer-suggestion">
+            <span>Faltan <strong>{missing.length}</strong> {missing.length === 1 ? 'producto' : 'productos'} en {placeName(stockTo)} según su stock mínimo.</span>
+            <button type="button" className="secondary-button" onClick={addMissing}>Agregar lo que falta</button>
+          </div>}
+          <div className="location-transfer-picker-tools">
+            <label>Buscar o escanear<input ref={search} value={query} placeholder="Nombre o código" onChange={event => setQuery(event.target.value)} onKeyDown={event => {
+              if (event.key !== 'Enter') return; event.preventDefault();
+              const product = catalog.find(row => row.code.trim() === query.trim()) || (searchText && matches.length === 1 ? matches[0] : undefined); if (product) add(product);
+            }} /></label>
+            {categories.length > 1 && <label>Categoría<select value={pickCategory} onChange={event => setPickCategory(event.target.value)}><option value="">Todas</option>{categories.map(category => <option key={category} value={category}>{category}</option>)}</select></label>}
+          </div>
+          {!searchText && <div className="location-transfer-tabs purchase-view-tabs" role="group" aria-label="Qué productos ver">
+            <button type="button" className="secondary-button" aria-pressed={shownView === 'missing'} disabled={!missing.length} onClick={() => setPickView('missing')}>Faltan en destino ({missing.length})</button>
+            <button type="button" className="secondary-button" aria-pressed={shownView === 'all'} onClick={() => setPickView('all')}>Todos ({inOrigin.length})</button>
+            <button type="button" className="secondary-button" aria-pressed={shownView === 'chosen'} disabled={!items.length} onClick={() => setPickView('chosen')}>Elegidos ({items.length})</button>
+          </div>}
+          <div className="location-transfer-sheet" role="region" aria-label="Productos para transferir" tabIndex={0}>
+            <table>
+              <caption className="sr-only">Productos con stock de origen y destino. Los encabezados ordenan la lista.</caption>
+              <thead><tr>{sheetColumns.map(column => {
+                const sorted = sheetSort.key === column.key;
+                return <th key={column.key} scope="col" className={column.numeric ? 'is-number' : undefined} aria-sort={sorted ? (sheetSort.descending ? 'descending' : 'ascending') : 'none'}>
+                  <button type="button" onClick={() => sortBy(column.key, column.numeric)}>{column.label}{sorted ? (sheetSort.descending ? <ArrowDown size={12} aria-hidden="true" /> : <ArrowUp size={12} aria-hidden="true" />) : <ArrowUpDown size={12} aria-hidden="true" />}</button>
+                </th>;
+              })}</tr></thead>
+              <tbody>{matches.slice(0, sheetLimit).map(product => {
+                const chosen = quantityOf.get(product.id), origin = atLocation(product, stockFrom);
+                return <tr key={product.id} className={chosen ? chosen > origin ? 'is-over' : 'is-chosen' : undefined}>
+                  <th scope="row">{product.name}</th>
+                  <td>{product.code}</td>
+                  <td>{product.category}</td>
+                  <td className="is-number">{origin.toLocaleString('es-AR')}</td>
+                  <td className="is-number">{stockTo ? atLocation(product, stockTo).toLocaleString('es-AR') : '—'}</td>
+                  <td className="is-number">{product.minStock.toLocaleString('es-AR')}</td>
+                  <td className="is-number">{needAt(product) ? needAt(product).toLocaleString('es-AR') : '—'}</td>
+                  <td className="location-transfer-qty">
+                    <NumberInput min={0} max={Math.max(origin, chosen || 0)} value={chosen ?? ''} placeholder="0" disabled={!origin} aria-label={`Unidades de ${product.name}`} onFocus={event => event.currentTarget.select()} onKeyDown={moveCell} onValueChange={value => setQuantity(product, value)} />
+                    <button type="button" disabled={!origin || chosen === origin} aria-label={`Llevar todo ${product.name}`} onClick={() => setQuantity(product, String(origin))}>Todo</button>
+                  </td>
+                </tr>;
+              })}</tbody>
+            </table>
+            {!matches.length && <p>{searchText ? 'Sin coincidencias. Los combos se trasladan por sus componentes.' : `No hay productos con stock en ${placeName(stockFrom)}.`}</p>}
+          </div>
+          {matches.length > sheetLimit && <small>Mostrando {sheetLimit} de {matches.length}. Buscá o elegí una categoría para ver el resto.</small>}
+          {items.length > 0 && <div className="location-transfer-sheet-total">
+            <strong>En esta transferencia: {items.length} {items.length === 1 ? 'producto' : 'productos'}, {units.toLocaleString('es-AR')} u.</strong>
+            {items.some(item => { const product = byId.get(item.product_id); return !product || item.qty > atLocation(product, stockFrom); }) && <span role="alert">Hay cantidades que superan lo disponible en origen.</span>}
+            {items.some(item => !byId.has(item.product_id)) && <button type="button" className="text-button" onClick={() => setItems(previous => previous.filter(item => byId.has(item.product_id)))}>Quitar los no disponibles</button>}
+            <button type="button" className="text-button" onClick={() => { setItems([]); setFormError(''); }}>Vaciar</button>
+          </div>}
           <label>Nota (opcional)<textarea value={notes} maxLength={2000} rows={2} onChange={event => setNotes(event.target.value)} /></label>
-          <p>El stock cambia al confirmar. Un pendiente no reserva unidades.</p>
+          <p>«Transferir ahora» mueve el stock en el momento. «Dejar pendiente» espera una confirmación y no reserva unidades.</p>
         </> : <>
-          <label>Movimiento<select value={fundKind} onChange={event => setFundKind(event.target.value as typeof fundKind)}><option value="transfer">Entre ubicaciones</option><option value="income">Aporte / saldo inicial</option><option value="withdrawal">Retiro del fondo</option></select></label>
+          <label>Movimiento<select value={fundKind} onChange={event => setFundKind(event.target.value as typeof fundKind)}><option value="transfer">Enviar a otra ubicación</option><option value="income">Ingreso externo</option><option value="withdrawal">Salida externa</option></select></label>
           <div className="location-transfer-route">
             {fundKind !== 'income' && locationSelect('Desde', fundFrom, setFundFrom)}
             {fundKind === 'transfer' && <ArrowRight size={18} aria-hidden="true" />}
@@ -235,11 +370,14 @@ export function LocationTransfers({ store, branches, products, run, busy, active
           <label>Importe ($)<NumberInput min={0.01} max={999999999999.99} step={0.01} required value={amount} onValueChange={setAmount} /></label>
           {fundKind !== 'income' && <p>Saldo del fondo de origen: <strong>{fundsLoaded ? money(funds.find(row => row.location === fundFrom)?.balance || 0) : 'No disponible'}</strong></p>}
           <label>Motivo<textarea required value={fundNote} maxLength={1000} rows={2} onChange={event => setFundNote(event.target.value)} /></label>
-          <p>Estos fondos están separados del efectivo de los turnos.</p>
+          <p>Cada cierre de turno suma a su sucursal lo que generó: efectivo contado menos apertura.</p>
         </>}
       </fieldset>
       {formError && <p role="alert" className="error-banner">{formError}</p>}
-      <button className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)}>{saving && <Loader2 size={15} className="spin" />}{mode === 'stock' ? 'Registrar pendiente' : 'Guardar movimiento de dinero'}</button>
+      <div className="location-transfer-actions">
+        <button className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)}>{saving && <Loader2 size={15} className="spin" />}{mode === 'stock' ? 'Transferir ahora' : 'Guardar movimiento de dinero'}</button>
+        {mode === 'stock' && <button type="button" className="secondary-button" disabled={disabled || !store.branch_inventory_enabled} onClick={() => void submit(false)}>Dejar pendiente</button>}
+      </div>
     </form>}
     <div className="section-heading location-transfer-history-heading"><div><h3>Historial {selectedNode ? `· ${placeName(selectedNode)}` : ''}</h3><small>Recorridos del historial cargado. Los registros anteriores no modificaron inventario.</small></div>
       <button type="button" className="secondary-button" disabled={disabled || loading} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button></div>
@@ -256,8 +394,8 @@ export function LocationTransfers({ store, branches, products, run, busy, active
           {row.status === 'pending' && <div className="location-transfer-record-actions"><button type="button" className="primary-button" disabled={disabled} onClick={() => review(row, true)}><Check size={14} />{row.legacy ? 'Confirmar registro' : 'Confirmar traslado'}</button><button type="button" className="secondary-button" disabled={disabled} onClick={() => review(row, false)}><X size={14} /> Cancelar</button></div>}
         </article>
       </li>) : shownFunds.slice(0, visible).map(row => <li key={row.id}><article>
-        <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className="stock-transfer-status confirmed">Guardado</span><strong>{money(row.amount)}</strong></div>
-        <strong className="location-transfer-record-route">{row.from_location === null ? 'Aporte externo' : placeName(row.from_location)} <ArrowRight size={15} aria-hidden="true" /> {row.to_location === null ? 'Retiro externo' : placeName(row.to_location)}</strong>
+        <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className="stock-transfer-status confirmed">{row.shift_id ? 'Cierre de turno' : 'Guardado'}</span><strong>{money(row.amount)}</strong></div>
+        <strong className="location-transfer-record-route">{row.from_location === null ? row.shift_id ? 'Ventas y caja del turno' : 'Ingreso externo' : placeName(row.from_location)} <ArrowRight size={15} aria-hidden="true" /> {row.to_location === null ? row.shift_id ? 'Faltante del turno' : 'Salida externa' : placeName(row.to_location)}</strong>
         <p>{row.note}</p>{row.actor_email && <small>{row.actor_email}</small>}
       </article></li>)}
     </ol>

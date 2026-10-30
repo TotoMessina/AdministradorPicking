@@ -15,10 +15,10 @@ import { retail, type Store, type Branch, type Category, type Register, type Sal
 import type { Permission } from './permissions';
 
 /** Reuse the existing forms without granting the administrative base role. */
-export function DelegatedSettings({ store, branches, categories, registers, ledgers, members, invitations, permissions, userId, view, onViewChange, busy, run, active, locationError }: {
+export function DelegatedSettings({ store, branches, categories, registers, ledgers, members, invitations, permissions, userId, view, onViewChange, busy, run, active, locationError, onUploadInvoice }: {
   store: Store; branches: Branch[]; categories: Category[]; registers: Register[]; ledgers: SalesLedger[];
   members: Member[]; invitations: Invitation[]; permissions: Permission[]; userId: string; view: string;
-  onViewChange: (view: string) => void; busy: boolean; run: Run; active: boolean; locationError?: string;
+  onViewChange: (view: string) => void; busy: boolean; run: Run; active: boolean; locationError?: string; onUploadInvoice?: () => void;
 }) {
   const can = (action: Permission) => permissions.includes(action);
   const team = can('manage_staff') || can('manage_profiles');
@@ -43,7 +43,7 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
     {can('manage_categories') && <div hidden={selected !== 'categories'}><h3>Categorías de productos</h3>{categories.map(category => <SettingsEditor key={category.id} label="Cambiar nombre" summary={<strong>{category.name}</strong>} busy={busy}>
       {close => <CategoryLabelEditor category={category} storeId={store.id} busy={busy} run={run} close={close} />}
     </SettingsEditor>)}</div>}
-    {(can('manage_products') || can('manage_supplier_accounts')) && <div hidden={selected !== 'suppliers'}><SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} /></div>}
+    {(can('manage_products') || can('manage_supplier_accounts')) && <div hidden={selected !== 'suppliers'}><SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} onUploadInvoice={categories.length ? onUploadInvoice : undefined} /></div>}
     {team && <div hidden={selected !== 'team'}>
       {profiles.error && <p role="alert">{profiles.error}</p>}
       <button type="button" className="text-button" onClick={profiles.reload} disabled={busy || profiles.loading}>Actualizar perfiles</button>

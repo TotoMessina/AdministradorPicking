@@ -336,3 +336,13 @@ Preparado el 30/10/2026, **sin ejecutar SQL remoto**: [202610300001_supplier_pay
 Hasta aplicarla, la tarjeta Pagos a proveedores muestra el aviso y Comprobantes de compra sigue funcionando sin descontar pagos.
 
 **Corrección posterior:** [202610300002_payment_apply_same_invoice.sql](supabase/migrations/202610300002_payment_apply_same_invoice.sql), aplicada por el usuario el 30/10/2026. Permite aplicar lo que quedó a favor a un comprobante que ese mismo pago ya cubrió en parte; las aplicaciones se acumulan.
+
+## Stock por sucursal de base
+
+Preparado el 30/10/2026, **sin ejecutar SQL remoto**: [202610300003_branch_inventory_by_default.sql](supabase/migrations/202610300003_branch_inventory_by_default.sql), incluida en `supabase/schema.sql`. Corrige el error `cannot execute SELECT FOR SHARE in a read-only transaction` del mapa de Transferencias, hace que los comercios nuevos nazcan con stock por sucursal y depósito, y activa los existentes con una sola sucursal, sin turnos abiertos ni traslados pendientes. Los demás siguen activándose desde Transferencias.
+
+**Siempre activo:** [202610300004_branch_inventory_always.sql](supabase/migrations/202610300004_branch_inventory_always.sql), aplicada por el usuario el 30/10/2026. Activa todos los comercios restantes y asigna su salón a la sucursal principal, aunque tengan varias sucursales, turnos abiertos o traslados anteriores pendientes. Las demás sucursales empiezan en cero y se reparten con Transferencias.
+
+## Ventas en los fondos de sucursal
+
+Aplicada por el usuario el 30/10/2026: [202610300005_shift_cash_into_branch_funds.sql](supabase/migrations/202610300005_shift_cash_into_branch_funds.sql), incluida en `supabase/schema.sql`. Cada cierre de turno posterior suma al fondo de su sucursal el efectivo contado menos la apertura, y `retail_open_shift_cash` informa a administración el efectivo en cajas abiertas.

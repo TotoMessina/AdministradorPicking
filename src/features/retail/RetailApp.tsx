@@ -246,6 +246,8 @@ function Workspace({
   const [openFromSale, setOpenFromSale] = useState(false);
   const [closeRequest, setCloseRequest] = useState(0);
   const [catalogView, setCatalogView] = useState('products');
+  const [invoiceRequest, setInvoiceRequest] = useState(0);
+  const uploadInvoice = () => { setCatalogView('products'); setTab('catalog'); setInvoiceRequest(value => value + 1); };
   const [settingsView, setSettingsView] = useState(pushEntry?.view === 'settings' ? 'app' : 'general');
   const [guiding, setGuiding] = useState(false);
   const [guideReady, setGuideReady] = useState(false);
@@ -1197,6 +1199,8 @@ function Workspace({
                 branches={branches}
                 onRefreshRemitos={() => void pendingRemitos.refresh()}
                 onReviewedRemito={pendingRemitos.reviewed}
+                invoiceRequest={invoiceRequest}
+                onInvoiceRequestClosed={() => setTab('settings')}
               />
               </div>
               </div>
@@ -1210,7 +1214,7 @@ function Workspace({
               </section>}
               <CatalogEditor initialBranchId={branchId} store={store} products={products} categories={categories} role={role} run={run} busy={busy}
                 active={!guiding && tab === 'catalog' && catalogView === 'products'} allowRestock={can('replenish_stock')} allowPriceEdit={can('edit_prices')} permissions={permissions}
-                pendingRemitos={pendingRemitos.records} pendingRemitoError={pendingRemitos.error} branches={configurationBranches} onRefreshRemitos={() => void pendingRemitos.refresh()} onReviewedRemito={pendingRemitos.reviewed} />
+                pendingRemitos={pendingRemitos.records} pendingRemitoError={pendingRemitos.error} branches={configurationBranches} onRefreshRemitos={() => void pendingRemitos.refresh()} onReviewedRemito={pendingRemitos.reviewed} invoiceRequest={invoiceRequest} onInvoiceRequestClosed={() => setTab('settings')} />
               </div>
             </div>}
             {manager && <div hidden={tab !== 'settings'}>
@@ -1248,9 +1252,10 @@ function Workspace({
                 }}
                 userEmail={session.user.email}
                 onOpenAi={() => setIsAiOpen(true)}
+                onUploadInvoice={uploadInvoice}
               />
             </div>}
-            {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
+            {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} onUploadInvoice={uploadInvoice} /></div>}
             {tab === "ai" && can('use_ai') && (
               <AIAssistant
                 store={store}

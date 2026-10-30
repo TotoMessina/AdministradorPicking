@@ -264,11 +264,13 @@ Las fotos son referencias privadas sin tokens. Storage comprueba pertenencia al 
 
 **Productos y stock → Transferencias** reúne un mapa de sucursales y depósito, las pestañas **Productos / Dinero** y su historial. Elegir un nodo o un recorrido filtra el historial; no cambia el origen de un borrador existente. Las líneas punteadas son conexiones posibles, no movimientos realizados. Las flechas y sus totales corresponden al historial cargado, no a todo el historial del comercio. Se consultan 100 registros nuevos por página y se muestran 25 por vez; **Cargar historial anterior** recupera páginas adicionales. Los aportes/retiros externos aparecen en el historial de dinero, sin inventar otra sucursal en el mapa.
 
+Al crear una transferencia de productos se proponen el origen con más stock y, si hay una sola opción, el destino. Los productos se muestran en una planilla con desplazamiento: cada encabezado ordena esa columna y la cantidad se escribe en la celda **A transferir**; Enter y las flechas pasan a la fila siguiente o anterior, y **Todo** lleva lo disponible. **Faltan en destino** reúne lo que está en su stock mínimo o por debajo, **Agregar lo que falta** carga esas cantidades y **Elegidos** muestra lo cargado. También se puede filtrar por categoría, buscar o escanear. **Transferir ahora** registra y confirma en un paso; **Dejar pendiente** espera una confirmación.
+
 ### Activación y compatibilidad
 
 SQL preparado localmente, **sin aplicar**: `202610280002_location_funds.sql` y `202610280003_location_inventory.sql`. Aplicar los paquetes homónimos de `supabase/updates/` en orden, después de los pasos anteriores y con su historial, según [Instalación de Supabase](../SUPABASE_SETUP.md#transferencias-por-ubicación-y-fondos). No ejecutar las fuentes de migrations sueltas ni adoptar historial manualmente. Publicar también el frontend actualizado.
 
-El modo inicial sigue siendo stock compartido. La migración no reparte existencias ni activa el nuevo modo en ningún comercio. Para activarlo, el administrador debe:
+Los comercios nuevos nacen con stock por sucursal y depósito. `202610300004_branch_inventory_always.sql` activa todos los existentes y asigna su salón a la sucursal principal; las demás empiezan en cero. La activación manual solo queda para un comercio con saldos inconsistentes, y el administrador debe:
 
 1. Sincronizar **todos los dispositivos**, resolver conflictos y cerrar los turnos. La app comprueba la cola de este dispositivo y el servidor comprueba los turnos abiertos; el backend no puede descubrir colas que siguen desconectadas en otro equipo.
 2. Confirmar o cancelar los registros anteriores pendientes. Son constancias: no se reproducen como movimientos de stock.
@@ -290,11 +292,13 @@ Vender usa el saldo de la sucursal de la caja: paquetes, sueltos y combos consum
 
 La venta offline preparada conserva su cola y descuenta localmente la sucursal conocida; al sincronizar se valida en el servidor. Una configuración vieja o existencias consumidas por otro dispositivo pueden producir un conflicto que se conserva para resolver, sin borrar la operación ni asignarla automáticamente a otro local. Crear/confirmar traslados y activar requieren conexión y cola local vacía.
 
-### Dinero: fondos separados de los turnos
+### Dinero: fondos por ubicación
 
-Cada sucursal y el depósito tienen un fondo independiente, inicialmente cero. **Nueva transferencia → Aporte / saldo inicial** registra dinero externo con motivo; **Entre ubicaciones** descuenta de un fondo y acredita el otro; **Retiro del fondo** registra una salida externa. El importe admite hasta dos decimales y el motivo es obligatorio. No se permiten fondos negativos.
+Cada sucursal y el depósito tienen un fondo independiente, inicialmente cero. La tabla de **Dinero** muestra saldos y, para administración, el efectivo en cajas abiertas. **Ingreso** registra dinero externo con motivo; **Enviar** descuenta de un fondo y acredita el otro; **Salida** registra una salida externa. El importe admite hasta dos decimales y el motivo es obligatorio. Los movimientos manuales no pueden sacar más que el saldo.
 
-Estos movimientos **no** alteran apertura, cierre, efectivo esperado, movimientos de caja, ventas ni métricas de un turno. No se deduce un saldo inicial de las ventas existentes. El historial conserva actor, fecha, origen, destino, importe y motivo, sin edición ni borrado. Los reintentos de una misma solicitud usan un identificador estable; una respuesta perdida no debe duplicar el movimiento. Dos solicitudes distintas son dos movimientos, aunque tengan el mismo importe.
+Con `202610300005_shift_cash_into_branch_funds.sql`, cada cierre de turno, en línea o sin conexión, suma al fondo de la sucursal de su caja el efectivo contado menos la apertura. Si contó menos que la apertura, descuenta la diferencia y el saldo puede quedar negativo. Cubre solo efectivo y cierres posteriores a la migración: QR, tarjetas y transferencias no entran al fondo.
+
+Los movimientos manuales **no** alteran apertura, cierre, efectivo esperado, movimientos de caja, ventas ni métricas de un turno. No se deduce un saldo inicial de las ventas existentes. El historial conserva actor, fecha, origen, destino, importe y motivo, sin edición ni borrado. Los reintentos de una misma solicitud usan un identificador estable; una respuesta perdida no debe duplicar el movimiento. Dos solicitudes distintas son dos movimientos, aunque tengan el mismo importe.
 
 Los fondos requieren conexión; no se encolan offline. Un error mantiene el borrador. **Cerrar y conservar**, cambiar de pestaña o navegar dentro de Productos conserva por separado los borradores de productos/dinero mientras la pantalla sigue montada. No se promete conservar un formulario no enviado después de cerrar la app.
 

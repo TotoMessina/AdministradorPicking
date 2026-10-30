@@ -47,6 +47,16 @@ import { applyInvoiceRules, cigaretteAtadosPerPack, cuitsInText, findSupplierByC
 import { detectInvoiceFormat, findInvoiceFormat, learnInvoiceFormat, readWithInvoiceFormat, sameInvoiceFormat, type StoredInvoiceFormat } from '../services/invoiceFormatService';
 import { defaultProductCategory, resolveProductCategory } from '../services/productCategoryService';
 
+/** Vínculo pendiente sin dudas: confianza alta, costo leído y sin conflicto de código ni de presentación. */
+const isSureLink = (item: InvoiceItem) => {
+  const product = item.matchedProduct;
+  if (!product || item.action === 'skip' || item.linkStatus !== 'pending') return false;
+  const code = item.rawCode?.trim().toLowerCase();
+  const codeConflict = !!code && !!product.code?.trim() && code !== product.code.trim().toLowerCase();
+  const packConflict = !!item.mapping?.pack_size_detected && item.mapping.pack_size_detected !== item.unitsPerPack;
+  return item.matchConfidence >= 0.85 && item.costKnown && Number.isFinite(item.qty) && item.qty > 0 && item.qty <= 1000000 && !codeConflict && !packConflict;
+};
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface InvoiceItem {
@@ -1332,7 +1342,7 @@ export function InvoiceAnalyzer({
       const explicit = detectPackUnits(item.invoiceLine);
       const catalogSize = configuredPackSize(product?.pack_size);
       const size = item.quantityUnit === 'unit' ? 1 : explicit > 1 ? explicit : catalogSize > 1 ? catalogSize : item.unitsPerPack;
-      return { ...item, matchedProduct: product, linkStatus: 'pending',
+      return { ...item, matchedProduct: product, linkStatus: 'pending', matchConfidence: product ? 1 : 0,
         mapping: undefined, divisionReason: undefined,
         linkReason: 'Selección manual. Confirmá para recordarla para este proveedor.',
         action: product ? (item.costKnown ? 'both' : 'add_stock') : 'skip',
@@ -1364,6 +1374,31 @@ export function InvoiceAnalyzer({
       setMappingRetry(pending);
       setError(null);
     } catch (err) { setError(err instanceof Error ? err.message : 'No se pudo recordar la vinculación.'); }
+    finally { mappingInProgress.current = false; setMappingBusy(false); }
+  };
+
+  /** Confirma de una vez los vínculos sin dudas; si uno falla, los demás siguen pendientes para reintentar. */
+  const confirmSureLinks = async () => {
+    const sure = items.filter(isSureLink);
+    if (!sure.length || mappingInProgress.current) return;
+    mappingInProgress.current = true;
+    setMappingBusy(true);
+    const remember = !!normalizeSupplierText(providerName);
+    const left = pendingCount - sure.length;
+    let done = 0;
+    try {
+      for (const item of sure) {
+        const saved = remember ? await saveMapping(storeId, providerName, item.mappingInvoiceText ?? item.invoiceLine, item.matchedProduct!.id, item.matchedProduct!.name, item.unitsPerPack, { confidence: 1 }) : undefined;
+        if (mappingContext.current.storeId !== storeId || mappingContext.current.providerName !== providerName) return;
+        setItems(previous => previous.map(current => current === item ? { ...current, linkStatus: 'confirmed', matchConfidence: 1, mapping: saved ?? current.mapping } : current));
+        done += 1;
+      }
+      let pending = false;
+      try { pending = remember && !!localStorage.getItem(`kiosco_supplier_mappings_${storeId}`); } catch { /* The server may still have saved them. */ }
+      setMappingNotice(`${done} ${done === 1 ? 'vínculo confirmado' : 'vínculos confirmados'}.${left > 0 ? ` ${left === 1 ? 'Queda 1 dudoso' : `Quedan ${left} dudosos`} para revisar.` : ''}${pending ? ' Guardados en este dispositivo; reintentá con conexión para compartirlos.' : ''}`);
+      setMappingRetry(pending);
+      setError(null);
+    } catch (err) { setError(`Se confirmaron ${done} de ${sure.length} vínculos. ${err instanceof Error ? err.message : 'No se pudo recordar la vinculación.'}`); }
     finally { mappingInProgress.current = false; setMappingBusy(false); }
   };
 
@@ -1445,6 +1480,10 @@ export function InvoiceAnalyzer({
   const unmatchedTotal = items.filter((it) => !it.matchedProduct).length;
   const totalToImport = matchedCount + newCount;
   const pendingCount = items.filter(item => item.matchedProduct && item.action !== 'skip' && item.linkStatus === 'pending').length;
+  const sureCount = items.filter(isSureLink).length;
+  const confirmSureButton = sureCount > 0 && <button type="button" className="secondary-button" disabled={mappingBusy} onClick={() => void confirmSureLinks()}>
+    {sureCount === 1 ? 'Confirmar el vínculo seguro' : `Confirmar los ${sureCount} seguros`}
+  </button>;
 
   const filteredItems = useMemo(() => {
     return items
@@ -1842,6 +1881,7 @@ export function InvoiceAnalyzer({
               <span>La mercadería ingresará en {stockBranchName || 'la sucursal seleccionada'}. El borrador se conserva.</span>
               <button type="button" className="secondary-button" onClick={() => { setInitialStockBranch(stockBranchId); setError(null); }}>Confirmar ubicación</button>
             </div>}
+            {initialStockBranch === stockBranchId && stockBranchName && <p className="invoice-format-note" role="status">La mercadería ingresa en {stockBranchName}. Se cambia desde Productos, antes de abrir la factura.</p>}
             {/* Supplier and Date Header Bar */}
             <div className="inv-supplier-bar inv-supplier-bar-discount">
               <div className="inv-supplier-icon">🏭</div>
@@ -1966,7 +2006,9 @@ export function InvoiceAnalyzer({
               {items.filter(item => item.linkStatus === 'auto').length} auto-vinculados · {pendingCount} pendientes de confirmar.
               {!normalizeSupplierText(providerName) && ' Indicá el proveedor para recordar las vinculaciones.'}
               {' '}Revisá los nuevos y los vínculos antes de aplicar.
+              {pendingCount > sureCount && sureCount > 0 && ` ${pendingCount - sureCount} con dudas quedan para revisar uno por uno.`}
             </p>
+            {confirmSureButton}
 
 
             {/* Toolbar: Search + Filter Tabs */}
@@ -2153,6 +2195,7 @@ export function InvoiceAnalyzer({
                 <PackageCheck size={14} /> {totalToImport === 0 ? 'Registrar solo el comprobante' : `Aplicar reposición (${totalToImport} producto${totalToImport !== 1 ? "s" : ""})`}
                 {newCount > 0 ? ` (${matchedCount} exist. + ${newCount} nuev.)` : ""}
               </button>
+              {confirmSureButton}
               {pendingCount > 0 && <button type="button" className="text-button" onClick={() => {
                 const index = items.findIndex(item => item.matchedProduct && item.action !== 'skip' && item.linkStatus === 'pending');
                 if (index >= 0) {

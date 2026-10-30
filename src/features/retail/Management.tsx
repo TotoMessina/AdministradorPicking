@@ -2,7 +2,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { ProductMarkupField } from './ProductMarkupField';
 import { draftMarkupPrice } from '../../services/productSalePrice';
 import { AiIcon } from '../../components/AiIcon';
-import { useState, useMemo, useEffect, useRef, useId } from "react";
+import { useState, useMemo, useEffect, useRef, useId, useCallback } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
 import { SectionNav } from './SectionNav';
 import { PushSettings } from './PushSettings';
@@ -18,7 +18,7 @@ import { productMargin } from '../../services/productMarginService';
 import { ProductDeletionEditor, DeletedProducts } from './ProductDeletionTools';
 import { ProductCompositionEditor } from './ProductCompositionEditor';
 import { NewCompositeEditor } from './NewCompositeEditor';
-import { compositionCost, hasComposition, stockForSale } from '../../services/productComposition';
+import { compositionCost, hasComposition, productsAtBranch, stockForSale } from '../../services/productComposition';
 import { DepotSettings } from './DepotSettings';
 import { SupplierAccountSection } from './SupplierAccountSection';
 import { DepotHistory } from './DepotHistory';
@@ -251,6 +251,8 @@ export function CatalogEditor({
   allowRestock = false,
   allowPriceEdit = false,
   permissions = [],
+  invoiceRequest = 0,
+  onInvoiceRequestClosed,
 }: {
   store: Store;
   categories: Category[];
@@ -270,13 +272,19 @@ export function CatalogEditor({
   allowRestock?: boolean;
   allowPriceEdit?: boolean;
   permissions?: import('./permissions').Permission[];
+  /** Cambia cuando Proveedores pide subir una factura; al cerrarla se avisa para volver. */
+  invoiceRequest?: number;
+  onInvoiceRequestClosed?: () => void;
 }) {
   const [editing, setEditing] = useState<Product | null>(null);
   const [stockBranchId, setStockBranchId] = useState(initialBranchId || branches.find(branch => branch.is_default)?.id || branches[0]?.id || '');
   useEffect(() => {
     if (!stockBranchId && branches.length) setStockBranchId(initialBranchId || branches.find(branch => branch.is_default)?.id || branches[0].id);
   }, [stockBranchId, initialBranchId, branches]);
+  useEffect(() => { if (initialBranchId) setStockBranchId(initialBranchId); }, [initialBranchId]);
   const operationBranch = store.branch_inventory_enabled ? stockBranchId : undefined;
+  const branchUnits = useMemo(() => operationBranch ? new Map(productsAtBranch(products, operationBranch).map(product => [product.id, stockForSale(product)])) : null, [products, operationBranch]);
+  const unitsHere = useCallback((product: Product) => branchUnits?.get(product.id) ?? stockForSale(product), [branchUnits]);
   const [adding, setAdding] = useState(guided);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
@@ -441,6 +449,14 @@ export function CatalogEditor({
   const [bulkIsUpdating, setBulkIsUpdating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+  const seenInvoiceRequest = useRef(invoiceRequest);
+  const invoiceFromSuppliers = useRef(false);
+  useEffect(() => {
+    if (invoiceRequest === seenInvoiceRequest.current) return;
+    seenInvoiceRequest.current = invoiceRequest;
+    invoiceFromSuppliers.current = true;
+    setIsInvoiceModalOpen(true);
+  }, [invoiceRequest]);
 
   const canEditCatalog = !role || role === "owner" || role === "admin" || permissions.includes('manage_products');
   const isManager = !role || role === 'owner' || role === 'admin';
@@ -934,8 +950,8 @@ export function CatalogEditor({
 
   // Feature: AI Stock Analysis states and handlers
   const criticalProducts = useMemo(
-    () => products.filter((p) => !hasComposition(p) && p.stock <= p.minStock),
-    [products],
+    () => products.filter((p) => !hasComposition(p) && (operationBranch ? unitsHere(p) : p.stock) <= p.minStock),
+    [products, operationBranch, unitsHere],
   );
   const [isAnalyzingStock, setIsAnalyzingStock] = useState(false);
   const [stockAiAnalysis, setStockAiAnalysis] = useState<string | null>(null);
@@ -1543,10 +1559,10 @@ ${JSON.stringify(catalogSample, null, 2)}`;
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return products.filter((p) => (!stockFilter || stockForSale(p) <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
+    return products.filter((p) => (!stockFilter || unitsHere(p) <= p.minStock) && (!lowMarginFilter || p.margin_group === 'low_margin') &&
       (!q || (p.name + " " + p.code + " " + p.category).toLowerCase().includes(q)),
     );
-  }, [products, stockFilter, lowMarginFilter, query]);
+  }, [products, stockFilter, lowMarginFilter, query, unitsHere]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
   const currentPage = Math.min(Math.max(1, page), totalPages);
@@ -3312,7 +3328,10 @@ ${JSON.stringify(catalogSample, null, 2)}`;
           stockBranchName={branches.find(branch => branch.id === operationBranch)?.name}
           products={products}
           categories={categories}
-          onClose={() => setIsInvoiceModalOpen(false)}
+          onClose={() => {
+            setIsInvoiceModalOpen(false);
+            if (invoiceFromSuppliers.current) { invoiceFromSuppliers.current = false; onInvoiceRequestClosed?.(); }
+          }}
           onImportDone={async (count) => {
             await run(
               async () => {},
@@ -3480,10 +3499,10 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   )}
                   {visibleColumns.stock && (
                     <td data-label="Stock" className="stock-col">
-                      <span className={stockForSale(p) <= p.minStock ? "stock-low" : "stock-pill"}>
-                        {p.stock.toLocaleString('es-AR')} {stockForSale(p) <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
+                      <span className={unitsHere(p) <= p.minStock ? "stock-low" : "stock-pill"}>
+                        {(operationBranch ? unitsHere(p) : p.stock).toLocaleString('es-AR')} {unitsHere(p) <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
                       </span>
-                      {store.depot_enabled && !hasComposition(p) && <small className="depot-stock-detail">{store.branch_inventory_enabled ? `Sucursal: ${(p.branchStocks?.[stockBranchId] || 0).toLocaleString('es-AR')}` : `Salón: ${stockForSale(p).toLocaleString('es-AR')}`} · Depósito: {(p.depotStock || 0).toLocaleString('es-AR')}</small>}
+                      {store.depot_enabled && !hasComposition(p) && <small className="depot-stock-detail">{store.branch_inventory_enabled ? `Total: ${p.stock.toLocaleString('es-AR')}` : `Salón: ${stockForSale(p).toLocaleString('es-AR')}`} · Depósito: {(p.depotStock || 0).toLocaleString('es-AR')}</small>}
                     </td>
                   )}
                   {visibleColumns.minStock && (
@@ -4463,6 +4482,7 @@ export function StoreSettings({
   onSignOut,
   userEmail,
   onOpenAi,
+  onUploadInvoice,
   active = true,
 }: {
   store: Store;
@@ -4486,6 +4506,7 @@ export function StoreSettings({
   onSignOut?: () => void;
   userEmail?: string;
   onOpenAi?: () => void;
+  onUploadInvoice?: () => void;
   active?: boolean;
 }) {
   const view = ['general', 'locations', 'team', 'suppliers', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
@@ -4839,7 +4860,7 @@ export function StoreSettings({
         </div>
       </div>
       <div hidden={view !== 'suppliers'} role="tabpanel" id="settings-panel-suppliers" aria-labelledby="settings-tab-suppliers">
-        <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} canManage canAccount />
+        <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} canManage canAccount onUploadInvoice={categories.length ? onUploadInvoice : undefined} />
       </div>
       {(role === "owner" || role === "admin") && (
         <div

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, CheckCircle2, Download, FileText, QrCode } from 'lucide-react';
+import { AlertTriangle, Camera, CheckCircle2, Download, FileText, QrCode } from 'lucide-react';
 import { retail, errorMessage, type PurchaseInvoice, type SupplierPayment } from './api';
 import type { Run } from './Management';
 import { SettingsEditor } from './SettingsEditor';
@@ -82,11 +82,12 @@ function TrackingEditor({ row, rows, payments, showBalance, storeId, busy, run, 
 }
 
 /** Comprobantes de compra: por mes para el contador y con saldo pendiente para la cuenta corriente. Requiere conexión. */
-export function PurchaseInvoiceList({ storeId, busy, run, active = true, version = 0, onChanged, canManage = true, canAccount = true, onPay, focus }: {
+export function PurchaseInvoiceList({ storeId, busy, run, active = true, version = 0, onChanged, canManage = true, canAccount = true, onPay, focus, onUploadPhoto }: {
   storeId: string; busy: boolean; run: Run; active?: boolean; version?: number; onChanged?: () => void; canManage?: boolean; canAccount?: boolean;
   onPay?: (cuit: string, invoiceId: string) => void;
   /** Pedido desde Cuentas: abrir «Con saldo pendiente» con ese filtro. */
   focus?: { status: string; key: number } | null;
+  onUploadPhoto?: () => void;
 }) {
   const [selectedView, setView] = useState<'month' | 'open'>('month');
   const view = canAccount ? selectedView : 'month';
@@ -169,13 +170,14 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
         </div>}
         {view === 'month' && <label className="purchase-list-month">Mes<input type="month" value={month} disabled={loading} onChange={event => setMonth(event.target.value)} /></label>}
       </div>
+      {canManage && onUploadPhoto && <button type="button" className="primary-button" disabled={busy} onClick={onUploadPhoto}><Camera size={15} /> Subir foto de factura</button>}
       {canManage && <SettingsEditor label="Cargar factura o nota" busy={busy || loading}>
         {close => <ManualPurchaseInvoiceForm storeId={storeId} invoices={all} payments={payments} busy={busy} run={run} close={close} onSaved={changed} />}
       </SettingsEditor>}
       {error && <p role="alert">{error} <button type="button" className="text-button" disabled={loading} onClick={() => void load()}>Reintentar</button></p>}
       {!error && !loading && !rows.length && <div className="location-empty-notice">
         <FileText size={24} />
-        <p>{view === 'month' ? 'No hay facturas en este mes. Se registran desde Importar factura o con «Cargar factura o nota».' : tracked || !all.length ? 'No hay saldos pendientes con proveedores.' : 'Para ver saldos y vencimientos, aplicá la actualización 202610290007 en Supabase.'}</p>
+        <p>{view === 'month' ? 'No hay facturas en este mes. Se registran con «Subir foto de factura» o «Cargar factura o nota».' : tracked || !all.length ? 'No hay saldos pendientes con proveedores.' : 'Para ver saldos y vencimientos, aplicá la actualización 202610290007 en Supabase.'}</p>
       </div>}
       {view === 'month' && monthRows.length > 0 && <>
         <div className="team-summary-badges">
