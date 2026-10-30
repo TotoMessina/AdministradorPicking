@@ -244,6 +244,51 @@ declare
   "ordinal": 46,
   "filename": "202610280004_permanent_product_deletion.sql",
   "sha256": "c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368"
+ },
+ {
+  "ordinal": 47,
+  "filename": "202610290001_branch_location_and_deletion.sql",
+  "sha256": "bd6a4e4c41f9646352bbb167137c5c9519d6cfbcf51d9143fff9ccb4136f5b75"
+ },
+ {
+  "ordinal": 48,
+  "filename": "202610290002_supplier_fiscal_profile.sql",
+  "sha256": "51d60abcf980e182bc3975f9a90aadc68b180e1bde3e3db7b27c08f423162151"
+ },
+ {
+  "ordinal": 49,
+  "filename": "202610290003_purchase_invoices.sql",
+  "sha256": "8a5afba23235cad78e07da7f4f364fccd51925225b721d3ad11456581bd926d8"
+ },
+ {
+  "ordinal": 50,
+  "filename": "202610290004_landed_costs.sql",
+  "sha256": "12d7490f65c8eac5fa8e63ebfcbb081c62e1f1204a92fe6d7ed4771ad35efa16"
+ },
+ {
+  "ordinal": 51,
+  "filename": "202610290005_conflict_errors_without_retry.sql",
+  "sha256": "ed34b128cffadb2189e4053ebaa3b983d2728c24f925eeebbfe6e59477453313"
+ },
+ {
+  "ordinal": 52,
+  "filename": "202610290006_supplier_contact_profile.sql",
+  "sha256": "7c244212c97c982da6e0d2eb64ca2c64c50c1dd512c0f946338584a5a6fc497b"
+ },
+ {
+  "ordinal": 53,
+  "filename": "202610290007_purchase_invoice_tracking.sql",
+  "sha256": "551f2d827fa2913e32d6fc01d3cbe19fe706f656d91eec0bbd074e8328a5261b"
+ },
+ {
+  "ordinal": 54,
+  "filename": "202610300001_supplier_payments.sql",
+  "sha256": "1d44ea08176b5b5b2181d65d6019edd40be772aa25c14ae45b89866bde76cd8d"
+ },
+ {
+  "ordinal": 55,
+  "filename": "202610300002_payment_apply_same_invoice.sql",
+  "sha256": "e0eb93640914e083ee8007a53a7f179287307aa44ecbc399e31eadad02305c5e"
  }
 ]
 $retail_schema_manifest_json$::jsonb;
@@ -299,7 +344,7 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
--- 1/46: 202610010001_retail_multistore.sql
+-- 1/55: 202610010001_retail_multistore.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
   raise notice 'Aplicando 202610010001_retail_multistore.sql';
@@ -536,7 +581,7 @@ $retail_source_f24b734005cc1623$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 2/46: 202610020001_catalog_global_and_segmentation.sql
+-- 2/55: 202610020001_catalog_global_and_segmentation.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
   raise notice 'Aplicando 202610020001_catalog_global_and_segmentation.sql';
@@ -826,7 +871,7 @@ $retail_source_bca9c54fa75c2a89$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 3/46: 202610070001_harden_global_catalog_immutability.sql
+-- 3/55: 202610070001_harden_global_catalog_immutability.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
   raise notice 'Aplicando 202610070001_harden_global_catalog_immutability.sql';
@@ -923,7 +968,7 @@ $retail_source_f3ff59ec39b6e574$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 4/46: 202610130001_branches_prices_ledgers.sql
+-- 4/55: 202610130001_branches_prices_ledgers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
   raise notice 'Aplicando 202610130001_branches_prices_ledgers.sql';
@@ -1118,7 +1163,7 @@ $retail_source_e86fe143f886cd85$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 5/46: 202610140001_web_push.sql
+-- 5/55: 202610140001_web_push.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
   raise notice 'Aplicando 202610140001_web_push.sql';
@@ -1264,7 +1309,7 @@ $retail_source_918efe9a5d3313e3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 6/46: 202610150001_cashier_access.sql
+-- 6/55: 202610150001_cashier_access.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
   raise notice 'Aplicando 202610150001_cashier_access.sql';
@@ -1430,7 +1475,7 @@ $retail_source_a30006ceabfa2ca5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 7/46: 202610160001_offline_pos.sql
+-- 7/55: 202610160001_offline_pos.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
   raise notice 'Aplicando 202610160001_offline_pos.sql';
@@ -1544,7 +1589,7 @@ $retail_source_770c916876fcdabf$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 8/46: 202610160002_offline_queue.sql
+-- 8/55: 202610160002_offline_queue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
   raise notice 'Aplicando 202610160002_offline_queue.sql';
@@ -1670,7 +1715,7 @@ $retail_source_ffb2f924480094f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 9/46: 202610160003_pack_size.sql
+-- 9/55: 202610160003_pack_size.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
   raise notice 'Aplicando 202610160003_pack_size.sql';
@@ -1686,7 +1731,7 @@ $retail_source_e8f486a53e369954$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 10/46: 202610160004_margin_groups.sql
+-- 10/55: 202610160004_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
   raise notice 'Aplicando 202610160004_margin_groups.sql';
@@ -1741,7 +1786,7 @@ $retail_source_8a5790ed3a1371e6$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 11/46: 202610160005_branch_price_rules.sql
+-- 11/55: 202610160005_branch_price_rules.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
   raise notice 'Aplicando 202610160005_branch_price_rules.sql';
@@ -1795,7 +1840,7 @@ $retail_source_7899d29739b25999$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 12/46: 202610190001_justified_withdrawal.sql
+-- 12/55: 202610190001_justified_withdrawal.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
   raise notice 'Aplicando 202610190001_justified_withdrawal.sql';
@@ -1975,7 +2020,7 @@ $retail_source_029b5843eacab94f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 13/46: 202610190001_store_onboarding.sql
+-- 13/55: 202610190001_store_onboarding.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
   raise notice 'Aplicando 202610190001_store_onboarding.sql';
@@ -2092,7 +2137,7 @@ $retail_source_e5b8362448949bce$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 14/46: 202610190002_pending_replenishments.sql
+-- 14/55: 202610190002_pending_replenishments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
   raise notice 'Aplicando 202610190002_pending_replenishments.sql';
@@ -2261,7 +2306,7 @@ $retail_source_3ddd179e5609126a$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 15/46: 202610190003_stock_transfers.sql
+-- 15/55: 202610190003_stock_transfers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
   raise notice 'Aplicando 202610190003_stock_transfers.sql';
@@ -2368,7 +2413,7 @@ $retail_source_cab05c3785465fba$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 16/46: 202610200001_supplier_mappings.sql
+-- 16/55: 202610200001_supplier_mappings.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
   raise notice 'Aplicando 202610200001_supplier_mappings.sql';
@@ -2459,7 +2504,7 @@ $retail_source_d4841853f82adbd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 17/46: 202610200002_supplier_alias_usage.sql
+-- 17/55: 202610200002_supplier_alias_usage.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
   raise notice 'Aplicando 202610200002_supplier_alias_usage.sql';
@@ -2526,7 +2571,7 @@ $retail_source_1adc3ce4519abbb2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 18/46: 202610200003_product_expiry.sql
+-- 18/55: 202610200003_product_expiry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
   raise notice 'Aplicando 202610200003_product_expiry.sql';
@@ -2541,7 +2586,7 @@ $retail_source_77d1f8c0f62da284$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 19/46: 202610210001_ledger_routing.sql
+-- 19/55: 202610210001_ledger_routing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
   raise notice 'Aplicando 202610210001_ledger_routing.sql';
@@ -2672,7 +2717,7 @@ $retail_source_f19dc026535013c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 20/46: 202610210002_staff_profiles.sql
+-- 20/55: 202610210002_staff_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
   raise notice 'Aplicando 202610210002_staff_profiles.sql';
@@ -2838,7 +2883,7 @@ $retail_source_ca6e73c2c8993bc2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 21/46: 202610210003_ledger_lock_order.sql
+-- 21/55: 202610210003_ledger_lock_order.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
   raise notice 'Aplicando 202610210003_ledger_lock_order.sql';
@@ -2886,7 +2931,7 @@ $retail_source_b9f318a08145ad1e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 22/46: 202610210004_delegated_catalog_actions.sql
+-- 22/55: 202610210004_delegated_catalog_actions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
   raise notice 'Aplicando 202610210004_delegated_catalog_actions.sql';
@@ -3004,7 +3049,7 @@ $retail_source_bcfa6664c406dd00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 23/46: 202610220001_product_compositions.sql
+-- 23/55: 202610220001_product_compositions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
   raise notice 'Aplicando 202610220001_product_compositions.sql';
@@ -3162,7 +3207,7 @@ $retail_source_ef088735e7a84900$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 24/46: 202610220002_loose_cigarettes.sql
+-- 24/55: 202610220002_loose_cigarettes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
   raise notice 'Aplicando 202610220002_loose_cigarettes.sql';
@@ -3270,7 +3315,7 @@ $retail_source_e943d579b3d7ed4e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 25/46: 202610220003_product_deletion_history.sql
+-- 25/55: 202610220003_product_deletion_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
   raise notice 'Aplicando 202610220003_product_deletion_history.sql';
@@ -3375,7 +3420,7 @@ $retail_source_458a93d670539dd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 26/46: 202610220004_standard_categories.sql
+-- 26/55: 202610220004_standard_categories.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
   raise notice 'Aplicando 202610220004_standard_categories.sql';
@@ -3477,7 +3522,7 @@ $retail_source_85e889e22c9dcc55$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 27/46: 202610220005_category_labels.sql
+-- 27/55: 202610220005_category_labels.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
   raise notice 'Aplicando 202610220005_category_labels.sql';
@@ -3508,7 +3553,7 @@ $retail_source_e975aa6c462d6ee5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 28/46: 202610220006_complete_permission_profiles.sql
+-- 28/55: 202610220006_complete_permission_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
   raise notice 'Aplicando 202610220006_complete_permission_profiles.sql';
@@ -4146,7 +4191,7 @@ $retail_source_913347ffd59472a5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 29/46: 202610230001_automatic_margin_groups.sql
+-- 29/55: 202610230001_automatic_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
   raise notice 'Aplicando 202610230001_automatic_margin_groups.sql';
@@ -4212,7 +4257,7 @@ $retail_source_6cd429e7679685c4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 30/46: 202610230002_ingredients_and_composition_costs.sql
+-- 30/55: 202610230002_ingredients_and_composition_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
   raise notice 'Aplicando 202610230002_ingredients_and_composition_costs.sql';
@@ -4315,7 +4360,7 @@ $retail_source_86fd19952b8e6534$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 31/46: 202610240001_shift_closing_details.sql
+-- 31/55: 202610240001_shift_closing_details.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
   raise notice 'Aplicando 202610240001_shift_closing_details.sql';
@@ -4479,7 +4524,7 @@ $retail_source_d3204ba0e41d2977$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 32/46: 202610260001_optional_depot.sql
+-- 32/55: 202610260001_optional_depot.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
   raise notice 'Aplicando 202610260001_optional_depot.sql';
@@ -4619,7 +4664,7 @@ $retail_source_f221d19fcff7ac88$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 33/46: 202610260002_create_composite_product.sql
+-- 33/55: 202610260002_create_composite_product.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
   raise notice 'Aplicando 202610260002_create_composite_product.sql';
@@ -4665,7 +4710,7 @@ $retail_source_2e23fbafc73e0b69$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 34/46: 202610260003_billing_fields.sql
+-- 34/55: 202610260003_billing_fields.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260003_billing_fields.sql') then
   raise notice 'Aplicando 202610260003_billing_fields.sql';
@@ -4849,7 +4894,7 @@ $retail_source_2a42b0a16de67076$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 35/46: 202610260004_price_list_tree.sql
+-- 35/55: 202610260004_price_list_tree.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260004_price_list_tree.sql') then
   raise notice 'Aplicando 202610260004_price_list_tree.sql';
@@ -5009,7 +5054,7 @@ exception when raise_exception then
   hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
 end;
 
--- 36/46: 202610260005_delete_price_lists.sql
+-- 36/55: 202610260005_delete_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260005_delete_price_lists.sql') then
   raise notice 'Aplicando 202610260005_delete_price_lists.sql';
@@ -5139,7 +5184,7 @@ $retail_source_540fb2b7146a1f68$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 37/46: 202610260006_billing_update_robustness.sql
+-- 37/55: 202610260006_billing_update_robustness.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260006_billing_update_robustness.sql') then
   raise notice 'Aplicando 202610260006_billing_update_robustness.sql';
@@ -5225,7 +5270,7 @@ $retail_source_97469041ab94b975$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 38/46: 202610270001_store_billing_credentials.sql
+-- 38/55: 202610270001_store_billing_credentials.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270001_store_billing_credentials.sql') then
   raise notice 'Aplicando 202610270001_store_billing_credentials.sql';
@@ -5321,7 +5366,7 @@ $retail_source_5c5d202e9b944644$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 39/46: 202610270002_primary_product_markup.sql
+-- 39/55: 202610270002_primary_product_markup.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270002_primary_product_markup.sql') then
   raise notice 'Aplicando 202610270002_primary_product_markup.sql';
@@ -5504,7 +5549,7 @@ $retail_source_d9e8f398d415af14$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 40/46: 202610270003_suppliers.sql
+-- 40/55: 202610270003_suppliers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270003_suppliers.sql') then
   raise notice 'Aplicando 202610270003_suppliers.sql';
@@ -5586,7 +5631,7 @@ $retail_source_9f007483d72681a7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 41/46: 202610270004_cost_price_lists.sql
+-- 41/55: 202610270004_cost_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270004_cost_price_lists.sql') then
   raise notice 'Aplicando 202610270004_cost_price_lists.sql';
@@ -5623,7 +5668,7 @@ $retail_source_abe5683734a54251$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 42/46: 202610270005_supplier_invoice_formats.sql
+-- 42/55: 202610270005_supplier_invoice_formats.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270005_supplier_invoice_formats.sql') then
   raise notice 'Aplicando 202610270005_supplier_invoice_formats.sql';
@@ -5704,7 +5749,7 @@ $retail_source_62535c0e844930c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 43/46: 202610280001_supplier_alias_usage_repair.sql
+-- 43/55: 202610280001_supplier_alias_usage_repair.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280001_supplier_alias_usage_repair.sql') then
   raise notice 'Aplicando 202610280001_supplier_alias_usage_repair.sql';
@@ -5782,7 +5827,7 @@ $retail_source_e6eee2d43a1a62cc$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 44/46: 202610280002_location_funds.sql
+-- 44/55: 202610280002_location_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280002_location_funds.sql') then
   raise notice 'Aplicando 202610280002_location_funds.sql';
@@ -5874,7 +5919,7 @@ $retail_source_f22cae1d60cb383c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 45/46: 202610280003_location_inventory.sql
+-- 45/55: 202610280003_location_inventory.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280003_location_inventory.sql') then
   raise notice 'Aplicando 202610280003_location_inventory.sql';
@@ -6266,7 +6311,7 @@ $retail_source_baa181aa8cc76f1b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 46/46: 202610280004_permanent_product_deletion.sql
+-- 46/55: 202610280004_permanent_product_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280004_permanent_product_deletion.sql') then
   raise notice 'Aplicando 202610280004_permanent_product_deletion.sql';
@@ -6395,6 +6440,1055 @@ grant execute on function public.retail_delete_product_permanently(uuid, uuid) t
 $retail_source_c066941e7a7c08d3$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202610280004_permanent_product_deletion.sql','c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368','schema');
+ end if;
+end;
+
+-- 47/55: 202610290001_branch_location_and_deletion.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290001_branch_location_and_deletion.sql') then
+  raise notice 'Aplicando 202610290001_branch_location_and_deletion.sql';
+  execute replace($retail_source_bd6a4e4c41f96463$
+-- Ubicación opcional en el mapa. Sin coordenadas la sucursal sigue operando igual.
+alter table public.retail_branches
+ add column latitude double precision check(latitude between -90 and 90),
+ add column longitude double precision check(longitude between -180 and 180),
+ add check((latitude is null)=(longitude is null));
+
+create function public.retail_set_branch_location(p_store uuid,p_id uuid,p_latitude double precision,p_longitude double precision) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare target uuid;
+begin
+ perform retail_private.require_permission(p_store,'manage_locations');
+ if (p_latitude is null)<>(p_longitude is null) or p_latitude not between -90 and 90 or p_longitude not between -180 and 180 then
+  raise exception 'Ubicación inválida. Elegí un punto en el mapa';
+ end if;
+ update public.retail_branches set latitude=p_latitude,longitude=p_longitude where store_id=p_store and id=p_id returning id into target;
+ if target is null then raise exception 'Sucursal no disponible. Actualizá los datos'; end if;
+ return target;
+end $$;
+
+-- Eliminar solo sucursales sin historial: ventas, turnos, stock, transferencias y fondos se conservan siempre.
+create function public.retail_delete_branch(p_store uuid,p_id uuid) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare branch public.retail_branches; dependency text;
+begin
+ perform retail_private.require_permission(p_store,'manage_locations');
+ select * into branch from public.retail_branches where store_id=p_store and id=p_id for update;
+ if not found then raise exception 'Sucursal no disponible. Actualizá los datos'; end if;
+ if branch.is_default then raise exception 'La sucursal principal no se puede eliminar'; end if;
+ if exists(select 1 from public.retail_registers where store_id=p_store and branch_id=p_id and active) then
+  raise exception 'Mové o desactivá primero las cajas de esta sucursal';
+ end if;
+ if exists(select 1 from public.retail_location_funds where store_id=p_store and location=p_id::text)
+  or exists(select 1 from public.retail_fund_transfers where store_id=p_store and (from_location=p_id::text or to_location=p_id::text)) then
+  raise exception 'La sucursal tiene fondos o movimientos de dinero registrados; no se puede eliminar';
+ end if;
+ if exists(select 1 from public.retail_location_transfers where store_id=p_store and (from_location=p_id::text or to_location=p_id::text)) then
+  raise exception 'La sucursal tiene transferencias registradas; no se puede eliminar';
+ end if;
+ begin
+  -- Configuración propia sin historial: se elimina junto con la sucursal.
+  delete from public.retail_quick_products where store_id=p_store and branch_id=p_id;
+  delete from public.retail_branch_stock where store_id=p_store and branch_id=p_id and quantity=0;
+  delete from public.retail_registers r where r.store_id=p_store and r.branch_id=p_id and not r.active
+   and not exists(select 1 from public.retail_shifts s where s.register_id=r.id);
+  delete from public.retail_branches where store_id=p_store and id=p_id;
+ exception when foreign_key_violation then
+  get stacked diagnostics dependency=table_name;
+  raise exception '%', case
+   when dependency in ('retail_sales','retail_shifts','retail_registers') then 'La sucursal tiene cajas con turnos o ventas registradas; no se puede eliminar'
+   when dependency in ('retail_members','retail_invitations') then 'Hay personas asignadas a esta sucursal. Cambiá su asignación primero'
+   when dependency='retail_price_lists' then 'Hay listas de precios asignadas a esta sucursal. Cambiá su sucursal primero'
+   when dependency in ('retail_branch_stock','retail_inventory_activations','retail_depot_movements') then 'La sucursal tiene stock o historial de inventario; no se puede eliminar'
+   when dependency='retail_pending_replenishments' then 'La sucursal tiene remitos o reposiciones registradas; no se puede eliminar'
+   when dependency='retail_stock_transfers' then 'La sucursal tiene transferencias registradas; no se puede eliminar'
+   else 'La sucursal tiene historial asociado; no se puede eliminar' end;
+ end;
+ return p_id;
+end $$;
+
+revoke all on function public.retail_set_branch_location(uuid,uuid,double precision,double precision) from public,anon;
+revoke all on function public.retail_delete_branch(uuid,uuid) from public,anon;
+grant execute on function public.retail_set_branch_location(uuid,uuid,double precision,double precision) to authenticated;
+grant execute on function public.retail_delete_branch(uuid,uuid) to authenticated;
+
+$retail_source_bd6a4e4c41f96463$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290001_branch_location_and_deletion.sql','bd6a4e4c41f9646352bbb167137c5c9519d6cfbcf51d9143fff9ccb4136f5b75','schema');
+ end if;
+end;
+
+-- 48/55: 202610290002_supplier_fiscal_profile.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290002_supplier_fiscal_profile.sql') then
+  raise notice 'Aplicando 202610290002_supplier_fiscal_profile.sql';
+  execute replace($retail_source_51d60abcf980e182$
+-- Ficha fiscal del proveedor: CUIT para reconocer sus facturas y reglas de lectura.
+-- No cambia costos, stock ni descuentos existentes.
+create function retail_private.valid_cuit(p_cuit text) returns boolean
+language plpgsql immutable set search_path='' as $$
+declare total integer:=0; weights integer[]:=array[5,4,3,2,7,6,5,4,3,2]; check_digit integer;
+begin
+ if p_cuit is null or p_cuit !~ '^[0-9]{11}$' then return false; end if;
+ for i in 1..10 loop total:=total+substr(p_cuit,i,1)::integer*weights[i]; end loop;
+ check_digit:=11-total%11;
+ if check_digit=11 then check_digit:=0; end if;
+ return check_digit<10 and check_digit=substr(p_cuit,11,1)::integer;
+end $$;
+
+create function retail_private.valid_supplier_invoice_rules(p_rules jsonb) returns boolean
+language sql immutable set search_path='' as $$
+ select jsonb_typeof(p_rules)='object'
+  and not exists(select 1 from jsonb_object_keys(p_rules) k where k not in ('quantity_unit','amount_includes_vat','merge_repeated_codes','cost_column'))
+  and coalesce(p_rules->>'quantity_unit','auto') in ('auto','unit')
+  and coalesce(jsonb_typeof(p_rules->'amount_includes_vat'),'boolean')='boolean'
+  and coalesce(jsonb_typeof(p_rules->'merge_repeated_codes'),'boolean')='boolean'
+  and coalesce(jsonb_typeof(p_rules->'cost_column'),'string')='string'
+  and length(coalesce(p_rules->>'cost_column',''))<=60;
+$$;
+
+alter table public.retail_suppliers
+ add column cuit text check(cuit is null or retail_private.valid_cuit(cuit)),
+ add column invoice_rules jsonb not null default '{}'::jsonb check(retail_private.valid_supplier_invoice_rules(invoice_rules));
+create unique index retail_suppliers_cuit on public.retail_suppliers(store_id,cuit) where cuit is not null;
+
+-- Misma firma ampliada. Sin p_cuit/p_rules (clientes anteriores) se conservan los valores guardados;
+-- p_cuit '' quita el CUIT.
+drop function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer);
+create function public.retail_save_supplier(
+ p_store uuid, p_id uuid, p_name text, p_discount numeric, p_notes text default null, p_expected integer default null,
+ p_cuit text default null, p_rules jsonb default null
+) returns public.retail_suppliers
+language plpgsql security definer set search_path='' as $$
+declare result public.retail_suppliers; clean_name text; clean_key text; clean_notes text; clean_cuit text;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ clean_name:=btrim(regexp_replace(coalesce(p_name,''),'[[:space:]]+',' ','g'));
+ clean_key:=retail_private.normalize_supplier(clean_name);
+ if clean_key='' or length(clean_name)>120 then raise exception 'Ingresá el nombre del proveedor (hasta 120 caracteres)' using errcode='22023'; end if;
+ if p_discount is null or p_discount::text in ('NaN','Infinity','-Infinity') or p_discount<0 or p_discount>=100 then
+   raise exception 'El descuento debe ser un porcentaje desde 0 y menor a 100' using errcode='22023';
+ end if;
+ if round(p_discount,2)<>p_discount then raise exception 'Usá hasta dos decimales para el descuento' using errcode='22023'; end if;
+ clean_notes:=nullif(btrim(coalesce(p_notes,'')),'');
+ if length(clean_notes)>300 then raise exception 'Las notas admiten hasta 300 caracteres' using errcode='22023'; end if;
+ clean_cuit:=nullif(regexp_replace(coalesce(p_cuit,''),'[^0-9]','','g'),'');
+ if clean_cuit is not null and not retail_private.valid_cuit(clean_cuit) then
+   raise exception 'El CUIT no es válido. Revisá los 11 números' using errcode='22023';
+ end if;
+ if p_rules is not null and not retail_private.valid_supplier_invoice_rules(p_rules) then
+   raise exception 'Las reglas de lectura de facturas no son válidas' using errcode='22023';
+ end if;
+ if exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.supplier_key=clean_key and s.id is distinct from p_id) then
+   raise exception 'Ya existe un proveedor con ese nombre en el comercio' using errcode='23505';
+ end if;
+ if clean_cuit is not null and exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.cuit=clean_cuit and s.id is distinct from p_id) then
+   raise exception 'Ese CUIT ya pertenece a otro proveedor del comercio' using errcode='23505';
+ end if;
+ if p_id is null then
+   insert into public.retail_suppliers(store_id,name,supplier_key,discount_percent,notes,cuit,invoice_rules)
+   values(p_store,clean_name,clean_key,p_discount,clean_notes,clean_cuit,coalesce(p_rules,'{}'::jsonb))
+   returning * into result;
+   return result;
+ end if;
+ update public.retail_suppliers s set name=clean_name,supplier_key=clean_key,discount_percent=p_discount,
+   notes=clean_notes,
+   cuit=case when p_cuit is null then s.cuit else clean_cuit end,
+   invoice_rules=coalesce(p_rules,s.invoice_rules),
+   revision=s.revision+1,updated_at=now()
+ where s.id=p_id and s.store_id=p_store and s.revision=p_expected
+ returning * into result;
+ if not found then raise exception 'Otra persona cambió o eliminó este proveedor. Actualizá los datos y revisá antes de guardar' using errcode='40001'; end if;
+ return result;
+end $$;
+
+-- Las restricciones de la tabla usan estas funciones: mismo criterio que normalize_supplier.
+revoke all on function retail_private.valid_cuit(text) from public;
+revoke all on function retail_private.valid_supplier_invoice_rules(jsonb) from public;
+grant execute on function retail_private.valid_cuit(text) to authenticated;
+grant execute on function retail_private.valid_supplier_invoice_rules(jsonb) to authenticated;
+revoke all on function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer,text,jsonb) from public,anon;
+grant execute on function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer,text,jsonb) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_51d60abcf980e182$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290002_supplier_fiscal_profile.sql','51d60abcf980e182bc3975f9a90aadc68b180e1bde3e3db7b27c08f423162151','schema');
+ end if;
+end;
+
+-- 49/55: 202610290003_purchase_invoices.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290003_purchase_invoices.sql') then
+  raise notice 'Aplicando 202610290003_purchase_invoices.sql';
+  execute replace($retail_source_8a5afba23235cad7$
+-- Comprobantes de compra: cabecera fiscal para el contador. Independiente del stock:
+-- registrar, corregir o borrar un comprobante no cambia productos, costos ni existencias.
+create table public.retail_purchase_invoices (
+ id uuid primary key,
+ store_id uuid not null references public.retail_stores(id),
+ supplier_id uuid references public.retail_suppliers(id) on delete set null,
+ supplier_name text not null check(length(btrim(supplier_name)) between 1 and 120),
+ issuer_cuit text not null check(retail_private.valid_cuit(issuer_cuit)),
+ receiver_cuit text check(receiver_cuit is null or retail_private.valid_cuit(receiver_cuit)),
+ voucher_type smallint not null check(voucher_type between 1 and 999),
+ point_of_sale integer not null check(point_of_sale between 1 and 99999),
+ number bigint not null check(number between 1 and 99999999),
+ issue_date date not null,
+ authorization_type text check(authorization_type in ('E','A')),
+ authorization_code text check(authorization_code ~ '^[0-9]{14}$'),
+ net_21 numeric(16,2) not null default 0 check(net_21>=0),
+ vat_21 numeric(16,2) not null default 0 check(vat_21>=0),
+ net_10_5 numeric(16,2) not null default 0 check(net_10_5>=0),
+ vat_10_5 numeric(16,2) not null default 0 check(vat_10_5>=0),
+ net_27 numeric(16,2) not null default 0 check(net_27>=0),
+ vat_27 numeric(16,2) not null default 0 check(vat_27>=0),
+ untaxed numeric(16,2) not null default 0 check(untaxed>=0),
+ internal_taxes numeric(16,2) not null default 0 check(internal_taxes>=0),
+ vat_perceptions numeric(16,2) not null default 0 check(vat_perceptions>=0),
+ iibb_perceptions numeric(16,2) not null default 0 check(iibb_perceptions>=0),
+ other_taxes numeric(16,2) not null default 0 check(other_taxes>=0),
+ total numeric(16,2) not null check(total>0),
+ -- Calculado al guardar: IVA por alícuota y suma de conceptos contra el total (±$0,05).
+ balanced boolean not null,
+ qr_verified boolean not null default false,
+ notes text check(notes is null or length(notes)<=300),
+ created_by uuid not null references auth.users(id),
+ actor_email text,
+ created_at timestamptz not null default now(),
+ unique(store_id,issuer_cuit,voucher_type,point_of_sale,number)
+);
+create index retail_purchase_invoice_period on public.retail_purchase_invoices(store_id,issue_date desc,id);
+
+alter table public.retail_purchase_invoices enable row level security;
+create policy authorized_read on public.retail_purchase_invoices for select to authenticated
+ using(retail_private.has_permission(store_id,'manage_products'));
+revoke all on public.retail_purchase_invoices from public,anon,authenticated;
+grant select on public.retail_purchase_invoices to authenticated;
+
+-- p_request es el id del comprobante: reintentar con los mismos datos devuelve el mismo registro.
+create function public.retail_save_purchase_invoice(p_store uuid,p_request uuid,p_invoice jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare previous public.retail_purchase_invoices; duplicate public.retail_purchase_invoices; inv public.retail_purchase_invoices;
+ amounts text[]:=array['net_21','vat_21','net_10_5','vat_10_5','net_27','vat_27','untaxed','internal_taxes','vat_perceptions','iibb_perceptions','other_taxes','total'];
+ field text; value numeric; supplier uuid; sum_parts numeric;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ if p_request is null or jsonb_typeof(p_invoice)<>'object' then raise exception 'Datos del comprobante incompletos' using errcode='22023'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into previous from public.retail_purchase_invoices where id=p_request;
+ if found then
+  if previous.store_id<>p_store then raise exception 'La solicitud corresponde a otro comercio'; end if;
+  return previous.id;
+ end if;
+ foreach field in array amounts loop
+  begin value:=coalesce((p_invoice->>field)::numeric,0);
+  exception when others then raise exception 'Revisá el importe %', field using errcode='22023'; end;
+  if value<0 or value::text in ('NaN','Infinity','-Infinity') or round(value,2)<>value or value>99999999999999 then
+   raise exception 'Revisá el importe %: usá montos positivos con hasta dos decimales', field using errcode='22023';
+  end if;
+ end loop;
+ if nullif(p_invoice->>'supplier_id','') is not null then
+  select id into supplier from public.retail_suppliers where store_id=p_store and id=(p_invoice->>'supplier_id')::uuid;
+ end if;
+ begin
+  inv:=jsonb_populate_record(null::public.retail_purchase_invoices,p_invoice);
+ exception when others then raise exception 'Revisá tipo, punto de venta, número y fecha del comprobante' using errcode='22023';
+ end;
+ if inv.issuer_cuit is null or not retail_private.valid_cuit(inv.issuer_cuit) then raise exception 'El CUIT del proveedor no es válido' using errcode='22023'; end if;
+ if inv.receiver_cuit is not null and not retail_private.valid_cuit(inv.receiver_cuit) then raise exception 'El CUIT del receptor no es válido' using errcode='22023'; end if;
+ if inv.voucher_type is null or inv.point_of_sale is null or inv.number is null or inv.issue_date is null then
+  raise exception 'Completá tipo, punto de venta, número y fecha del comprobante' using errcode='22023';
+ end if;
+ if coalesce(inv.total,0)<=0 then raise exception 'Completá el total del comprobante' using errcode='22023'; end if;
+ select * into duplicate from public.retail_purchase_invoices d where d.store_id=p_store and d.issuer_cuit=inv.issuer_cuit
+  and d.voucher_type=inv.voucher_type and d.point_of_sale=inv.point_of_sale and d.number=inv.number;
+ if found then
+  raise exception 'Este comprobante ya se registró el % (proveedor %)', to_char(duplicate.created_at at time zone 'America/Argentina/Buenos_Aires','DD/MM/YYYY'), duplicate.supplier_name using errcode='23505';
+ end if;
+ sum_parts:=coalesce(inv.net_21,0)+coalesce(inv.vat_21,0)+coalesce(inv.net_10_5,0)+coalesce(inv.vat_10_5,0)+coalesce(inv.net_27,0)+coalesce(inv.vat_27,0)
+  +coalesce(inv.untaxed,0)+coalesce(inv.internal_taxes,0)+coalesce(inv.vat_perceptions,0)+coalesce(inv.iibb_perceptions,0)+coalesce(inv.other_taxes,0);
+ insert into public.retail_purchase_invoices(
+  id,store_id,supplier_id,supplier_name,issuer_cuit,receiver_cuit,voucher_type,point_of_sale,number,issue_date,authorization_type,authorization_code,
+  net_21,vat_21,net_10_5,vat_10_5,net_27,vat_27,untaxed,internal_taxes,vat_perceptions,iibb_perceptions,other_taxes,total,
+  balanced,qr_verified,notes,created_by,actor_email)
+ values(p_request,p_store,supplier,btrim(coalesce(inv.supplier_name,'')),inv.issuer_cuit,inv.receiver_cuit,inv.voucher_type,inv.point_of_sale,inv.number,inv.issue_date,
+  inv.authorization_type,nullif(inv.authorization_code,''),
+  coalesce(inv.net_21,0),coalesce(inv.vat_21,0),coalesce(inv.net_10_5,0),coalesce(inv.vat_10_5,0),coalesce(inv.net_27,0),coalesce(inv.vat_27,0),
+  coalesce(inv.untaxed,0),coalesce(inv.internal_taxes,0),coalesce(inv.vat_perceptions,0),coalesce(inv.iibb_perceptions,0),coalesce(inv.other_taxes,0),inv.total,
+  abs(sum_parts-inv.total)<=0.05 and abs(coalesce(inv.net_21,0)*0.21-coalesce(inv.vat_21,0))<=0.05
+   and abs(coalesce(inv.net_10_5,0)*0.105-coalesce(inv.vat_10_5,0))<=0.05 and abs(coalesce(inv.net_27,0)*0.27-coalesce(inv.vat_27,0))<=0.05,
+  coalesce(inv.qr_verified,false),nullif(btrim(coalesce(inv.notes,'')),''),auth.uid(),auth.jwt()->>'email');
+ return p_request;
+end $$;
+
+create function public.retail_delete_purchase_invoice(p_store uuid,p_id uuid) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ delete from public.retail_purchase_invoices where store_id=p_store and id=p_id;
+ if not found then raise exception 'El comprobante ya no está disponible. Actualizá los datos'; end if;
+end $$;
+
+revoke all on function public.retail_save_purchase_invoice(uuid,uuid,jsonb) from public,anon;
+revoke all on function public.retail_delete_purchase_invoice(uuid,uuid) from public,anon;
+grant execute on function public.retail_save_purchase_invoice(uuid,uuid,jsonb) to authenticated;
+grant execute on function public.retail_delete_purchase_invoice(uuid,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_8a5afba23235cad7$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290003_purchase_invoices.sql','8a5afba23235cad78e07da7f4f364fccd51925225b721d3ad11456581bd926d8','schema');
+ end if;
+end;
+
+-- 50/55: 202610290004_landed_costs.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290004_landed_costs.sql') then
+  raise notice 'Aplicando 202610290004_landed_costs.sql';
+  execute replace($retail_source_12d7490f65c8eac5$
+-- Costo final: nueva regla de proveedor "price_basis" ('auto' según el tipo de factura, 'final' si el
+-- costo tomado ya incluye IVA e impuestos internos, por ejemplo la columna "Final C/Dto.").
+create or replace function retail_private.valid_supplier_invoice_rules(p_rules jsonb) returns boolean
+language sql immutable set search_path='' as $$
+ select jsonb_typeof(p_rules)='object'
+  and not exists(select 1 from jsonb_object_keys(p_rules) k where k not in ('quantity_unit','amount_includes_vat','merge_repeated_codes','cost_column','price_basis'))
+  and coalesce(p_rules->>'quantity_unit','auto') in ('auto','unit')
+  and coalesce(jsonb_typeof(p_rules->'amount_includes_vat'),'boolean')='boolean'
+  and coalesce(jsonb_typeof(p_rules->'merge_repeated_codes'),'boolean')='boolean'
+  and coalesce(jsonb_typeof(p_rules->'cost_column'),'string')='string'
+  and length(coalesce(p_rules->>'cost_column',''))<=60
+  and coalesce(p_rules->>'price_basis','auto') in ('auto','final');
+$$;
+
+-- Ajuste explícito de costos existentes (por ejemplo, sumar el IVA a los productos de un proveedor).
+-- Todo o nada: si algún costo cambió desde la vista previa, no se modifica ninguno; así reintentar
+-- nunca suma el IVA dos veces. Los productos con precio por porcentaje recalculan su precio por el
+-- disparador existente.
+create function public.retail_adjust_product_costs(p_store uuid,p_changes jsonb) returns integer
+language plpgsql security definer set search_path='' as $$
+declare change jsonb; product public.retail_products; next_cost numeric; expected numeric; changed text; total integer:=0;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ if jsonb_typeof(p_changes)<>'array' or jsonb_array_length(p_changes) not between 1 and 2000 then
+  raise exception 'Elegí entre 1 y 2.000 productos para ajustar' using errcode='22023';
+ end if;
+ if (select count(distinct c->>'id') from jsonb_array_elements(p_changes) c)<>jsonb_array_length(p_changes) then
+  raise exception 'Hay productos repetidos en el ajuste' using errcode='22023';
+ end if;
+ -- Mismo orden de bloqueo para ajustes simultáneos.
+ for change in select c from jsonb_array_elements(p_changes) c order by c->>'id' loop
+  begin
+   next_cost:=(change->>'cost')::numeric; expected:=(change->>'expected')::numeric;
+  exception when others then raise exception 'Revisá los costos del ajuste' using errcode='22023';
+  end;
+  if next_cost is null or expected is null or next_cost<0 or round(next_cost,2)<>next_cost or next_cost>999999999999 then
+   raise exception 'Revisá los costos del ajuste: montos positivos con hasta dos decimales' using errcode='22023';
+  end if;
+  select * into product from public.retail_products where store_id=p_store and id=(change->>'id')::uuid for update;
+  if not found then raise exception 'Un producto ya no está disponible. Actualizá la vista previa'; end if;
+  -- Los combos calculan su costo desde los componentes: no se ajustan directamente.
+  if jsonb_array_length(coalesce(product.stock_components,'[]'::jsonb))>0 then
+   raise exception '% es un combo: su costo sale de sus componentes', product.name using errcode='22023';
+  end if;
+  if product.cost<>expected then changed:=coalesce(changed||', ','')||product.name; end if;
+ end loop;
+ if changed is not null then
+  raise exception 'El costo cambió en: %. Actualizá la vista previa; no se ajustó ningún producto', left(changed,300) using errcode='40001';
+ end if;
+ for change in select c from jsonb_array_elements(p_changes) c order by c->>'id' loop
+  update public.retail_products set cost=(change->>'cost')::numeric where store_id=p_store and id=(change->>'id')::uuid;
+  total:=total+1;
+ end loop;
+ return total;
+end $$;
+
+revoke all on function public.retail_adjust_product_costs(uuid,jsonb) from public,anon;
+grant execute on function public.retail_adjust_product_costs(uuid,jsonb) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_12d7490f65c8eac5$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290004_landed_costs.sql','12d7490f65c8eac5fa8e63ebfcbb081c62e1f1204a92fe6d7ed4771ad35efa16','schema');
+ end if;
+end;
+
+-- 51/55: 202610290005_conflict_errors_without_retry.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290005_conflict_errors_without_retry.sql') then
+  raise notice 'Aplicando 202610290005_conflict_errors_without_retry.sql';
+  execute replace($retail_source_ed34b128cffadb21$
+-- PostgREST reintenta automáticamente las transacciones que fallan con SQLSTATE 40001
+-- (serialization_failure). Estas funciones usaban 40001 para avisar "el dato cambió": el aviso
+-- nunca llegaba y la llamada quedaba reintentándose. Se redefinen igual, con el error por defecto (P0001).
+-- Mismas firmas, permisos y comportamiento; solo cambia el código del error.
+
+create or replace function public.retail_adjust_product_costs(p_store uuid,p_changes jsonb) returns integer
+language plpgsql security definer set search_path='' as $$
+declare change jsonb; product public.retail_products; next_cost numeric; expected numeric; changed text; total integer:=0;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ if jsonb_typeof(p_changes)<>'array' or jsonb_array_length(p_changes) not between 1 and 2000 then
+  raise exception 'Elegí entre 1 y 2.000 productos para ajustar' using errcode='22023';
+ end if;
+ if (select count(distinct c->>'id') from jsonb_array_elements(p_changes) c)<>jsonb_array_length(p_changes) then
+  raise exception 'Hay productos repetidos en el ajuste' using errcode='22023';
+ end if;
+ -- Mismo orden de bloqueo para ajustes simultáneos.
+ for change in select c from jsonb_array_elements(p_changes) c order by c->>'id' loop
+  begin
+   next_cost:=(change->>'cost')::numeric; expected:=(change->>'expected')::numeric;
+  exception when others then raise exception 'Revisá los costos del ajuste' using errcode='22023';
+  end;
+  if next_cost is null or expected is null or next_cost<0 or round(next_cost,2)<>next_cost or next_cost>999999999999 then
+   raise exception 'Revisá los costos del ajuste: montos positivos con hasta dos decimales' using errcode='22023';
+  end if;
+  select * into product from public.retail_products where store_id=p_store and id=(change->>'id')::uuid for update;
+  if not found then raise exception 'Un producto ya no está disponible. Actualizá la vista previa'; end if;
+  -- Los combos calculan su costo desde los componentes: no se ajustan directamente.
+  if jsonb_array_length(coalesce(product.stock_components,'[]'::jsonb))>0 then
+   raise exception '% es un combo: su costo sale de sus componentes', product.name using errcode='22023';
+  end if;
+  if product.cost<>expected then changed:=coalesce(changed||', ','')||product.name; end if;
+ end loop;
+ if changed is not null then
+  raise exception 'El costo cambió en: %. Actualizá la vista previa; no se ajustó ningún producto', left(changed,300);
+ end if;
+ for change in select c from jsonb_array_elements(p_changes) c order by c->>'id' loop
+  update public.retail_products set cost=(change->>'cost')::numeric where store_id=p_store and id=(change->>'id')::uuid;
+  total:=total+1;
+ end loop;
+ return total;
+end $$;
+
+create or replace function public.retail_save_supplier(
+ p_store uuid, p_id uuid, p_name text, p_discount numeric, p_notes text default null, p_expected integer default null,
+ p_cuit text default null, p_rules jsonb default null
+) returns public.retail_suppliers
+language plpgsql security definer set search_path='' as $$
+declare result public.retail_suppliers; clean_name text; clean_key text; clean_notes text; clean_cuit text;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ clean_name:=btrim(regexp_replace(coalesce(p_name,''),'[[:space:]]+',' ','g'));
+ clean_key:=retail_private.normalize_supplier(clean_name);
+ if clean_key='' or length(clean_name)>120 then raise exception 'Ingresá el nombre del proveedor (hasta 120 caracteres)' using errcode='22023'; end if;
+ if p_discount is null or p_discount::text in ('NaN','Infinity','-Infinity') or p_discount<0 or p_discount>=100 then
+   raise exception 'El descuento debe ser un porcentaje desde 0 y menor a 100' using errcode='22023';
+ end if;
+ if round(p_discount,2)<>p_discount then raise exception 'Usá hasta dos decimales para el descuento' using errcode='22023'; end if;
+ clean_notes:=nullif(btrim(coalesce(p_notes,'')),'');
+ if length(clean_notes)>300 then raise exception 'Las notas admiten hasta 300 caracteres' using errcode='22023'; end if;
+ clean_cuit:=nullif(regexp_replace(coalesce(p_cuit,''),'[^0-9]','','g'),'');
+ if clean_cuit is not null and not retail_private.valid_cuit(clean_cuit) then
+   raise exception 'El CUIT no es válido. Revisá los 11 números' using errcode='22023';
+ end if;
+ if p_rules is not null and not retail_private.valid_supplier_invoice_rules(p_rules) then
+   raise exception 'Las reglas de lectura de facturas no son válidas' using errcode='22023';
+ end if;
+ if exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.supplier_key=clean_key and s.id is distinct from p_id) then
+   raise exception 'Ya existe un proveedor con ese nombre en el comercio' using errcode='23505';
+ end if;
+ if clean_cuit is not null and exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.cuit=clean_cuit and s.id is distinct from p_id) then
+   raise exception 'Ese CUIT ya pertenece a otro proveedor del comercio' using errcode='23505';
+ end if;
+ if p_id is null then
+   insert into public.retail_suppliers(store_id,name,supplier_key,discount_percent,notes,cuit,invoice_rules)
+   values(p_store,clean_name,clean_key,p_discount,clean_notes,clean_cuit,coalesce(p_rules,'{}'::jsonb))
+   returning * into result;
+   return result;
+ end if;
+ update public.retail_suppliers s set name=clean_name,supplier_key=clean_key,discount_percent=p_discount,
+   notes=clean_notes,
+   cuit=case when p_cuit is null then s.cuit else clean_cuit end,
+   invoice_rules=coalesce(p_rules,s.invoice_rules),
+   revision=s.revision+1,updated_at=now()
+ where s.id=p_id and s.store_id=p_store and s.revision=p_expected
+ returning * into result;
+ if not found then raise exception 'Otra persona cambió o eliminó este proveedor. Actualizá los datos y revisá antes de guardar'; end if;
+ return result;
+end $$;
+
+create or replace function public.retail_delete_supplier(p_store uuid, p_id uuid, p_expected integer) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ -- Products and alias memory keep their supplier text; only the discount record is removed.
+ delete from public.retail_suppliers where id=p_id and store_id=p_store and revision=p_expected;
+ if not found then raise exception 'Otra persona cambió o eliminó este proveedor. Actualizá los datos y revisá antes de eliminar'; end if;
+end $$;
+
+notify pgrst,'reload schema';
+$retail_source_ed34b128cffadb21$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290005_conflict_errors_without_retry.sql','ed34b128cffadb2189e4053ebaa3b983d2728c24f925eeebbfe6e59477453313','schema');
+ end if;
+end;
+
+-- 52/55: 202610290006_supplier_contact_profile.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290006_supplier_contact_profile.sql') then
+  raise notice 'Aplicando 202610290006_supplier_contact_profile.sql';
+  execute replace($retail_source_7c244212c97c982d$
+-- Ficha completa del proveedor (cuenta corriente, etapa A): datos fiscales, contacto y condiciones de pago.
+-- Todos opcionales. No cambia descuentos, costos, comprobantes ni reglas de lectura.
+create function retail_private.valid_cbu(p_cbu text) returns boolean
+language plpgsql immutable set search_path='' as $$
+declare first_weights integer[]:=array[7,1,3,9,7,1,3]; second_weights integer[]:=array[3,9,7,1,3,9,7,1,3,9,7,1,3];
+ total integer:=0; digit integer;
+begin
+ if p_cbu is null or p_cbu !~ '^[0-9]{22}$' then return false; end if;
+ for i in 1..7 loop total:=total+substr(p_cbu,i,1)::integer*first_weights[i]; end loop;
+ digit:=(10-total%10)%10;
+ if digit<>substr(p_cbu,8,1)::integer then return false; end if;
+ total:=0;
+ for i in 1..13 loop total:=total+substr(p_cbu,8+i,1)::integer*second_weights[i]; end loop;
+ digit:=(10-total%10)%10;
+ return digit=substr(p_cbu,22,1)::integer;
+end $$;
+revoke all on function retail_private.valid_cbu(text) from public;
+grant execute on function retail_private.valid_cbu(text) to authenticated;
+
+alter table public.retail_suppliers
+ add column legal_name text check(legal_name is null or length(legal_name) between 1 and 160),
+ add column vat_condition text check(vat_condition in ('RI','MO','EX')),
+ add column fiscal_address text check(fiscal_address is null or length(fiscal_address) between 1 and 300),
+ add column commercial_address text check(commercial_address is null or length(commercial_address) between 1 and 300),
+ add column phone text check(phone is null or length(phone) between 1 and 40),
+ add column email text check(email is null or (length(email)<=160 and email ~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$')),
+ add column bank_cbu text check(bank_cbu is null or retail_private.valid_cbu(bank_cbu)),
+ add column bank_alias text check(bank_alias is null or bank_alias ~ '^[A-Za-z0-9.-]{6,20}$'),
+ add column payment_terms text check(payment_terms is null or length(payment_terms) between 1 and 300),
+ add column payment_days smallint check(payment_days between 0 and 365),
+ add column collections_contact text check(collections_contact is null or length(collections_contact) between 1 and 160),
+ add column purchasing_contact text check(purchasing_contact is null or length(purchasing_contact) between 1 and 160);
+
+-- Misma función con p_profile. Sin p_profile (clientes anteriores) se conserva la ficha guardada;
+-- con p_profile se reemplazan todos sus campos (los ausentes quedan vacíos).
+drop function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer,text,jsonb);
+create function public.retail_save_supplier(
+ p_store uuid, p_id uuid, p_name text, p_discount numeric, p_notes text default null, p_expected integer default null,
+ p_cuit text default null, p_rules jsonb default null, p_profile jsonb default null
+) returns public.retail_suppliers
+language plpgsql security definer set search_path='' as $$
+declare result public.retail_suppliers; clean_name text; clean_key text; clean_notes text; clean_cuit text;
+ profile public.retail_suppliers; clean_cbu text;
+ fields text[]:=array['legal_name','vat_condition','fiscal_address','commercial_address','phone','email','bank_cbu','bank_alias','payment_terms','payment_days','collections_contact','purchasing_contact'];
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ clean_name:=btrim(regexp_replace(coalesce(p_name,''),'[[:space:]]+',' ','g'));
+ clean_key:=retail_private.normalize_supplier(clean_name);
+ if clean_key='' or length(clean_name)>120 then raise exception 'Ingresá el nombre del proveedor (hasta 120 caracteres)' using errcode='22023'; end if;
+ if p_discount is null or p_discount::text in ('NaN','Infinity','-Infinity') or p_discount<0 or p_discount>=100 then
+   raise exception 'El descuento debe ser un porcentaje desde 0 y menor a 100' using errcode='22023';
+ end if;
+ if round(p_discount,2)<>p_discount then raise exception 'Usá hasta dos decimales para el descuento' using errcode='22023'; end if;
+ clean_notes:=nullif(btrim(coalesce(p_notes,'')),'');
+ if length(clean_notes)>300 then raise exception 'Las notas admiten hasta 300 caracteres' using errcode='22023'; end if;
+ clean_cuit:=nullif(regexp_replace(coalesce(p_cuit,''),'[^0-9]','','g'),'');
+ if clean_cuit is not null and not retail_private.valid_cuit(clean_cuit) then
+   raise exception 'El CUIT no es válido. Revisá los 11 números' using errcode='22023';
+ end if;
+ if p_rules is not null and not retail_private.valid_supplier_invoice_rules(p_rules) then
+   raise exception 'Las reglas de lectura de facturas no son válidas' using errcode='22023';
+ end if;
+ if p_profile is not null then
+  if jsonb_typeof(p_profile)<>'object' or exists(select 1 from jsonb_object_keys(p_profile) k where k<>all(fields)) then
+   raise exception 'Datos de la ficha del proveedor no válidos' using errcode='22023';
+  end if;
+  begin
+   profile:=jsonb_populate_record(null::public.retail_suppliers,p_profile);
+  exception when others then raise exception 'Revisá el plazo de pago: días enteros de 0 a 365' using errcode='22023';
+  end;
+  clean_cbu:=nullif(regexp_replace(coalesce(profile.bank_cbu,''),'[^0-9]','','g'),'');
+  if clean_cbu is not null and not retail_private.valid_cbu(clean_cbu) then
+   raise exception 'El CBU no es válido. Revisá los 22 números' using errcode='22023';
+  end if;
+  if nullif(btrim(coalesce(profile.bank_alias,'')),'') is not null and btrim(profile.bank_alias) !~ '^[A-Za-z0-9.-]{6,20}$' then
+   raise exception 'El alias debe tener de 6 a 20 letras, números, puntos o guiones' using errcode='22023';
+  end if;
+  if nullif(btrim(coalesce(profile.email,'')),'') is not null and (length(btrim(profile.email))>160 or btrim(profile.email) !~ '^[^@[:space:]]+@[^@[:space:]]+\.[^@[:space:]]+$') then
+   raise exception 'Revisá el correo de administración' using errcode='22023';
+  end if;
+  if profile.vat_condition is not null and profile.vat_condition not in ('RI','MO','EX') then
+   raise exception 'Elegí una condición frente al IVA válida' using errcode='22023';
+  end if;
+  if profile.payment_days is not null and profile.payment_days not between 0 and 365 then
+   raise exception 'Revisá el plazo de pago: días enteros de 0 a 365' using errcode='22023';
+  end if;
+  if length(profile.legal_name)>160 or length(profile.fiscal_address)>300 or length(profile.commercial_address)>300 or length(profile.phone)>40
+   or length(profile.payment_terms)>300 or length(profile.collections_contact)>160 or length(profile.purchasing_contact)>160 then
+   raise exception 'Algún dato de la ficha supera el largo permitido' using errcode='22023';
+  end if;
+ end if;
+ if exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.supplier_key=clean_key and s.id is distinct from p_id) then
+   raise exception 'Ya existe un proveedor con ese nombre en el comercio' using errcode='23505';
+ end if;
+ if clean_cuit is not null and exists(select 1 from public.retail_suppliers s where s.store_id=p_store and s.cuit=clean_cuit and s.id is distinct from p_id) then
+   raise exception 'Ese CUIT ya pertenece a otro proveedor del comercio' using errcode='23505';
+ end if;
+ if p_id is null then
+   insert into public.retail_suppliers(store_id,name,supplier_key,discount_percent,notes,cuit,invoice_rules)
+   values(p_store,clean_name,clean_key,p_discount,clean_notes,clean_cuit,coalesce(p_rules,'{}'::jsonb))
+   returning * into result;
+ else
+   update public.retail_suppliers s set name=clean_name,supplier_key=clean_key,discount_percent=p_discount,
+     notes=clean_notes,
+     cuit=case when p_cuit is null then s.cuit else clean_cuit end,
+     invoice_rules=coalesce(p_rules,s.invoice_rules),
+     revision=s.revision+1,updated_at=now()
+   where s.id=p_id and s.store_id=p_store and s.revision=p_expected
+   returning * into result;
+   -- Sin 40001: PostgREST reintentaría la transacción en lugar de devolver el aviso.
+   if not found then raise exception 'Otra persona cambió o eliminó este proveedor. Actualizá los datos y revisá antes de guardar'; end if;
+ end if;
+ if p_profile is not null then
+   update public.retail_suppliers s set
+     legal_name=nullif(btrim(coalesce(profile.legal_name,'')),''),
+     vat_condition=profile.vat_condition,
+     fiscal_address=nullif(btrim(coalesce(profile.fiscal_address,'')),''),
+     commercial_address=nullif(btrim(coalesce(profile.commercial_address,'')),''),
+     phone=nullif(btrim(coalesce(profile.phone,'')),''),
+     email=nullif(lower(btrim(coalesce(profile.email,''))),''),
+     bank_cbu=clean_cbu,
+     bank_alias=nullif(btrim(coalesce(profile.bank_alias,'')),''),
+     payment_terms=nullif(btrim(coalesce(profile.payment_terms,'')),''),
+     payment_days=profile.payment_days,
+     collections_contact=nullif(btrim(coalesce(profile.collections_contact,'')),''),
+     purchasing_contact=nullif(btrim(coalesce(profile.purchasing_contact,'')),'')
+   where s.id=result.id
+   returning * into result;
+ end if;
+ return result;
+end $$;
+
+revoke all on function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer,text,jsonb,jsonb) from public,anon;
+grant execute on function public.retail_save_supplier(uuid,uuid,text,numeric,text,integer,text,jsonb,jsonb) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_7c244212c97c982d$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290006_supplier_contact_profile.sql','7c244212c97c982da6e0d2eb64ca2c64c50c1dd512c0f946338584a5a6fc497b','schema');
+ end if;
+end;
+
+-- 53/55: 202610290007_purchase_invoice_tracking.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610290007_purchase_invoice_tracking.sql') then
+  raise notice 'Aplicando 202610290007_purchase_invoice_tracking.sql';
+  execute replace($retail_source_551f2d827fa2913e$
+-- Cuenta corriente, etapa B: vencimiento, revisión, aceptación de notas de débito y vínculo de notas
+-- de crédito/débito con su factura. Los importes originales nunca se modifican.
+alter table public.retail_purchase_invoices
+ add column due_date date,
+ add column review_reason text check(review_reason is null or length(btrim(review_reason)) between 1 and 300),
+ add column reviewed_by uuid references auth.users(id),
+ add column reviewed_at timestamptz,
+ add column accepted_by uuid references auth.users(id),
+ add column accepted_at timestamptz,
+ add column applies_to uuid references public.retail_purchase_invoices(id) on delete set null,
+ add check(applies_to is null or applies_to<>id),
+ add check((accepted_at is null)=(accepted_by is null));
+create index retail_purchase_invoice_applies_to on public.retail_purchase_invoices(applies_to) where applies_to is not null;
+
+-- Vencimiento por defecto: emisión + plazo del proveedor (por id o, si no, por CUIT). Sin plazo: la emisión.
+create function retail_private.default_purchase_due_date() returns trigger
+language plpgsql set search_path='' as $$
+declare days integer;
+begin
+ if new.due_date is null then
+  select s.payment_days into days from public.retail_suppliers s
+   where s.store_id=new.store_id and (s.id=new.supplier_id or (new.supplier_id is null and s.cuit=new.issuer_cuit))
+   order by (s.id=new.supplier_id) desc limit 1;
+  new.due_date:=new.issue_date+coalesce(days,0);
+ end if;
+ return new;
+end $$;
+create trigger retail_purchase_due_date before insert on public.retail_purchase_invoices
+ for each row execute function retail_private.default_purchase_due_date();
+
+update public.retail_purchase_invoices p set due_date=p.issue_date+coalesce(
+ (select s.payment_days from public.retail_suppliers s where s.store_id=p.store_id and (s.id=p.supplier_id or (p.supplier_id is null and s.cuit=p.issuer_cuit))
+  order by (s.id=p.supplier_id) desc limit 1),0);
+alter table public.retail_purchase_invoices alter column due_date set not null,
+ add check(due_date>=issue_date);
+
+-- Tipos: facturas (1, 6, 11, 51), notas de débito (2, 7, 12) y de crédito (3, 8, 13).
+create function public.retail_update_purchase_invoice_tracking(p_store uuid,p_id uuid,p_changes jsonb) returns public.retail_purchase_invoices
+language plpgsql security definer set search_path='' as $$
+declare inv public.retail_purchase_invoices; target public.retail_purchase_invoices; result public.retail_purchase_invoices;
+ next_due date; next_reason text; next_target uuid; linked numeric;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ if jsonb_typeof(p_changes)<>'object' or exists(select 1 from jsonb_object_keys(p_changes) k where k not in ('due_date','review_reason','accept','applies_to')) then
+  raise exception 'Cambios no válidos para el comprobante' using errcode='22023';
+ end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into inv from public.retail_purchase_invoices where store_id=p_store and id=p_id for update;
+ if not found then raise exception 'El comprobante ya no está disponible. Actualizá los datos'; end if;
+ next_due:=inv.due_date; next_reason:=inv.review_reason; next_target:=inv.applies_to;
+ if p_changes ? 'due_date' then
+  begin next_due:=(p_changes->>'due_date')::date;
+  exception when others then raise exception 'Revisá la fecha de vencimiento' using errcode='22023'; end;
+  if next_due is null or next_due<inv.issue_date then raise exception 'El vencimiento no puede ser anterior a la emisión' using errcode='22023'; end if;
+ end if;
+ if p_changes ? 'review_reason' then
+  next_reason:=nullif(btrim(coalesce(p_changes->>'review_reason','')),'');
+  if length(next_reason)>300 then raise exception 'El motivo admite hasta 300 caracteres' using errcode='22023'; end if;
+ end if;
+ if coalesce((p_changes->>'accept')::boolean,false) and inv.voucher_type not in (2,7,12) then
+  raise exception 'Solo se aceptan notas de débito' using errcode='22023';
+ end if;
+ if p_changes ? 'applies_to' then
+  next_target:=nullif(p_changes->>'applies_to','')::uuid;
+  if next_target is not null then
+   if inv.voucher_type not in (2,3,7,8,12,13) then raise exception 'Solo las notas de crédito o débito se vinculan con una factura' using errcode='22023'; end if;
+   select * into target from public.retail_purchase_invoices where store_id=p_store and id=next_target;
+   if not found or target.id=inv.id then raise exception 'La factura elegida no está disponible' using errcode='22023'; end if;
+   if target.voucher_type not in (1,6,11,51) or target.issuer_cuit<>inv.issuer_cuit then
+    raise exception 'Elegí una factura del mismo proveedor' using errcode='22023';
+   end if;
+   if inv.voucher_type in (3,8,13) then
+    select coalesce(sum(total),0) into linked from public.retail_purchase_invoices
+     where store_id=p_store and applies_to=next_target and voucher_type in (3,8,13) and id<>inv.id;
+    if linked+inv.total>target.total+0.05 then
+     raise exception 'Las notas de crédito vinculadas superarían el total de la factura' using errcode='22023';
+    end if;
+   end if;
+  end if;
+ end if;
+ update public.retail_purchase_invoices set
+  due_date=next_due,
+  review_reason=next_reason,
+  reviewed_by=case when next_reason is distinct from inv.review_reason then case when next_reason is null then null else auth.uid() end else reviewed_by end,
+  reviewed_at=case when next_reason is distinct from inv.review_reason then case when next_reason is null then null else now() end else reviewed_at end,
+  accepted_by=case when coalesce((p_changes->>'accept')::boolean,false) and accepted_at is null then auth.uid() else accepted_by end,
+  accepted_at=case when coalesce((p_changes->>'accept')::boolean,false) and accepted_at is null then now() else accepted_at end,
+  applies_to=next_target
+ where id=inv.id
+ returning * into result;
+ return result;
+end $$;
+
+revoke all on function retail_private.default_purchase_due_date() from public,anon,authenticated;
+revoke all on function public.retail_update_purchase_invoice_tracking(uuid,uuid,jsonb) from public,anon;
+grant execute on function public.retail_update_purchase_invoice_tracking(uuid,uuid,jsonb) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_551f2d827fa2913e$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610290007_purchase_invoice_tracking.sql','551f2d827fa2913e32d6fc01d3cbe19fe706f656d91eec0bbd074e8328a5261b','schema');
+ end if;
+end;
+
+-- 54/55: 202610300001_supplier_payments.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610300001_supplier_payments.sql') then
+  raise notice 'Aplicando 202610300001_supplier_payments.sql';
+  execute replace($retail_source_1d44ea08176b5b5b$
+-- Cuenta corriente, etapa C: pagos a proveedores aplicados a comprobantes, retenciones y anticipos.
+-- Nuevo permiso: los perfiles existentes no lo reciben automáticamente.
+alter table public.retail_permission_profiles drop constraint retail_permission_profiles_permissions_check;
+alter table public.retail_permission_profiles add constraint retail_permission_profiles_permissions_check check(permissions <@ array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','manage_supplier_accounts','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai']::text[]);
+create or replace function public.retail_permissions(p_store uuid) returns text[] language sql stable security invoker set search_path='' as $$
+ select coalesce(array_agg(action order by action),'{}'::text[]) from unnest(array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','manage_supplier_accounts','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai']::text[]) action where retail_private.has_permission(p_store,action);
+$$;
+
+create table public.retail_supplier_payments (
+ id uuid primary key,
+ store_id uuid not null references public.retail_stores(id),
+ issuer_cuit text not null check(retail_private.valid_cuit(issuer_cuit)),
+ supplier_name text not null check(length(btrim(supplier_name)) between 1 and 120),
+ paid_on date not null,
+ method text not null check(method in ('cash','transfer','check','other')),
+ -- Dinero entregado. Las retenciones también cancelan deuda, pero no salen de la caja.
+ amount numeric(16,2) not null check(amount>=0),
+ ret_vat numeric(16,2) not null default 0 check(ret_vat>=0),
+ ret_income numeric(16,2) not null default 0 check(ret_income>=0),
+ ret_iibb numeric(16,2) not null default 0 check(ret_iibb>=0),
+ ret_suss numeric(16,2) not null default 0 check(ret_suss>=0),
+ retention_certificate text check(length(retention_certificate)<=60),
+ reference text check(length(reference)<=120),
+ notes text check(length(notes)<=300),
+ movement_id uuid references public.retail_movements(id),
+ voided_at timestamptz,
+ voided_by uuid references auth.users(id),
+ void_reason text check(length(void_reason)<=300),
+ voided_allocations jsonb,
+ created_by uuid not null references auth.users(id),
+ actor_email text,
+ created_at timestamptz not null default now(),
+ check(amount+ret_vat+ret_income+ret_iibb+ret_suss>0),
+ check((voided_at is null)=(void_reason is null)),
+ check(method<>'cash' or movement_id is not null)
+);
+create index retail_supplier_payment_history on public.retail_supplier_payments(store_id,paid_on desc,id);
+create index retail_supplier_payment_account on public.retail_supplier_payments(store_id,issuer_cuit);
+
+create table public.retail_supplier_payment_allocations (
+ payment_id uuid not null references public.retail_supplier_payments(id),
+ invoice_id uuid not null references public.retail_purchase_invoices(id),
+ store_id uuid not null references public.retail_stores(id),
+ amount numeric(16,2) not null check(amount>0),
+ primary key(payment_id,invoice_id)
+);
+create index retail_supplier_allocation_invoice on public.retail_supplier_payment_allocations(invoice_id);
+
+alter table public.retail_supplier_payments enable row level security;
+alter table public.retail_supplier_payment_allocations enable row level security;
+create policy authorized_read on public.retail_supplier_payments for select to authenticated using(retail_private.has_permission(store_id,'manage_supplier_accounts'));
+create policy authorized_read on public.retail_supplier_payment_allocations for select to authenticated using(retail_private.has_permission(store_id,'manage_supplier_accounts'));
+revoke all on public.retail_supplier_payments,public.retail_supplier_payment_allocations from public,anon,authenticated;
+grant select on public.retail_supplier_payments,public.retail_supplier_payment_allocations to authenticated;
+
+-- Quien registra pagos necesita ver los comprobantes para aplicarlos.
+drop policy authorized_read on public.retail_purchase_invoices;
+create policy authorized_read on public.retail_purchase_invoices for select to authenticated
+ using(retail_private.has_permission(store_id,'manage_products') or retail_private.has_permission(store_id,'manage_supplier_accounts'));
+
+-- Las notas de crédito y débito se vinculan en la etapa B. Valida y guarda aplicaciones de un pago:
+-- mismo proveedor, solo facturas y notas de débito, sin superar su saldo ni lo disponible del pago.
+create function retail_private.allocate_supplier_payment(p_store uuid,p_payment uuid,p_cuit text,p_available numeric,p_allocations jsonb) returns numeric
+language plpgsql security definer set search_path='' as $$
+declare item jsonb; invoice public.retail_purchase_invoices; value numeric; balance numeric; used numeric:=0;
+begin
+ if jsonb_typeof(p_allocations)<>'array' or jsonb_array_length(p_allocations)>200 then raise exception 'Revisá las facturas elegidas' using errcode='22023'; end if;
+ for item in select c from jsonb_array_elements(p_allocations) c loop
+  begin value:=(item->>'amount')::numeric;
+  exception when others then raise exception 'Revisá los importes aplicados' using errcode='22023'; end;
+  if value is null or value<=0 or round(value,2)<>value then raise exception 'Revisá los importes aplicados: positivos con hasta dos decimales' using errcode='22023'; end if;
+  select * into invoice from public.retail_purchase_invoices where store_id=p_store and id=(item->>'invoice_id')::uuid for update;
+  if not found or invoice.issuer_cuit<>p_cuit or invoice.voucher_type not in (1,2,6,7,11,12,51) then
+   raise exception 'Elegí facturas o notas de débito de este proveedor' using errcode='22023';
+  end if;
+  balance:=invoice.total
+   -coalesce((select sum(n.total) from public.retail_purchase_invoices n where n.store_id=p_store and n.applies_to=invoice.id and n.voucher_type in (3,8,13)),0)
+   -coalesce((select sum(a.amount) from public.retail_supplier_payment_allocations a where a.invoice_id=invoice.id),0);
+  if value>balance+0.005 then
+   raise exception 'El importe aplicado supera el saldo del comprobante %-% (saldo %)', invoice.point_of_sale, invoice.number, round(balance,2) using errcode='22023';
+  end if;
+  insert into public.retail_supplier_payment_allocations(payment_id,invoice_id,store_id,amount) values(p_payment,invoice.id,p_store,value);
+  used:=used+value;
+ end loop;
+ if used>p_available+0.005 then raise exception 'Lo aplicado supera el importe disponible del pago' using errcode='22023'; end if;
+ return used;
+end $$;
+revoke all on function retail_private.allocate_supplier_payment(uuid,uuid,text,numeric,jsonb) from public,anon,authenticated;
+
+-- p_request es el id del pago: reintentar devuelve el mismo registro. En efectivo crea en la misma
+-- transacción el retiro del turno, con las validaciones de caja de retail_add_movement.
+create function public.retail_save_supplier_payment(p_store uuid,p_request uuid,p_payment jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare previous public.retail_supplier_payments; pay public.retail_supplier_payments; v_shift uuid; v_voucher text; v_movement uuid;
+ v_name text; total numeric; field text;
+begin
+ perform retail_private.require_permission(p_store,'manage_supplier_accounts');
+ if p_request is null or jsonb_typeof(p_payment)<>'object' then raise exception 'Datos del pago incompletos' using errcode='22023'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into previous from public.retail_supplier_payments where id=p_request;
+ if found then
+  if previous.store_id<>p_store then raise exception 'La solicitud corresponde a otro comercio'; end if;
+  return previous.id;
+ end if;
+ begin
+  pay:=jsonb_populate_record(null::public.retail_supplier_payments,p_payment);
+ exception when others then raise exception 'Revisá fecha, medio e importes del pago' using errcode='22023';
+ end;
+ v_name:=btrim(coalesce(pay.supplier_name,''));
+ if pay.issuer_cuit is null or not retail_private.valid_cuit(pay.issuer_cuit) then raise exception 'Elegí un proveedor con CUIT válido' using errcode='22023'; end if;
+ if v_name='' or length(v_name)>120 then raise exception 'Falta el nombre del proveedor' using errcode='22023'; end if;
+ if pay.paid_on is null then raise exception 'Completá la fecha del pago' using errcode='22023'; end if;
+ if pay.method is null or pay.method not in ('cash','transfer','check','other') then raise exception 'Elegí el medio de pago' using errcode='22023'; end if;
+ foreach field in array array['amount','ret_vat','ret_income','ret_iibb','ret_suss'] loop
+  if coalesce((to_jsonb(pay)->>field)::numeric,0)<0 or round(coalesce((to_jsonb(pay)->>field)::numeric,0),2)<>coalesce((to_jsonb(pay)->>field)::numeric,0) then
+   raise exception 'Revisá los importes del pago: positivos con hasta dos decimales' using errcode='22023';
+  end if;
+ end loop;
+ total:=coalesce(pay.amount,0)+coalesce(pay.ret_vat,0)+coalesce(pay.ret_income,0)+coalesce(pay.ret_iibb,0)+coalesce(pay.ret_suss,0);
+ if total<=0 then raise exception 'Completá el importe del pago' using errcode='22023'; end if;
+ if pay.method='cash' then
+  if coalesce(pay.amount,0)<=0 then raise exception 'Completá el efectivo entregado' using errcode='22023'; end if;
+  v_shift:=nullif(p_payment->>'shift_id','')::uuid;
+  v_voucher:=nullif(btrim(coalesce(p_payment->>'voucher_url','')),'');
+  if v_shift is null then raise exception 'Elegí el turno de caja del que sale el efectivo' using errcode='22023'; end if;
+  if not exists(select 1 from public.retail_shifts s where s.id=v_shift and s.store_id=p_store and s.closed_at is null) then
+   raise exception 'El turno elegido ya no está abierto' using errcode='22023';
+  end if;
+  v_movement:=public.retail_add_movement(v_shift,'RETIRO',pay.amount,left('Pago a proveedor: '||v_name,300),p_request,'supplier_payment',v_voucher,v_name);
+ end if;
+ insert into public.retail_supplier_payments(id,store_id,issuer_cuit,supplier_name,paid_on,method,amount,ret_vat,ret_income,ret_iibb,ret_suss,
+  retention_certificate,reference,notes,movement_id,created_by,actor_email)
+ values(p_request,p_store,pay.issuer_cuit,v_name,pay.paid_on,pay.method,coalesce(pay.amount,0),coalesce(pay.ret_vat,0),coalesce(pay.ret_income,0),coalesce(pay.ret_iibb,0),coalesce(pay.ret_suss,0),
+  nullif(btrim(coalesce(pay.retention_certificate,'')),''),nullif(btrim(coalesce(pay.reference,'')),''),nullif(btrim(coalesce(pay.notes,'')),''),v_movement,auth.uid(),auth.jwt()->>'email');
+ perform retail_private.allocate_supplier_payment(p_store,p_request,pay.issuer_cuit,total,coalesce(p_payment->'allocations','[]'::jsonb));
+ return p_request;
+end $$;
+
+-- Aplica lo que quedó a favor (anticipo) a comprobantes del mismo proveedor.
+create function public.retail_apply_supplier_payment(p_store uuid,p_id uuid,p_allocations jsonb) returns void
+language plpgsql security definer set search_path='' as $$
+declare pay public.retail_supplier_payments; used numeric;
+begin
+ perform retail_private.require_permission(p_store,'manage_supplier_accounts');
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into pay from public.retail_supplier_payments where store_id=p_store and id=p_id for update;
+ if not found or pay.voided_at is not null then raise exception 'El pago ya no está disponible. Actualizá los datos'; end if;
+ select coalesce(sum(a.amount),0) into used from public.retail_supplier_payment_allocations a where a.payment_id=p_id;
+ if exists(select 1 from jsonb_array_elements(p_allocations) c join public.retail_supplier_payment_allocations a on a.payment_id=p_id and a.invoice_id=(c->>'invoice_id')::uuid) then
+  raise exception 'Este pago ya está aplicado a uno de esos comprobantes' using errcode='22023';
+ end if;
+ perform retail_private.allocate_supplier_payment(p_store,p_id,pay.issuer_cuit,pay.amount+pay.ret_vat+pay.ret_income+pay.ret_iibb+pay.ret_suss-used,p_allocations);
+end $$;
+
+-- Un pago no se borra: se anula con motivo y sus aplicaciones quedan como constancia.
+-- El retiro de caja no se revierte: el efectivo ya salió y el arqueo no debe cambiar por una corrección.
+create function public.retail_void_supplier_payment(p_store uuid,p_id uuid,p_reason text) returns void
+language plpgsql security definer set search_path='' as $$
+declare pay public.retail_supplier_payments; reason text:=nullif(btrim(coalesce(p_reason,'')),''); snapshot jsonb;
+begin
+ perform retail_private.require_permission(p_store,'manage_supplier_accounts');
+ if reason is null or length(reason)>300 then raise exception 'Indicá el motivo de la anulación (hasta 300 caracteres)' using errcode='22023'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into pay from public.retail_supplier_payments where store_id=p_store and id=p_id for update;
+ if not found then raise exception 'El pago ya no está disponible. Actualizá los datos'; end if;
+ if pay.voided_at is not null then raise exception 'Este pago ya está anulado'; end if;
+ select coalesce(jsonb_agg(jsonb_build_object('invoice_id',a.invoice_id,'amount',a.amount)),'[]'::jsonb) into snapshot
+  from public.retail_supplier_payment_allocations a where a.payment_id=p_id;
+ delete from public.retail_supplier_payment_allocations where payment_id=p_id;
+ update public.retail_supplier_payments set voided_at=now(),voided_by=auth.uid(),void_reason=reason,voided_allocations=snapshot where id=p_id;
+end $$;
+
+create or replace function public.retail_delete_purchase_invoice(p_store uuid,p_id uuid) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ if exists(select 1 from public.retail_supplier_payment_allocations a where a.store_id=p_store and a.invoice_id=p_id) then
+  raise exception 'Este comprobante tiene pagos aplicados. Anulá esos pagos antes de eliminarlo';
+ end if;
+ delete from public.retail_purchase_invoices where store_id=p_store and id=p_id;
+ if not found then raise exception 'El comprobante ya no está disponible. Actualizá los datos'; end if;
+end $$;
+
+-- Una nota de crédito no puede dejar la factura por debajo de lo ya pagado.
+create or replace function public.retail_update_purchase_invoice_tracking(p_store uuid,p_id uuid,p_changes jsonb) returns public.retail_purchase_invoices
+language plpgsql security definer set search_path='' as $$
+declare inv public.retail_purchase_invoices; target public.retail_purchase_invoices; result public.retail_purchase_invoices;
+ next_due date; next_reason text; next_target uuid; linked numeric;
+begin
+ perform retail_private.require_permission(p_store,'manage_products');
+ if jsonb_typeof(p_changes)<>'object' or exists(select 1 from jsonb_object_keys(p_changes) k where k not in ('due_date','review_reason','accept','applies_to')) then
+  raise exception 'Cambios no válidos para el comprobante' using errcode='22023';
+ end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into inv from public.retail_purchase_invoices where store_id=p_store and id=p_id for update;
+ if not found then raise exception 'El comprobante ya no está disponible. Actualizá los datos'; end if;
+ next_due:=inv.due_date; next_reason:=inv.review_reason; next_target:=inv.applies_to;
+ if p_changes ? 'due_date' then
+  begin next_due:=(p_changes->>'due_date')::date;
+  exception when others then raise exception 'Revisá la fecha de vencimiento' using errcode='22023'; end;
+  if next_due is null or next_due<inv.issue_date then raise exception 'El vencimiento no puede ser anterior a la emisión' using errcode='22023'; end if;
+ end if;
+ if p_changes ? 'review_reason' then
+  next_reason:=nullif(btrim(coalesce(p_changes->>'review_reason','')),'');
+  if length(next_reason)>300 then raise exception 'El motivo admite hasta 300 caracteres' using errcode='22023'; end if;
+ end if;
+ if coalesce((p_changes->>'accept')::boolean,false) and inv.voucher_type not in (2,7,12) then
+  raise exception 'Solo se aceptan notas de débito' using errcode='22023';
+ end if;
+ if p_changes ? 'applies_to' then
+  next_target:=nullif(p_changes->>'applies_to','')::uuid;
+  if next_target is not null then
+   if inv.voucher_type not in (2,3,7,8,12,13) then raise exception 'Solo las notas de crédito o débito se vinculan con una factura' using errcode='22023'; end if;
+   select * into target from public.retail_purchase_invoices where store_id=p_store and id=next_target;
+   if not found or target.id=inv.id then raise exception 'La factura elegida no está disponible' using errcode='22023'; end if;
+   if target.voucher_type not in (1,6,11,51) or target.issuer_cuit<>inv.issuer_cuit then
+    raise exception 'Elegí una factura del mismo proveedor' using errcode='22023';
+   end if;
+   if inv.voucher_type in (3,8,13) then
+    select coalesce(sum(total),0) into linked from public.retail_purchase_invoices
+     where store_id=p_store and applies_to=next_target and voucher_type in (3,8,13) and id<>inv.id;
+    if linked+inv.total+coalesce((select sum(a.amount) from public.retail_supplier_payment_allocations a where a.invoice_id=next_target),0)>target.total+0.05 then
+     raise exception 'Las notas de crédito y los pagos aplicados superarían el total de la factura' using errcode='22023';
+    end if;
+   end if;
+  end if;
+ end if;
+ update public.retail_purchase_invoices set
+  due_date=next_due,
+  review_reason=next_reason,
+  reviewed_by=case when next_reason is distinct from inv.review_reason then case when next_reason is null then null else auth.uid() end else reviewed_by end,
+  reviewed_at=case when next_reason is distinct from inv.review_reason then case when next_reason is null then null else now() end else reviewed_at end,
+  accepted_by=case when coalesce((p_changes->>'accept')::boolean,false) and accepted_at is null then auth.uid() else accepted_by end,
+  accepted_at=case when coalesce((p_changes->>'accept')::boolean,false) and accepted_at is null then now() else accepted_at end,
+  applies_to=next_target
+ where id=inv.id
+ returning * into result;
+ return result;
+end $$;
+
+revoke all on function public.retail_save_supplier_payment(uuid,uuid,jsonb) from public,anon;
+revoke all on function public.retail_apply_supplier_payment(uuid,uuid,jsonb) from public,anon;
+revoke all on function public.retail_void_supplier_payment(uuid,uuid,text) from public,anon;
+grant execute on function public.retail_save_supplier_payment(uuid,uuid,jsonb) to authenticated;
+grant execute on function public.retail_apply_supplier_payment(uuid,uuid,jsonb) to authenticated;
+grant execute on function public.retail_void_supplier_payment(uuid,uuid,text) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_1d44ea08176b5b5b$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610300001_supplier_payments.sql','1d44ea08176b5b5b2181d65d6019edd40be772aa25c14ae45b89866bde76cd8d','schema');
+ end if;
+end;
+
+-- 55/55: 202610300002_payment_apply_same_invoice.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202610300002_payment_apply_same_invoice.sql') then
+  raise notice 'Aplicando 202610300002_payment_apply_same_invoice.sql';
+  execute replace($retail_source_e0eb93640914e083$
+-- Lo que queda a favor de un pago debe poder aplicarse a un comprobante que ese pago ya cubrió en parte
+-- (un proveedor con una sola factura dejaba el anticipo sin destino). Las aplicaciones se acumulan.
+create or replace function retail_private.allocate_supplier_payment(p_store uuid,p_payment uuid,p_cuit text,p_available numeric,p_allocations jsonb) returns numeric
+language plpgsql security definer set search_path='' as $$
+declare item jsonb; invoice public.retail_purchase_invoices; value numeric; balance numeric; used numeric:=0;
+begin
+ if jsonb_typeof(p_allocations)<>'array' or jsonb_array_length(p_allocations)>200 then raise exception 'Revisá las facturas elegidas' using errcode='22023'; end if;
+ for item in select c from jsonb_array_elements(p_allocations) c loop
+  begin value:=(item->>'amount')::numeric;
+  exception when others then raise exception 'Revisá los importes aplicados' using errcode='22023'; end;
+  if value is null or value<=0 or round(value,2)<>value then raise exception 'Revisá los importes aplicados: positivos con hasta dos decimales' using errcode='22023'; end if;
+  select * into invoice from public.retail_purchase_invoices where store_id=p_store and id=(item->>'invoice_id')::uuid for update;
+  if not found or invoice.issuer_cuit<>p_cuit or invoice.voucher_type not in (1,2,6,7,11,12,51) then
+   raise exception 'Elegí facturas o notas de débito de este proveedor' using errcode='22023';
+  end if;
+  balance:=invoice.total
+   -coalesce((select sum(n.total) from public.retail_purchase_invoices n where n.store_id=p_store and n.applies_to=invoice.id and n.voucher_type in (3,8,13)),0)
+   -coalesce((select sum(a.amount) from public.retail_supplier_payment_allocations a where a.invoice_id=invoice.id),0);
+  if value>balance+0.005 then
+   raise exception 'El importe aplicado supera el saldo del comprobante %-% (saldo %)', invoice.point_of_sale, invoice.number, round(balance,2) using errcode='22023';
+  end if;
+  insert into public.retail_supplier_payment_allocations(payment_id,invoice_id,store_id,amount) values(p_payment,invoice.id,p_store,value)
+   on conflict(payment_id,invoice_id) do update set amount=public.retail_supplier_payment_allocations.amount+excluded.amount;
+  used:=used+value;
+ end loop;
+ if used>p_available+0.005 then raise exception 'Lo aplicado supera el importe disponible del pago' using errcode='22023'; end if;
+ return used;
+end $$;
+
+create or replace function public.retail_apply_supplier_payment(p_store uuid,p_id uuid,p_allocations jsonb) returns void
+language plpgsql security definer set search_path='' as $$
+declare pay public.retail_supplier_payments; used numeric;
+begin
+ perform retail_private.require_permission(p_store,'manage_supplier_accounts');
+ perform pg_advisory_xact_lock(hashtextextended('retail-purchase-invoice:'||p_store::text,0));
+ select * into pay from public.retail_supplier_payments where store_id=p_store and id=p_id for update;
+ if not found or pay.voided_at is not null then raise exception 'El pago ya no está disponible. Actualizá los datos'; end if;
+ select coalesce(sum(a.amount),0) into used from public.retail_supplier_payment_allocations a where a.payment_id=p_id;
+ perform retail_private.allocate_supplier_payment(p_store,p_id,pay.issuer_cuit,pay.amount+pay.ret_vat+pay.ret_income+pay.ret_iibb+pay.ret_suss-used,p_allocations);
+end $$;
+
+notify pgrst,'reload schema';
+$retail_source_e0eb93640914e083$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202610300002_payment_apply_same_invoice.sql','e0eb93640914e083ee8007a53a7f179287307aa44ecbc399e31eadad02305c5e','schema');
  end if;
 end;
 

@@ -35,11 +35,19 @@ const ruleLabels = { category: 'Categoría', brand: 'Marca', product: 'Producto'
 // Own changes of a list: its fixed price or a specific rule reaching the product.
 // Principal has neither; its own change is the product percentage over cost.
 function ownChanges(product: Product, list: PriceList, fixed: PriceOverride | undefined): string[] {
-  if (list.is_primary) return product.sale_markup == null ? [] : [`${percent(product.sale_markup)} sobre costo`];
   if (fixed) return ['Precio fijo'];
   const brand = (product.brand || '').trim().toLowerCase();
-  return (list.pricing_rules || []).filter(r => r.target === (r.scope === 'category' ? product.categoryId : r.scope === 'product' ? product.id : brand))
+  const rules = (list.pricing_rules || []).filter(r => r.target === (r.scope === 'category' ? product.categoryId : r.scope === 'product' ? product.id : brand))
     .map(r => `${ruleLabels[r.scope]} ${percent(r.adjustment)}`);
+  if (list.is_primary) {
+    const markup = product.sale_markup == null ? [] : [`${percent(product.sale_markup)} sobre costo`];
+    return [...markup, ...rules];
+  }
+  const generalAdjustment = Number(list.adjustment || 0);
+  const general = generalAdjustment !== 0
+    ? [list.base_kind === 'cost' ? `${percent(generalAdjustment)} sobre costo` : `General ${percent(generalAdjustment)}`]
+    : [];
+  return [...general, ...rules];
 }
 const origin = (list: PriceList) => list.base_kind === 'list' ? list.parent_id || 'missing' : list.base_kind || 'catalog';
 const sourceName = (source: string, lists: PriceList[]) => source === 'cost' ? 'Costo' : source === 'catalog' ? 'Catálogo' : lists.find(l => l.id === source)?.name || 'Origen no disponible';
@@ -341,7 +349,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
           if (await run(() => retail.savePriceOverride(storeId, list.id, p.id, value === '' ? null : Number(value)), value === '' ? 'Se aplican las reglas de la lista' : 'Precio fijo guardado')) closeFixed();
         }}><label>Precio fijo ($)<NumberInput name="price" min="0.01" max="999999999999.99" step="0.01" defaultValue={fixed?.price} placeholder="Usar reglas" /></label><button className="secondary-button" disabled={busy}>Guardar</button></form>}</SettingsEditor></div></td>}</tr>;
       })}</tbody></table></div></SettingsEditorGroup>
-      {!matches.length && <p className="price-flow-empty" role="status">{onlyChanged && !query ? (list?.is_primary ? 'Ningún producto tiene porcentaje sobre costo. Se usa su precio de catálogo.' : 'Esta lista no tiene precios fijos ni ajustes específicos: todos sus productos usan el ajuste general. Elegí Mostrar → Todos los productos para ver o fijar precios.') : 'No hay productos para mostrar.'}</p>}
+      {!matches.length && <p className="price-flow-empty" role="status">{onlyChanged && !query ? (list?.is_primary ? 'Ningún producto tiene porcentaje sobre costo. Se usa su precio de catálogo.' : 'Esta lista no tiene ajustes ni precios fijos propios: mantiene los precios de su origen. Elegí Mostrar → Todos los productos para ver los precios o fijar excepciones.') : 'No hay productos para mostrar.'}</p>}
       {!!matches.length && <nav className="price-list-pages" aria-label="Páginas de productos">
         <button type="button" className="secondary-button" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}>Anterior</button>
         <span role="status">Página {currentPage + 1} de {pageCount} · {currentPage * PAGE_SIZE + 1}–{currentPage * PAGE_SIZE + visible.length} de {matches.length} productos{onlyChanged ? ' con cambios' : ''}</span>

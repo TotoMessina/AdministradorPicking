@@ -1,6 +1,6 @@
 # Supabase: instalación y actualización desde schema
 
-El instalador completo es **[supabase/schema.sql](supabase/schema.sql)**. Contiene las **45 migraciones actuales**, en orden de nombre completo, y registra cada una en `retail_private.schema_migrations`. Para la instalación ya conciliada hasta la 003, también está disponible la [actualización en archivos individuales](#actualización-individual-después-de-conciliar-34-migraciones), con el mismo historial. Una instalación manual con historial desalineado requiere primero la conciliación específica descrita abajo.
+El instalador completo es **[supabase/schema.sql](supabase/schema.sql)**. Contiene las **55 migraciones actuales**, en orden de nombre completo, y registra cada una en `retail_private.schema_migrations`. Para la instalación ya conciliada hasta la 003, también está disponible la [actualización en archivos individuales](#actualización-individual-después-de-conciliar-34-migraciones), con el mismo historial. Una instalación manual con historial desalineado requiere primero la conciliación específica descrita abajo.
 
 ## Proyecto y alcance
 
@@ -243,3 +243,96 @@ Actualizar el frontend y todos los dispositivos antes de activar inventario inde
 No se habilita un apagado que borre/redistribuya existencias; los clientes antiguos no pueden ajustar stock sin el contexto requerido después de activar. Los nuevos fondos no se vinculan a arqueos. [Guía de Pruebas en localhost:3001, saldos de ejemplo y permisos](docs/operacion-y-mercaderia.md#transferencias).
 
 Pendiente: aplicar en base de prueba, comprobar RLS/RPC, concurrencia, respuesta perdida y reejecución del paquete; luego revisar navegador/móvil y venta offline preparada. TypeScript pasó sin errores, pero no valida SQL. No se ejecutaron builds ni pruebas adicionales.
+
+## Mapa de sucursales y eliminación de sucursales
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290001_branch_location_and_deletion.sql](supabase/migrations/202610290001_branch_location_and_deletion.sql), incluida en `supabase/schema.sql` (47 migraciones). No se generó paquete individual.
+
+- Agrega `latitude`/`longitude` opcionales a `retail_branches` (ambas o ninguna) y `retail_set_branch_location`. Las sucursales existentes quedan sin ubicar y siguen operando igual.
+- Agrega `retail_delete_branch`, con permiso `manage_locations`. Rechaza la sucursal principal, cajas activas, fondos, transferencias por ubicación y cualquier referencia histórica (ventas, turnos, stock, remitos, listas o personas asignadas), con un mensaje que indica qué resolver. Solo borra junto con la sucursal su botonera, saldos de stock en cero y cajas inactivas sin turnos. No reasigna personas ni listas.
+
+Hasta aplicar la migración, guardar ubicación y eliminar sucursal fallan con un error de función inexistente; el resto de la pantalla funciona. El mapa usa teselas de OpenStreetMap y la búsqueda de dirección consulta Nominatim (OpenStreetMap) solo al pulsar **Buscar**; requiere conexión.
+
+## Ficha fiscal de proveedores
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290002_supplier_fiscal_profile.sql](supabase/migrations/202610290002_supplier_fiscal_profile.sql), incluida en `supabase/schema.sql` (48 migraciones). No se generó paquete individual.
+
+- Agrega a `retail_suppliers` el `cuit` opcional (11 dígitos con dígito verificador válido, único por comercio) e `invoice_rules` (objeto con claves conocidas: `quantity_unit`, `amount_includes_vat`, `merge_repeated_codes`, `cost_column`).
+- Reemplaza `retail_save_supplier` por la misma función con `p_cuit` y `p_rules` opcionales. Si se omiten, como hacen los clientes anteriores, se conservan los valores guardados; `p_cuit = ''` quita el CUIT.
+- No cambia descuentos, costos, productos ni formatos aprendidos.
+
+Antes de aplicarla, los proveedores se pueden seguir guardando mientras no se cargue CUIT ni reglas. Si se cargan, guardar falla con un error de función o columna inexistente.
+
+## Comprobantes de compra
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290003_purchase_invoices.sql](supabase/migrations/202610290003_purchase_invoices.sql), incluida en `supabase/schema.sql` (49 migraciones). Requiere la 202610290002 (usa `retail_private.valid_cuit`). No se generó paquete individual.
+
+- Tabla `retail_purchase_invoices`: cabecera fiscal (CUIT emisor y receptor, tipo, punto de venta, número, fecha, CAE/CAEA) e importes del pie (neto e IVA por alícuota 21/10,5/27, no gravado, impuestos internos, percepciones de IVA e IIBB, otros, total). Única por comercio + CUIT emisor + tipo + punto de venta + número.
+- Lectura con RLS y escritura por `retail_save_purchase_invoice` (idempotente por id) y `retail_delete_purchase_invoice`, ambas con `manage_products`, el mismo permiso que importar facturas.
+- El servidor calcula `balanced` (IVA por alícuota y suma de conceptos contra el total, ±$0,05) y rechaza duplicados.
+- No toca stock, costos, productos ni proveedores.
+
+Hasta aplicarla, importar facturas funciona igual, pero registrar el comprobante falla y la reposición queda aplicada con el aviso «no se registró el comprobante»; se puede desmarcar «Registrar el comprobante».
+
+## Costo final y ajuste de costos existentes
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290004_landed_costs.sql](supabase/migrations/202610290004_landed_costs.sql), incluida en `supabase/schema.sql` (50 migraciones). Requiere la 202610290002. No se generó paquete individual.
+
+- Reemplaza `retail_private.valid_supplier_invoice_rules` para aceptar la regla `price_basis` (`auto` o `final`).
+- Agrega `retail_adjust_product_costs(p_store, p_changes)` con `manage_products`: ajusta costos de productos todo o nada, verificando que cada costo siga igual al de la vista previa; si alguno cambió, no ajusta ninguno, por lo que reintentar no suma el IVA dos veces. No ajusta combos. Los productos con precio por porcentaje recalculan su precio por el disparador existente.
+
+Hasta aplicarla, la regla «Precios de la factura» no se puede guardar y **Ajustar costos existentes** falla; el costo final al importar facturas funciona igual, porque se calcula en la app.
+
+## Avisos de conflicto sin reintentos
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290005_conflict_errors_without_retry.sql](supabase/migrations/202610290005_conflict_errors_without_retry.sql), incluida en `supabase/schema.sql` (51 migraciones).
+
+`retail_adjust_product_costs`, `retail_save_supplier` y `retail_delete_supplier` avisaban "el dato cambió" con SQLSTATE `40001` (serialization_failure). PostgREST reintenta automáticamente esas transacciones, así que el aviso no llegaba y la llamada quedaba colgada. Se detectó en la prueba del 29/10/2026 al ajustar un costo con una vista previa vieja: la llamada no respondía, aunque el costo no cambiaba. La migración redefine las tres funciones igual, con el error por defecto (`P0001`). Hasta aplicarla, evitar repetir **Ajustar costos existentes** con una vista previa desactualizada y guardar o eliminar un proveedor que otra persona esté editando.
+
+Si quedaron llamadas colgadas, se ven en el SQL Editor con:
+
+```sql
+select pid, state, now() - query_start as duracion, left(query, 80)
+from pg_stat_activity
+where query ilike '%retail_adjust_product_costs%' and pid <> pg_backend_pid();
+```
+
+y se cancelan con `select pg_cancel_backend(<pid>);`.
+
+## Ficha completa del proveedor (cuenta corriente, etapa A)
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290006_supplier_contact_profile.sql](supabase/migrations/202610290006_supplier_contact_profile.sql), incluida en `supabase/schema.sql` (52 migraciones). Aplicar después de la 202610290005.
+
+- Agrega a `retail_suppliers`, todos opcionales: razón social, condición frente al IVA (RI, MO, EX), domicilio fiscal y comercial, teléfono, correo, CBU (22 dígitos con sus dos dígitos verificadores), alias (6 a 20 letras, números, puntos o guiones), condiciones de pago, plazo de pago en días (0 a 365) y contactos de cobranzas y de compras.
+- Reemplaza `retail_save_supplier` por la misma función con `p_profile`. Sin `p_profile` (clientes anteriores) conserva la ficha; con `p_profile` reemplaza todos sus campos. Mismo permiso (`manage_products`) y aviso de conflicto sin el código 40001.
+- No cambia descuentos, costos, comprobantes ni reglas de lectura.
+
+Hasta aplicarla, la ficha se ve vacía y guardar un proveedor funciona mientras no se cambien sus datos de ficha; si se cambian, guardar falla con un error de función inexistente.
+
+## Vencimientos y estados de comprobantes (cuenta corriente, etapa B)
+
+Preparado el 29/10/2026, **sin ejecutar SQL remoto**: [202610290007_purchase_invoice_tracking.sql](supabase/migrations/202610290007_purchase_invoice_tracking.sql), incluida en `supabase/schema.sql` (53 migraciones). Requiere la 202610290006 (usa el plazo de pago del proveedor).
+
+- Agrega a `retail_purchase_invoices`: `due_date` (obligatorio, no anterior a la emisión), motivo y autor de revisión, aceptación de notas de débito y `applies_to` (nota de crédito o débito vinculada con una factura del mismo CUIT).
+- Un disparador completa el vencimiento al registrar: emisión + plazo del proveedor (por id o por CUIT; sin plazo, la emisión). Los comprobantes existentes reciben el mismo cálculo al aplicar la migración.
+- `retail_update_purchase_invoice_tracking` (con `manage_products`) cambia solo vencimiento, revisión, aceptación y vínculo; nunca los importes. Rechaza vincular notas de crédito que superen el total de la factura. Sin SQLSTATE 40001.
+- El guardado de comprobantes (`retail_save_purchase_invoice`) no cambia.
+
+Hasta aplicarla, Comprobantes de compra funciona como antes, la vista «Con saldo pendiente» pide aplicar la actualización y la carga manual registra el comprobante, pero falla al guardar vencimiento o vínculo (el comprobante igual queda registrado).
+
+## Pagos a proveedores (cuenta corriente, etapa C)
+
+Preparado el 30/10/2026, **sin ejecutar SQL remoto**: [202610300001_supplier_payments.sql](supabase/migrations/202610300001_supplier_payments.sql), incluida en `supabase/schema.sql` (54 migraciones). Requiere la 202610290007.
+
+- Nuevo permiso `manage_supplier_accounts` (ver saldos y registrar pagos). Propietarios y administradores lo tienen; los perfiles existentes no lo reciben automáticamente. También habilita leer comprobantes de compra.
+- Tablas `retail_supplier_payments` y `retail_supplier_payment_allocations`, con RLS de lectura por ese permiso. Escritura por RPC:
+  - `retail_save_supplier_payment` (idempotente por id). En efectivo llama a `retail_add_movement` en la misma transacción, con sus validaciones de turno, comprobante y permiso de retiro.
+  - `retail_apply_supplier_payment`: aplica lo que quedó a favor.
+  - `retail_void_supplier_payment`: anula con motivo y conserva las aplicaciones como constancia. No revierte el retiro de caja.
+- Una aplicación no puede superar el saldo del comprobante ni lo disponible del pago.
+- Redefine `retail_delete_purchase_invoice` (rechaza comprobantes con pagos aplicados) y `retail_update_purchase_invoice_tracking` (una nota de crédito no puede dejar la factura por debajo de lo pagado).
+- No cambia stock, costos, ventas ni arqueos; el efectivo sale de caja como cualquier retiro «Pago a proveedor».
+
+Hasta aplicarla, la tarjeta Pagos a proveedores muestra el aviso y Comprobantes de compra sigue funcionando sin descontar pagos.
+
+**Corrección posterior:** [202610300002_payment_apply_same_invoice.sql](supabase/migrations/202610300002_payment_apply_same_invoice.sql), aplicada por el usuario el 30/10/2026. Permite aplicar lo que quedó a favor a un comprobante que ese mismo pago ya cubrió en parte; las aplicaciones se acumulan.

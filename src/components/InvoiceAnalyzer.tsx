@@ -26,7 +26,16 @@ import { GroqError } from "../services/groqService";
 import { extractInvoiceProducts, invoiceNumber, prepareInvoiceExtractionText, type ExtractedInvoice } from '../services/invoiceExtractionService';
 import { extractTextFromFile, cleanInvoiceOcrText, invoicePackCatalogContext } from "../services/invoiceParserService";
 import { unitsPerPack as configuredPackSize } from '../services/inventoryUnits';
-import type { Product, Category, Supplier } from "../features/retail/api";
+import type { Product, Category, Supplier, PurchaseInvoice } from "../features/retail/api";
+import { PurchaseInvoicePanel, type QrStatus } from './PurchaseInvoicePanel';
+import {
+  checkPurchaseInvoice, draftFromQr, draftFromText, emptyPurchaseDraft, fillAmountsWithAi, purchaseInvoicePayload, scanArcaQr,
+  type ArcaQrData, type PurchaseInvoiceDraft,
+} from '../services/purchaseInvoiceService';
+import { cuitDigits } from '../services/supplierInvoiceRules';
+import { randomUUID } from '../utils/uuid';
+import { defaultLandedSettings, hasDiscriminatedVat, internalTaxPerUnit, landedUnitCost, vatRate, type LandedCostSettings } from '../services/landedCostService';
+import type { CondicionIva } from '../features/retail/billing';
 import { retail, errorMessage } from "../features/retail/api";
 import { linkInvoiceItems, rankCatalogMatches } from '../services/invoiceMatchingService';
 import { migrateLocalMappings, normalizeSupplierText, saveMapping, type SupplierMapping } from '../services/supplierMappingService';
@@ -34,6 +43,7 @@ import { invoiceCostIncrease, type InvoiceCostChange } from '../services/invoice
 import { InvoicePriceProposal } from './InvoicePriceProposal';
 import { SupplierAliasPanel } from './SupplierAliasPanel';
 import { applySupplierDiscount, findRegisteredSupplier, validDiscount } from '../services/supplierDiscountService';
+import { applyInvoiceRules, cigaretteAtadosPerPack, cuitsInText, findSupplierByCuit, findSupplierByName, findSupplierBySimilarName, formatCuit, invoiceRulesPrompt, isStoreName, type SupplierInvoiceRules } from '../services/supplierInvoiceRules';
 import { detectInvoiceFormat, findInvoiceFormat, learnInvoiceFormat, readWithInvoiceFormat, sameInvoiceFormat, type StoredInvoiceFormat } from '../services/invoiceFormatService';
 import { defaultProductCategory, resolveProductCategory } from '../services/productCategoryService';
 
@@ -114,6 +124,12 @@ export interface InvoiceAnalyzerProps {
   onImportDone?: (updatedCount: number) => void | Promise<void>;
   onPricesUpdated?: () => void | Promise<void>;
   catalogBusy?: boolean;
+  /** CUIT del comercio, para avisar si la factura está a nombre de otra sociedad. */
+  storeCuit?: string | null;
+  /** Condición frente al IVA: si no se conoce el tipo de factura, decide si los precios vienen sin IVA. */
+  storeCondition?: CondicionIva | null;
+  /** Nombre y razón social del comercio: la IA a veces los toma como proveedor. */
+  storeNames?: string[];
 }
 
 // ─── Code and Emoji Helpers ─────────────────────────────────────────────────
@@ -320,6 +336,9 @@ function guessProductEmoji(name: string): string {
 function detectPackUnits(rawName: string): number {
   if (!rawName) return 1;
   const name = rawName.trim();
+  // Cigarrillos: cartón "x10 ATADOS"; "x20u." son cigarrillos por atado, no bultos.
+  const cigarettes = cigaretteAtadosPerPack(name);
+  if (cigarettes) return cigarettes;
 
   // 1. Patrón explícito: 'Caja x 24', 'Display x 18', 'Pack x 6', 'CJ X 12', 'DP X 36'
   const explicitPack = name.match(
@@ -368,17 +387,17 @@ function resolveCategory(
   return resolveProductCategory(availableCategories, suggestedCategory, productName);
 }
 
-function buildParsePrompt(invoiceText: string, categories: Category[] = [], _products: Product[] = []): string {
+function buildParsePrompt(invoiceText: string, categories: Category[] = [], _products: Product[] = [], rules: SupplierInvoiceRules = {}): string {
   const categoryNames = categories.map((c) => c.name.trim()).filter(Boolean);
   const categoriesHint = categoryNames.length > 0 ? `Categorías disponibles: ${categoryNames.slice(0, 15).join(', ')}.` : '';
 
   return `Analizá el siguiente texto de una factura o remito de compra de kiosco.
-Identificá el proveedor y extraé la lista completa de todos los productos facturados.
+Identificá el proveedor (la empresa que EMITE la factura) y extraé la lista completa de todos los productos facturados.
 Ignorá datos fiscales, CUIT, direcciones, fechas, subtotales y totales generales.
 
 Respondé ÚNICAMENTE un objeto JSON válido con esta estructura, sin texto explicativo ni formato markdown:
 {
-  "proveedor": "Nombre del proveedor o distribuidora",
+  "proveedor": "Nombre de la empresa emisora, o vacío si no se lee",
   "items": [
     {
       "invoice_line": "Renglón original del producto tal como figura en la factura",
@@ -395,9 +414,11 @@ Respondé ÚNICAMENTE un objeto JSON válido con esta estructura, sin texto expl
 Reglas:
 - Extraé cada producto o artículo facturado.
 - qty: cantidad comprada (número).
-- cost: precio de costo unitario facturado (número sin signo $).
+- proveedor: es quien vende y emite la factura (logo o razón social del encabezado, junto a su CUIT). Nunca uses el cliente o comprador (Cliente, Razón Social del receptor, Sr./Señores, Domicilio de entrega). Si no se lee, dejalo vacío.
+- cost: precio unitario de COMPRA facturado (columnas como Unitario, P. Unit., Pr Unit, Precio o P. Lista; número sin signo $). Nunca uses columnas de precio Sugerido, P.V.P., Precio público o de venta al público: son precios de venta, no costo.
 - unitsPerPack: si viene en bulto/display/caja (ej: X24, X12, Pack x 6), poné la cantidad de unidades; si es suelto o no especifica, poné 1.
-${categoriesHint ? `- category: asigná la categoría más adecuada (${categoriesHint}) o "Varios".` : ''}
+- Cigarrillos: el atado es la unidad. Los cigarrillos por atado ("x20u.", "KS 20", "BOX 20", "SOF 20") NO son unitsPerPack: poné 1. Si dice "x10 ATADOS" es un cartón: unitsPerPack 10.
+${categoriesHint ? `- category: asigná la categoría más adecuada (${categoriesHint}) o "Varios".` : ''}${invoiceRulesPrompt(rules)}
 
 TEXTO DEL COMPROBANTE:
 ${invoiceText}`;
@@ -415,6 +436,9 @@ export function InvoiceAnalyzer({
   onImportDone,
   onPricesUpdated,
   catalogBusy = false,
+  storeCuit,
+  storeCondition,
+  storeNames = [],
 }: InvoiceAnalyzerProps) {
   const [step, setStep] = useState<"input" | "parsing" | "review" | "importing" | "done">("input");
   const [invoiceText, setInvoiceText] = useState("");
@@ -531,6 +555,54 @@ export function InvoiceAnalyzer({
   const readSource = useRef<{ lines: string[]; format: StoredInvoiceFormat | null; mismatch: string }>({ lines: [], format: null, mismatch: '' });
   const [readWithFormat, setReadWithFormat] = useState<{ format: StoredInvoiceFormat | null; mismatch: string }>({ format: null, mismatch: '' });
   const [formatNotice, setFormatNotice] = useState('');
+  const [cuitNotice, setCuitNotice] = useState('');
+  // Comprobante de compra (cabecera fiscal). Secundario: nunca bloquea la reposición.
+  const [purchaseDraft, setPurchaseDraft] = useState<PurchaseInvoiceDraft>(emptyPurchaseDraft);
+  const [qrData, setQrData] = useState<ArcaQrData | null>(null);
+  const [qrStatus, setQrStatus] = useState<QrStatus>('none');
+  const qrScan = useRef(0);
+  const [registerPurchase, setRegisterPurchase] = useState(true);
+  const [purchaseAiBusy, setPurchaseAiBusy] = useState(false);
+  const [purchaseAiError, setPurchaseAiError] = useState('');
+  const [duplicatePurchase, setDuplicatePurchase] = useState<PurchaseInvoice | null>(null);
+  const purchaseRequest = useRef(randomUUID());
+  const [purchaseNotice, setPurchaseNotice] = useState<{ text: string; retry: boolean } | null>(null);
+  const purchaseChecks = useMemo(() => checkPurchaseInvoice(purchaseDraft, qrData, storeCuit), [purchaseDraft, qrData, storeCuit]);
+  const purchaseKeyReady = !purchaseChecks.missing.some(field => ['CUIT del proveedor', 'tipo de comprobante', 'punto de venta', 'número'].includes(field));
+  const purchaseKey = purchaseKeyReady ? `${cuitDigits(purchaseDraft.issuer_cuit)}|${purchaseDraft.voucher_type}|${Number(purchaseDraft.point_of_sale)}|${Number(purchaseDraft.number)}` : '';
+  useEffect(() => {
+    if (!purchaseKey || step !== 'review') { setDuplicatePurchase(null); return; }
+    let cancelled = false;
+    const [issuer_cuit, voucher_type, point_of_sale, number] = purchaseKey.split('|');
+    const timer = setTimeout(() => {
+      // Sin la migración o sin conexión no hay aviso; el servidor igual rechaza el duplicado al registrar.
+      void retail.findPurchaseInvoice(storeId, { issuer_cuit, voucher_type: Number(voucher_type), point_of_sale: Number(point_of_sale), number: Number(number) })
+        .then(found => { if (!cancelled) setDuplicatePurchase(found); }, () => { if (!cancelled) setDuplicatePurchase(null); });
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [purchaseKey, storeId, step]);
+  const startQrScan = (previewUrl?: string) => {
+    const token = ++qrScan.current;
+    setQrData(null);
+    if (!previewUrl) { setQrStatus('none'); return; }
+    setQrStatus('scanning');
+    void scanArcaQr(previewUrl).then(found => {
+      if (!mounted.current || token !== qrScan.current) return;
+      setQrData(found);
+      setQrStatus(found ? 'found' : 'not_found');
+      // Si la revisión ya está abierta, el QR completa la cabecera con los datos oficiales.
+      if (found) setPurchaseDraft(previous => draftFromQr(previous, found));
+    }, () => { if (mounted.current && token === qrScan.current) setQrStatus('not_found'); });
+  };
+  const fillPurchaseWithAi = async () => {
+    setPurchaseAiBusy(true); setPurchaseAiError('');
+    try {
+      const filled = await fillAmountsWithAi(invoiceText, purchaseDraft);
+      if (mounted.current) setPurchaseDraft(filled);
+    } catch (err) {
+      if (mounted.current) setPurchaseAiError(`No se pudieron completar con IA: ${errorMessage(err)}. Completalos a mano.`);
+    } finally { if (mounted.current) setPurchaseAiBusy(false); }
+  };
   const [formatsUnavailable, setFormatsUnavailable] = useState(false);
   // null = use the registered supplier discount; a string = edited for this invoice only.
   const [discountOverride, setDiscountOverride] = useState<string | null>(null);
@@ -568,20 +640,41 @@ export function InvoiceAnalyzer({
       if (mounted.current) setSupplierNotice(`No se pudo guardar el descuento: ${errorMessage(err)}. Se aplica igual a esta factura.`);
     } finally { if (mounted.current) setSupplierSaving(false); }
   };
-  // Calculated sale prices of new products follow the net cost; manual prices are kept.
+  // Costo final que se guarda: neto con descuento + IVA (si la factura viene sin IVA) + internos repartidos.
+  const [landedOverride, setLandedOverride] = useState<LandedCostSettings | null>(null);
+  const internalTaxes = Number(purchaseDraft.amounts.internal_taxes) || 0;
+  const vatDiscriminated = useMemo(() => hasDiscriminatedVat(invoiceText), [invoiceText]);
+  const landedDefault = useMemo(() => defaultLandedSettings({
+    rules: registeredSupplier?.invoice_rules ?? {}, voucherType: purchaseDraft.voucher_type, storeCondition, vatDiscriminated,
+    net21: Number(purchaseDraft.amounts.net_21) || 0, net105: Number(purchaseDraft.amounts.net_10_5) || 0, internalTaxes,
+  }), [registeredSupplier, purchaseDraft.voucher_type, purchaseDraft.amounts.net_21, purchaseDraft.amounts.net_10_5, internalTaxes, storeCondition, vatDiscriminated]);
+  const landed = landedOverride ?? landedDefault;
+  // Todos los renglones de la factura forman la base del reparto, también los omitidos.
+  const internalShares = useMemo(() => internalTaxPerUnit(
+    items.map(item => ({ amount: item.costKnown ? item.rawCost * item.rawQty : 0, units: item.qty })), internalTaxes,
+  ), [items, internalTaxes]);
+  const finalCostAt = useCallback((index: number, unitCost: number) =>
+    landedUnitCost(applySupplierDiscount(unitCost, effectiveDiscount), landed, internalShares[index] ?? 0),
+  [effectiveDiscount, landed, internalShares]);
+  const finalCostNote = [
+    effectiveDiscount > 0 ? `−${effectiveDiscount.toLocaleString('es-AR')}%` : '',
+    landed.vat !== 'included' ? `+IVA ${(vatRate(landed.vat) * 100).toLocaleString('es-AR')}%` : '',
+    landed.spreadInternalTaxes && internalTaxes > 0 ? '+internos' : '',
+  ].filter(Boolean).join(' · ');
+  // Calculated sale prices of new products follow the final cost; manual prices are kept.
   useEffect(() => {
     setItems(previous => {
       let changed = false;
-      const next = previous.map(item => {
+      const next = previous.map((item, index) => {
         if (item.matchedProduct || item.isManualPrice || !item.costKnown || item.unitCost <= 0) return item;
-        const newPrice = Math.max(1, Math.round(applySupplierDiscount(item.unitCost, effectiveDiscount) * (1 + (item.customMargin ?? 40) / 100)));
+        const newPrice = Math.max(1, Math.round(finalCostAt(index, item.unitCost) * (1 + (item.customMargin ?? 40) / 100)));
         if (newPrice === item.newPrice) return item;
         changed = true;
         return { ...item, newPrice };
       });
       return changed ? next : previous;
     });
-  }, [effectiveDiscount]);
+  }, [finalCostAt]);
   const importInProgress = useRef(false);
   const sortedProducts = useMemo(() => products.filter(product => product.active !== false).slice().sort((a, b) => a.name.localeCompare(b.name, 'es-AR')), [products]);
 
@@ -662,9 +755,18 @@ export function InvoiceAnalyzer({
         // Filtrar caracteres innecesarios y ruido de escaneo/AFIP antes de enviar al LLM
         const cleanText = cleanInvoiceOcrText(invoiceText);
         const lines = prepareInvoiceExtractionText(cleanText).text.split('\n').filter(Boolean);
+        // The supplier's CUIT on the invoice identifies it even when the AI misreads the name.
+        // Without a readable CUIT, a registered supplier whose name appears in the text is used.
+        // The ARCA QR carries the official issuer CUIT, even when the OCR cannot read the header.
+        const qrSupplier = qrData ? suppliers.find(item => item.cuit === qrData.issuer_cuit) ?? null : null;
+        const cuitSupplier = supplierOverride.trim() ? null : qrSupplier ?? findSupplierByCuit(suppliers, invoiceText) ?? findSupplierByName(suppliers, invoiceText, storeNames);
+        const presetSupplier = supplierOverride.trim() || cuitSupplier?.name || '';
+        const presetRules = (cuitSupplier ?? findRegisteredSupplier(suppliers, presetSupplier))?.invoice_rules ?? {};
         // A supplier with a learned layout is read locally: no tokens and no Groq limits.
-        const known = supplierOverride.trim() ? findInvoiceFormat(invoiceFormats, supplierOverride) : detectInvoiceFormat(lines, invoiceFormats);
-        const localItems = known && !options.useAi ? readWithInvoiceFormat(lines, known.format) : null;
+        const known = presetSupplier ? findInvoiceFormat(invoiceFormats, presetSupplier) : detectInvoiceFormat(lines, invoiceFormats);
+        // A fractional quantity means the columns shifted (OCR split an amount): use AI instead of a wrong read.
+        const formatItems = known && !options.useAi ? readWithInvoiceFormat(lines, known.format) : null;
+        const localItems = formatItems?.every(item => Number.isInteger(item.qty ?? 0)) ? formatItems : null;
         readSource.current = { lines, format: localItems ? known : null, mismatch: known && !localItems && !options.useAi ? known.supplier_name : '' };
         let parsed: ExtractedInvoice;
         if (localItems && known) {
@@ -680,7 +782,7 @@ export function InvoiceAnalyzer({
           });
           const effectiveLines = candidateLines.length ? candidateLines : lines.filter(l => /\p{L}{2,}/u.test(l) && !SUMMARY_RE.test(l.trim()));
           parsed = {
-            proveedor: supplierOverride.trim(),
+            proveedor: presetSupplier,
             items: effectiveLines.map(line => {
               const toks = line.replace(/(?<!\d)[\\/|√✓]+|[\\/|√✓]+(?!\d)/g, ' ').replace(/\$\s+/g, '$').split(/\s+/).filter(Boolean);
               const nums: number[] = [];
@@ -709,8 +811,8 @@ export function InvoiceAnalyzer({
           };
         } else try {
           const textToAnalyze = cleanText.trim().length >= 20 ? cleanText : invoiceText;
-          parsed = await extractInvoiceProducts(textToAnalyze, part => buildParsePrompt(part, localCategories, products), {
-            cache: extractionCache.current, signal: controller.signal, supplierKnown: !!supplierOverride.trim(),
+          parsed = await extractInvoiceProducts(textToAnalyze, part => buildParsePrompt(part, localCategories, products, presetRules), {
+            cache: extractionCache.current, signal: controller.signal, supplierKnown: !!presetSupplier,
             onProgress: message => { if (mounted.current) setLinkProgress(message); },
           });
         } catch (errFirst) {
@@ -742,10 +844,27 @@ export function InvoiceAnalyzer({
             : 'La IA no encontró renglones de productos en el texto leído. Abrí Ver / editar texto detectado: si faltan, usá Volver a leer o Girar y leer. También podés continuar sin IA.');
         }
 
-        const supplier = supplierOverride.trim() || parsed.proveedor?.trim() || '';
+        // The AI sometimes returns the buyer: the store's own names are never the supplier.
+        const aiSupplier = parsed.proveedor?.trim() || '';
+        const readSupplier = presetSupplier || (isStoreName(aiSupplier, storeNames) ? '' : aiSupplier);
+        // A misspelled name read by the AI ("Castila") still finds the registered supplier and its rules.
+        const similarSupplier = cuitSupplier || findRegisteredSupplier(suppliers, readSupplier) || !readSupplier ? null : findSupplierBySimilarName(suppliers, readSupplier);
+        const registered = cuitSupplier ?? findRegisteredSupplier(suppliers, readSupplier) ?? similarSupplier;
+        const supplier = registered?.name ?? readSupplier;
         setProviderName(supplier);
         setDiscountOverride(null);
-        const parseDiscount = findRegisteredSupplier(suppliers, supplier)?.discount_percent ?? 0;
+        const parseDiscount = registered?.discount_percent ?? 0;
+        // Unit of sale and bonus lines follow the supplier's rules, also for invoices read without AI.
+        parsed = { ...parsed, items: applyInvoiceRules(parsed.items, registered?.invoice_rules ?? {}, invoiceText.split('\n')) };
+        setCuitNotice(cuitSupplier ? (cuitSupplier === qrSupplier ? `Proveedor reconocido por el QR de ARCA (CUIT ${formatCuit(qrSupplier.cuit ?? '')}).`
+          : cuitSupplier.cuit && cuitsInText(invoiceText).includes(cuitSupplier.cuit)
+          ? `Proveedor reconocido por su CUIT ${formatCuit(cuitSupplier.cuit)}.` : `Proveedor reconocido por su nombre en la factura: ${cuitSupplier.name}.`)
+          : similarSupplier ? `Proveedor reconocido por un nombre parecido: la factura dice «${readSupplier}» y se usó ${similarSupplier.name}. Cambialo si no corresponde.`
+          : !presetSupplier && aiSupplier && !readSupplier ? 'La IA leyó el nombre de tu comercio como proveedor y se descartó: indicá el proveedor.' : '');
+        const headerDraft = draftFromText(invoiceText, { supplierCuit: registered?.cuit, storeCuit });
+        setPurchaseDraft(qrData ? draftFromQr(headerDraft, qrData) : headerDraft);
+        purchaseRequest.current = randomUUID();
+        setPurchaseAiError(''); setPurchaseNotice(null); setRegisterPurchase(true); setLandedOverride(null);
         setInvoiceDate("");
         setLinkProgress('Buscando en la memoria del proveedor y comparando con tu catálogo…');
         const links = await linkInvoiceItems(storeId, supplier, parsed.items.map(it => ({
@@ -753,7 +872,7 @@ export function InvoiceAnalyzer({
           commercial_name: (it.name && it.name !== it.invoice_line ? it.name : '').trim() || undefined,
           code: it.code,
           quantity: it.qty, quantity_unit: it.quantityUnit, invoiced_cost: it.cost ?? null,
-          extracted_pack_size: detectPackUnits(it.invoice_line || it.name || '') > 1
+          extracted_pack_size: it.quantityUnit === 'unit' ? 1 : detectPackUnits(it.invoice_line || it.name || '') > 1
             ? detectPackUnits(it.invoice_line || it.name || '') : it.unitsPerPack,
         })), products, controller.signal);
         if (!mounted.current || controller.signal.aborted) return;
@@ -883,7 +1002,7 @@ export function InvoiceAnalyzer({
         setStep("input");
       } finally { parsing.current = false; }
     },
-    [invoiceText, products, localCategories, supplierOverride, suppliers, invoiceFormats, storeId, clearRateLimitTimer, startRateLimitCountdown, fileReadFailed, rateLimitCountdown],
+    [invoiceText, products, localCategories, supplierOverride, suppliers, invoiceFormats, storeId, clearRateLimitTimer, startRateLimitCountdown, fileReadFailed, rateLimitCountdown, qrData, storeCuit, storeNames],
   );
 
   // ── Supplier invoice layout ─────────────────────────────────────────────
@@ -910,6 +1029,25 @@ export function InvoiceAnalyzer({
   }, [providerName, items, invoiceFormats, storeId]);
 
   // ── Import ──────────────────────────────────────────────────────────────
+
+  // Secundario: un fallo acá no deshace la reposición; se puede reintentar con el mismo id.
+  const savePurchase = useCallback(async (onlyVoucher = false) => {
+    const registered = findRegisteredSupplier(suppliers, providerName);
+    setPurchaseNotice({ text: 'Registrando el comprobante…', retry: false });
+    try {
+      await retail.savePurchaseInvoice(storeId, purchaseRequest.current, purchaseInvoicePayload(purchaseDraft, {
+        supplier_id: registered?.id, supplier_name: providerName.trim() || formatCuit(purchaseDraft.issuer_cuit), qr_verified: purchaseChecks.qrVerified,
+      }));
+      if (mounted.current) setPurchaseNotice({ text: purchaseChecks.balanced
+        ? 'Comprobante registrado para el contador (Proveedores → Comprobantes de compra).'
+        : 'Comprobante registrado con la marca «Revisar»: sus importes no cierran. Revisalo en Proveedores → Comprobantes de compra.', retry: false });
+      return true;
+    } catch (err) {
+      if (mounted.current) setPurchaseNotice({ text: onlyVoucher ? `No se registró el comprobante: ${errorMessage(err)}.`
+        : `La reposición se aplicó, pero no se registró el comprobante: ${errorMessage(err)}.`, retry: !onlyVoucher });
+      return false;
+    }
+  }, [suppliers, providerName, storeId, purchaseDraft, purchaseChecks]);
 
   const handleImport = useCallback(async () => {
     if (importInProgress.current) return;
@@ -972,8 +1110,10 @@ export function InvoiceAnalyzer({
       return;
     }
 
-    if (!toUpdate.length && !toCreate.length) {
-      setError("No hay ítems para importar. Elegí al menos una acción distinta de 'Omitir'.");
+    // Todo omitido: se puede registrar solo el comprobante (mercadería ya cargada o corrección).
+    const onlyVoucher = !toUpdate.length && !toCreate.length;
+    if (onlyVoucher && !registerPurchase) {
+      setError("No hay ítems para importar. Elegí al menos una acción distinta de 'Omitir', o marcá «Registrar el comprobante» para registrar solo la factura.");
       return;
     }
     if (!discountValid) {
@@ -981,7 +1121,29 @@ export function InvoiceAnalyzer({
       setError('El descuento del proveedor debe ser un porcentaje desde 0 y menor a 100.');
       return;
     }
-    const netCost = (cost: number) => applySupplierDiscount(cost, effectiveDiscount);
+    let registerAfter = registerPurchase;
+    if (registerPurchase && purchaseChecks.missing.length) {
+      const panel = document.querySelector<HTMLDetailsElement>('.purchase-invoice-panel');
+      if (panel) { panel.open = true; panel.scrollIntoView({ block: 'center' }); panel.querySelector('summary')?.focus(); }
+      setError(`Completá los datos fiscales (faltan: ${purchaseChecks.missing.join(', ')}) o desmarcá «Registrar el comprobante».`);
+      return;
+    }
+    if (onlyVoucher) {
+      if (duplicatePurchase) { setError('Este comprobante ya está registrado. Para corregirlo, eliminalo primero en Proveedores → Comprobantes de compra.'); return; }
+      importInProgress.current = true;
+      setStep('importing'); setError(null);
+      try {
+        const saved = await savePurchase(true);
+        setImportedCount(0); setUpdatedCount(0); setCreatedCount(0); setCostChanges([]);
+        setStep(saved ? 'done' : 'review');
+      } finally { importInProgress.current = false; }
+      return;
+    }
+    if (duplicatePurchase) {
+      if (!window.confirm(`Este comprobante ya se registró el ${new Date(duplicatePurchase.created_at).toLocaleDateString('es-AR')}. ¿Aplicar igual la reposición? El comprobante no se registra de nuevo.`)) return;
+      registerAfter = false;
+    }
+    const finalCost = (item: InvoiceItem, cost = item.unitCost) => finalCostAt(items.indexOf(item), cost);
     importInProgress.current = true;
     setStep("importing");
     setError(null);
@@ -1002,10 +1164,10 @@ export function InvoiceAnalyzer({
           if (quantityAdded > 1000000) throw new Error(`La reposición de ${prod.name} supera 1.000.000 de unidades.`);
           const newCost =
             it.action === "update_cost" || it.action === "both"
-              ? netCost(it.unitCost)
+              ? finalCost(it)
               : previous?.newCost;
           if (it.action === 'update_cost' || it.action === 'both') {
-            importedCosts.set(prod.id, { id: prod.id, name: prod.name, previousCost: prod.cost, newCost: netCost(it.unitCost), currentPrice: prod.price });
+            importedCosts.set(prod.id, { id: prod.id, name: prod.name, previousCost: prod.cost, newCost: finalCost(it), currentPrice: prod.price });
           }
           batchItems.set(prod.id, { id: prod.id, newStock: prod.stock + quantityAdded, newCost, quantityAdded });
         }
@@ -1019,7 +1181,7 @@ export function InvoiceAnalyzer({
 
           const price = Math.max(
             1,
-            Number(it.newPrice) || Math.round(netCost(it.unitCost) * 1.4) || 100,
+            Number(it.newPrice) || Math.round(finalCost(it) * 1.4) || 100,
           );
           const name = (it.newName || it.rawName).trim().slice(0, 160);
           const emoji = guessProductEmoji(name);
@@ -1032,7 +1194,7 @@ export function InvoiceAnalyzer({
               code,
               name,
               price,
-              cost: Math.max(0, netCost(Number(it.unitCost) || 0)),
+              cost: Math.max(0, finalCost(it, Number(it.unitCost) || 0)),
               stock: Math.max(1, Number(it.qty) || 1),
               minStock: it.newMinStock,
               emoji,
@@ -1066,6 +1228,7 @@ export function InvoiceAnalyzer({
       setShowPriceProposal(false);
       setStep("done");
       rememberInvoiceFormat();
+      if (registerAfter) void savePurchase(); else setPurchaseNotice(null);
       void Promise.resolve().then(() => onImportDone?.(totalCount)).catch(() => {
         setError('La reposición se guardó, pero no se pudo actualizar el catálogo en pantalla. Actualizá los datos al cerrar.');
       });
@@ -1076,7 +1239,7 @@ export function InvoiceAnalyzer({
     } finally {
       importInProgress.current = false;
     }
-  }, [items, storeId, stockBranchId, initialStockBranch, onImportDone, products, localCategories, providerName, revealReviewItem, discountValid, effectiveDiscount, rememberInvoiceFormat]);
+  }, [items, storeId, stockBranchId, initialStockBranch, onImportDone, products, localCategories, providerName, revealReviewItem, discountValid, finalCostAt, rememberInvoiceFormat, registerPurchase, purchaseChecks, duplicatePurchase, savePurchase]);
 
   // ── UI helpers ──────────────────────────────────────────────────────────
 
@@ -1255,9 +1418,9 @@ export function InvoiceAnalyzer({
 
   const handleApplyMarginToNew = (marginPct: number) => {
     setItems((prev) =>
-      prev.map((it) => {
+      prev.map((it, index) => {
         if (!it.matchedProduct && it.action === "create_new") {
-          const newPrice = Math.max(1, Math.round(applySupplierDiscount(it.unitCost, effectiveDiscount) * (1 + marginPct / 100)));
+          const newPrice = Math.max(1, Math.round(finalCostAt(index, it.unitCost) * (1 + marginPct / 100)));
           return { ...it, newPrice, customMargin: marginPct, isManualPrice: false };
         }
         return it;
@@ -1332,6 +1495,7 @@ export function InvoiceAnalyzer({
         type: result.fileType,
         previewUrl: result.previewUrl,
       });
+      startQrScan(result.previewUrl);
       if (!result.text || result.text.length < 5) {
         setShowRawText(true);
         throw new Error('No se encontró texto legible. Probá Girar y leer, subí una foto nítida o pegá los renglones en Ver / editar texto detectado.');
@@ -1535,6 +1699,7 @@ export function InvoiceAnalyzer({
                     onClick={(e) => {
                       e.stopPropagation();
                       setUploadedFile(null);
+                      startQrScan();
                       setInvoiceText("");
                       setOriginalText(''); setReadingNote(''); setFileReadFailed(false);
                       sourceFile.current = null; sourceRotation.current = 0;
@@ -1765,6 +1930,27 @@ export function InvoiceAnalyzer({
                   ...(item.linkStatus === 'auto' ? { linkStatus: 'pending' as const, linkReason: 'El alias fue eliminado. Revisá y confirmá el vínculo si querés volver a recordarlo.' } : {}),
                 } : item));
               }} />
+            <PurchaseInvoicePanel draft={purchaseDraft} onChange={setPurchaseDraft} checks={purchaseChecks} qrStatus={qrStatus}
+              storeCuit={storeCuit} duplicate={duplicatePurchase} register={registerPurchase} onRegister={setRegisterPurchase}
+              aiBusy={purchaseAiBusy} aiError={purchaseAiError} onFillWithAi={() => void fillPurchaseWithAi()} disabled={step !== 'review'} />
+            <div className="landed-cost-panel" role="group" aria-labelledby="landed-cost-title">
+              <strong id="landed-cost-title">Costo final que se guarda</strong>
+              <label>IVA
+                <select value={landed.vat} onChange={event => setLandedOverride({ ...landed, vat: event.target.value as LandedCostSettings['vat'] })}>
+                  <option value="add_21">Sumar IVA 21% (precios sin IVA)</option>
+                  <option value="add_10_5">Sumar IVA 10,5% (precios sin IVA)</option>
+                  <option value="included">No sumar: los precios ya incluyen IVA</option>
+                </select>
+              </label>
+              {internalTaxes > 0 && <label className="landed-cost-check">
+                <input type="checkbox" checked={landed.spreadInternalTaxes} onChange={event => setLandedOverride({ ...landed, spreadInternalTaxes: event.target.checked })} />
+                <span>Repartir impuestos internos ({internalTaxes.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}) entre los artículos, según su importe</span>
+              </label>}
+              <small>{landedOverride ? 'Elegido para esta factura.' : landedDefault.reason} Las percepciones no se suman: son pagos a cuenta.
+                {internalTaxes > 0 && landed.spreadInternalTaxes && ' Si algún artículo no lleva impuestos internos, ajustá su costo a mano.'}
+                {internalTaxes === 0 && ' Si la factura tiene impuestos internos, cargalos en los datos fiscales para sumarlos.'}</small>
+            </div>
+            {cuitNotice && <p className="invoice-format-note" role="status">{cuitNotice}</p>}
             {readWithFormat.format ? <p className="invoice-format-note" role="status">
               Leída sin IA con el formato guardado de {readWithFormat.format.supplier_name}. Si algún renglón no coincide con la factura,{' '}
               <button type="button" className="text-button" onClick={() => {
@@ -1913,6 +2099,8 @@ export function InvoiceAnalyzer({
               categories={localCategories}
               supplier={providerName}
               discountPercent={effectiveDiscount}
+              finalCost={finalCostAt}
+              finalCostNote={finalCostNote}
               mappingBusy={mappingBusy}
               expandedItems={expandedItems}
               productSearch={productSearch}
@@ -1960,9 +2148,9 @@ export function InvoiceAnalyzer({
               <button
                 className="primary-button"
                 onClick={() => void handleImport()}
-                disabled={totalToImport === 0 || pendingCount > 0}
+                disabled={(totalToImport === 0 && !registerPurchase) || pendingCount > 0}
               >
-                <PackageCheck size={14} /> Aplicar reposición ({totalToImport} producto{totalToImport !== 1 ? "s" : ""})
+                <PackageCheck size={14} /> {totalToImport === 0 ? 'Registrar solo el comprobante' : `Aplicar reposición (${totalToImport} producto${totalToImport !== 1 ? "s" : ""})`}
                 {newCount > 0 ? ` (${matchedCount} exist. + ${newCount} nuev.)` : ""}
               </button>
               {pendingCount > 0 && <button type="button" className="text-button" onClick={() => {
@@ -1990,10 +2178,10 @@ export function InvoiceAnalyzer({
           <div className="invoice-body">
             <div className="invoice-done-state">
             <CheckCircle2 size={54} color="var(--tone-accent)" />
-            <h3>¡Importación completada!</h3>
-            <p>
+            <h3>{importedCount ? '¡Importación completada!' : 'Comprobante registrado'}</h3>
+            {importedCount > 0 && <p>
               Se procesaron exitosamente <strong>{importedCount}</strong> producto{importedCount !== 1 ? "s" : ""} en tu catálogo.
-            </p>
+            </p>}
             <div
               style={{
                 display: "flex",
@@ -2015,6 +2203,8 @@ export function InvoiceAnalyzer({
               )}
             </div>
             {formatNotice && <p role="status">{formatNotice}</p>}
+            {purchaseNotice && <p role="status">{purchaseNotice.text}{purchaseNotice.retry && <>{' '}
+              <button type="button" className="text-button" onClick={() => void savePurchase()}>Reintentar registro</button></>}</p>}
             {costChanges.length > 0 ? <>
               <p><AlertTriangle size={15} /> {costChanges.length} producto{costChanges.length === 1 ? '' : 's'} con suba de costo mayor al 2%. Podés revisar su precio de venta.</p>
               {!showPriceProposal && <button type="button" className="primary-button" onClick={() => setShowPriceProposal(true)}>Ver propuesta de precios</button>}

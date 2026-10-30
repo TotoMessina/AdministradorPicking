@@ -21,6 +21,8 @@ import { NewCompositeEditor } from './NewCompositeEditor';
 import { compositionCost, hasComposition, stockForSale } from '../../services/productComposition';
 import { DepotSettings } from './DepotSettings';
 import { SupplierSettings } from './SupplierSettings';
+import { SupplierAccountSection } from './SupplierAccountSection';
+import { CostAdjustmentTool } from './CostAdjustmentTool';
 import { DepotHistory } from './DepotHistory';
 import { BillingSettings } from './BillingSettings';
 import { errorMessage } from './api';
@@ -75,6 +77,7 @@ import {
   FolderTree,
   LogOut,
   RefreshCw,
+  Truck,
 } from "lucide-react";
 import { groqChat } from "../../services/groqService";
 import { unitsPerPack } from '../../services/inventoryUnits';
@@ -3304,6 +3307,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       {isInvoiceModalOpen && (
         <InvoiceAnalyzer
           storeId={store.id}
+          storeCuit={store.cuit}
+          storeCondition={store.condicion_iva}
+          storeNames={[store.name, store.razon_social ?? ''].filter(Boolean)}
           stockBranchId={operationBranch}
           stockBranchName={branches.find(branch => branch.id === operationBranch)?.name}
           products={products}
@@ -3796,19 +3802,32 @@ export function RegistersSettings({
   branches,
   run,
   busy,
+  branchId,
 }: {
   storeId: string;
   registers: Register[];
   branches: Branch[];
   run: Run;
   busy: boolean;
+  /** Dentro del modal de una sucursal: solo sus cajas; `null` muestra las que no tienen sucursal válida. */
+  branchId?: string | null;
 }) {
   const [editingRegisterId, setEditingRegisterId] = useState<string | null>(null);
   const [deletingRegisterId, setDeletingRegisterId] = useState<string | null>(null);
-  const activeRegisters = registers.filter((r) => r.active);
+  const scoped = branchId !== undefined;
+  const activeRegisters = registers.filter((r) => r.active && (!scoped
+    || (branchId ? r.branch_id === branchId : !branches.some((b) => b.id === r.branch_id))));
+  const addBranches = branchId ? branches.filter((b) => b.id === branchId) : branches;
 
   return (
-    <div className="store-settings-card">
+    <div className={scoped ? 'branch-modal-registers' : 'store-settings-card'}>
+      {scoped ? (
+        <div className="branch-modal-section-title">
+          <Monitor size={16} />
+          <h3>Cajas de cobro</h3>
+          <span className="location-pill-badge">{activeRegisters.length}</span>
+        </div>
+      ) : (
       <div className="store-settings-header">
         <div className="store-settings-header-icon">
           <Monitor size={22} />
@@ -3818,8 +3837,9 @@ export function RegistersSettings({
           <p>Puestos de atención y venta. Cada caja pertenece a un local y tiene sus turnos.</p>
         </div>
       </div>
+      )}
 
-      <div className="location-card-body">
+      <div className={scoped ? 'branch-modal-registers-body' : 'location-card-body'}>
         {/* Lista de cajas */}
         <div className="location-items-list">
           {activeRegisters.map((r) => {
@@ -3939,9 +3959,11 @@ export function RegistersSettings({
                   <div className="location-item-info">
                     <strong className="location-item-name">{r.name}</strong>
                     <div className="location-item-meta">
-                      <span className="location-pill-badge">
-                        <Building2 size={11} /> {branch?.name || 'Sin sucursal'}
-                      </span>
+                      {!branchId && (
+                        <span className="location-pill-badge">
+                          <Building2 size={11} /> {branch?.name || 'Sin sucursal'}
+                        </span>
+                      )}
                       <span className="location-pill-badge active">Activa</span>
                     </div>
                   </div>
@@ -3979,11 +4001,11 @@ export function RegistersSettings({
           {!activeRegisters.length && branches.length > 0 && (
             <div className="location-empty-notice">
               <Monitor size={24} />
-              <p>No tenés cajas registradas en este comercio. Creá la primera caja para comenzar a vender.</p>
+              <p>{branchId ? 'Este local todavía no tiene cajas. Agregá la primera para comenzar a vender.' : 'No tenés cajas registradas en este comercio. Creá la primera caja para comenzar a vender.'}</p>
             </div>
           )}
 
-          {!branches.length && (
+          {!branches.length && !scoped && (
             <div className="location-empty-notice warning">
               <AlertTriangle size={24} />
               <p>Agregá primero una sucursal en el panel de la izquierda para poder habilitar cajas.</p>
@@ -3992,7 +4014,7 @@ export function RegistersSettings({
         </div>
 
         {/* Sección Agregar Caja */}
-        {branches.length > 0 && (
+        {addBranches.length > 0 && branchId !== null && (
           <div className="location-add-section">
             <div className="location-add-header">
               <div className="location-add-title">
@@ -4036,10 +4058,10 @@ export function RegistersSettings({
                   <label className="store-field-label" htmlFor="new-register-branch">
                     Sucursal asignada
                   </label>
-                  {branches.length === 1 ? (
+                  {addBranches.length === 1 ? (
                     <div className="location-single-branch-info">
-                      <span>{branches[0].name}</span>
-                      <input type="hidden" name="branch" value={branches[0].id} />
+                      <span>{addBranches[0].name}</span>
+                      <input type="hidden" name="branch" value={addBranches[0].id} />
                     </div>
                   ) : (
                     <select
@@ -4047,9 +4069,9 @@ export function RegistersSettings({
                       name="branch"
                       required
                       className="store-select-input"
-                      defaultValue={branches[0]?.id}
+                      defaultValue={addBranches[0]?.id}
                     >
-                      {branches.map((b) => (
+                      {addBranches.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
                         </option>
@@ -4060,7 +4082,7 @@ export function RegistersSettings({
               </div>
 
               <div className="location-add-footer">
-                <button className="primary-button" disabled={busy || !branches.length}>
+                <button className="primary-button" disabled={busy || !addBranches.length}>
                   <Plus size={16} /> Agregar caja
                 </button>
               </div>
@@ -4468,7 +4490,7 @@ export function StoreSettings({
   onOpenAi?: () => void;
   active?: boolean;
 }) {
-  const view = ['general', 'locations', 'team', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
+  const view = ['general', 'locations', 'team', 'suppliers', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
   const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -4493,16 +4515,9 @@ export function StoreSettings({
   };
   const [appVisited, setAppVisited] = useState(view === 'app');
   useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
-  const isDirectPrimary = ['general', 'locations', 'team'].includes(view);
+  const isDirectPrimary = ['general', 'locations', 'team', 'suppliers'].includes(view);
   const isMoreSub = ['more', 'app', 'ledgers'].includes(view);
   const primaryView = isDirectPrimary ? view : (isMoreSub ? 'more' : '');
-  const registerCountsByBranch = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const r of registers) {
-      if (r.active) counts[r.branch_id] = (counts[r.branch_id] || 0) + 1;
-    }
-    return counts;
-  }, [registers]);
   if (role !== 'owner' && role !== 'admin') return null;
   return (
     <SettingsEditorGroup><div className="settings-workspace settings-workspace-compact settings-workspace-sober">
@@ -4511,6 +4526,7 @@ export function StoreSettings({
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
           { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
           { id: 'team', label: 'Personas con acceso', icon: <Users size={16} /> },
+          { id: 'suppliers', label: 'Proveedores', icon: <Truck size={16} /> },
           { id: 'more', label: 'Más opciones', icon: <SlidersHorizontal size={16} /> },
         ]} />
       <div
@@ -4786,7 +4802,6 @@ export function StoreSettings({
 
               </div>
             </div>
-            <SupplierSettings key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'more'} />
           </div>
         </div>
       )}
@@ -4820,9 +4835,16 @@ export function StoreSettings({
         <MarginThresholdSettings key={`margin-${store.id}`} store={store} busy={busy} run={run} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
-        <div className="locations-settings-container">
-          <BranchSettings storeId={store.id} branches={branches} run={run} busy={busy} registerCounts={registerCountsByBranch} />
-          <RegistersSettings storeId={store.id} registers={registers} branches={branches} run={run} busy={busy} />
+        <div className="locations-settings-container is-map">
+          <BranchSettings storeId={store.id} branches={branches} registers={registers} run={run} busy={busy}
+            renderRegisters={(branchId) => <RegistersSettings storeId={store.id} registers={registers} branches={branches} run={run} busy={busy} branchId={branchId} />} />
+        </div>
+      </div>
+      <div hidden={view !== 'suppliers'} role="tabpanel" id="settings-panel-suppliers" aria-labelledby="settings-tab-suppliers">
+        <div className="suppliers-settings-container">
+          <SupplierSettings key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} />
+          <CostAdjustmentTool key={`costs-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} />
+          <SupplierAccountSection key={`purchases-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} canManage canAccount />
         </div>
       </div>
       {(role === "owner" || role === "admin") && (

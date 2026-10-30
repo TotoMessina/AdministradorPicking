@@ -173,6 +173,33 @@ button.inv-supplier-display { padding: 2px 0; border: 0; background: none; color
 .inv-supplier-discount .text-button { align-self: flex-start; font-size: 11px; padding: 0; }
 .invoice-format-note { margin: 0 0 10px; padding: 10px 12px; border-left: 3px solid var(--tone-accent); background: var(--tone-canvas); border-radius: 6px; font-size: 12px; }
 .invoice-format-note .text-button { padding: 0; font-size: inherit; }
+.landed-cost-panel { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 0 0 12px; padding: 12px 14px; border: 1px solid var(--tone-border); border-left: 3px solid var(--tone-accent); border-radius: 10px; background: var(--tone-canvas); font-size: 13px; }
+.landed-cost-panel > strong { color: var(--tone-ink); }
+.landed-cost-panel > label { display: flex; align-items: center; gap: 8px; font-weight: 600; color: var(--tone-text); }
+.landed-cost-panel select { min-height: 36px; max-width: 100%; }
+.landed-cost-panel .landed-cost-check { font-weight: 500; }
+.landed-cost-panel .landed-cost-check input { width: 18px; height: 18px; flex-shrink: 0; }
+.landed-cost-panel > small { flex-basis: 100%; color: var(--tone-muted); font-size: 12px; line-height: 1.45; }
+@media (max-width: 640px) { .landed-cost-panel > label { flex-wrap: wrap; } }
+.purchase-invoice-panel { display: flex; flex-direction: column; gap: 12px; margin: 0 0 12px; padding: 14px 16px; border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-surface); }
+.purchase-invoice-panel > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; font-weight: 600; color: var(--tone-ink); cursor: pointer; }
+.purchase-invoice-panel > summary small { font-weight: 500; font-size: 12px; }
+.purchase-invoice-panel :is(.is-ok) { color: #1f7a4d; }
+.purchase-invoice-panel :is(.is-warning) { color: #9a5b00; }
+.purchase-invoice-intro { margin: 0; color: var(--tone-muted); font-size: 12px; }
+.purchase-invoice-status, .purchase-invoice-check { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 8px 10px; border-radius: 8px; background: var(--tone-canvas); font-size: 12.5px; line-height: 1.45; }
+.purchase-invoice-status > svg, .purchase-invoice-check > svg, .purchase-invoice-alert > svg { flex-shrink: 0; margin-top: 2px; }
+.purchase-invoice-alert { display: flex; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--tone-danger-border); border-radius: 8px; background: var(--tone-danger-soft); color: var(--tone-danger); font-size: 12.5px; line-height: 1.45; }
+.purchase-invoice-grid, .purchase-invoice-amounts { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 12px; }
+.purchase-invoice-grid label, .purchase-invoice-amounts label { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 12px; font-weight: 600; color: var(--tone-text); }
+.purchase-invoice-amounts label.is-total { font-weight: 700; color: var(--tone-ink); }
+.purchase-invoice-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 12px; color: var(--tone-danger); }
+.purchase-invoice-register { display: flex; align-items: flex-start; gap: 10px; font-size: 13px; color: var(--tone-ink); cursor: pointer; }
+.purchase-invoice-register input { width: 18px; height: 18px; margin-top: 1px; flex-shrink: 0; }
+@media (max-width: 640px) {
+  .purchase-invoice-panel { padding: 12px; }
+  .purchase-invoice-grid, .purchase-invoice-amounts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 640px) {
   .inv-supplier-discount { flex-basis: 100%; padding-left: 0; padding-top: 10px; border-left: 0; border-top: 1px solid var(--tone-border); }
   .inv-supplier-discount small { max-width: none; }

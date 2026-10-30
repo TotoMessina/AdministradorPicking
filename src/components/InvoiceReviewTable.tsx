@@ -8,7 +8,6 @@ import { rankCatalogMatches } from '../services/invoiceMatchingService';
 import { normalizeSupplierText } from '../services/supplierMappingService';
 import { invoiceCostIncrease } from '../services/invoicePricingService';
 import type { InvoiceCatalogCandidate } from '../services/invoiceCatalogService';
-import { applySupplierDiscount } from '../services/supplierDiscountService';
 
 export interface InvoiceReviewAttention {
   index: number;
@@ -24,6 +23,10 @@ interface Props {
   supplier: string;
   /** Descuento global del proveedor para esta factura; el costo ingresado es el facturado. */
   discountPercent: number;
+  /** Costo final por unidad (descuento, IVA e internos) para la fila y el costo facturado dados. */
+  finalCost: (index: number, unitCost: number) => number;
+  /** Qué se aplicó para llegar al costo final, por ejemplo "+IVA 21% · +internos". */
+  finalCostNote: string;
   mappingBusy: boolean;
   expandedItems: Set<number>;
   productSearch: Record<number, string>;
@@ -76,13 +79,12 @@ export function InvoiceReviewTable(props: Props) {
     if (next) { next.focus(); next.select(); }
   };
 
-  const netCost = (cost: number) => applySupplierDiscount(cost, props.discountPercent);
   const changeCost = (index: number, item: InvoiceItem, value: string) => {
     const cost = value === '' ? NaN : item.matchedProduct ? Number(value) : Math.max(0, Number(value));
     onUpdate(index, {
       unitCost: cost,
       ...(!item.matchedProduct && !item.isManualPrice && Number.isFinite(cost)
-        ? { newPrice: Math.max(1, Math.round(netCost(cost) * (1 + (item.customMargin ?? 40) / 100))) } : {}),
+        ? { newPrice: Math.max(1, Math.round(props.finalCost(index, cost) * (1 + (item.customMargin ?? 40) / 100))) } : {}),
     });
   };
 
@@ -103,7 +105,7 @@ export function InvoiceReviewTable(props: Props) {
           <th scope="col" data-group="stock">U. / bulto</th>
           <th scope="col" data-group="stock">Ingresan (u.)</th>
           <th scope="col" data-group="stock" title="Mínimo de unidades a mantener en stock">Stock mínimo</th>
-          <th scope="col" className="invoice-sheet-money" data-group="price">{props.discountPercent > 0 ? 'Costo factura / u. ($)' : 'Costo / u. ($)'}</th>
+          <th scope="col" className="invoice-sheet-money" data-group="price">{props.finalCostNote ? 'Costo factura / u. ($)' : 'Costo / u. ($)'}</th>
           <th scope="col" data-group="price">Aumento (%)</th>
           <th scope="col" className="invoice-sheet-money" data-group="price">Venta / u. ($)</th>
           <th scope="col" className="invoice-sheet-action">Acción</th>
@@ -124,7 +126,7 @@ export function InvoiceReviewTable(props: Props) {
             const badCode = isNew && !props.isValidCode(it.newCode);
             const badMinimum = isNew && (!Number.isSafeInteger(it.newMinStock) || it.newMinStock < 0 || it.newMinStock > 2147483647);
             const addsStock = !skipped && (isNew || (product && it.action !== 'update_cost'));
-            const net = netCost(it.unitCost);
+            const net = props.finalCost(index, it.unitCost);
             const increase = product && it.costKnown ? invoiceCostIncrease(product.cost, net) : null;
             return <Fragment key={index}>
               <tr data-invoice-row={index} data-state={skipped ? 'skipped' : isNew ? 'new' : product && it.linkStatus !== 'pending' ? 'linked' : 'pending'} className={skipped ? 'invoice-sheet-skipped' : ''}>
@@ -180,8 +182,8 @@ export function InvoiceReviewTable(props: Props) {
                 <td><NumberInput aria-label={`${label}: costo unitario en pesos`} data-column="cost" min={0} step={0.01}
                   value={it.costKnown ? it.unitCost : ''} placeholder="Completar" disabled={skipped} aria-invalid={badCost || undefined}
                   onValueChange={value => changeCost(index, it, value)} />
-                  {it.costKnown && net !== it.unitCost && <small className="invoice-sheet-net" title="Costo que se guarda, con el descuento del proveedor">
-                    Neto {money(net)} · −{props.discountPercent.toLocaleString('es-AR')}%</small>}
+                  {it.costKnown && net !== it.unitCost && <small className="invoice-sheet-net" title="Costo final que se guarda: descuento del proveedor, IVA e impuestos internos">
+                    Final {money(net)}{props.finalCostNote ? ` · ${props.finalCostNote}` : ''}</small>}
                   {increase && <small className="invoice-sheet-cost-change" title={`Costo anterior: ${money(product!.cost)}`}>
                     {increase.percent === null ? 'Antes sin costo' : `Subió ${increase.percent.toLocaleString('es-AR', { maximumFractionDigits: 1 })}%`}
                   </small>}

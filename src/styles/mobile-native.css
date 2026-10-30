@@ -3,7 +3,7 @@
   :root { --mobile-ease: cubic-bezier(.2,.8,.2,1); }
   html { scroll-padding-top: calc(88px + env(safe-area-inset-top)); }
   body { background: var(--tone-canvas); }
-  body:has(:is(.ai-modal-backdrop, .invoice-overlay, .push-welcome-backdrop, .receipt-modal-backdrop, .ai-omni-backdrop):not([hidden], [hidden] *)) { overflow: hidden; }
+  body:has(:is(.ai-modal-backdrop, .invoice-overlay, .push-welcome-backdrop, .receipt-modal-backdrop, .ai-omni-backdrop, .branch-modal-backdrop):not([hidden], [hidden] *)) { overflow: hidden; }
   .app-sidebar {
     position: sticky; top: 0; z-index: 110;
     padding: calc(12px + env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
