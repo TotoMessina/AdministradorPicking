@@ -20,9 +20,7 @@ import { ProductCompositionEditor } from './ProductCompositionEditor';
 import { NewCompositeEditor } from './NewCompositeEditor';
 import { compositionCost, hasComposition, stockForSale } from '../../services/productComposition';
 import { DepotSettings } from './DepotSettings';
-import { SupplierSettings } from './SupplierSettings';
 import { SupplierAccountSection } from './SupplierAccountSection';
-import { CostAdjustmentTool } from './CostAdjustmentTool';
 import { DepotHistory } from './DepotHistory';
 import { BillingSettings } from './BillingSettings';
 import { errorMessage } from './api';
@@ -4841,11 +4839,7 @@ export function StoreSettings({
         </div>
       </div>
       <div hidden={view !== 'suppliers'} role="tabpanel" id="settings-panel-suppliers" aria-labelledby="settings-tab-suppliers">
-        <div className="suppliers-settings-container">
-          <SupplierSettings key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} />
-          <CostAdjustmentTool key={`costs-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} />
-          <SupplierAccountSection key={`purchases-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} canManage canAccount />
-        </div>
+        <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} canManage canAccount />
       </div>
       {(role === "owner" || role === "admin") && (
         <div

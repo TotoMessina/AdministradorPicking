@@ -8,7 +8,7 @@ import { PURCHASE_AMOUNT_FIELDS, formatMoney, voucherLabel, voucherNumber } from
 import { formatCuit } from '../../services/supplierInvoiceRules';
 import { downloadCsv, purchasePerceptionsCsv, purchaseVatBookCsv } from '../../services/purchaseInvoiceExport';
 import {
-  CREDIT_NOTE_TYPES, DEBIT_NOTE_TYPES, INVOICE_TYPES, STATUS_LABELS, documentAccount, dueLabel, type DocumentAccount,
+  CREDIT_NOTE_TYPES, DEBIT_NOTE_TYPES, INVOICE_TYPES, STATUS_LABELS, documentAccount, dueLabel, isDueThisWeek, type DocumentAccount,
 } from '../../services/supplierAccount';
 
 // Mes local: toISOString usaría UTC y cerca de fin de mes mostraría el siguiente.
@@ -39,9 +39,9 @@ function TrackingEditor({ row, rows, payments, showBalance, storeId, busy, run, 
   };
   if (!row.due_date) return <p className="purchase-tracking-note">Para ver vencimientos y estados, aplicá la actualización 202610290007 en Supabase.</p>;
   return <div className="purchase-tracking">
-    <h4>Cuenta corriente</h4>
+    <h4>Saldo y seguimiento</h4>
     <p className="purchase-tracking-note">
-      {isCredit ? (row.applies_to ? 'Nota de crédito aplicada a su factura.' : 'Crédito a favor: vinculalo con la factura a la que corresponde.')
+      {isCredit ? (row.applies_to ? 'Esta nota ya está descontada de su factura.' : 'Crédito a tu favor: elegí a qué factura corresponde para descontarlo.')
         : showBalance ? <>Saldo {formatMoney(account.balance)}{account.credits > 0 || account.paid > 0 ? ` (total ${formatMoney(row.total)}${account.credits > 0 ? ` − notas de crédito ${formatMoney(account.credits)}` : ''}${account.paid > 0 ? ` − pagos ${formatMoney(account.paid)}` : ''})` : ''} · {STATUS_LABELS[account.status]}{dueLabel(account) ? `, ${dueLabel(account)}` : ''}.</> : 'Los saldos se ven con el permiso de cuenta corriente de proveedores.'}
     </p>
     {!isCredit && <div className="purchase-tracking-row">
@@ -74,7 +74,7 @@ function TrackingEditor({ row, rows, payments, showBalance, storeId, busy, run, 
         </select>
       </label>
       <button type="button" className="secondary-button" disabled={busy || target === (row.applies_to ?? '')}
-        onClick={() => void save({ applies_to: target || null }, target ? 'Nota vinculada con su factura' : 'Vínculo quitado')}>Guardar vínculo</button>
+        onClick={() => void save({ applies_to: target || null }, target ? 'Nota asociada a su factura' : 'Nota sin factura asociada')}>Guardar factura</button>
     </div>}
     {(isCredit || isDebitNote) && !invoices.length && <p className="purchase-tracking-note">No hay facturas registradas de este proveedor para vincular.</p>}
     {credits.length > 0 && <p className="purchase-tracking-note">Notas vinculadas: {credits.map(credit => `${voucherName(credit)} (${formatMoney(credit.total)})`).join(', ')}.</p>}
@@ -82,8 +82,11 @@ function TrackingEditor({ row, rows, payments, showBalance, storeId, busy, run, 
 }
 
 /** Comprobantes de compra: por mes para el contador y con saldo pendiente para la cuenta corriente. Requiere conexión. */
-export function PurchaseInvoiceList({ storeId, busy, run, active = true, version = 0, onChanged, canManage = true, canAccount = true }: {
+export function PurchaseInvoiceList({ storeId, busy, run, active = true, version = 0, onChanged, canManage = true, canAccount = true, onPay, focus }: {
   storeId: string; busy: boolean; run: Run; active?: boolean; version?: number; onChanged?: () => void; canManage?: boolean; canAccount?: boolean;
+  onPay?: (cuit: string, invoiceId: string) => void;
+  /** Pedido desde Cuentas: abrir «Con saldo pendiente» con ese filtro. */
+  focus?: { status: string; key: number } | null;
 }) {
   const [selectedView, setView] = useState<'month' | 'open'>('month');
   const view = canAccount ? selectedView : 'month';
@@ -118,7 +121,15 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
   const [statusFilter, setStatusFilter] = useState('');
   const [supplierFilter, setSupplierFilter] = useState('');
   const openSuppliers = [...new Map(openRows.map(row => [row.issuer_cuit, row.supplier_name])).entries()];
-  const filteredOpen = openRows.filter(row => (!statusFilter || accounts.get(row.id)?.status === statusFilter) && (!supplierFilter || row.issuer_cuit === supplierFilter));
+  useEffect(() => {
+    if (!focus) return;
+    setView('open'); setStatusFilter(focus.status); setSupplierFilter('');
+  }, [focus]);
+  const matchesStatus = (row: PurchaseInvoice) => {
+    const account = accounts.get(row.id);
+    return !statusFilter || (!!account && (statusFilter === 'week' ? isDueThisWeek(account) : account.status === statusFilter));
+  };
+  const filteredOpen = openRows.filter(row => matchesStatus(row) && (!supplierFilter || row.issuer_cuit === supplierFilter));
   const rows = view === 'month' ? monthRows : filteredOpen;
 
   // Las notas de crédito restan.
@@ -137,7 +148,7 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
     { label: 'Total adeudado', value: openRows.filter(row => !CREDIT_NOTE_TYPES.has(row.voucher_type)).reduce((total, row) => total + (accounts.get(row.id)?.balance ?? 0), 0) },
     { label: 'Vencido', value: debtOf('overdue') },
     { label: 'En revisión', value: debtOf('review') },
-    { label: 'Créditos a favor', value: debtOf('credit_available') },
+    { label: 'A tu favor', value: debtOf('credit_available') },
   ];
   const unbalanced = monthRows.filter(row => !row.balanced).length;
   const withPerceptions = monthRows.filter(row => row.vat_perceptions > 0 || row.iibb_perceptions > 0).length;
@@ -146,8 +157,8 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
     <div className="store-settings-header">
       <div className="store-settings-header-icon"><FileText size={22} /></div>
       <div className="store-settings-header-text">
-        <h3>Comprobantes de compra</h3>
-        <p>Facturas y notas de proveedores con sus datos fiscales, vencimiento y saldo. Registrar o eliminar un comprobante no cambia el stock.</p>
+        <h3>Facturas y notas de proveedores</h3>
+        <p>Vencimiento y saldo de cada una, con sus datos para el contador. Cargarlas o eliminarlas no cambia el stock.</p>
       </div>
     </div>
     <div className="location-card-body">
@@ -158,18 +169,18 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
         </div>}
         {view === 'month' && <label className="purchase-list-month">Mes<input type="month" value={month} disabled={loading} onChange={event => setMonth(event.target.value)} /></label>}
       </div>
-      {canManage && <SettingsEditor label="Cargar comprobante manual" busy={busy || loading}>
+      {canManage && <SettingsEditor label="Cargar factura o nota" busy={busy || loading}>
         {close => <ManualPurchaseInvoiceForm storeId={storeId} invoices={all} payments={payments} busy={busy} run={run} close={close} onSaved={changed} />}
       </SettingsEditor>}
       {error && <p role="alert">{error} <button type="button" className="text-button" disabled={loading} onClick={() => void load()}>Reintentar</button></p>}
       {!error && !loading && !rows.length && <div className="location-empty-notice">
         <FileText size={24} />
-        <p>{view === 'month' ? 'No hay comprobantes en este mes. Se registran desde Importar factura o con «Cargar comprobante manual».' : tracked || !all.length ? 'No hay saldos pendientes con proveedores.' : 'Para ver saldos y vencimientos, aplicá la actualización 202610290007 en Supabase.'}</p>
+        <p>{view === 'month' ? 'No hay facturas en este mes. Se registran desde Importar factura o con «Cargar factura o nota».' : tracked || !all.length ? 'No hay saldos pendientes con proveedores.' : 'Para ver saldos y vencimientos, aplicá la actualización 202610290007 en Supabase.'}</p>
       </div>}
       {view === 'month' && monthRows.length > 0 && <>
         <div className="team-summary-badges">
-          <span className="location-pill-badge active">{monthRows.length} {monthRows.length === 1 ? 'comprobante' : 'comprobantes'}</span>
-          {unbalanced > 0 && <span className="location-pill-badge"><AlertTriangle size={11} /> {unbalanced} con importes que no cierran</span>}
+          <span className="location-pill-badge active">{monthRows.length} {monthRows.length === 1 ? 'factura o nota' : 'facturas y notas'}</span>
+          {unbalanced > 0 && <span className="location-pill-badge"><AlertTriangle size={11} /> {unbalanced} con importes que no coinciden</span>}
         </div>
         <dl className="purchase-list-totals">
           {totals.map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
@@ -181,8 +192,8 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
           <button type="button" className="secondary-button" disabled={loading || !withPerceptions} onClick={() => downloadCsv(purchasePerceptionsCsv(monthRows), `percepciones-compras-${month}.csv`)}>
             <Download size={15} /> Percepciones ({withPerceptions})
           </button>
-          <p>{monthRows.length === 1 ? 'Incluye el comprobante del mes' : `Incluye los ${monthRows.length} comprobantes del mes`} por fecha de emisión. {unbalanced > 0
-            ? `Hay ${unbalanced} con importes que no cierran: corregilos antes de enviar la planilla.`
+          <p>{monthRows.length === 1 ? 'Incluye 1 documento del mes' : `Incluye ${monthRows.length} documentos del mes`} por fecha de emisión. {unbalanced > 0
+            ? `Hay ${unbalanced} con importes que no coinciden: corregilos antes de enviar la planilla.`
             : 'Revisá la planilla con tu contador antes de presentarla.'}</p>
         </div>
       </>}
@@ -191,6 +202,7 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
           <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
             <option value="">Todos</option>
             {(['pending', 'overdue', 'review', 'credit_available'] as const).map(status => <option key={status} value={status}>{STATUS_LABELS[status]}</option>)}
+            <option value="week">Vence esta semana</option>
           </select>
         </label>
         <label className="purchase-list-month">Proveedor
@@ -215,9 +227,10 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
             {canAccount && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.status !== 'cancelled' && <span className="location-pill-badge">
               Saldo {formatMoney(account.balance)} · {dueLabel(account)}
             </span>}
-            {row.balanced ? <span className="location-pill-badge active"><CheckCircle2 size={11} /> Cierra</span>
-              : <span className="location-pill-badge"><AlertTriangle size={11} /> Importes no cierran</span>}
+            {row.balanced ? <span className="location-pill-badge active"><CheckCircle2 size={11} /> Importes OK</span>
+              : <span className="location-pill-badge"><AlertTriangle size={11} /> Importes no coinciden</span>}
             {row.qr_verified && <span className="location-pill-badge active"><QrCode size={11} /> QR</span>}
+            {canAccount && onPay && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.balance > 0.005 && <button type="button" className="primary-button supplier-pay-button" disabled={busy} onClick={() => onPay(row.issuer_cuit, row.id)}>Pagar</button>}
           </div>}>
           {close => <div className="purchase-list-detail">
             <dl>

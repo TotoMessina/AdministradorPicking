@@ -29,10 +29,10 @@ const openDocuments = (cuit: string, invoices: PurchaseInvoice[], payments: Supp
 function AllocationFields({ documents, values, onChange, available, disabled }: {
   documents: ReturnType<typeof openDocuments>; values: Record<string, string>; onChange: (values: Record<string, string>) => void; available: number; disabled: boolean;
 }) {
-  if (!documents.length) return <p className="purchase-tracking-note">Este proveedor no tiene comprobantes con saldo: el importe queda a favor como anticipo.</p>;
+  if (!documents.length) return <p className="purchase-tracking-note">Este proveedor no tiene comprobantes con saldo: el importe queda a tu favor como anticipo.</p>;
   return <div className="payment-allocations">
     <div className="payment-allocations-head">
-      <strong>Aplicar a comprobantes</strong>
+      <strong>¿Qué factura estás pagando?</strong>
       <button type="button" className="text-button" disabled={disabled || available <= 0} onClick={() => {
         let left = available;
         const next: Record<string, string> = {};
@@ -43,7 +43,7 @@ function AllocationFields({ documents, values, onChange, available, disabled }: 
           left = cents(left - value);
         }
         onChange(next);
-      }}>Repartir desde el más antiguo</button>
+      }}>Completar desde la más antigua</button>
     </div>
     {documents.map(({ invoice, balance }) => <label key={invoice.id}>
       <span>{voucherLabel(invoice.voucher_type)} {voucherNumber(invoice.point_of_sale, invoice.number)} · vence {displayDate(invoice.due_date ?? invoice.issue_date)} · saldo {formatMoney(balance)}</span>
@@ -56,24 +56,46 @@ function AllocationFields({ documents, values, onChange, available, disabled }: 
 const allocationList = (values: Record<string, string>) => Object.entries(values)
   .map(([invoice_id, value]) => ({ invoice_id, amount: cents(amountOf(value)) })).filter(item => item.amount > 0);
 
-function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close, onSaved }: {
-  storeId: string; suppliers: Supplier[]; invoices: PurchaseInvoice[]; payments: SupplierPayment[]; busy: boolean; run: Run; close: () => void; onSaved: () => void;
+/** Pedido de pago desde una cuenta o un comprobante: proveedor y, opcional, una factura puntual. */
+export interface PaymentIntent { cuit: string; invoiceId?: string; key: number }
+
+/** Lo que propone "Pagar": la factura elegida o todo el saldo, sin incluir lo que está en revisión. */
+function proposedAllocations(intent: PaymentIntent, invoices: PurchaseInvoice[], payments: SupplierPayment[]) {
+  const documents = openDocuments(intent.cuit, invoices, payments);
+  const chosen = intent.invoiceId ? documents.filter(item => item.invoice.id === intent.invoiceId)
+    : documents.filter(item => documentAccount(item.invoice, invoices, payments).status !== 'review');
+  return {
+    values: Object.fromEntries(chosen.map(item => [item.invoice.id, String(item.balance)])),
+    amount: chosen.length ? String(cents(chosen.reduce((sum, item) => sum + item.balance, 0))) : '',
+    skipped: intent.invoiceId ? 0 : documents.length - chosen.length,
+  };
+}
+
+function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close, onSaved, intent }: {
+  storeId: string; suppliers: Supplier[]; invoices: PurchaseInvoice[]; payments: SupplierPayment[]; busy: boolean; run: Run; close: () => void; onSaved: () => void; intent?: PaymentIntent;
 }) {
+  const [proposal] = useState(() => intent ? proposedAllocations(intent, invoices, payments) : null);
+  const amountInput = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (!intent) return;
+    amountInput.current?.scrollIntoView({ block: 'center' });
+    amountInput.current?.focus();
+  }, [intent]);
   const accounts = useMemo(() => {
     const names = new Map<string, string>();
     for (const supplier of suppliers) if (supplier.cuit) names.set(supplier.cuit, supplier.name);
     for (const invoice of invoices) if (!names.has(invoice.issuer_cuit)) names.set(invoice.issuer_cuit, invoice.supplier_name);
     return [...names.entries()].sort((a, b) => a[1].localeCompare(b[1], 'es-AR'));
   }, [suppliers, invoices]);
-  const [cuit, setCuit] = useState('');
+  const [cuit, setCuit] = useState(intent?.cuit ?? '');
   const [paidOn, setPaidOn] = useState(todayIso);
   const [method, setMethod] = useState<SupplierPaymentMethod>('transfer');
-  const [amount, setAmount] = useState('');
+  const [amount, setAmount] = useState(proposal?.amount ?? '');
   const [retentions, setRetentions] = useState<Record<string, string>>({});
   const [certificate, setCertificate] = useState('');
   const [reference, setReference] = useState('');
   const [notes, setNotes] = useState('');
-  const [values, setValues] = useState<Record<string, string>>({});
+  const [values, setValues] = useState<Record<string, string>>(proposal?.values ?? {});
   const [shifts, setShifts] = useState<{ id: string; label: string }[]>([]);
   const [shift, setShift] = useState('');
   const [file, setFile] = useState<File | null>(null);
@@ -97,13 +119,14 @@ function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close,
   const allocations = allocationList(values);
   const applied = cents(allocations.reduce((sum, item) => sum + item.amount, 0));
   const documents = cuit ? openDocuments(cuit, invoices, payments) : [];
+  const favor = cents(payments.filter(payment => payment.issuer_cuit === cuit).reduce((sum, payment) => sum + paymentUnapplied(payment), 0));
   const overBalance = allocations.some(item => item.amount > (documents.find(row => row.invoice.id === item.invoice_id)?.balance ?? 0) + 0.005);
 
   return <form className="retail-form payment-form" onSubmit={async event => {
     event.preventDefault();
     if (busy) return;
     const problem = !cuit ? 'Elegí el proveedor.' : !paidOn ? 'Completá la fecha del pago.' : total <= 0 ? 'Completá el importe del pago.'
-      : applied > total + 0.005 ? 'Lo aplicado supera el total del pago.' : overBalance ? 'Un importe aplicado supera el saldo de su comprobante.'
+      : applied > total + 0.005 ? 'Lo asignado a facturas supera el total del pago.' : overBalance ? 'Un importe supera el saldo de su comprobante.'
         : method === 'cash' && !shift ? 'Elegí el turno de caja del que sale el efectivo.' : method === 'cash' && !file ? 'Adjuntá el comprobante del pago.'
           : method === 'cash' && amountOf(amount) <= 0 ? 'Completá el efectivo entregado.' : '';
     if (problem) { setError(problem); return; }
@@ -139,8 +162,10 @@ function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close,
           {Object.entries(METHOD_LABELS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
       </label>
-      <label>{method === 'cash' ? 'Efectivo entregado' : 'Importe pagado'}<NumberInput step="0.01" min="0" value={amount} disabled={busy} placeholder="0" onValueChange={setAmount} /></label>
+      <label>{method === 'cash' ? 'Efectivo entregado' : 'Importe pagado'}<NumberInput ref={amountInput} step="0.01" min="0" value={amount} disabled={busy} placeholder="0" onValueChange={setAmount} /></label>
     </div>
+    {favor > 0.005 && <p className="purchase-tracking-note">Este proveedor tiene {formatMoney(favor)} a tu favor. Antes de pagar de más, usalo desde el detalle de ese pago.</p>}
+    {!!proposal?.skipped && <p className="purchase-tracking-note">No se incluyó{proposal.skipped === 1 ? ' 1 comprobante' : `n ${proposal.skipped} comprobantes`} en revisión: agregalo{proposal.skipped === 1 ? '' : 's'} abajo si corresponde pagar{proposal.skipped === 1 ? 'lo' : 'los'}.</p>}
     {method === 'cash' && <>
       <label>Turno de caja
         <select value={shift} disabled={busy} onChange={event => setShift(event.target.value)}>
@@ -165,7 +190,7 @@ function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close,
     {cuit && <AllocationFields documents={documents} values={values} onChange={setValues} available={total} disabled={busy} />}
     <label>Notas (opcional)<input maxLength={300} value={notes} disabled={busy} onChange={event => setNotes(event.target.value)} /></label>
     {total > 0 && <p className="payment-summary" role="status">
-      Total del pago {formatMoney(total)} · aplicado {formatMoney(applied)}{total - applied > 0.005 ? ` · queda a favor ${formatMoney(cents(total - applied))}` : ''}
+      Total del pago {formatMoney(total)} · para facturas {formatMoney(applied)}{total - applied > 0.005 ? ` · queda a tu favor ${formatMoney(cents(total - applied))}` : ''}
     </p>}
     {error && <p role="alert">{error}</p>}
     <div className="button-row"><button className="primary-button" disabled={busy}>Registrar pago</button></div>
@@ -204,11 +229,11 @@ function PaymentDetail({ payment, invoices, payments, storeId, busy, run, onSave
     {payment.notes && <p className="purchase-tracking-note">{payment.notes}</p>}
     {payment.voided_at ? <p className="purchase-tracking-note">Anulado: {payment.void_reason}</p> : <>
       {unapplied > 0.005 && <div className="purchase-tracking">
-        <h4>Aplicar lo que quedó a favor ({formatMoney(unapplied)})</h4>
+        <h4>Usar lo que quedó a tu favor ({formatMoney(unapplied)})</h4>
         <AllocationFields documents={documents} values={values} onChange={setValues} available={unapplied} disabled={busy} />
         {documents.length > 0 && <button type="button" className="secondary-button" disabled={busy || !allocations.length || applied > unapplied + 0.005} onClick={async () => {
-          if (await run(() => retail.applySupplierPayment(storeId, payment.id, allocations), 'Pago aplicado')) onSaved();
-        }}>Aplicar {formatMoney(applied)}</button>}
+          if (await run(() => retail.applySupplierPayment(storeId, payment.id, allocations), 'Saldo a favor usado')) onSaved();
+        }}>Usar {formatMoney(applied)}</button>}
       </div>}
       <div className="purchase-tracking-row">
         <label>Anular pago (motivo)<input maxLength={300} value={reason} disabled={busy} onChange={event => setReason(event.target.value)} placeholder="Ej.: cargado por error" /></label>
@@ -223,8 +248,8 @@ function PaymentDetail({ payment, invoices, payments, storeId, busy, run, onSave
 }
 
 /** Pagos a proveedores aplicados a comprobantes, con retenciones y anticipos. Requiere conexión. */
-export function SupplierPayments({ storeId, busy, run, active = true, version, onChanged }: {
-  storeId: string; busy: boolean; run: Run; active?: boolean; version: number; onChanged: () => void;
+export function SupplierPayments({ storeId, busy, run, active = true, version, onChanged, intent, onIntentDone }: {
+  storeId: string; busy: boolean; run: Run; active?: boolean; version: number; onChanged: () => void; intent: PaymentIntent | null; onIntentDone: () => void;
 }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [invoices, setInvoices] = useState<PurchaseInvoice[]>([]);
@@ -246,15 +271,19 @@ export function SupplierPayments({ storeId, busy, run, active = true, version, o
       <div className="store-settings-header-icon"><HandCoins size={22} /></div>
       <div className="store-settings-header-text">
         <h3>Pagos a proveedores</h3>
-        <p>Registrá cada pago y a qué comprobantes corresponde. Lo que no se aplica queda a favor como anticipo. Un pago no se borra: se anula con su motivo.</p>
+        <p>Registrá cada pago y qué facturas cubre. Si pagás de más, queda a tu favor como anticipo. Un pago no se borra: se anula con su motivo.</p>
       </div>
     </div>
     <div className="location-card-body">
       {error && <p role="alert">{error} <button type="button" className="text-button" disabled={loading} onClick={() => void load()}>Reintentar</button></p>}
-      {!error && <SettingsEditor label="Registrar pago" busy={busy || loading}>
+      {!error && intent && invoices.some(invoice => invoice.issuer_cuit === intent.cuit) && <div className="payment-intent">
+        <PaymentForm key={intent.key} storeId={storeId} suppliers={suppliers} invoices={invoices} payments={payments} busy={busy} run={run} close={onIntentDone} onSaved={onChanged} intent={intent} />
+        <button type="button" className="text-button" disabled={busy} onClick={onIntentDone}>Cancelar</button>
+      </div>}
+      {!error && !intent && <SettingsEditor label="Registrar pago" busy={busy || loading}>
         {close => <PaymentForm storeId={storeId} suppliers={suppliers} invoices={invoices} payments={payments} busy={busy} run={run} close={close} onSaved={onChanged} />}
       </SettingsEditor>}
-      {advances > 0.005 && <div className="team-summary-badges"><span className="location-pill-badge active">Anticipos a favor {formatMoney(advances)}</span></div>}
+      {advances > 0.005 && <div className="team-summary-badges"><span className="location-pill-badge active">A tu favor {formatMoney(advances)}</span></div>}
       {payments.slice(0, 50).map(payment => <SettingsEditor key={`${payment.id}:${payment.voided_at}:${paymentApplied(payment)}`} label="Ver detalle" busy={busy || loading}
         summary={<div className="category-summary-row supplier-summary-row">
           <strong>{payment.supplier_name}</strong>
@@ -263,7 +292,7 @@ export function SupplierPayments({ storeId, busy, run, active = true, version, o
           <span className="location-pill-badge active">{formatMoney(paymentTotal(payment))}</span>
           {paymentRetentions(payment) > 0 && <span className="location-pill-badge">Retenciones {formatMoney(paymentRetentions(payment))}</span>}
           {payment.voided_at ? <span className="location-pill-badge is-warning">Anulado</span>
-            : paymentUnapplied(payment) > 0.005 && <span className="location-pill-badge">A favor {formatMoney(paymentUnapplied(payment))}</span>}
+            : paymentUnapplied(payment) > 0.005 && <span className="location-pill-badge">A tu favor {formatMoney(paymentUnapplied(payment))}</span>}
         </div>}>
         {() => <PaymentDetail payment={payment} invoices={invoices} payments={payments} storeId={storeId} busy={busy} run={run} onSaved={onChanged} />}
       </SettingsEditor>)}

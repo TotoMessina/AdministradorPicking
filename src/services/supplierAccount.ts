@@ -9,7 +9,7 @@ export type DocumentStatus = 'pending' | 'overdue' | 'review' | 'cancelled' | 'c
 
 export const STATUS_LABELS: Record<DocumentStatus, string> = {
   pending: 'Pendiente', overdue: 'Vencida', review: 'En revisión', cancelled: 'Cancelada',
-  credit_applied: 'Aplicada', credit_available: 'A favor',
+  credit_applied: 'Descontada', credit_available: 'A tu favor',
 };
 
 export interface DocumentAccount {
@@ -25,6 +25,9 @@ export interface DocumentAccount {
   /** Motivo de "En revisión": el cargado a mano o la nota de débito sin aceptar. */
   reviewNote: string | null;
 }
+
+/** Saldo que vence en los próximos 7 días; lo que está en revisión se muestra aparte. */
+export const isDueThisWeek = (account: DocumentAccount) => account.status === 'pending' && account.daysToDue >= 0 && account.daysToDue <= 7;
 
 const cents = (value: number) => Math.round(value * 100) / 100;
 const paidOn = (invoiceId: string, payments: SupplierPayment[]) => payments.reduce((sum, payment) =>

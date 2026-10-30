@@ -1788,6 +1788,23 @@
 .supplier-ledger td small { display: block; color: var(--tone-muted); font-size: 11.5px; }
 .supplier-ledger th:nth-child(n + 3), .supplier-ledger td:nth-child(n + 3) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
 
+.supplier-pay-button { min-height: 34px; padding: 4px 14px; font-size: 13px; }
+.payment-intent { display: flex; flex-direction: column; align-items: stretch; gap: 8px; padding: 14px; border: 1px solid var(--tone-accent); border-radius: 12px; }
+.payment-intent > .text-button { align-self: flex-start; }
+
+.supplier-urgent { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.supplier-urgent p { margin: 0; color: var(--tone-text); font-size: 13px; }
+.supplier-urgent-item { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--tone-border-strong); border-radius: 10px; background: var(--tone-soft); color: var(--tone-ink); font: inherit; text-align: left; cursor: pointer; }
+.supplier-urgent-item.is-overdue { border-color: #f0d4a8; background: #fff4e0; color: #8a4b00; }
+.supplier-urgent-item strong { font-size: 15px; }
+.supplier-urgent-item span { font-size: 12.5px; }
+
+.manual-kind-step { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; color: var(--tone-ink); }
+.manual-kind-option { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); color: var(--tone-ink); font: inherit; text-align: left; cursor: pointer; }
+.manual-kind-option:hover:not(:disabled) { border-color: var(--tone-border-strong); background: var(--tone-soft); }
+.manual-kind-option span { color: var(--tone-muted); font-size: 12.5px; }
+.manual-kind-chosen { display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--tone-ink); }
+
 .purchase-list-export { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .purchase-list-export p { flex-basis: 100%; margin: 0; color: var(--tone-muted); font-size: 12px; }
 .purchase-list-detail { display: flex; flex-direction: column; gap: 12px; padding-top: 12px; }

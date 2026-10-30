@@ -215,6 +215,18 @@ SQL: `202610300001_supplier_payments.sql` aplicado por el usuario el 30/10/2026;
 8. Perfil con `manage_supplier_accounts` sin `manage_products`: ve Pagos y saldos, sin cargar ni editar comprobantes. Perfil sin ese permiso: no ve pagos y el RPC se rechaza.
 9. Móvil: formulario de pago y lista de comprobantes utilizables con el teclado abierto.
 
+### Vistas de Proveedores
+
+Mi comercio → Proveedores se divide en cuatro vistas, una por tarea: **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (datos de cada proveedor, y «Ajustar costos existentes» plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
+
+Cuentas abre con lo urgente: vencido y por vencer en 7 días, con importe y cantidad; al tocarlo, Facturas muestra esas mismas filas.
+
+La pantalla usa lenguaje simple: «¿Qué factura estás pagando?», «A tu favor» por anticipos y créditos sin usar, «Descontada» por nota de crédito aplicada, «Importes OK» o «Importes no coinciden» por el control fiscal, y «Cargar factura o nota» por la carga manual. Los estados Pendiente, Vencida, En revisión y Cancelada siguen como en el procedimiento. Las secciones anteriores de este documento conservan los nombres técnicos.
+
+**Cargar factura o nota** es un paso a paso: primero se elige Factura, Devolución o descuento (nota de crédito) o Cargo extra (nota de débito). Con proveedor, letra, número, fecha, total y alícuota se calculan neto e IVA: en A y M, (total − internos − percepciones) ÷ (1 + alícuota); en B y C el importe va como no gravado. Internos, percepciones y vencimiento están en «Más datos». «Ver o corregir el detalle fiscal» permite editar a mano; desde ahí no se recalcula hasta tocar «Volver a calcular desde el total».
+
+**Pagar** aparece en cada proveedor con saldo (Cuentas) y en cada factura o nota de débito con saldo (Facturas). Abre Pagos con proveedor, importe y aplicación ya completados y editables. Desde un proveedor propone todo el saldo sin incluir lo que está en revisión, y lo avisa; si hay dinero a favor, recomienda aplicarlo antes de pagar de más.
+
 ### Cuenta corriente con proveedores
 
 Etapa D, en Mi comercio → Proveedores → **Cuenta corriente**, con el permiso «Cuenta corriente de proveedores». No requiere SQL nuevo: se calcula con comprobantes y pagos.

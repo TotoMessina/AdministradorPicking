@@ -282,3 +282,34 @@ export function purchaseInvoicePayload(draft: PurchaseInvoiceDraft, extra: { sup
 
 export const voucherNumber = (pointOfSale: number | string, number: number | string) =>
   `${pad(Number(pointOfSale) || 0, 5)}-${pad(Number(number) || 0, 8)}`;
+
+export type VoucherKind = 'invoice' | 'credit' | 'debit';
+export type VoucherLetter = 'A' | 'B' | 'C' | 'M';
+export type VatRateOption = '21' | '10.5' | '27' | '0';
+
+/** Código de ARCA según qué se carga y la letra; una nota no tiene letra M. */
+export const voucherCode = (kind: VoucherKind, letter: VoucherLetter): number | null =>
+  VOUCHER_BY_WORD[kind === 'invoice' ? 'factura' : kind === 'credit' ? 'credito' : 'debito'][letter] ?? null;
+
+/**
+ * Importes del pie desde el total. Internos y percepciones van aparte: no llevan IVA.
+ * A y M discriminan IVA; en B y C el importe va como no gravado porque no genera crédito fiscal.
+ */
+export function amountsFromTotal(input: { total: number; rate: VatRateOption; letter: VoucherLetter; internalTaxes: number; iibbPerceptions: number; vatPerceptions: number }): PurchaseInvoiceDraft['amounts'] {
+  const amounts = emptyPurchaseDraft().amounts;
+  const round = (value: number) => Math.round(value * 100) / 100;
+  const set = (field: PurchaseAmountField, value: number) => { if (value > 0) amounts[field] = String(round(value)); };
+  set('total', input.total);
+  set('internal_taxes', input.internalTaxes);
+  set('iibb_perceptions', input.iibbPerceptions);
+  set('vat_perceptions', input.vatPerceptions);
+  const base = round(input.total - input.internalTaxes - input.iibbPerceptions - input.vatPerceptions);
+  if (base <= 0) return amounts;
+  const percent = Number(input.rate);
+  if ((input.letter !== 'A' && input.letter !== 'M') || percent === 0) { set('untaxed', base); return amounts; }
+  const net = round(base / (1 + percent / 100));
+  const [netField, vatField] = input.rate === '21' ? ['net_21', 'vat_21'] as const : input.rate === '10.5' ? ['net_10_5', 'vat_10_5'] as const : ['net_27', 'vat_27'] as const;
+  set(netField, net);
+  set(vatField, base - net);
+  return amounts;
+}

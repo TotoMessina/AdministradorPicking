@@ -4,7 +4,7 @@ import { retail, errorMessage, type PurchaseInvoice, type Supplier, type Supplie
 import { SettingsEditor } from './SettingsEditor';
 import { formatMoney, voucherLabel, voucherNumber } from '../../services/purchaseInvoiceService';
 import { formatCuit } from '../../services/supplierInvoiceRules';
-import { paymentRetentions, supplierLedger, supplierSummaries } from '../../services/supplierAccount';
+import { documentAccount, isDueThisWeek, paymentRetentions, supplierLedger, supplierSummaries } from '../../services/supplierAccount';
 import { downloadCsv, supplierBalancesCsv, supplierLedgerCsv, supplierPaymentsCsv, supplierRetentionsCsv } from '../../services/purchaseInvoiceExport';
 
 const currentMonth = () => { const now = new Date(); return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`; };
@@ -12,7 +12,9 @@ const displayDate = (date: string) => date.split('-').reverse().join('/');
 const describe = (invoice: PurchaseInvoice) => `${voucherLabel(invoice.voucher_type)} ${voucherNumber(invoice.point_of_sale, invoice.number)}`;
 
 /** Saldo por proveedor, movimientos con saldo acumulado y planillas para el contador. Requiere conexión. */
-export function SupplierLedger({ storeId, active = true, version }: { storeId: string; active?: boolean; version: number }) {
+export function SupplierLedger({ storeId, active = true, version, onPay, onShowDocuments }: {
+  storeId: string; active?: boolean; version: number; onPay: (cuit: string) => void; onShowDocuments: (filter: 'overdue' | 'week') => void;
+}) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [invoices, setInvoices] = useState<PurchaseInvoice[]>([]);
   const [payments, setPayments] = useState<SupplierPayment[]>([]);
@@ -36,8 +38,14 @@ export function SupplierLedger({ storeId, active = true, version }: { storeId: s
   const totals = [
     { label: 'Saldo total', value: sum(row => row.balance) }, { label: 'Vencido', value: sum(row => row.overdue) },
     { label: 'A 7 días', value: sum(row => row.next7) }, { label: 'A 30 días', value: sum(row => row.next30) },
-    { label: 'Más adelante', value: sum(row => row.later) }, { label: 'A favor', value: sum(row => row.favor) },
+    { label: 'Más adelante', value: sum(row => row.later) }, { label: 'A tu favor', value: sum(row => row.favor) },
   ];
+  // Lo urgente: mismos criterios que los filtros de Facturas, para que al tocar se vea lo mismo que se contó.
+  const accounts = invoices.map(invoice => documentAccount(invoice, invoices, payments));
+  const overdue = accounts.filter(account => account.status === 'overdue');
+  const week = accounts.filter(isDueThisWeek);
+  const totalOf = (rows: typeof accounts) => rows.reduce((total, account) => total + account.balance, 0);
+  const documentsLabel = (count: number) => `${count} ${count === 1 ? 'factura' : 'facturas'}`;
   const monthPayments = payments.filter(payment => payment.paid_on.startsWith(month));
   const monthRetentions = monthPayments.filter(payment => !payment.voided_at && paymentRetentions(payment) > 0).length;
 
@@ -45,8 +53,8 @@ export function SupplierLedger({ storeId, active = true, version }: { storeId: s
     <div className="store-settings-header">
       <div className="store-settings-header-icon"><BookOpen size={22} /></div>
       <div className="store-settings-header-text">
-        <h3>Cuenta corriente</h3>
-        <p>Cuánto se le debe a cada proveedor y qué vence. Las facturas y notas de débito suman; las notas de crédito y los pagos restan.</p>
+        <h3>Cuánto debo a cada proveedor</h3>
+        <p>Saldo y vencimientos de cada cuenta. Las facturas suman; las devoluciones y los pagos restan.</p>
       </div>
     </div>
     <div className="location-card-body">
@@ -56,6 +64,15 @@ export function SupplierLedger({ storeId, active = true, version }: { storeId: s
         <p>Todavía no hay movimientos con proveedores.</p>
       </div>}
       {summaries.length > 0 && <>
+        <div className="supplier-urgent" role="status">
+          {overdue.length > 0 && <button type="button" className="supplier-urgent-item is-overdue" onClick={() => onShowDocuments('overdue')}>
+            <strong>Vencido {formatMoney(totalOf(overdue))}</strong><span>{documentsLabel(overdue.length)} · Ver</span>
+          </button>}
+          {week.length > 0 && <button type="button" className="supplier-urgent-item" onClick={() => onShowDocuments('week')}>
+            <strong>Vence esta semana {formatMoney(totalOf(week))}</strong><span>{documentsLabel(week.length)} · Ver</span>
+          </button>}
+          {!overdue.length && !week.length && <p>Nada vencido ni por vencer esta semana.</p>}
+        </div>
         <dl className="purchase-list-totals">
           {totals.map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
         </dl>
@@ -81,7 +98,8 @@ export function SupplierLedger({ storeId, active = true, version }: { storeId: s
             {summary.overdue > 0 && <span className="location-pill-badge is-warning">Vencido {formatMoney(summary.overdue)}</span>}
             {summary.next7 > 0 && <span className="location-pill-badge">A 7 días {formatMoney(summary.next7)}</span>}
             {summary.inReview > 0 && <span className="location-pill-badge">En revisión {formatMoney(summary.inReview)}</span>}
-            {summary.favor > 0 && <span className="location-pill-badge">A favor {formatMoney(summary.favor)}</span>}
+            {summary.favor > 0 && <span className="location-pill-badge">A tu favor {formatMoney(summary.favor)}</span>}
+            {summary.overdue + summary.next7 + summary.next30 + summary.later > 0.005 && <button type="button" className="primary-button supplier-pay-button" onClick={() => onPay(summary.cuit)}>Pagar</button>}
           </div>}>
           {() => {
             const entries = supplierLedger(summary.cuit, invoices, payments, describe);

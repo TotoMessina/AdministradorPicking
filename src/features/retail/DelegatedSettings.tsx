@@ -10,9 +10,7 @@ import { PushSettings } from './PushSettings';
 import { MarginThresholdSettings } from './MarginThresholdSettings';
 import { DepotSettings } from './DepotSettings';
 import { BillingSettings } from './BillingSettings';
-import { SupplierSettings } from './SupplierSettings';
 import { SupplierAccountSection } from './SupplierAccountSection';
-import { CostAdjustmentTool } from './CostAdjustmentTool';
 import { retail, type Store, type Branch, type Category, type Register, type SalesLedger, type Member, type Invitation } from './api';
 import type { Permission } from './permissions';
 
@@ -45,11 +43,7 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
     {can('manage_categories') && <div hidden={selected !== 'categories'}><h3>Categorías de productos</h3>{categories.map(category => <SettingsEditor key={category.id} label="Cambiar nombre" summary={<strong>{category.name}</strong>} busy={busy}>
       {close => <CategoryLabelEditor category={category} storeId={store.id} busy={busy} run={run} close={close} />}
     </SettingsEditor>)}</div>}
-    {(can('manage_products') || can('manage_supplier_accounts')) && <div hidden={selected !== 'suppliers'}><div className="suppliers-settings-container">
-      {can('manage_products') && <SupplierSettings key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} />}
-      {can('manage_products') && <CostAdjustmentTool key={`costs-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} />}
-      <SupplierAccountSection key={`purchases-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} />
-    </div></div>}
+    {(can('manage_products') || can('manage_supplier_accounts')) && <div hidden={selected !== 'suppliers'}><SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && selected === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} /></div>}
     {team && <div hidden={selected !== 'team'}>
       {profiles.error && <p role="alert">{profiles.error}</p>}
       <button type="button" className="text-button" onClick={profiles.reload} disabled={busy || profiles.loading}>Actualizar perfiles</button>
