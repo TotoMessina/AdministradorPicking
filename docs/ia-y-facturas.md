@@ -551,3 +551,32 @@ En **http://localhost:3001/**, con administrador y un comercio de pruebas tras a
 
 No se realizaron verificaciones de navegador, Groq, SQL/RLS, dispositivo móvil ni sincronización entre dispositivos. No generar ventas ni reposiciones ficticias en producción.
 
+
+
+<a id="pedidos-a-proveedores"></a>
+
+## Pedidos a proveedores
+
+En **Proveedores → Pedidos**, o con **Hacer pedido** en Inicio cuando hay productos por reponer, se ve qué conviene pedir en cada sucursal, agrupado por proveedor.
+
+- **Sugerido:** aviso de stock + lo que se vende en los días a cubrir − lo que hay en la sucursal, redondeado a bultos.
+- **Ventas:** se toman de los últimos días elegidos (28 por defecto). Cuentan los combos por sus componentes y no cuentan las ventas anuladas.
+- **Qué entra:** productos con stock en el aviso o por debajo, y los que se venden y no alcanzan para los días elegidos.
+- **Proveedor:** sale del campo Proveedor de cada producto. Se cruza con las fichas de proveedores para usar su nombre y teléfono. Los productos sin proveedor aparecen aparte y no se pueden pedir hasta asignarlo.
+- **Pedir aunque no falte:** cada proveedor tiene **Agregar producto aunque no falte**, con búsqueda por nombre o código. Muestra primero sus productos, pero acepta cualquiera, y arranca con un bulto. Para un proveedor sin nada sugerido, se elige en **Armar un pedido para**.
+- **Editar y guardar:** las cantidades se editan antes de guardar. Un pedido abierto se puede volver a editar o cancelar.
+- **Enviar:** **WhatsApp** abre el chat del proveedor con el texto listo, usando el teléfono de su ficha. **Copiar** lo deja en el portapapeles. Nada se envía solo, y al usar cualquiera de los dos el pedido queda como enviado.
+- **Al recibir:** al cargar la factura con el lector de siempre, en la misma sucursal, se guarda lo que entró en el pedido abierto más reciente de ese proveedor. El pedido muestra faltantes, sobrantes, productos que no estaban pedidos y aumentos de costo contra el costo que tenía cada producto al pedir. La propuesta de precios del lector no cambió.
+
+### Guía de Pruebas — pedidos
+
+En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
+
+1. **Sugerencias:** asignar el proveedor "Distri Sur" (con teléfono en su ficha) a dos productos con stock por debajo del aviso. En Inicio, tocar **Hacer pedido**. Esperado: abre **Proveedores → Pedidos** con un grupo "Distri Sur" y cantidades sugeridas en bultos.
+2. **Días a cubrir:** cambiar los días a cubrir de 7 a 14. Esperado: suben los sugeridos de los productos que se venden.
+3. **Pedir aunque no falte:** en el grupo, buscar un producto con stock de sobra y agregarlo. Esperado: aparece con un bulto y sin sugerido. En **Armar un pedido para**, elegir un proveedor sin faltantes. Esperado: aparece su grupo vacío para agregar productos.
+3. **Guardar:** editar una cantidad y tocar **Guardar pedido**. Esperado: aparece en "Pedidos guardados" como Guardado.
+4. **WhatsApp:** tocar **WhatsApp**. Esperado: se abre WhatsApp con el pedido escrito, sin enviarse, y el pedido pasa a Enviado.
+5. **Copiar:** tocar **Copiar** y pegar en un bloc de notas. Esperado: el mismo texto.
+6. **Comparar con la factura:** cargar con el lector una factura de Distri Sur en esa sucursal, con un producto de menos, uno no pedido y un costo mayor. Esperado: aviso de que se comparó con el pedido, y el pedido Recibido muestra faltantes, el no pedido y el aumento de costo.
+7. **Celular:** revisar las sugerencias y los botones.

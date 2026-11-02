@@ -19,6 +19,7 @@ import {
   Banknote,
   Truck,
   UserRound,
+  ClipboardList,
   TrendingUp,
   House,
   PackagePlus,
@@ -77,6 +78,7 @@ import { GuidedStart } from './GuidedStart';
 import { saleNet } from './SaleReturn';
 import { StockCount } from './StockCount';
 import { CustomersTab } from './CustomersTab';
+import { PurchaseOrders } from './PurchaseOrders';
 import type { Customer } from './api';
 import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
 type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "customers" | "settings" | "ai" | "remito";
@@ -281,6 +283,7 @@ function Workspace({
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [ordersFocus, setOrdersFocus] = useState(0);
   useEffect(() => {
     setErrorContext({ storeId: store.id, branchId, screen: tab });
     return () => setErrorContext(null);
@@ -395,6 +398,7 @@ function Workspace({
       : canOpenCatalog && can('replenish_stock') ? [{ id: 'receive', label: 'Recibir mercadería', hint: 'Sumá lo que llegó', icon: PackagePlus, onClick: goToProducts }] : []),
     ...(can('manage_transfers') ? [{ id: 'transfer', label: 'Pasar mercadería', hint: 'De un local a otro', icon: ArrowLeftRight, onClick: () => { setCatalogView('transfers'); setTab('catalog'); } }] : []),
     ...(can('manage_supplier_accounts') ? [{ id: 'pay', label: 'Pagar a proveedores', hint: 'Ver cuánto debo', icon: Banknote, onClick: () => setTab('suppliers') }] : []),
+    ...(canOpenSuppliers && lowStock.length ? [{ id: 'order', label: 'Hacer pedido', hint: lowStock.length === 1 ? '1 producto por reponer' : `${lowStock.length} productos por reponer`, icon: ClipboardList, onClick: () => { setOrdersFocus(value => value + 1); setTab('suppliers'); } }] : []),
     ...(canUseCustomers ? [{ id: 'customers', label: 'Clientes', hint: debtors.length ? `${debtors.length} te deben` : 'Fiado y cobros', icon: UserRound, onClick: () => setTab('customers') }] : []),
     ...(manager ? [{ id: 'finance', label: 'Ganancias', hint: 'Cuánto te quedó este mes', icon: TrendingUp, onClick: () => setTab('finance') }] : []),
   ];
@@ -1343,7 +1347,8 @@ function Workspace({
               />
             </div>}
             {canOpenSuppliers && <div hidden={tab !== 'suppliers'}><SettingsEditorGroup><section className="retail-panel settings-workspace settings-workspace-sober">
-              <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={!guiding && tab === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} onUploadInvoice={categories.length ? uploadInvoice : undefined} />
+              <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={!guiding && tab === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} onUploadInvoice={categories.length ? uploadInvoice : undefined}
+                ordersPanel={<PurchaseOrders store={store} branches={manager ? branches : configurationBranches} products={products} run={run} busy={busy} active={!guiding && tab === 'suppliers'} />} focusOrders={ordersFocus} />
             </section></SettingsEditorGroup></div>}
             {canUseCustomers && <div hidden={tab !== 'customers'}><CustomersTab storeId={store.id} customers={customers} shiftId={canOperate ? shift?.id : undefined} canManage={canManageCustomers} run={run} busy={busy} active={!guiding && tab === 'customers'} onChanged={loadCustomers} /></div>}
             {manager && <div hidden={tab !== 'finance'}><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance'} /></div>}

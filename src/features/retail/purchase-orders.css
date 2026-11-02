@@ -1,0 +1,35 @@
+.purchase-orders { display: grid; gap: 14px; container: purchase-orders / inline-size; }
+.purchase-orders-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.purchase-orders-filters label { display: grid; gap: 6px; min-width: 160px; }
+.purchase-orders-help, .purchase-orders-empty { color: var(--tone-muted); font-size: 13px; }
+.purchase-orders-group { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-canvas); }
+.purchase-orders-group-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.purchase-orders-group-head h3 { margin: 0; }
+.purchase-orders-group-head small { display: block; color: var(--tone-muted); }
+.purchase-orders-group-head strong { font-variant-numeric: tabular-nums; }
+.purchase-orders .location-transfer-sheet table { min-width: 560px; }
+.purchase-orders-head { display: block; padding: 6px 8px; font-weight: 600; }
+.purchase-orders-meta { display: block; font-size: 11px; color: var(--tone-muted); }
+.purchase-orders-edit { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.purchase-orders-edit li { display: grid; grid-template-columns: 1fr 96px; align-items: center; gap: 8px; }
+.purchase-orders-text { width: 100%; font-family: inherit; }
+.purchase-orders-summary { margin: 0; font-weight: 600; }
+.purchase-orders-compare { width: 100%; border-collapse: collapse; font-size: 13px; }
+.purchase-orders-compare th, .purchase-orders-compare td { padding: 6px 8px; border-bottom: 1px solid var(--tone-border); text-align: left; }
+.purchase-orders-compare .is-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.purchase-orders-compare small { display: block; color: var(--tone-muted); font-size: 11px; }
+.purchase-orders-compare .is-missing { color: var(--tone-danger); font-weight: 600; }
+.purchase-orders-compare .is-extra { color: #8a5a00; font-weight: 600; }
+@container purchase-orders (max-width: 620px) {
+  .purchase-orders .location-transfer-actions button, .purchase-orders .location-transfer-record-actions button { width: 100%; min-height: 44px; justify-content: center; }
+  .purchase-orders .location-transfer-sheet table { min-width: 0; }
+  .purchase-orders .location-transfer-sheet tbody th { white-space: normal; max-width: 40vw; }
+}
+.purchase-orders-manual { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.purchase-orders-manual label { display: grid; gap: 6px; min-width: 220px; flex: 1 1 220px; }
+.purchase-orders-add { display: grid; gap: 6px; }
+.purchase-orders-add label { display: grid; gap: 6px; }
+.purchase-orders-found { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; max-height: 260px; overflow-y: auto; }
+.purchase-orders-found button { display: grid; width: 100%; gap: 2px; padding: 8px 10px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); color: inherit; text-align: left; cursor: pointer; }
+.purchase-orders-found small { color: var(--tone-muted); font-size: 12px; }
+.purchase-orders-remove { display: block; padding: 0; font-size: 12px; }

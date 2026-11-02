@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { Run } from './Management';
 import { CostAdjustmentTool } from './CostAdjustmentTool';
 import { PurchaseInvoiceList } from './PurchaseInvoiceList';
@@ -6,13 +6,13 @@ import { SupplierLedger } from './SupplierLedger';
 import { SupplierPayments, type PaymentIntent } from './SupplierPayments';
 import { SupplierSettings } from './SupplierSettings';
 
-type SupplierView = 'accounts' | 'payments' | 'documents' | 'profiles';
+type SupplierView = 'orders' | 'accounts' | 'payments' | 'documents' | 'profiles';
 
 /**
  * Proveedores en cuatro vistas, una por tarea. Las vistas quedan montadas para conservar
  * los borradores al cambiar; `version` actualiza los saldos después de cada cambio.
  */
-export function SupplierAccountSection({ storeId, busy, run, active, canManage, canAccount, onUploadInvoice }: {
+export function SupplierAccountSection({ storeId, busy, run, active, canManage, canAccount, onUploadInvoice, ordersPanel, focusOrders = 0 }: {
   storeId: string; busy: boolean; run: Run; active: boolean;
   /** Fichas, comprobantes y costos (`manage_products`). */
   canManage: boolean;
@@ -20,8 +20,13 @@ export function SupplierAccountSection({ storeId, busy, run, active, canManage, 
   canAccount: boolean;
   /** Abre el importador de facturas; requiere `manage_products` y al menos una categoría. */
   onUploadInvoice?: () => void;
+  /** Pedidos a proveedores; se monta solo si quien entra puede armarlos. */
+  ordersPanel?: ReactNode;
+  /** Cambia para abrir directamente la vista de pedidos, por ejemplo desde Inicio. */
+  focusOrders?: number;
 }) {
   const views: { id: SupplierView; label: string }[] = [
+    ...(ordersPanel ? [{ id: 'orders' as const, label: 'Pedidos' }] : []),
     ...(canAccount ? [{ id: 'accounts' as const, label: 'Cuentas' }, { id: 'payments' as const, label: 'Pagos' }] : []),
     { id: 'documents', label: 'Facturas' },
     ...(canManage ? [{ id: 'profiles' as const, label: 'Fichas' }] : []),
@@ -31,6 +36,7 @@ export function SupplierAccountSection({ storeId, busy, run, active, canManage, 
   const [intent, setIntent] = useState<PaymentIntent | null>(null);
   const [documentFocus, setDocumentFocus] = useState<{ status: string; key: number } | null>(null);
   const changed = useCallback(() => setVersion(value => value + 1), []);
+  useEffect(() => { if (focusOrders && ordersPanel) setView('orders'); }, [focusOrders, ordersPanel]);
   const pay = useCallback((cuit: string, invoiceId?: string) => {
     setIntent({ cuit, invoiceId, key: Date.now() });
     setView('payments');
@@ -45,6 +51,7 @@ export function SupplierAccountSection({ storeId, busy, run, active, canManage, 
     <div className="location-transfer-tabs purchase-view-tabs" role="group" aria-label="Vistas de proveedores">
       {views.map(item => <button key={item.id} type="button" className="secondary-button" aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </div>
+    {ordersPanel && <div hidden={view !== 'orders'}>{ordersPanel}</div>}
     {canAccount && <div hidden={view !== 'accounts'}>
       <SupplierLedger storeId={storeId} active={showing('accounts')} version={version} onPay={pay} onShowDocuments={showDocuments} />
     </div>}

@@ -134,6 +134,8 @@ export interface InvoiceAnalyzerProps {
   onClose: () => void;
   onImportDone?: (updatedCount: number) => void | Promise<void>;
   onPricesUpdated?: () => void | Promise<void>;
+  /** Lo que entró por esta factura, para compararlo con el pedido: unidades y costo final por unidad. */
+  onReceived?: (receipt: { supplierName: string; branchId?: string; lines: { product_id: string; name: string; qty: number; unit_cost: number | null }[] }) => void | Promise<void>;
   catalogBusy?: boolean;
   /** CUIT del comercio, para avisar si la factura está a nombre de otra sociedad. */
   storeCuit?: string | null;
@@ -446,6 +448,7 @@ export function InvoiceAnalyzer({
   onClose,
   onImportDone,
   onPricesUpdated,
+  onReceived,
   catalogBusy = false,
   storeCuit,
   storeCondition,
@@ -1240,6 +1243,8 @@ export function InvoiceAnalyzer({
       setStep("done");
       rememberInvoiceFormat();
       if (registerAfter) void savePurchase(); else setPurchaseNotice(null);
+      const receivedLines = toUpdate.filter(it => it.action === 'add_stock' || it.action === 'both').map(it => ({ product_id: it.matchedProduct!.id, name: it.matchedProduct!.name, qty: it.qty, unit_cost: it.costKnown ? finalCost(it) : null }));
+      if (receivedLines.length && providerName.trim()) void Promise.resolve().then(() => onReceived?.({ supplierName: providerName.trim(), branchId: stockBranchId, lines: receivedLines })).catch(() => {});
       void Promise.resolve().then(() => onImportDone?.(totalCount)).catch(() => {
         setError('La reposición se guardó, pero no se pudo actualizar el catálogo en pantalla. Actualizá los datos al cerrar.');
       });
@@ -1250,7 +1255,7 @@ export function InvoiceAnalyzer({
     } finally {
       importInProgress.current = false;
     }
-  }, [items, storeId, stockBranchId, initialStockBranch, onImportDone, products, localCategories, providerName, revealReviewItem, discountValid, finalCostAt, rememberInvoiceFormat, registerPurchase, purchaseChecks, duplicatePurchase, savePurchase]);
+  }, [items, storeId, stockBranchId, initialStockBranch, onImportDone, onReceived, products, localCategories, providerName, revealReviewItem, discountValid, finalCostAt, rememberInvoiceFormat, registerPurchase, purchaseChecks, duplicatePurchase, savePurchase]);
 
   // ── UI helpers ──────────────────────────────────────────────────────────
 

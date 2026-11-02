@@ -399,3 +399,7 @@ select (select count(*) from public.retail_customers) as clientes, (select count
 ## Fiado parcial
 
 **Pendiente de aplicar:** [202611020006_partial_credit.sql](supabase/migrations/202611020006_partial_credit.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020005_customer_billing_and_credit.sql`. Permite que un pago Mixto lleve una parte «Fiado»: el efectivo u otro medio queda en la venta y solo el resto va a la cuenta del cliente, en una sola transacción. El límite se controla sobre la parte fiada. Anular esa venta devuelve el efectivo desde la caja abierta y descuenta lo fiado de la cuenta. No cambia ventas existentes.
+
+## Pedidos a proveedores
+
+**Pendiente de aplicar:** [202611020007_purchase_orders.sql](supabase/migrations/202611020007_purchase_orders.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020006_partial_credit.sql`. Agrega pedidos con sus renglones y el costo de cada producto al pedir. Suma `retail_product_sales_velocity`, que calcula lo vendido por producto y sucursal con los combos por sus componentes y sin las ventas anuladas. Al cargar una factura con el lector, guarda lo recibido en el pedido abierto más reciente del mismo proveedor y sucursal. No agrega permisos nuevos: arma pedidos quien puede editar productos o manejar cuentas de proveedores. No cambia stock ni datos existentes.

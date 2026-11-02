@@ -100,6 +100,8 @@ import type {
 import { retail } from "./api";
 import { randomUUID } from "../../utils/uuid";
 import { InvoiceAnalyzer } from "../../components/InvoiceAnalyzer";
+import { useToast } from "../../context/ToastContext";
+import { purchaseOrders } from "./purchaseOrderApi";
 import { PendingReplenishments } from './PendingReplenishments';
 export type Run = (
   action: () => Promise<unknown>,
@@ -277,6 +279,7 @@ export function CatalogEditor({
   invoiceRequest?: number;
   onInvoiceRequestClosed?: () => void;
 }) {
+  const { notify } = useToast();
   const [editing, setEditing] = useState<Product | null>(null);
   const [stockBranchId, setStockBranchId] = useState(initialBranchId || branches.find(branch => branch.is_default)?.id || branches[0]?.id || '');
   useEffect(() => {
@@ -3332,6 +3335,11 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             );
           }}
           onPricesUpdated={async () => { await run(async () => {}); }}
+          onReceived={async receipt => {
+            // Si había un pedido abierto a ese proveedor para esa sucursal, queda recibido para comparar.
+            const order = await purchaseOrders.receive(store.id, receipt.supplierName, receipt.branchId, receipt.lines).catch(() => null);
+            if (order) notify('success', `La factura se comparó con el pedido a ${receipt.supplierName}. Revisalo en Proveedores → Pedidos.`);
+          }}
           catalogBusy={busy}
         />
       )}
