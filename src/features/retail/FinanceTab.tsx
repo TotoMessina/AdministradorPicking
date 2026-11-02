@@ -5,6 +5,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { randomUUID } from '../../utils/uuid';
 import { errorMessage, type Branch } from './api';
 import { expenseCategories, finance, type Expense, type ExpenseCategory, type ExpenseDraft, type MonthResult } from './financeApi';
+import { countReasons, stockCounts, type StockLosses } from './stockCountApi';
 import { FixedExpensesTrend } from './FixedExpensesTrend';
 import type { Run } from './Management';
 
@@ -29,6 +30,7 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
   const [editing, setEditing] = useState<string | null>(null);
   const [draft, setDraft] = useState(() => emptyDraft(thisMonth()));
   const [saving, setSaving] = useState(false);
+  const [stock, setStock] = useState<StockLosses | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -36,6 +38,8 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
       const [summary, rows, last] = await Promise.all([finance.result(storeId, month), finance.expenses(storeId, month), finance.expenses(storeId, previousMonth(month))]);
       setResult({ ...summary, sales: Number(summary.sales), returns: Number(summary.returns || 0), cost: Number(summary.cost), expenses: Number(summary.expenses), shared_expenses: Number(summary.shared_expenses) });
       setExpenses(rows); setPrevious(last);
+      // Sin la actualización de conteos, Ganancias sigue funcionando sin esa línea.
+      setStock(await stockCounts.losses(storeId, month).then(row => ({ ...row, losses: Number(row.losses), surplus: Number(row.surplus) })).catch(() => null));
     } catch (e) {
       const message = errorMessage(e);
       setError(/retail_month_result|retail_expenses|schema cache/.test(String((e as Error)?.message)) ? 'Falta aplicar la actualización 202610300007 en Supabase.' : message);
@@ -44,7 +48,8 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
   useEffect(() => { if (active) void load(); }, [active, load]);
 
   const gross = result ? result.sales - result.cost : 0;
-  const profit = gross - (result?.expenses ?? 0);
+  const shrink = stock ? stock.losses - stock.surplus : 0;
+  const profit = gross - (result?.expenses ?? 0) - shrink;
   const fixedToCopy = useMemo(() => previous.filter(row => row.fixed && !expenses.some(item => item.fixed && item.category === row.category && item.description === row.description && item.branch_id === row.branch_id)), [previous, expenses]);
   const branchName = (id: string | null) => id ? branches.find(branch => branch.id === id)?.name ?? 'Sucursal anterior' : 'Todo el comercio';
 
@@ -86,7 +91,9 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
       <div><dt>Vendiste</dt><dd>{money(result.sales)}</dd><small>{result.tickets} {result.tickets === 1 ? 'venta' : 'ventas'}{result.returns ? ` · ya descontados ${money(result.returns)} devueltos` : ''}</small></div>
       <div><dt>− Costo de lo vendido</dt><dd>{money(result.cost)}</dd><small>Ganancia bruta {money(gross)}</small></div>
       <div><dt>− Gastos</dt><dd>{money(result.expenses)}</dd><small>{expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}</small></div>
+      {stock && (stock.losses > 0 || stock.surplus > 0) && <div><dt>− Pérdidas de stock</dt><dd>{money(shrink)}</dd><small>{stock.by_reason.map(row => `${countReasons[row.reason]} ${money(Number(row.amount))}`).join(' · ') || 'Sin faltantes'}{stock.surplus ? ` · sobrantes ${money(stock.surplus)} ya descontados` : ''}</small></div>}
     </dl>}
+    {!!stock?.uncosted_lines && <p className="finance-note">{stock.uncosted_lines} {stock.uncosted_lines === 1 ? 'ajuste de conteo no tiene' : 'ajustes de conteo no tienen'} costo cargado y no suman a las pérdidas.</p>}
     {!!result?.uncosted_lines && <p className="finance-note">{result.uncosted_lines} {result.uncosted_lines === 1 ? 'producto vendido no tiene' : 'productos vendidos no tienen'} costo cargado, así que la ganancia real puede ser menor.</p>}
 
     {result && result.branches.length > 1 && <section className="retail-panel finance-panel">

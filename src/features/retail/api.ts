@@ -222,12 +222,20 @@ export interface Invitation {
   branch_id: string | null;
   register_id: string | null;
 }
+export type CustomerIva = 'CF' | 'RI' | 'MO' | 'EX';
+export interface CustomerBilling { business_name: string | null; tax_id_type: 'CUIT' | 'CUIL' | 'DNI' | null; tax_id: string | null; iva_condition: CustomerIva | null; address: string | null; email: string | null }
+export interface Customer extends Partial<CustomerBilling> { id: string; name: string; phone: string | null; credit_limit: number | null; active: boolean; balance: number; last_movement: string | null }
+export interface CustomerMovement {
+  id: string; kind: 'sale' | 'payment' | 'return'; amount: number; method: string | null; sale_id: string | null; note: string | null; actor_email: string | null; created_at: string;
+}
 export interface SaleReturn {
   id: string; kind: 'void' | 'partial'; total: number | string; cash_amount: number | string; payments: PaymentPart[];
   items: { index: number; productId?: string | null; name: string; qty: number; unitPrice: number; subtotal: number }[];
   reason: string; credit_note_required: boolean; credit_note_reference: string | null; actor_email: string | null; created_at: string;
 }
 export interface SaleRow {
+  customer_id?: string | null;
+  customer_name?: string | null;
   returned_total?: number | string;
   return_status?: KioscoSale['returnStatus'];
   shift_id?: string;
@@ -387,6 +395,8 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   billingAttempts: row.billing_attempts ?? 0,
   returnedTotal: Number(row.returned_total ?? 0),
   returnStatus: row.return_status ?? 'none',
+  customerId: row.customer_id ?? null,
+  customerName: row.customer_name ?? null,
   id: row.id,
   ticketNumber: `T-${row.ticket_number}`,
   items: row.items,
@@ -532,6 +542,30 @@ const remoteRetail = {
   async saleReturns(store: string, sale: string) {
     return allRows<SaleReturn>((from, to) => supabase.from('retail_sale_returns').select('id,kind,items,total,cash_amount,payments,reason,credit_note_required,credit_note_reference,actor_email,created_at')
       .eq('store_id', store).eq('sale_id', sale).order('created_at').order('id').range(from, to));
+  },
+  async customers(store: string) {
+    const rows = await result<Customer[]>(supabase.rpc('retail_customer_balances', { p_store: store }));
+    return (rows || []).map(row => ({ ...row, balance: Number(row.balance), credit_limit: row.credit_limit === null ? null : Number(row.credit_limit) }));
+  },
+  async saveCustomer(store: string, id: string, customer: { name: string; phone: string; credit_limit: string; active: boolean } & Record<keyof CustomerBilling, string>) {
+    return result<string>(supabase.rpc('retail_save_customer', { p_store: store, p_id: id, p_customer: customer }));
+  },
+  async customerMovements(store: string, customer: string) {
+    const rows = await allRows<CustomerMovement>((from, to) => supabase.from('retail_customer_movements').select('id,kind,amount,method,sale_id,note,actor_email,created_at')
+      .eq('store_id', store).eq('customer_id', customer).order('created_at', { ascending: false }).order('id').range(from, to));
+    return rows.map(row => ({ ...row, amount: Number(row.amount) }));
+  },
+  async customerPayment(store: string, customer: string, request: string, amount: number, method: string, shift: string | null, note: string) {
+    return result<{ id: string; balance: number }>(supabase.rpc('retail_customer_payment', { p_store: store, p_customer: customer, p_request: request, p_amount: amount, p_method: method, p_shift: shift, p_note: note || null }));
+  },
+  /** Venta fiada, completa o con el resto fiado: va directo al servidor porque necesita el saldo y el límite del momento. */
+  async checkoutOnCredit(shift: string, sale: KioscoSale & { priceListId?: string | null; ledgerId?: string }) {
+    const mixed = sale.paymentMethod === 'Mixto';
+    await result(supabase.rpc('retail_checkout', { p_shift: shift, p_request: sale.id, p_method: mixed ? 'Mixto' : 'Fiado', p_paid: mixed ? sale.amountPaid : 0,
+      p_items: sale.items.map(item => item.productId ? { product_id: item.productId, qty: item.qty, unit_price: item.unitPrice, ...(item.stockComponents?.length ? { stock_components: item.stockComponents } : {}) } : { name: item.name, qty: item.qty, unit_price: item.unitPrice }),
+      p_price_list: sale.priceListId || null, p_ledger: sale.ledgerId || null, p_payments: mixed ? sale.payments : null, p_customer: sale.customerId, p_over_limit: !!sale.creditOverLimit }));
+    const row = await result<SaleRow>(supabase.from('retail_sales').select('*').eq('id', sale.id).single());
+    return saleFromRow(row);
   },
   async attachCreditNote(store: string, saleReturn: string, reference: string) {
     return result(supabase.rpc('retail_attach_credit_note', { p_store: store, p_return: saleReturn, p_reference: reference }));

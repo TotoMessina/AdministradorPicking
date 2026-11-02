@@ -1,0 +1,38 @@
+.customers { display: grid; gap: 16px; container: customers / inline-size; }
+.customers-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
+.customers-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
+.customers-head small { display: block; color: var(--tone-muted); }
+.customers-back { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 0; }
+.customers-balance { display: grid; justify-items: end; gap: 2px; }
+.customers-balance strong { font-size: 26px; font-variant-numeric: tabular-nums; }
+.customers-balance.is-debt strong, .customers-amount-cell.is-debt, .customers-table .is-debt { color: var(--tone-danger); }
+.customers-table .is-paid { color: #276345; }
+.customers-form { display: grid; gap: 12px; padding: 16px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-canvas); }
+.customers-form h3 { margin: 0; }
+.customers-form fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.customers-form label { display: grid; gap: 6px; }
+.customers-form small { color: var(--tone-muted); }
+.customers-amount { display: flex; gap: 8px; }
+.customers-amount input { flex: 1; min-width: 0; }
+.customers-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.customers-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; }
+.customers-tools > label:first-child { display: grid; gap: 6px; flex: 1 1 240px; }
+.customers .customers-check { display: inline-flex; align-items: center; gap: 8px; }
+.customers-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.customers-list button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 12px; padding: 12px 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); color: inherit; text-align: left; cursor: pointer; }
+.customers-list button:hover { border-color: var(--tone-border-strong); }
+.customers-list small, .customers-table small { display: block; color: var(--tone-muted); font-size: 12px; font-weight: 400; }
+.customers-amount-cell { display: grid; justify-items: end; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.customers-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.customers-table th, .customers-table td { padding: 8px 10px; border-bottom: 1px solid var(--tone-border); text-align: left; }
+.customers-table .is-number { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.customers-empty { color: var(--tone-muted); }
+@container customers (max-width: 560px) {
+  .customers-head > button, .customers-actions button { width: 100%; min-height: 44px; }
+  .customers-balance { justify-items: start; }
+  .customers-amount { flex-direction: column; }
+}
+.customers-balance.is-credit strong, .customers-amount-cell.is-credit { color: #276345; }
+.customers-billing { grid-column: 1 / -1; }
+.customers-billing > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.customers-billing-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; }

@@ -415,6 +415,9 @@ export function withOffline<T extends Remote>(source: T): T {
       if (property === 'savePriceListTree' || property === 'savePriceList' || property === 'savePriceOverride' || property === 'deletePriceList') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar listas o precios fijos. El borrador se conserva.');
       });
+      if (property === 'checkoutOnCredit' || property === 'customerPayment') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de fiar o registrar un cobro. La venta se conserva.');
+      });
       if (property === 'returnSale') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de anular o devolver una venta. El motivo se conserva.');
       });

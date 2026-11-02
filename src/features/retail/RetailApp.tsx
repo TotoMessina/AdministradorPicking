@@ -18,6 +18,7 @@ import {
   ArrowLeftRight,
   Banknote,
   Truck,
+  UserRound,
   TrendingUp,
   House,
   PackagePlus,
@@ -74,8 +75,11 @@ import { usePendingReplenishments } from './usePendingReplenishments';
 import { LocationTransfers } from './LocationTransfers';
 import { GuidedStart } from './GuidedStart';
 import { saleNet } from './SaleReturn';
+import { StockCount } from './StockCount';
+import { CustomersTab } from './CustomersTab';
+import type { Customer } from './api';
 import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
-type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "settings" | "ai" | "remito";
+type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "customers" | "settings" | "ai" | "remito";
 export function RetailApp({ session }: { session: Session }) {
   useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -276,6 +280,7 @@ function Workspace({
   const [availability, setAvailability] = useState<{ register_id: string; occupied: boolean }[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
   useEffect(() => {
     setErrorContext({ storeId: store.id, branchId, screen: tab });
     return () => setErrorContext(null);
@@ -331,6 +336,15 @@ function Workspace({
   const canOpenCatalog = manager || catalogPermissions.some(can);
   const canOpenSettings = manager || settingsPermissions.some(can);
   const canOpenSuppliers = can('manage_products') || can('manage_supplier_accounts');
+  const canUseCustomers = can('sell') || can('manage_customers');
+  const canManageCustomers = can('manage_customers');
+  // Sin conexión o sin la actualización de Supabase, se conserva la última lista y Vender sigue funcionando.
+  const loadCustomers = useCallback(async () => { if (canUseCustomers) setCustomers(await retail.customers(store.id).catch(() => customersRef.current)); }, [canUseCustomers, store.id]);
+  const customersRef = useRef<Customer[]>([]);
+  customersRef.current = customers;
+  const debtors = useMemo(() => customers.filter(customer => customer.balance > 0), [customers]);
+  // Saldos al día al entrar a Inicio, Vender o Clientes.
+  useEffect(() => { if (tab === 'home' || tab === 'pos' || tab === 'customers') void loadCustomers(); }, [tab, loadCustomers]);
   const [managementLocations, setManagementLocations] = useState<{ branches: Branch[]; registers: Register[] } | null>(null);
   const [managementLocationError, setManagementLocationError] = useState('');
   const configurationBranches = !manager && managementLocations ? managementLocations.branches : branches;
@@ -381,10 +395,11 @@ function Workspace({
       : canOpenCatalog && can('replenish_stock') ? [{ id: 'receive', label: 'Recibir mercadería', hint: 'Sumá lo que llegó', icon: PackagePlus, onClick: goToProducts }] : []),
     ...(can('manage_transfers') ? [{ id: 'transfer', label: 'Pasar mercadería', hint: 'De un local a otro', icon: ArrowLeftRight, onClick: () => { setCatalogView('transfers'); setTab('catalog'); } }] : []),
     ...(can('manage_supplier_accounts') ? [{ id: 'pay', label: 'Pagar a proveedores', hint: 'Ver cuánto debo', icon: Banknote, onClick: () => setTab('suppliers') }] : []),
+    ...(canUseCustomers ? [{ id: 'customers', label: 'Clientes', hint: debtors.length ? `${debtors.length} te deben` : 'Fiado y cobros', icon: UserRound, onClick: () => setTab('customers') }] : []),
     ...(manager ? [{ id: 'finance', label: 'Ganancias', hint: 'Cuánto te quedó este mes', icon: TrendingUp, onClick: () => setTab('finance') }] : []),
   ];
   useEffect(() => {
-    if (!loading && ((tab === 'settings' && !canOpenSettings) || (tab === 'ai' && !can('use_ai')) || (tab === 'catalog' && !canOpenCatalog) || (tab === 'suppliers' && !canOpenSuppliers) || (tab === 'finance' && !manager))) setTab('pos');
+    if (!loading && ((tab === 'settings' && !canOpenSettings) || (tab === 'ai' && !can('use_ai')) || (tab === 'catalog' && !canOpenCatalog) || (tab === 'suppliers' && !canOpenSuppliers) || (tab === 'finance' && !manager) || (tab === 'customers' && !canUseCustomers))) setTab('pos');
   }, [loading, manager, canOpenCatalog, canOpenSettings, permissions, tab]);
   useEffect(() => {
     if (!loading && tab === 'remito' && !manager && !permissions.includes('submit_remito')) setTab('cash');
@@ -632,6 +647,7 @@ function Workspace({
         shift.id,
         sale.items,
         sale.paymentMethod,
+        sale.customerId,
         sale.amountPaid,
         sale.payments,
         priceListId,
@@ -639,12 +655,11 @@ function Workspace({
       ]);
       if (checkoutRequest.current.signature !== signature)
         checkoutRequest.current = { signature, id: sale.id };
-      const saved = await retail.checkout(store.id, shift.id, {
-        ...sale,
-        priceListId: priceListId || null,
-        ledgerId: destination.id,
-        id: checkoutRequest.current.id,
-      });
+      const request = { ...sale, priceListId: priceListId || null, ledgerId: destination.id, id: checkoutRequest.current.id };
+      // El fiado va directo al servidor: necesita el saldo y el límite del cliente en ese momento.
+      const onCredit = !!sale.payments?.some(part => part.method === 'Fiado');
+      const saved = onCredit ? await retail.checkoutOnCredit(shift.id, request) : await retail.checkout(store.id, shift.id, request);
+      if (onCredit) void loadCustomers();
       checkoutRequest.current = { signature: "", id: "" };
       setLastSale(saved);
       if (store.billing_enabled) {
@@ -995,15 +1010,16 @@ function Workspace({
                     },
                     { id: "suppliers", label: "Proveedores", icon: Truck },
                     { id: "finance", label: "Ganancias", icon: TrendingUp },
+                    { id: "customers", label: "Clientes", icon: UserRound },
                     { id: "settings", label: "Mi comercio", icon: Settings2 },
                   ]
-                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(canOpenSuppliers ? [{ id: 'suppliers', label: 'Proveedores', icon: Truck }] : []), ...(canOpenSettings ? [{ id: 'settings', label: 'Mi comercio', icon: Settings2 }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
+                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(canOpenSuppliers ? [{ id: 'suppliers', label: 'Proveedores', icon: Truck }] : []), ...(canUseCustomers ? [{ id: 'customers', label: 'Clientes', icon: UserRound }] : []), ...(canOpenSettings ? [{ id: 'settings', label: 'Mi comercio', icon: Settings2 }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               disabled={busy || guiding}
-              className={`nav-item ${tab === id ? "active" : ""}${id === 'finance' ? ' nav-item-desktop' : ''}`}
+              className={`nav-item ${tab === id ? "active" : ""}${id === 'finance' || id === 'customers' ? ' nav-item-desktop' : ''}`}
               aria-current={tab === id ? "page" : undefined}
               onClick={() => {
                 setOpenFromSale(false);
@@ -1015,7 +1031,7 @@ function Workspace({
             >
               <Icon size={18} />
               <span className="desktop-nav-label">{label}</span>
-              <span className="mobile-nav-label">{{ home: "Inicio", pos: "Vender", cash: "Caja", catalog: "Productos", suppliers: "Proveedores", finance: "Ganancias", settings: "Comercio", ai: "Asistente", remito: 'Remito' }[id]}</span>
+              <span className="mobile-nav-label">{{ home: "Inicio", pos: "Vender", cash: "Caja", catalog: "Productos", suppliers: "Proveedores", finance: "Ganancias", customers: "Clientes", settings: "Comercio", ai: "Asistente", remito: 'Remito' }[id]}</span>
               {id === 'catalog' && pendingRemitos.records.length > 0 && <span className="remito-nav-badge" aria-label={`${pendingRemitos.records.length} remitos pendientes`}>{pendingRemitos.records.length > 99 ? '99+' : pendingRemitos.records.length}</span>}
             </button>
           ))}
@@ -1100,15 +1116,16 @@ function Workspace({
                   catalog: "Productos y precios",
                   suppliers: "Proveedores",
                   finance: "Ganancias",
+                  customers: "Clientes",
                   settings: "Mi comercio",
                   ai: "Asistente de negocio",
                   remito: 'Cargar remito',
                 }[tab]
               }
               </span>
-              <span className="mobile-page-title">{{ home: "Inicio", pos: "Vender", cash: "Caja", catalog: "Productos", suppliers: "Proveedores", finance: "Ganancias", settings: "Mi comercio", ai: "Asistente", remito: 'Cargar remito' }[tab]}</span>
+              <span className="mobile-page-title">{{ home: "Inicio", pos: "Vender", cash: "Caja", catalog: "Productos", suppliers: "Proveedores", finance: "Ganancias", customers: "Clientes", settings: "Mi comercio", ai: "Asistente", remito: 'Cargar remito' }[tab]}</span>
             </h1>
-            <p>{{ home: '¿Qué querés hacer ahora?', pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí la caja, poné o sacá plata y cerrala contando el efectivo.', catalog: 'Mantené tus productos, existencias y precios al día.', suppliers: 'Cuánto debés, qué pagaste y las facturas de cada proveedor.', finance: 'Cuánto vendiste, cuánto gastaste y cuánto te quedó.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.', remito: 'Una foto, las cantidades y la aprobación del encargado.' }[tab]}</p>
+            <p>{{ home: '¿Qué querés hacer ahora?', pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí la caja, poné o sacá plata y cerrala contando el efectivo.', catalog: 'Mantené tus productos, existencias y precios al día.', suppliers: 'Cuánto debés, qué pagaste y las facturas de cada proveedor.', finance: 'Cuánto vendiste, cuánto gastaste y cuánto te quedó.', customers: 'Quién te debe, el fiado y los cobros.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.', remito: 'Una foto, las cantidades y la aprobación del encargado.' }[tab]}</p>
           </div>
           <div className={`register-picker ${tab !== 'pos' && tab !== 'cash' ? 'context-picker-hidden' : ''}`}>
             <button
@@ -1143,7 +1160,8 @@ function Workspace({
             <div hidden={tab !== 'home'}>
               <HomeTab place={[branches.find(branch => branch.id === branchId)?.name, register?.name].filter(Boolean).join(' · ') || store.name} cashOpen={!!shift} sold={soldToday} week={soldWeek} lowStock={lowStock}
                 remitos={can('review_remitos') ? pendingRemitos.records.length : 0} actions={homeActions} disabled={busy || guiding}
-                onLowStock={canOpenCatalog ? goToProducts : undefined} onRemitos={canOpenCatalog ? goToProducts : undefined} />
+                onLowStock={canOpenCatalog ? goToProducts : undefined} onRemitos={canOpenCatalog ? goToProducts : undefined}
+                debtors={canUseCustomers ? debtors : []} onCustomers={canUseCustomers ? () => setTab('customers') : undefined} />
             </div>
             <div hidden={tab !== 'pos'}>
               {!canOperate ? (
@@ -1195,6 +1213,8 @@ function Workspace({
                   cart={cart}
                   setCart={setCart}
                   onCompleteSale={completeSale}
+                  customers={canUseCustomers ? customers : undefined}
+                  canOverLimit={canManageCustomers}
                   saleLedgerLabel={method => ledgerForPayment(method)?.name || 'No disponible'}
                   onTriggerChecklist={() => {}}
                   onGoToCreateProduct={
@@ -1245,7 +1265,8 @@ function Workspace({
                 </div>
             </div>
             {canOpenCatalog && <div hidden={tab !== 'catalog'}>
-              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, ...(can('manage_price_lists') ? [{ id: 'prices', label: 'Listas de precios' }] : []), ...(can('manage_transfers') || can('manage_funds') ? [{ id: 'transfers', label: 'Transferencias' }] : [])]} />
+              <SectionNav name="catalog" label="Vistas de productos" value={catalogView} onChange={setCatalogView} disabled={busy} sections={[{ id: 'products', label: 'Catálogo y stock' }, ...(can('manage_price_lists') ? [{ id: 'prices', label: 'Listas de precios' }] : []), ...(can('manage_transfers') || can('manage_funds') ? [{ id: 'transfers', label: 'Transferencias' }] : []), ...(can('manage_products') || can('replenish_stock') ? [{ id: 'counts', label: 'Conteo físico' }] : [])]} />
+              {(can('manage_products') || can('replenish_stock')) && <div hidden={catalogView !== 'counts'} role="tabpanel" id="catalog-panel-counts" aria-labelledby="catalog-tab-counts"><StockCount key={store.id} store={store} branches={manager ? branches : configurationBranches} products={products} categories={categories} run={run} busy={busy} active={!guiding && tab === 'catalog' && catalogView === 'counts'} canConfirm={can('manage_products')} /></div>}
               {can('manage_price_lists') && <div hidden={catalogView !== 'prices'} role="tabpanel" id="catalog-panel-prices" aria-labelledby="catalog-tab-prices"><PriceListSettings storeId={store.id} branches={configurationBranches} categories={categories} lists={priceLists} overrides={priceOverrides} products={products} run={run} busy={busy} expanded /></div>}
             </div>}
             {manager && (
@@ -1324,6 +1345,7 @@ function Workspace({
             {canOpenSuppliers && <div hidden={tab !== 'suppliers'}><SettingsEditorGroup><section className="retail-panel settings-workspace settings-workspace-sober">
               <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={!guiding && tab === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} onUploadInvoice={categories.length ? uploadInvoice : undefined} />
             </section></SettingsEditorGroup></div>}
+            {canUseCustomers && <div hidden={tab !== 'customers'}><CustomersTab storeId={store.id} customers={customers} shiftId={canOperate ? shift?.id : undefined} canManage={canManageCustomers} run={run} busy={busy} active={!guiding && tab === 'customers'} onChanged={loadCustomers} /></div>}
             {manager && <div hidden={tab !== 'finance'}><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance'} /></div>}
             {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
             {tab === "ai" && can('use_ai') && (

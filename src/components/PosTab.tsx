@@ -1,5 +1,6 @@
 import { NumberInput } from './NumberInput';
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Search,
   Barcode,
@@ -19,6 +20,7 @@ import {
   Sparkles,
   AlertCircle,
   Wallet,
+  UserRound,
 } from "lucide-react";
 import type {
   KioscoProduct,
@@ -52,11 +54,15 @@ interface Props {
   canCustomizeQuick?: boolean;
   mobilePosView?: "catalog" | "checkout";
   onMobilePosViewChange?: (view: "catalog" | "checkout") => void;
+  /** Clientes de cuenta corriente: habilitan el pago «Fiado». */
+  customers?: CreditCustomer[];
+  canOverLimit?: boolean;
 }
+export interface CreditCustomer { id: string; name: string; balance: number; credit_limit: number | null; active: boolean }
 const money = (n: number) =>
   "$" + n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
 // Los borradores de otras pantallas pueden conservar diálogos montados pero ocultos.
-const hasVisibleDialog = () => Array.from(document.querySelectorAll('[role="dialog"]')).some(dialog => dialog.getClientRects().length > 0);
+const hasVisibleDialog = () => Array.from(document.querySelectorAll('[role="dialog"]:not([data-pos-payment])')).some(dialog => dialog.getClientRects().length > 0);
 const normalize = (s: string) =>
   s
     .normalize("NFD")
@@ -195,6 +201,8 @@ export function PosTab({
   canCustomizeQuick = false,
   mobilePosView: controlledMobileView,
   onMobilePosViewChange,
+  customers,
+  canOverLimit = false,
 }: Props) {
   const { notify } = useToast();
   const [query, setQuery] = useState("");
@@ -233,6 +241,42 @@ export function PosTab({
   const splitValue = cents(Number(splitAmount)) / 100;
   const splitValid = Number.isFinite(splitValue) && splitValue > 0 && cents(splitValue) < cents(total) && splitFirst !== splitSecond;
   const confirmed = confirmedPayment === paymentSignature;
+  const [creditCustomerId, setCreditCustomerId] = useState('');
+  const [creditQuery, setCreditQuery] = useState('');
+  const [creditOverOk, setCreditOverOk] = useState(false);
+  const [customerModal, setCustomerModal] = useState(false);
+  const [paymentOpen, setPaymentOpen] = useState(false);
+  const paymentMethods = customers ? [...methods, { id: 'Fiado' as const, label: 'Fiado', icon: UserRound }] : methods;
+  const activeCustomers = (customers || []).filter(customer => customer.active).sort((a, b) => a.name.localeCompare(b.name, 'es'));
+  const creditMatches = creditQuery.trim() ? activeCustomers.filter(customer => normalize(customer.name).includes(normalize(creditQuery))) : activeCustomers;
+  const creditCustomer = activeCustomers.find(customer => customer.id === creditCustomerId);
+  // Fiado completo o la parte fiada de un pago mixto («el resto»).
+  const creditInMixed = method === 'Mixto' && splitSecond === 'Fiado';
+  const creditPart = method === 'Fiado' ? total : creditInMixed ? Math.max(0, (cents(total) - cents(splitValue || 0)) / 100) : 0;
+  const creditAfter = creditCustomer ? (cents(creditCustomer.balance) + cents(creditPart)) / 100 : 0;
+  const creditOverLimit = !!creditCustomer && creditPart > 0 && creditCustomer.credit_limit !== null && creditAfter > creditCustomer.credit_limit;
+  // El límite se controla también en el servidor; acá se avisa antes de cobrar.
+  const creditReady = !!creditCustomer && (!creditOverLimit || (canOverLimit && creditOverOk));
+  const balanceLabel = (balance: number) => balance > 0 ? `Debe ${money(balance)}` : balance < 0 ? `A favor ${money(-balance)}` : 'Al día';
+  const creditDetails = <>
+    {!creditCustomer ? <button type="button" className="secondary-button credit-customer-pick" onClick={() => setCustomerModal(true)}><UserRound size={16} aria-hidden="true" /> Elegir a quién le fiás</button>
+      : <p className="credit-customer-summary">Fiás <strong>{money(creditPart)}</strong>{creditCustomer.balance < 0 ? ' (sale de su saldo a favor)' : ''}. Con esta venta {creditAfter < 0 ? <>le quedan <strong>{money(-creditAfter)} a favor</strong></> : creditAfter > 0 ? <>queda debiendo <strong>{money(creditAfter)}</strong></> : <strong>queda al día</strong>}.</p>}
+    {creditOverLimit && creditCustomer && <div className="credit-customer-alert" role="alert">
+      <AlertCircle size={16} aria-hidden="true" />
+      <span>Supera el límite de {money(creditCustomer.credit_limit || 0)}.{canOverLimit ? '' : ' Pedile a administración que autorice o cobrá con otro medio.'}</span>
+      {canOverLimit && <label className="credit-customer-override"><input type="checkbox" checked={creditOverOk} onChange={e => setCreditOverOk(e.target.checked)} /> Fiar igual</label>}
+    </div>}
+  </>;
+  useEffect(() => {
+    if (!paymentOpen) return;
+    const frame = requestAnimationFrame(() => {
+      const target = method === 'Efectivo' ? document.getElementById('cash-received') : method === 'Mixto' ? document.getElementById('mixed-amount') : null;
+      (target || document.querySelector<HTMLElement>('.pos-payment-modal .payment-methods button[aria-pressed="true"]'))?.focus();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [paymentOpen, method]);
+  useEffect(() => { if (!cart.length) setPaymentOpen(false); }, [cart.length]);
+  const paymentReady = method === 'Fiado' ? creditReady : creditInMixed ? confirmed && creditReady : confirmed;
 
   useLayoutEffect(() => {
     const isNewItem = cart.length > prevCartLength.current;
@@ -335,7 +379,7 @@ export function PosTab({
       total <= 0 ||
       (chosen === "Efectivo"
         ? !Number.isFinite(tendered) || tendered < total
-        : (!shortcut && !confirmed) || (chosen === 'Mixto' && !splitValid))
+        : chosen === 'Fiado' ? !creditReady : (!shortcut && !confirmed) || (chosen === 'Mixto' && !splitValid) || (chosen === 'Mixto' && splitSecond === 'Fiado' && !creditReady))
     )
       return;
     const stockError = cartStockError(cart, products);
@@ -364,6 +408,7 @@ export function PosTab({
       total,
       paymentMethod: chosen,
       payments,
+      ...((chosen === 'Fiado' || (chosen === 'Mixto' && splitSecond === 'Fiado')) && creditCustomer ? { customerId: creditCustomer.id, customerName: creditCustomer.name, creditOverLimit } : {}),
       amountPaid: chosen === "Efectivo" ? tendered : total,
       change: chosen === "Efectivo" ? (cents(tendered) - cents(total)) / 100 : 0,
       timestamp: new Date().toLocaleTimeString("es-AR"),
@@ -376,6 +421,8 @@ export function PosTab({
       setCash("");
       setSplitAmount('');
       setConfirmedPayment("");
+      setCreditCustomerId(''); setCreditQuery(''); setCreditOverOk(false);
+      setPaymentOpen(false);
       setClearPending(false);
       setMobilePosView("catalog");
       playCashChime();
@@ -421,13 +468,14 @@ export function PosTab({
       if (!cart.length) { searchRef.current?.focus(); return; }
       if (e.key === 'F4') {
         if (method === 'Mixto' && splitValid) void checkout('Mixto', true);
-        else { setMethod('Mixto'); setMobilePosView('checkout'); setTimeout(() => document.getElementById('mixed-amount')?.focus(), 0); }
+        else { setMethod('Mixto'); setPaymentOpen(true); }
       } else {
         const chosen = e.key === 'F1' ? 'Efectivo' : e.key === 'F2' ? 'QR' : 'Transferencia';
-        if (chosen === 'Efectivo' && cash && received < total) { setMethod(chosen); setMobilePosView('checkout'); document.getElementById('cash-received')?.focus(); }
+        if (chosen === 'Efectivo' && cash && received < total) { setMethod(chosen); setPaymentOpen(true); }
         void checkout(chosen, true);
       }
-    } else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManualModalOpen(false); showProducts(); }
+    } else if (e.key === 'Escape' && paymentOpen) { e.preventDefault(); setPaymentOpen(false); }
+    else if (e.key === 'Escape') { e.preventDefault(); setQuery(''); setManualModalOpen(false); showProducts(); }
     else if (e.key === 'Enter' && ['cash-received', 'mixed-amount'].includes((e.target as HTMLElement)?.id)) { e.preventDefault(); void checkout(method, true); }
   };
   const scanner = useRef({ text: '', at: 0 });
@@ -725,16 +773,41 @@ export function PosTab({
             </span>
             <strong>{money(total)}</strong>
           </div>
+          <button
+            type="button"
+            className="primary-button checkout-button"
+            disabled={busy || isLoading || !cart.length || total <= 0}
+            onClick={() => setPaymentOpen(true)}
+          >
+            {busy ? "Registrando venta…" : <><Check size={19} /> Cobrar {money(total)} <ArrowRight size={18} /></>}
+          </button>
+          {cart.length > 0 && <p className="checkout-hint">Atajos: F1 efectivo · F2 QR · F3 transferencia · F4 mixto</p>}
+          {checkoutError && !paymentOpen && <div role="alert" className="error-banner checkout-error"><AlertCircle size={18} /><span>{checkoutError}</span></div>}
+          {paymentOpen && createPortal(<div className="pos-payment-backdrop" onClick={() => { if (!busy) setPaymentOpen(false); }}>
+          <div role="dialog" aria-modal="true" aria-labelledby="pos-payment-title" data-pos-payment className="pos-payment-modal" onClick={e => e.stopPropagation()}>
+          <div className="pos-payment-header">
+            <div><h3 id="pos-payment-title">Cobrar</h3><small>{count} {count === 1 ? "unidad" : "unidades"}</small></div>
+            <strong>{money(total)}</strong>
+            <button type="button" className="icon-button" aria-label="Cerrar cobro" disabled={busy} onClick={() => setPaymentOpen(false)}><X size={18} /></button>
+          </div>
           <fieldset disabled={busy || !cart.length}>
             <legend>¿Cómo te pagan?</legend>
+            {customers && <div className="sale-customer">
+              {creditCustomer ? <>
+                <span className="sale-customer-name">Cliente: <strong>{creditCustomer.name}</strong></span>
+                <span className={`sale-customer-balance ${creditCustomer.balance > 0 ? 'is-debt' : creditCustomer.balance < 0 ? 'is-credit' : ''}`}>{creditCustomer.balance < 0 ? `Tiene a favor ${money(-creditCustomer.balance)}` : balanceLabel(creditCustomer.balance)}</span>
+                <button type="button" className="text-button" onClick={() => setCustomerModal(true)}>Cambiar</button>
+              </> : <button type="button" className="text-button sale-customer-add" onClick={() => setCustomerModal(true)}><UserRound size={15} aria-hidden="true" /> {method === 'Fiado' || creditInMixed ? 'Elegir cliente' : 'Elegir cliente (opcional)'}</button>}
+              {creditCustomer && method !== 'Fiado' && !creditInMixed && <small>Para usar su cuenta, elegí Fiado o Mixto con el resto fiado.</small>}
+            </div>}
             <div className="payment-methods">
-              {methods.map(({ id, label, icon: Icon }) => (
+              {paymentMethods.map(({ id, label, icon: Icon }) => (
                 <button
                   type="button"
                   key={id}
                   aria-pressed={method === id}
                   className={method === id ? "selected" : ""}
-                  onClick={() => setMethod(id)}
+                  onClick={() => { setMethod(id); if (id === 'Fiado' && !creditCustomer && customers) setCustomerModal(true); }}
                 >
                   <Icon size={19} />
                   {label}
@@ -744,9 +817,10 @@ export function PosTab({
             {method === 'Mixto' && <div className="mixed-payment">
               <label>Primer medio<select value={splitFirst} onChange={e => { const next = e.target.value as typeof splitFirst; if (next === splitSecond) setSplitSecond(splitFirst); setSplitFirst(next); }}>{methods.filter(m => m.id !== 'Mixto').map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
               <label>Importe del primer medio<NumberInput id="mixed-amount" type="number" min="0.01" step="0.01" value={splitAmount} onValueChange={e => setSplitAmount(e)} /></label>
-              <label>Resto del pago<select value={splitSecond} onChange={e => setSplitSecond(e.target.value as typeof splitSecond)}>{methods.filter(m => m.id !== 'Mixto' && m.id !== splitFirst).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
+              <label>Resto del pago<select value={splitSecond} onChange={e => { const next = e.target.value as typeof splitSecond; setSplitSecond(next); setCreditOverOk(false); if (next === 'Fiado' && !creditCustomer) setCustomerModal(true); }}>{[...methods, ...(customers ? [{ id: 'Fiado' as const, label: 'Fiado (a la cuenta del cliente)' }] : [])].filter(m => m.id !== 'Mixto' && m.id !== splitFirst).map(m => <option key={m.id} value={m.id}>{m.label}</option>)}</select></label>
               <strong>Restante: {money(Math.max(0, (cents(total) - cents(splitValue || 0)) / 100))}</strong>
-              <small>Ingresá lo recibido por el primer medio. Enter o F4 confirma ambos pagos. El importe debe ser menor al total.</small>
+              <small>Ingresá lo recibido por el primer medio. Enter o F4 confirma ambos pagos. El importe debe ser menor al total.{customers ? ' Para dejar el resto fiado, elegí Fiado en «Resto del pago».' : ''}</small>
+              {creditInMixed && <div className="credit-customer">{creditDetails}</div>}
             </div>}
             {method === "Efectivo" ? (
               <>
@@ -803,6 +877,8 @@ export function PosTab({
                   </strong>
                 </div>
               </>
+            ) : method === 'Fiado' ? (
+              <div className="credit-customer">{creditDetails}</div>
             ) : (
               <label className="payment-confirm">
                 <input
@@ -815,10 +891,10 @@ export function PosTab({
                   }
                 />
                 <span>
-                  Confirmé el pago de {money(total)} en{" "}
+                  Confirmé el pago de {money(creditInMixed ? splitValue : total)} en{" "}
                   {method === "QR"
                     ? "la billetera virtual"
-                    : method === 'Transferencia' ? 'la cuenta bancaria' : method === 'Mixto' ? 'ambos medios' : "la terminal de tarjetas"}
+                    : method === 'Transferencia' ? 'la cuenta bancaria' : method === 'Mixto' ? (creditInMixed ? 'el primer medio' : 'ambos medios') : "la terminal de tarjetas"}
                   .<small>Esta web registra el pago; no lo procesa.</small>
                 </span>
               </label>
@@ -841,7 +917,7 @@ export function PosTab({
               total <= 0 ||
               (method === "Efectivo"
                 ? !Number.isFinite(received) || received < total
-                : !confirmed || (method === 'Mixto' && !splitValid))
+                : !paymentReady || (method === 'Mixto' && !splitValid))
             }
             onClick={() => void checkout()}
           >
@@ -849,7 +925,7 @@ export function PosTab({
               "Registrando venta…"
             ) : (
               <>
-                <Check size={19} /> Cobrar {money(total)}
+                <Check size={19} /> {method === 'Fiado' ? 'Confirmar fiado' : 'Confirmar cobro'} {money(total)}
                 <ArrowRight size={18} />
               </>
             )}
@@ -858,11 +934,15 @@ export function PosTab({
             <p className="checkout-hint">
               {method === "Efectivo" && received < total
                 ? "Ingresá cuánto recibiste para continuar"
+                : (method === 'Fiado' || creditInMixed) && !creditReady
+                  ? creditCustomer ? 'Supera el límite: confirmá «Fiar igual» o cobrá con otro medio' : 'Elegí a quién le fiás'
                 : method !== 'Efectivo' && !confirmed
                   ? 'Confirmá el pago recibido para habilitar el cobro'
                   : "Al cobrar, se genera el ticket de la venta"}
             </p>
           )}
+          </div>
+          </div>, document.body)}
         </section>
       </aside>
       {cart.length > 0 && (
@@ -882,6 +962,29 @@ export function PosTab({
             <ArrowRight size={15} />
           </button>
         </aside>
+      )}
+      {customerModal && customers && (
+        <div className="receipt-modal-backdrop credit-modal-backdrop" onClick={() => setCustomerModal(false)}>
+          <div role="dialog" aria-modal="true" aria-labelledby="credit-modal-title" className="manual-amount-modal credit-customer-modal" onClick={e => e.stopPropagation()}
+            onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); setCustomerModal(false); } }}>
+            <div className="manual-modal-header">
+              <div className="manual-modal-icon"><UserRound size={20} /></div>
+              <div className="manual-modal-titles"><h3 id="credit-modal-title">Elegir cliente</h3><small>Se ve cuánto debe o tiene a favor</small></div>
+              <button type="button" className="icon-button manual-modal-close" aria-label="Cerrar ventana" onClick={() => setCustomerModal(false)}><X size={18} /></button>
+            </div>
+            <label className="credit-modal-search">Buscar<input autoFocus value={creditQuery} onChange={e => setCreditQuery(e.target.value)} placeholder="Nombre" /></label>
+            <ul className="credit-modal-list" aria-label="Clientes">
+              {creditMatches.map(customer => <li key={customer.id}>
+                <button type="button" aria-pressed={customer.id === creditCustomerId} onClick={() => { setCreditCustomerId(customer.id); setCreditOverOk(false); setCustomerModal(false); setCreditQuery(''); }}>
+                  <span><strong>{customer.name}</strong>{customer.credit_limit !== null && <small>Límite {money(customer.credit_limit)}</small>}</span>
+                  <span className={`sale-customer-balance ${customer.balance > 0 ? 'is-debt' : customer.balance < 0 ? 'is-credit' : ''}`}>{balanceLabel(customer.balance)}</span>
+                </button>
+              </li>)}
+              {!creditMatches.length && <li className="credit-modal-empty">{activeCustomers.length ? 'No hay clientes con ese nombre.' : 'Todavía no hay clientes. Cargalos en la pantalla Clientes.'}</li>}
+            </ul>
+            {creditCustomer && <button type="button" className="text-button" onClick={() => { setCreditCustomerId(''); setCreditOverOk(false); setCustomerModal(false); }}>Quitar cliente de esta venta</button>}
+          </div>
+        </div>
       )}
       {manualModalOpen && (
         <div

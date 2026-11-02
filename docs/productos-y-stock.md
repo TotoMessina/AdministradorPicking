@@ -10,6 +10,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Bajo margen](#bajo-margen)
 - [Métricas de margen](#metricas-de-margen)
 - [Categorías](#categorias)
+- [Conteo físico](#conteo-fisico)
 - [Eliminar y restaurar](#eliminar-y-restaurar)
 
 ## Precio principal por porcentaje
@@ -340,7 +341,39 @@ En **http://localhost:3001/**, después de instalar la migración y actualizar d
 
 Pendientes: revisión visual en navegador/móvil, instalación SQL, RLS, creación real de comercio, importación, otros dispositivos y sincronización. No se realizaron estas pruebas ni una prueba de usabilidad con personas.
 
-<a id="eliminar-y-restaurar"></a>
+<a id="conteo-fisico"></a>
+
+## Conteo físico
+
+En **Productos y stock → Conteo físico** se cuenta una sucursal o el depósito. Se puede contar todo o una sección, para no tener que hacerlo todo de una vez: una categoría, una marca o una marca dentro de una categoría. Antes de empezar se ve cuántos productos entran. Puede haber varias secciones abiertas en el mismo lugar, pero no dos de la misma sección. Un producto solo puede estar en un conteo abierto por lugar, así no se ajusta dos veces. Se puede cerrar la pantalla y seguir después.
+
+- **Cargar lo contado:**
+  - **Planilla:** se escribe en la misma planilla de Transferencias. Enter o flechas pasan al siguiente renglón.
+  - **Escáner:** cada lectura en "Buscar o escanear" suma una unidad.
+  - **Archivo o pegado:** se carga un .csv o se pega desde una planilla, con código y cantidad por fila.
+- **Guardado:** lo cargado se guarda solo. Los productos sin contar no se ajustan, y los combos se cuentan por sus componentes.
+- **Diferencias:** cada renglón guarda cuánto decía el sistema en el momento en que se cargó lo contado. Al confirmar se aplica solo esa diferencia sobre el stock actual, así lo vendido o movido después del conteo no aparece como diferencia. Si un producto se vuelve a contar, se toma de nuevo lo que dice el sistema en ese momento.
+- **Motivos:** cada diferencia necesita motivo: rotura, vencido, robo, error de carga u otro (con detalle).
+- **Permisos:** cuentan quienes pueden recibir mercadería o editar productos. Quien no puede editar productos cuenta a ciegas: no ve el stock del sistema ni las diferencias. Las diferencias, los motivos y la confirmación los ve y hace dueño, administrador o quien puede editar productos.
+- **Historial:** queda quién empezó, quién contó cada producto, quién confirmó o canceló, el ajuste y el costo de cada faltante.
+- **Ganancias:** muestra las pérdidas por conteo del mes en plata, al costo del momento de confirmar y por motivo. Los sobrantes compensan y se informan aparte. Un producto con costo 0 no suma y se avisa. El detalle por sucursal todavía no incluye estas pérdidas.
+- **Conexión:** contar y confirmar requieren conexión.
+
+### Guía de Pruebas — conteo físico
+
+En http://localhost:3001/, con un comercio de pruebas y la migración aplicada. No hacer ventas de prueba en producción.
+
+1. **Empezar:** iniciar un conteo de una sucursal con todos los productos. Esperado: aparece la planilla con "Sin contar" y no deja abrir otro conteo de la misma sección en el mismo lugar.
+1. **Por secciones:** abrir un conteo de la marca "Coca-Cola" y otro de la categoría Bebidas en la misma sucursal. Esperado: antes de empezar se ve cuántos productos entran. En el de Bebidas, cargar una Coca da aviso de que ya se cuenta en otro conteo. Confirmar el de la marca y después la Coca se puede contar en Bebidas.
+2. **Venta durante el conteo:** contar 8 aguas donde el sistema dice 10. Vender 3 aguas desde Vender. Volver al conteo. Esperado: la diferencia sigue en −2, no en −5.
+3. **Motivos:** intentar confirmar sin motivo. Esperado: pide motivo. Elegir "Rotura" y confirmar. Esperado: el agua queda en 5.
+4. **Escáner y archivo:** escanear un código tres veces (contado 3). Cargar un .csv con `codigo;cantidad`. Esperado: carga los conocidos y avisa los códigos sin coincidencia.
+5. **Depósito:** contar el depósito con un faltante por robo y confirmar. Esperado: baja el depósito y el total, sin tocar la sucursal.
+6. **Ganancias:** revisar el mes. Esperado: "Pérdidas de stock" en plata, por motivo, y el resultado ya descontado.
+7. **Contar a ciegas:** contar como cajero con "Recibir mercadería". Esperado: sin columnas Sistema ni Diferencia y sin botón Confirmar.
+8. **Celular:** probar la planilla y los botones.
+
+
 
 ## Eliminar y restaurar
 

@@ -1,0 +1,54 @@
+.stock-count { display: grid; gap: 16px; }
+.stock-count-open { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.stock-count-open li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-soft); }
+.stock-count-start { display: grid; gap: 12px; }
+.stock-count-start fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; border: 0; padding: 0; margin: 0; }
+.stock-count-start > button { justify-self: start; }
+.stock-count-file { position: relative; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.stock-count-file input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.stock-count-file:focus-within { outline: 2px solid var(--tone-accent); outline-offset: 2px; border-radius: 6px; }
+.stock-count-paste { margin: 4px 0; }
+.stock-count-paste > summary { cursor: pointer; font-weight: 600; }
+.stock-count-paste label { display: grid; gap: 6px; margin: 8px 0; }
+.stock-count-message { margin: 0; font-size: 13px; }
+.stock-count-head { display: block; padding: 6px 8px; font-weight: 600; }
+.stock-count-reason { min-width: 170px; }
+.stock-count-reason select, .stock-count-reason input { width: 100%; min-height: 30px; }
+.stock-count-reason input { margin-top: 4px; }
+.stock-count-loss { color: var(--tone-danger); font-weight: 600; }
+
+/* Responsive: solo el conteo, sin cambiar la planilla de Transferencias. */
+.stock-count { container: stock-count / inline-size; min-width: 0; }
+.stock-count .stock-count-file { display: inline-flex; align-items: center; justify-content: center; gap: 6px; align-self: end; min-height: 38px; }
+.stock-count-product-meta { display: none; }
+@container stock-count (max-width: 680px) {
+  .stock-count > .section-heading { flex-direction: column; align-items: stretch; }
+  .stock-count > .section-heading > button { width: 100%; min-height: 44px; }
+  .stock-count-open li > button, .stock-count-start > button { width: 100%; min-height: 44px; }
+  .stock-count-start fieldset { grid-template-columns: minmax(0, 1fr); }
+  .stock-count-sheet.location-transfer-composer { padding: 12px; }
+  .stock-count-sheet .location-transfer-composer-heading { align-items: flex-start; flex-direction: column; }
+  .stock-count-sheet .location-transfer-picker-tools { grid-template-columns: minmax(0, 1fr); }
+  .stock-count-sheet .location-transfer-picker-tools input:not([type=file]) { min-height: 44px; font-size: 16px; }
+  .stock-count-file { min-height: 44px; width: 100%; }
+  .stock-count-sheet .location-transfer-tabs { width: 100%; flex-wrap: nowrap; overflow-x: auto; }
+  .stock-count-sheet .location-transfer-tabs button { flex: 1 0 auto; min-height: 40px; }
+  /* La planilla entra en el ancho: código y categoría pasan debajo del nombre. */
+  .stock-count-sheet .location-transfer-sheet { max-height: 62vh; }
+  .stock-count-sheet .location-transfer-sheet table { min-width: 0; }
+  .stock-count-sheet .stock-count-meta { display: none; }
+  .stock-count-sheet .location-transfer-sheet tbody th { max-width: 46vw; white-space: normal; overflow-wrap: anywhere; }
+  .stock-count-product-meta { display: block; margin-top: 2px; font-size: 11px; color: var(--tone-muted); }
+  .stock-count-sheet .location-transfer-sheet td.location-transfer-qty { min-width: 0; }
+  .stock-count-sheet .location-transfer-qty input { width: 72px; min-height: 40px; font-size: 16px; }
+  .stock-count-reason { min-width: 120px; }
+  .stock-count-reason select, .stock-count-reason input { min-height: 40px; font-size: 16px; }
+  .stock-count-sheet .location-transfer-sheet-total { flex-direction: column; align-items: flex-start; }
+  .stock-count-sheet .location-transfer-actions { flex-direction: column; }
+  .stock-count-sheet .location-transfer-actions button { width: 100%; min-height: 44px; justify-content: center; }
+  .stock-count .location-transfer-history > li > article { padding: 12px; }
+}
+@container stock-count (max-width: 420px) {
+  .stock-count-sheet .location-transfer-sheet th, .stock-count-sheet .location-transfer-sheet td { padding: 4px 6px; }
+  .stock-count-sheet .location-transfer-sheet tbody th { max-width: 40vw; }
+}

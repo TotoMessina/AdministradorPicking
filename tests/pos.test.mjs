@@ -105,17 +105,22 @@ try {
   fireEvent.change(document.querySelector('[aria-label="Buscar producto o escanear código"]'), { target: { value: "Agua" } });
   assert.match(document.querySelector(".pos-search-info small").textContent, /Mi categoria propia/);
   addAgua();
-  assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, true);
+  const openPayment = () => fireEvent.click(screen.getByRole("button", { name: /^Cobrar/ }));
+  const confirmButton = () => screen.getByRole("button", { name: /Confirmar cobro/ });
+  assert.equal(screen.queryByRole("button", { name: "Monto exacto" }), null, "payment methods stay out of the sale panel");
+  openPayment();
+  assert.ok(document.querySelector('[data-pos-payment]'), "Cobrar opens the payment window");
+  assert.equal(confirmButton().disabled, true);
   fireEvent.click(screen.getByRole("button", { name: "Monto exacto" }));
-  assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, false);
+  assert.equal(confirmButton().disabled, false);
   rejectNext = true;
   await React.act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: /Cobrar/ }));
+    fireEvent.click(confirmButton());
   });
   assert.ok(screen.getByText("Test connection failure"));
   assert.ok(screen.getByRole("button", { name: "Quitar Agua" }));
   await React.act(async () => {
-    fireEvent.click(screen.getByRole("button", { name: /Cobrar/ }));
+    fireEvent.click(confirmButton());
   });
   assert.equal(calls.length, 2);
   assert.equal(calls[0].id, calls[1].id, "retry must preserve idempotency key");
@@ -129,19 +134,21 @@ try {
     finish();
   });
   assert.equal(screen.queryByRole("button", { name: "Quitar Agua" }), null);
+  assert.equal(document.querySelector('[data-pos-payment]'), null, "a completed sale closes the payment window");
   console.log(
     "PASS custom categories, cash validation, retained cart after failure, idempotent retry, product ID, pending guard and successful clearing",
   );
   addAgua();
+  openPayment();
   fireEvent.click(screen.getByRole("button", { name: "QR", exact: true }));
-  assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, true);
+  assert.equal(confirmButton().disabled, true);
   fireEvent.click(screen.getByRole("checkbox"));
-  assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, false);
+  assert.equal(confirmButton().disabled, false);
   fireEvent.click(
     screen.getByRole("button", { name: "Sumar una unidad de Agua" }),
   );
   assert.equal(
-    screen.getByRole("button", { name: /Cobrar/ }).disabled,
+    confirmButton().disabled,
     true,
     "change of cart invalidates payment confirmation",
   );

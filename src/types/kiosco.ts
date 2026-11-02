@@ -33,7 +33,7 @@ export interface KioscoCartItem {
   subtotal: number;
 }
 
-export type PaymentMethod = "Efectivo" | "QR" | "Transferencia" | "Mixto" | "Debito" | "Credito";
+export type PaymentMethod = "Efectivo" | "QR" | "Transferencia" | "Mixto" | "Debito" | "Credito" | "Fiado";
 export interface PaymentPart { method: Exclude<PaymentMethod, 'Mixto'>; amount: number }
 
 export interface CashMovement {
@@ -67,6 +67,11 @@ export interface KioscoSale {
   /** Acumulado anulado o devuelto; la venta original no cambia. */
   returnedTotal?: number;
   returnStatus?: 'none' | 'partial' | 'voided';
+  /** Venta fiada: cliente de la cuenta corriente. */
+  customerId?: string | null;
+  customerName?: string | null;
+  /** Fiar por encima del límite, confirmado por quien vende. */
+  creditOverLimit?: boolean;
   id: string;
   ticketNumber: string; // Ej: "T-0042"
   storeName?: string;

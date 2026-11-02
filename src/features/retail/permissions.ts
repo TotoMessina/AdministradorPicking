@@ -17,6 +17,7 @@ export const permissionOptions = [
   { id: 'manage_funds', label: 'Ver y mover la plata entre sucursales y depósito' },
   { id: 'manage_supplier_accounts', label: 'Consultar saldos de proveedores y registrar pagos' },
   { id: 'attach_invoice', label: 'Asociar comprobantes a ventas accesibles' },
+  { id: 'manage_customers', label: 'Cargar y editar clientes, y fiar por encima del límite' },
   { id: 'refund_sales', label: 'Anular y devolver ventas accesibles (pide motivo y queda registrado)' },
   { id: 'manage_store', label: 'Editar datos del comercio, ticket y límite de bajo margen' },
   { id: 'manage_locations', label: 'Crear y editar sucursales y cajas' },

@@ -10,7 +10,7 @@ import './sale-return.css';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const methods: PaymentPart['method'][] = ['Efectivo', 'QR', 'Transferencia', 'Debito', 'Credito'];
-const methodLabel: Record<PaymentPart['method'], string> = { Efectivo: 'Efectivo', QR: 'QR', Transferencia: 'Transferencia', Debito: 'Débito', Credito: 'Crédito' };
+const methodLabel: Record<PaymentPart['method'], string> = { Efectivo: 'Efectivo', QR: 'QR', Transferencia: 'Transferencia', Debito: 'Débito', Credito: 'Crédito', Fiado: 'A cuenta del cliente' };
 
 export const saleNet = (sale: KioscoSale) => sale.total - (sale.returnedTotal || 0);
 
@@ -129,7 +129,7 @@ export function SaleReturn({ storeId, sale, shiftId, canRefund, run, busy, onRet
           {asCharged
             ? <option value="original">Como se cobró ({sale.paymentMethod === 'Mixto' ? (sale.payments || []).map(p => methodLabel[p.method]).join(' + ') : methodLabel[sale.paymentMethod as PaymentPart['method']] || sale.paymentMethod})</option>
             : <option value="original">{methodLabel[usual]}</option>}
-          {methods.filter(m => asCharged || m !== usual).map(m => <option key={m} value={m}>{methodLabel[m]}</option>)}
+          {(sale.customerId ? [...methods, 'Fiado' as const] : methods).filter(m => asCharged || m !== usual).map(m => <option key={m} value={m}>{methodLabel[m]}</option>)}
         </select></label>
         {cashOut && !shiftId && <p className="sale-return-note">Para devolver efectivo tenés que tener tu caja abierta. Sale de esa caja, no de la caja donde se cobró.</p>}
         <label>Motivo<textarea required minLength={3} maxLength={300} rows={2} value={reason} disabled={busy} onChange={e => setReason(e.target.value)} placeholder="Ej.: se cobró dos veces, el cliente devolvió un producto" /></label>

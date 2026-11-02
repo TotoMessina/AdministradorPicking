@@ -112,6 +112,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       `TOTAL:          $${sale.total.toLocaleString("es-AR")}`,
       ...(sale.returnStatus === 'voided' ? ['VENTA ANULADA'] : sale.returnStatus === 'partial' ? [`Devuelto:       $${(sale.returnedTotal || 0).toLocaleString('es-AR')}`] : []),
       `Forma de Pago:  ${sale.paymentMethod}`,
+      ...(sale.customerName ? [`Cliente:        ${sale.customerName}`] : []),
       ...(sale.payments || []).map(p => `${p.method}: $${p.amount.toLocaleString('es-AR')}`),
       ...(sale.syncStatus === 'pending' ? ['GUARDADO LOCAL · PENDIENTE DE SINCRONIZAR'] : []),
       `Paga Con:       $${sale.amountPaid.toLocaleString("es-AR")}`,
@@ -499,6 +500,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <span>Método de Pago:</span>
                 <span style={{ fontWeight: 700 }}>{sale.paymentMethod}</span>
               </div>
+              {sale.customerName && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Cliente:</span><span style={{ fontWeight: 700 }}>{sale.customerName}</span></div>}
               {sale.payments && sale.payments.length > 1 && sale.payments.map(p => <div key={p.method} className="receipt-payment-part">{p.method}: ${p.amount.toLocaleString('es-AR')}</div>)}
               {sale.syncStatus === 'pending' && <p>Guardado local · pendiente de sincronizar</p>}
               {sale.paymentMethod === "Efectivo" && (

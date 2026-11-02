@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardList } from 'lucide-react';
+import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardList, UserRound } from 'lucide-react';
 
 export interface HomeAction { id: string; label: string; hint: string; icon: LucideIcon; onClick: () => void; main?: boolean }
 
@@ -23,10 +23,12 @@ function WeekSales({ days }: { days: { label: string; day: string; total: number
 }
 
 /** Primera pantalla: cómo está el comercio y un botón grande por cada tarea diaria. */
-export function HomeTab({ place, cashOpen, sold, week, lowStock, remitos, actions, disabled, onLowStock, onRemitos }: {
+export function HomeTab({ place, cashOpen, sold, week, lowStock, remitos, actions, disabled, onLowStock, onRemitos, debtors = [], onCustomers }: {
   place: string; cashOpen: boolean; sold: { total: number; tickets: number } | null; week: { label: string; day: string; total: number }[]; lowStock: string[]; remitos: number;
   actions: HomeAction[]; disabled: boolean; onLowStock?: () => void; onRemitos?: () => void;
+  debtors?: { id: string; name: string; balance: number }[]; onCustomers?: () => void;
 }) {
+  const owed = debtors.reduce((sum, debtor) => sum + debtor.balance, 0);
   const allGood = !lowStock.length && !remitos;
   return <div className="home-tab">
     <section className={`home-status ${cashOpen ? 'is-open' : ''}`} aria-label="Estado del comercio">
@@ -54,6 +56,11 @@ export function HomeTab({ place, cashOpen, sold, week, lowStock, remitos, action
         <ClipboardList size={20} aria-hidden="true" />
         <span><strong>{remitos === 1 ? '1 remito para revisar' : `${remitos} remitos para revisar`}</strong><small>Mercadería cargada que espera tu aprobación.</small></span>
         {onRemitos && <ChevronRight size={18} aria-hidden="true" />}
+      </button>}
+      {debtors.length > 0 && <button type="button" className="home-alert" disabled={disabled || !onCustomers} onClick={onCustomers}>
+        <UserRound size={20} aria-hidden="true" />
+        <span><strong>Clientes que me deben: {pesos(owed)}</strong><small>{[...debtors].sort((a, b) => b.balance - a.balance).slice(0, 3).map(debtor => `${debtor.name} ${pesos(debtor.balance)}`).join(' · ')}{debtors.length > 3 ? ` y ${debtors.length - 3} más` : ''}</small></span>
+        {onCustomers && <ChevronRight size={18} aria-hidden="true" />}
       </button>}
     </section>
   </div>;

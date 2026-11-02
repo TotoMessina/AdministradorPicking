@@ -367,3 +367,35 @@ from public.retail_sale_returns;
 ```
 
 Recién aplicada debe dar 0 y 0.
+
+## Conteo físico
+
+**Pendiente de aplicar:** [202611020002_stock_counts.sql](supabase/migrations/202611020002_stock_counts.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020001_sale_returns.sql`. Agrega conteos por sucursal o depósito con historial de quién contó y confirmó. Cada renglón guarda cuánto decía el sistema al cargarse lo contado. Al confirmar, se ajusta solo esa diferencia, así las ventas hechas durante el conteo no generan diferencias falsas. Suma `retail_month_stock_losses` para mostrar las pérdidas en Ganancias. No modifica stock ni datos existentes al aplicarla. No agrega permisos nuevos: cuentan quienes tienen `replenish_stock` o `manage_products`, y confirman los ajustes dueño, administrador o `manage_products`.
+
+Comprobación en el SQL Editor, de solo lectura. Recién aplicada debe dar 0:
+
+```sql
+select count(*) as conteos from public.retail_stock_counts;
+```
+
+## Conteo por secciones
+
+**Pendiente de aplicar:** [202611020003_stock_count_sections.sql](supabase/migrations/202611020003_stock_count_sections.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020002_stock_counts.sql`. Permite contar por marca, sola o dentro de una categoría. Deja abiertas varias secciones del mismo lugar a la vez, con una condición: un producto solo puede estar en un conteo abierto por lugar, así no se ajusta dos veces. Los conteos existentes quedan sin marca, con el mismo alcance que tenían. No cambia stock.
+
+## Clientes y cuenta corriente
+
+**Pendiente de aplicar:** [202611020004_customer_accounts.sql](supabase/migrations/202611020004_customer_accounts.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020003_stock_count_sections.sql`. Agrega clientes, su cuenta corriente y el pago «Fiado». La venta fiada se registra con el cobro existente y, en la misma transacción, se marca como Fiado, se controla el límite y se suma la deuda. Si algo falla no queda venta ni stock movido. Los cobros en efectivo entran al efectivo esperado de la caja de quien cobra. Anular o devolver una venta fiada descuenta de la cuenta del cliente. Suma el permiso `manage_customers`, que nadie recibe automáticamente: sirve para cargar y editar clientes y para fiar por encima del límite. Fiar dentro del límite y cobrar lo puede hacer quien vende. No modifica ventas existentes.
+
+Comprobación en el SQL Editor, de solo lectura. Recién aplicada debe dar 0 y 0:
+
+```sql
+select (select count(*) from public.retail_customers) as clientes, (select count(*) from public.retail_sales where payment_method='Fiado') as ventas_fiadas;
+```
+
+## Datos fiscales y saldo a favor de clientes
+
+**Pendiente de aplicar:** [202611020005_customer_billing_and_credit.sql](supabase/migrations/202611020005_customer_billing_and_credit.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020004_customer_accounts.sql`. Agrega datos opcionales para facturar al cliente: razón social, CUIT/CUIL/DNI, condición frente al IVA, domicilio y email. Los cobros pueden superar la deuda, y lo que sobra queda a favor del cliente para usarlo en próximas compras con «Fiado». No cambia saldos ni ventas existentes. La emisión de facturas todavía no usa estos datos: sigue emitiendo a consumidor final.
+
+## Fiado parcial
+
+**Pendiente de aplicar:** [202611020006_partial_credit.sql](supabase/migrations/202611020006_partial_credit.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020005_customer_billing_and_credit.sql`. Permite que un pago Mixto lleve una parte «Fiado»: el efectivo u otro medio queda en la venta y solo el resto va a la cuenta del cliente, en una sola transacción. El límite se controla sobre la parte fiada. Anular esa venta devuelve el efectivo desde la caja abierta y descuenta lo fiado de la cuenta. No cambia ventas existentes.

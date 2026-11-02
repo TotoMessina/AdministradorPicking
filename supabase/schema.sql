@@ -319,6 +319,31 @@ declare
   "ordinal": 61,
   "filename": "202611020001_sale_returns.sql",
   "sha256": "160c3ea5ca68498ff127b1cd7d93a88090b36af3809b1a59c507ad9233e6f321"
+ },
+ {
+  "ordinal": 62,
+  "filename": "202611020002_stock_counts.sql",
+  "sha256": "9daed2281b904f3b615feaa1219e2aefa68e12f2789ed8b359569634b9780932"
+ },
+ {
+  "ordinal": 63,
+  "filename": "202611020003_stock_count_sections.sql",
+  "sha256": "9f3258490d566b004171326307b86f84a0b9a75ed73640157dbdb86ef5d2a513"
+ },
+ {
+  "ordinal": 64,
+  "filename": "202611020004_customer_accounts.sql",
+  "sha256": "d1eade0c0e42edbd036e264de72c50ea6c9141c90d8a4841a9e1a56c90c0c21d"
+ },
+ {
+  "ordinal": 65,
+  "filename": "202611020005_customer_billing_and_credit.sql",
+  "sha256": "d88f8756a740b886117b430cc3360986acce8c8a31f567eb20124b2ed36922df"
+ },
+ {
+  "ordinal": 66,
+  "filename": "202611020006_partial_credit.sql",
+  "sha256": "c4cbb30b0390a79134633987f21ccdb9dd006a2f5e025d0ba55ce7a73d3a75b2"
  }
 ]
 $retail_schema_manifest_json$::jsonb;
@@ -374,7 +399,7 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
--- 1/61: 202610010001_retail_multistore.sql
+-- 1/66: 202610010001_retail_multistore.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
   raise notice 'Aplicando 202610010001_retail_multistore.sql';
@@ -611,7 +636,7 @@ $retail_source_f24b734005cc1623$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 2/61: 202610020001_catalog_global_and_segmentation.sql
+-- 2/66: 202610020001_catalog_global_and_segmentation.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
   raise notice 'Aplicando 202610020001_catalog_global_and_segmentation.sql';
@@ -901,7 +926,7 @@ $retail_source_bca9c54fa75c2a89$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 3/61: 202610070001_harden_global_catalog_immutability.sql
+-- 3/66: 202610070001_harden_global_catalog_immutability.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
   raise notice 'Aplicando 202610070001_harden_global_catalog_immutability.sql';
@@ -998,7 +1023,7 @@ $retail_source_f3ff59ec39b6e574$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 4/61: 202610130001_branches_prices_ledgers.sql
+-- 4/66: 202610130001_branches_prices_ledgers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
   raise notice 'Aplicando 202610130001_branches_prices_ledgers.sql';
@@ -1193,7 +1218,7 @@ $retail_source_e86fe143f886cd85$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 5/61: 202610140001_web_push.sql
+-- 5/66: 202610140001_web_push.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
   raise notice 'Aplicando 202610140001_web_push.sql';
@@ -1339,7 +1364,7 @@ $retail_source_918efe9a5d3313e3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 6/61: 202610150001_cashier_access.sql
+-- 6/66: 202610150001_cashier_access.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
   raise notice 'Aplicando 202610150001_cashier_access.sql';
@@ -1505,7 +1530,7 @@ $retail_source_a30006ceabfa2ca5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 7/61: 202610160001_offline_pos.sql
+-- 7/66: 202610160001_offline_pos.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
   raise notice 'Aplicando 202610160001_offline_pos.sql';
@@ -1619,7 +1644,7 @@ $retail_source_770c916876fcdabf$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 8/61: 202610160002_offline_queue.sql
+-- 8/66: 202610160002_offline_queue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
   raise notice 'Aplicando 202610160002_offline_queue.sql';
@@ -1745,7 +1770,7 @@ $retail_source_ffb2f924480094f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 9/61: 202610160003_pack_size.sql
+-- 9/66: 202610160003_pack_size.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
   raise notice 'Aplicando 202610160003_pack_size.sql';
@@ -1761,7 +1786,7 @@ $retail_source_e8f486a53e369954$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 10/61: 202610160004_margin_groups.sql
+-- 10/66: 202610160004_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
   raise notice 'Aplicando 202610160004_margin_groups.sql';
@@ -1816,7 +1841,7 @@ $retail_source_8a5790ed3a1371e6$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 11/61: 202610160005_branch_price_rules.sql
+-- 11/66: 202610160005_branch_price_rules.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
   raise notice 'Aplicando 202610160005_branch_price_rules.sql';
@@ -1870,7 +1895,7 @@ $retail_source_7899d29739b25999$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 12/61: 202610190001_justified_withdrawal.sql
+-- 12/66: 202610190001_justified_withdrawal.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
   raise notice 'Aplicando 202610190001_justified_withdrawal.sql';
@@ -2050,7 +2075,7 @@ $retail_source_029b5843eacab94f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 13/61: 202610190001_store_onboarding.sql
+-- 13/66: 202610190001_store_onboarding.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
   raise notice 'Aplicando 202610190001_store_onboarding.sql';
@@ -2167,7 +2192,7 @@ $retail_source_e5b8362448949bce$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 14/61: 202610190002_pending_replenishments.sql
+-- 14/66: 202610190002_pending_replenishments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
   raise notice 'Aplicando 202610190002_pending_replenishments.sql';
@@ -2336,7 +2361,7 @@ $retail_source_3ddd179e5609126a$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 15/61: 202610190003_stock_transfers.sql
+-- 15/66: 202610190003_stock_transfers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
   raise notice 'Aplicando 202610190003_stock_transfers.sql';
@@ -2443,7 +2468,7 @@ $retail_source_cab05c3785465fba$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 16/61: 202610200001_supplier_mappings.sql
+-- 16/66: 202610200001_supplier_mappings.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
   raise notice 'Aplicando 202610200001_supplier_mappings.sql';
@@ -2534,7 +2559,7 @@ $retail_source_d4841853f82adbd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 17/61: 202610200002_supplier_alias_usage.sql
+-- 17/66: 202610200002_supplier_alias_usage.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
   raise notice 'Aplicando 202610200002_supplier_alias_usage.sql';
@@ -2601,7 +2626,7 @@ $retail_source_1adc3ce4519abbb2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 18/61: 202610200003_product_expiry.sql
+-- 18/66: 202610200003_product_expiry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
   raise notice 'Aplicando 202610200003_product_expiry.sql';
@@ -2616,7 +2641,7 @@ $retail_source_77d1f8c0f62da284$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 19/61: 202610210001_ledger_routing.sql
+-- 19/66: 202610210001_ledger_routing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
   raise notice 'Aplicando 202610210001_ledger_routing.sql';
@@ -2747,7 +2772,7 @@ $retail_source_f19dc026535013c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 20/61: 202610210002_staff_profiles.sql
+-- 20/66: 202610210002_staff_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
   raise notice 'Aplicando 202610210002_staff_profiles.sql';
@@ -2913,7 +2938,7 @@ $retail_source_ca6e73c2c8993bc2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 21/61: 202610210003_ledger_lock_order.sql
+-- 21/66: 202610210003_ledger_lock_order.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
   raise notice 'Aplicando 202610210003_ledger_lock_order.sql';
@@ -2961,7 +2986,7 @@ $retail_source_b9f318a08145ad1e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 22/61: 202610210004_delegated_catalog_actions.sql
+-- 22/66: 202610210004_delegated_catalog_actions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
   raise notice 'Aplicando 202610210004_delegated_catalog_actions.sql';
@@ -3079,7 +3104,7 @@ $retail_source_bcfa6664c406dd00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 23/61: 202610220001_product_compositions.sql
+-- 23/66: 202610220001_product_compositions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
   raise notice 'Aplicando 202610220001_product_compositions.sql';
@@ -3237,7 +3262,7 @@ $retail_source_ef088735e7a84900$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 24/61: 202610220002_loose_cigarettes.sql
+-- 24/66: 202610220002_loose_cigarettes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
   raise notice 'Aplicando 202610220002_loose_cigarettes.sql';
@@ -3345,7 +3370,7 @@ $retail_source_e943d579b3d7ed4e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 25/61: 202610220003_product_deletion_history.sql
+-- 25/66: 202610220003_product_deletion_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
   raise notice 'Aplicando 202610220003_product_deletion_history.sql';
@@ -3450,7 +3475,7 @@ $retail_source_458a93d670539dd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 26/61: 202610220004_standard_categories.sql
+-- 26/66: 202610220004_standard_categories.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
   raise notice 'Aplicando 202610220004_standard_categories.sql';
@@ -3552,7 +3577,7 @@ $retail_source_85e889e22c9dcc55$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 27/61: 202610220005_category_labels.sql
+-- 27/66: 202610220005_category_labels.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
   raise notice 'Aplicando 202610220005_category_labels.sql';
@@ -3583,7 +3608,7 @@ $retail_source_e975aa6c462d6ee5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 28/61: 202610220006_complete_permission_profiles.sql
+-- 28/66: 202610220006_complete_permission_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
   raise notice 'Aplicando 202610220006_complete_permission_profiles.sql';
@@ -4221,7 +4246,7 @@ $retail_source_913347ffd59472a5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 29/61: 202610230001_automatic_margin_groups.sql
+-- 29/66: 202610230001_automatic_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
   raise notice 'Aplicando 202610230001_automatic_margin_groups.sql';
@@ -4287,7 +4312,7 @@ $retail_source_6cd429e7679685c4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 30/61: 202610230002_ingredients_and_composition_costs.sql
+-- 30/66: 202610230002_ingredients_and_composition_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
   raise notice 'Aplicando 202610230002_ingredients_and_composition_costs.sql';
@@ -4390,7 +4415,7 @@ $retail_source_86fd19952b8e6534$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 31/61: 202610240001_shift_closing_details.sql
+-- 31/66: 202610240001_shift_closing_details.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
   raise notice 'Aplicando 202610240001_shift_closing_details.sql';
@@ -4554,7 +4579,7 @@ $retail_source_d3204ba0e41d2977$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 32/61: 202610260001_optional_depot.sql
+-- 32/66: 202610260001_optional_depot.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
   raise notice 'Aplicando 202610260001_optional_depot.sql';
@@ -4694,7 +4719,7 @@ $retail_source_f221d19fcff7ac88$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 33/61: 202610260002_create_composite_product.sql
+-- 33/66: 202610260002_create_composite_product.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
   raise notice 'Aplicando 202610260002_create_composite_product.sql';
@@ -4740,7 +4765,7 @@ $retail_source_2e23fbafc73e0b69$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 34/61: 202610260003_billing_fields.sql
+-- 34/66: 202610260003_billing_fields.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260003_billing_fields.sql') then
   raise notice 'Aplicando 202610260003_billing_fields.sql';
@@ -4924,7 +4949,7 @@ $retail_source_2a42b0a16de67076$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 35/61: 202610260004_price_list_tree.sql
+-- 35/66: 202610260004_price_list_tree.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260004_price_list_tree.sql') then
   raise notice 'Aplicando 202610260004_price_list_tree.sql';
@@ -5084,7 +5109,7 @@ exception when raise_exception then
   hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
 end;
 
--- 36/61: 202610260005_delete_price_lists.sql
+-- 36/66: 202610260005_delete_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260005_delete_price_lists.sql') then
   raise notice 'Aplicando 202610260005_delete_price_lists.sql';
@@ -5214,7 +5239,7 @@ $retail_source_540fb2b7146a1f68$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 37/61: 202610260006_billing_update_robustness.sql
+-- 37/66: 202610260006_billing_update_robustness.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260006_billing_update_robustness.sql') then
   raise notice 'Aplicando 202610260006_billing_update_robustness.sql';
@@ -5300,7 +5325,7 @@ $retail_source_97469041ab94b975$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 38/61: 202610270001_store_billing_credentials.sql
+-- 38/66: 202610270001_store_billing_credentials.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270001_store_billing_credentials.sql') then
   raise notice 'Aplicando 202610270001_store_billing_credentials.sql';
@@ -5396,7 +5421,7 @@ $retail_source_5c5d202e9b944644$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 39/61: 202610270002_primary_product_markup.sql
+-- 39/66: 202610270002_primary_product_markup.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270002_primary_product_markup.sql') then
   raise notice 'Aplicando 202610270002_primary_product_markup.sql';
@@ -5579,7 +5604,7 @@ $retail_source_d9e8f398d415af14$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 40/61: 202610270003_suppliers.sql
+-- 40/66: 202610270003_suppliers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270003_suppliers.sql') then
   raise notice 'Aplicando 202610270003_suppliers.sql';
@@ -5661,7 +5686,7 @@ $retail_source_9f007483d72681a7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 41/61: 202610270004_cost_price_lists.sql
+-- 41/66: 202610270004_cost_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270004_cost_price_lists.sql') then
   raise notice 'Aplicando 202610270004_cost_price_lists.sql';
@@ -5698,7 +5723,7 @@ $retail_source_abe5683734a54251$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 42/61: 202610270005_supplier_invoice_formats.sql
+-- 42/66: 202610270005_supplier_invoice_formats.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270005_supplier_invoice_formats.sql') then
   raise notice 'Aplicando 202610270005_supplier_invoice_formats.sql';
@@ -5779,7 +5804,7 @@ $retail_source_62535c0e844930c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 43/61: 202610280001_supplier_alias_usage_repair.sql
+-- 43/66: 202610280001_supplier_alias_usage_repair.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280001_supplier_alias_usage_repair.sql') then
   raise notice 'Aplicando 202610280001_supplier_alias_usage_repair.sql';
@@ -5857,7 +5882,7 @@ $retail_source_e6eee2d43a1a62cc$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 44/61: 202610280002_location_funds.sql
+-- 44/66: 202610280002_location_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280002_location_funds.sql') then
   raise notice 'Aplicando 202610280002_location_funds.sql';
@@ -5949,7 +5974,7 @@ $retail_source_f22cae1d60cb383c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 45/61: 202610280003_location_inventory.sql
+-- 45/66: 202610280003_location_inventory.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280003_location_inventory.sql') then
   raise notice 'Aplicando 202610280003_location_inventory.sql';
@@ -6341,7 +6366,7 @@ $retail_source_baa181aa8cc76f1b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 46/61: 202610280004_permanent_product_deletion.sql
+-- 46/66: 202610280004_permanent_product_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280004_permanent_product_deletion.sql') then
   raise notice 'Aplicando 202610280004_permanent_product_deletion.sql';
@@ -6473,7 +6498,7 @@ $retail_source_c066941e7a7c08d3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 47/61: 202610290001_branch_location_and_deletion.sql
+-- 47/66: 202610290001_branch_location_and_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290001_branch_location_and_deletion.sql') then
   raise notice 'Aplicando 202610290001_branch_location_and_deletion.sql';
@@ -6548,7 +6573,7 @@ $retail_source_bd6a4e4c41f96463$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 48/61: 202610290002_supplier_fiscal_profile.sql
+-- 48/66: 202610290002_supplier_fiscal_profile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290002_supplier_fiscal_profile.sql') then
   raise notice 'Aplicando 202610290002_supplier_fiscal_profile.sql';
@@ -6647,7 +6672,7 @@ $retail_source_51d60abcf980e182$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 49/61: 202610290003_purchase_invoices.sql
+-- 49/66: 202610290003_purchase_invoices.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290003_purchase_invoices.sql') then
   raise notice 'Aplicando 202610290003_purchase_invoices.sql';
@@ -6772,7 +6797,7 @@ $retail_source_8a5afba23235cad7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 50/61: 202610290004_landed_costs.sql
+-- 50/66: 202610290004_landed_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290004_landed_costs.sql') then
   raise notice 'Aplicando 202610290004_landed_costs.sql';
@@ -6843,7 +6868,7 @@ $retail_source_12d7490f65c8eac5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 51/61: 202610290005_conflict_errors_without_retry.sql
+-- 51/66: 202610290005_conflict_errors_without_retry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290005_conflict_errors_without_retry.sql') then
   raise notice 'Aplicando 202610290005_conflict_errors_without_retry.sql';
@@ -6954,7 +6979,7 @@ $retail_source_ed34b128cffadb21$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 52/61: 202610290006_supplier_contact_profile.sql
+-- 52/66: 202610290006_supplier_contact_profile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290006_supplier_contact_profile.sql') then
   raise notice 'Aplicando 202610290006_supplier_contact_profile.sql';
@@ -7101,7 +7126,7 @@ $retail_source_7c244212c97c982d$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 53/61: 202610290007_purchase_invoice_tracking.sql
+-- 53/66: 202610290007_purchase_invoice_tracking.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290007_purchase_invoice_tracking.sql') then
   raise notice 'Aplicando 202610290007_purchase_invoice_tracking.sql';
@@ -7210,7 +7235,7 @@ $retail_source_551f2d827fa2913e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 54/61: 202610300001_supplier_payments.sql
+-- 54/66: 202610300001_supplier_payments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300001_supplier_payments.sql') then
   raise notice 'Aplicando 202610300001_supplier_payments.sql';
@@ -7469,7 +7494,7 @@ $retail_source_1d44ea08176b5b5b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 55/61: 202610300002_payment_apply_same_invoice.sql
+-- 55/66: 202610300002_payment_apply_same_invoice.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300002_payment_apply_same_invoice.sql') then
   raise notice 'Aplicando 202610300002_payment_apply_same_invoice.sql';
@@ -7522,7 +7547,7 @@ $retail_source_e0eb93640914e083$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 56/61: 202610300003_branch_inventory_by_default.sql
+-- 56/66: 202610300003_branch_inventory_by_default.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300003_branch_inventory_by_default.sql') then
   raise notice 'Aplicando 202610300003_branch_inventory_by_default.sql';
@@ -7584,7 +7609,7 @@ $retail_source_85ae0991e1effe24$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 57/61: 202610300004_branch_inventory_always.sql
+-- 57/66: 202610300004_branch_inventory_always.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300004_branch_inventory_always.sql') then
   raise notice 'Aplicando 202610300004_branch_inventory_always.sql';
@@ -7624,7 +7649,7 @@ $retail_source_6aa129a6af964b60$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 58/61: 202610300005_shift_cash_into_branch_funds.sql
+-- 58/66: 202610300005_shift_cash_into_branch_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300005_shift_cash_into_branch_funds.sql') then
   raise notice 'Aplicando 202610300005_shift_cash_into_branch_funds.sql';
@@ -7680,7 +7705,7 @@ $retail_source_8b55ed736684a540$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 59/61: 202610300006_editable_role_permissions.sql
+-- 59/66: 202610300006_editable_role_permissions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300006_editable_role_permissions.sql') then
   raise notice 'Aplicando 202610300006_editable_role_permissions.sql';
@@ -7739,7 +7764,7 @@ $retail_source_f9353e99737cb1fa$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 60/61: 202610300007_expenses_and_month_result.sql
+-- 60/66: 202610300007_expenses_and_month_result.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300007_expenses_and_month_result.sql') then
   raise notice 'Aplicando 202610300007_expenses_and_month_result.sql';
@@ -7835,7 +7860,7 @@ $retail_source_1cc8488904046c20$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 61/61: 202611020001_sale_returns.sql
+-- 61/66: 202611020001_sale_returns.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020001_sale_returns.sql') then
   raise notice 'Aplicando 202611020001_sale_returns.sql';
@@ -8114,6 +8139,755 @@ notify pgrst,'reload schema';
 $retail_source_160c3ea5ca68498f$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202611020001_sale_returns.sql','160c3ea5ca68498ff127b1cd7d93a88090b36af3809b1a59c507ad9233e6f321','schema');
+ end if;
+end;
+
+-- 62/66: 202611020002_stock_counts.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611020002_stock_counts.sql') then
+  raise notice 'Aplicando 202611020002_stock_counts.sql';
+  execute replace($retail_source_9daed2281b904f3b$
+-- Conteo físico por sucursal o depósito. Cada renglón guarda cuánto decía el sistema al cargarse lo contado.
+-- Al confirmar se aplica solo esa diferencia sobre el stock actual: lo vendido o movido después del
+-- conteo baja el sistema y la estantería por igual, así que no genera diferencias falsas.
+
+create table public.retail_stock_counts (
+ id uuid primary key, store_id uuid not null references public.retail_stores(id),
+ location text not null check(location='depot' or location ~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'),
+ category_id uuid, status text not null default 'open' check(status in ('open','confirmed','cancelled')),
+ notes text check(notes is null or length(notes)<=1000),
+ created_by uuid not null references auth.users(id), actor_email text, created_at timestamptz not null default now(),
+ closed_by uuid references auth.users(id), closed_email text, closed_at timestamptz,
+ check((status='open')=(closed_at is null)),
+ foreign key(store_id,category_id) references public.retail_categories(store_id,id)
+);
+-- Un único conteo abierto por ubicación: dos conteos simultáneos ajustarían dos veces lo mismo.
+create unique index retail_stock_counts_one_open on public.retail_stock_counts(store_id,location) where status='open';
+create index retail_stock_counts_history on public.retail_stock_counts(store_id,created_at desc);
+
+create table public.retail_stock_count_lines (
+ count_id uuid not null references public.retail_stock_counts(id), store_id uuid not null, product_id uuid not null,
+ counted integer not null check(counted between 0 and 2147483647), expected integer not null,
+ reason text check(reason in ('rotura','vencido','robo','error_carga','otro')),
+ note text check(note is null or length(note)<=300),
+ counted_by uuid not null references auth.users(id), counted_email text, counted_at timestamptz not null default now(),
+ adjustment integer, unit_cost numeric(14,2),
+ primary key(count_id,product_id),
+ foreign key(store_id,product_id) references public.retail_products(store_id,id)
+);
+create index retail_stock_count_lines_product on public.retail_stock_count_lines(store_id,product_id);
+
+alter table public.retail_stock_counts enable row level security;
+alter table public.retail_stock_count_lines enable row level security;
+create function retail_private.can_count_stock(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$
+ select coalesce(retail_private.role_for(p_store) in ('owner','admin'),false)
+  or retail_private.has_permission(p_store,'manage_products') or retail_private.has_permission(p_store,'replenish_stock');
+$$;
+revoke all on function retail_private.can_count_stock(uuid) from public,anon;
+grant execute on function retail_private.can_count_stock(uuid) to authenticated;
+create policy counters_read on public.retail_stock_counts for select to authenticated using(retail_private.can_count_stock(store_id));
+create policy counters_read on public.retail_stock_count_lines for select to authenticated using(retail_private.can_count_stock(store_id));
+revoke all on public.retail_stock_counts,public.retail_stock_count_lines from public,anon,authenticated;
+grant select on public.retail_stock_counts,public.retail_stock_count_lines to authenticated;
+
+-- Lo que el sistema tiene hoy en una ubicación. Sin inventario por sucursal, el salón es el total menos el depósito.
+create function retail_private.location_quantity(p_store uuid,p_product uuid,p_location text) returns integer
+language sql stable security definer set search_path='' as $$
+ select case
+  when p_location='depot' then coalesce((select d.quantity from public.retail_depot_balances d where d.store_id=p_store and d.product_id=p_product),0)
+  when s.branch_inventory_enabled then coalesce((select b.quantity from public.retail_branch_stock b where b.store_id=p_store and b.product_id=p_product and b.branch_id::text=p_location),0)
+  else p.stock-coalesce((select d.quantity from public.retail_depot_balances d where d.store_id=p_store and d.product_id=p_product),0) end
+ from public.retail_stores s join public.retail_products p on p.store_id=s.id and p.id=p_product where s.id=p_store;
+$$;
+revoke all on function retail_private.location_quantity(uuid,uuid,text) from public,anon,authenticated;
+
+create function public.retail_start_stock_count(p_store uuid,p_id uuid,p_location text,p_category uuid default null,p_notes text default null) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare v_existing public.retail_stock_counts; v_store public.retail_stores;
+begin
+ if not retail_private.can_count_stock(p_store) then raise exception 'Tu perfil no permite contar stock' using errcode='42501'; end if;
+ if p_id is null or p_location is null then raise exception 'Elegí dónde vas a contar'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('stock-count:'||p_id::text,0));
+ select * into v_existing from public.retail_stock_counts where id=p_id;
+ if found then
+  if v_existing.store_id<>p_store or v_existing.location<>p_location then raise exception 'El identificador ya corresponde a otro conteo'; end if;
+  return p_id;
+ end if;
+ select * into v_store from public.retail_stores where id=p_store;
+ if p_location='depot' then
+  if not v_store.depot_enabled then raise exception 'Este comercio no usa depósito'; end if;
+ elsif not exists(select 1 from public.retail_branches where store_id=p_store and id::text=p_location) then
+  raise exception 'Elegí una sucursal de este comercio';
+ end if;
+ if p_category is not null and not exists(select 1 from public.retail_categories where store_id=p_store and id=p_category) then raise exception 'Elegí una categoría de este comercio'; end if;
+ if exists(select 1 from public.retail_stock_counts where store_id=p_store and location=p_location and status='open') then
+  raise exception 'Ya hay un conteo abierto en este lugar. Seguilo o cancelalo antes de empezar otro';
+ end if;
+ insert into public.retail_stock_counts(id,store_id,location,category_id,notes,created_by,actor_email)
+ values(p_id,p_store,p_location,p_category,nullif(btrim(coalesce(p_notes,'')),''),auth.uid(),auth.jwt()->>'email');
+ return p_id;
+end $$;
+
+-- p_lines: [{product_id, counted (null quita el renglón), reason, note}]. Repetir el mismo valor no cambia nada;
+-- volver a contar un producto toma de nuevo lo que dice el sistema en ese momento.
+create function public.retail_save_stock_count_lines(p_store uuid,p_count uuid,p_lines jsonb) returns integer
+language plpgsql security definer set search_path='' as $$
+declare v_count public.retail_stock_counts; v_line jsonb; v_product public.retail_products; v_counted integer; v_previous public.retail_stock_count_lines; v_saved integer:=0;
+begin
+ if not retail_private.can_count_stock(p_store) then raise exception 'Tu perfil no permite contar stock' using errcode='42501'; end if;
+ select * into v_count from public.retail_stock_counts where id=p_count and store_id=p_store for update;
+ if not found then raise exception 'Conteo no disponible'; end if;
+ if v_count.status<>'open' then raise exception 'Este conteo ya está cerrado'; end if;
+ if jsonb_typeof(p_lines) is distinct from 'array' or jsonb_array_length(p_lines) not between 1 and 2000 then raise exception 'No hay renglones para guardar'; end if;
+ for v_line in select value from jsonb_array_elements(p_lines) loop
+  select * into v_product from public.retail_products where id=nullif(v_line->>'product_id','')::uuid and store_id=p_store;
+  if not found or not v_product.active then raise exception 'Producto no disponible en este comercio'; end if;
+  if jsonb_array_length(v_product.stock_components)>0 then raise exception '% no tiene stock propio: contá sus componentes',v_product.name; end if;
+  if v_count.category_id is not null and v_product.category_id<>v_count.category_id then raise exception '% no es de la categoría de este conteo',v_product.name; end if;
+  if v_line->>'reason' is not null and v_line->>'reason' not in ('rotura','vencido','robo','error_carga','otro') then raise exception 'Motivo inválido'; end if;
+  if v_line->'counted' is null or jsonb_typeof(v_line->'counted')='null' then
+   delete from public.retail_stock_count_lines where count_id=p_count and product_id=v_product.id;
+   continue;
+  end if;
+  if coalesce(v_line->>'counted','')!~'^[0-9]{1,9}$' then raise exception 'Cantidad contada inválida para %',v_product.name; end if;
+  v_counted:=(v_line->>'counted')::integer;
+  select * into v_previous from public.retail_stock_count_lines where count_id=p_count and product_id=v_product.id;
+  if found and v_previous.counted=v_counted then
+   update public.retail_stock_count_lines set reason=v_line->>'reason',note=nullif(btrim(coalesce(v_line->>'note','')),'') where count_id=p_count and product_id=v_product.id;
+  else
+   insert into public.retail_stock_count_lines(count_id,store_id,product_id,counted,expected,reason,note,counted_by,counted_email)
+   values(p_count,p_store,v_product.id,v_counted,retail_private.location_quantity(p_store,v_product.id,v_count.location),v_line->>'reason',
+    nullif(btrim(coalesce(v_line->>'note','')),''),auth.uid(),auth.jwt()->>'email')
+   on conflict(count_id,product_id) do update set counted=excluded.counted,expected=excluded.expected,reason=excluded.reason,note=excluded.note,
+    counted_by=excluded.counted_by,counted_email=excluded.counted_email,counted_at=now();
+  end if;
+  v_saved:=v_saved+1;
+ end loop;
+ return v_saved;
+end $$;
+
+-- Confirmar aplica los ajustes y cierra el conteo. Cada diferencia necesita motivo.
+create function public.retail_confirm_stock_count(p_store uuid,p_count uuid) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare v_count public.retail_stock_counts; v_line public.retail_stock_count_lines; v_product public.retail_products; v_diff integer;
+ v_current integer; v_previous text:=current_setting('retail.inventory_location',true); v_branch_mode boolean; v_missing text;
+begin
+ if coalesce(retail_private.role_for(p_store),'') not in ('owner','admin') and not retail_private.has_permission(p_store,'manage_products') then
+  raise exception 'Solo quien puede editar productos confirma los ajustes del conteo' using errcode='42501';
+ end if;
+ perform pg_advisory_xact_lock(hashtextextended('retail-composition:'||p_store::text,0));
+ select * into v_count from public.retail_stock_counts where id=p_count and store_id=p_store for update;
+ if not found then raise exception 'Conteo no disponible'; end if;
+ if v_count.status='confirmed' then
+  return jsonb_build_object('id',p_count,'status','confirmed','lines',(select count(*) from public.retail_stock_count_lines where count_id=p_count and adjustment<>0));
+ end if;
+ if v_count.status<>'open' then raise exception 'Este conteo fue cancelado'; end if;
+ if not exists(select 1 from public.retail_stock_count_lines where count_id=p_count) then raise exception 'Todavía no contaste ningún producto'; end if;
+ select string_agg(p.name,', ' order by p.name) into v_missing from public.retail_stock_count_lines l join public.retail_products p on p.id=l.product_id
+  where l.count_id=p_count and l.counted<>l.expected and l.reason is null;
+ if v_missing is not null then raise exception 'Elegí el motivo de cada diferencia: %',left(v_missing,300); end if;
+ select branch_inventory_enabled into v_branch_mode from public.retail_stores where id=p_store for share;
+ for v_line in select * from public.retail_stock_count_lines where count_id=p_count order by product_id for update loop
+  select * into v_product from public.retail_products where id=v_line.product_id and store_id=p_store for update;
+  v_diff:=v_line.counted-v_line.expected;
+  update public.retail_stock_count_lines set adjustment=v_diff,unit_cost=nullif(v_product.cost,0) where count_id=p_count and product_id=v_line.product_id;
+  continue when v_diff=0;
+  v_current:=retail_private.location_quantity(p_store,v_product.id,v_count.location);
+  if v_current+v_diff<0 then
+   raise exception 'No se puede ajustar %: el sistema tiene % y el ajuste es %. Volvé a contarlo',v_product.name,v_current,v_diff;
+  end if;
+  if v_count.location='depot' then
+   perform set_config('retail.inventory_location','depot',true);
+   if v_diff<0 then update public.retail_depot_balances set quantity=quantity+v_diff where store_id=p_store and product_id=v_product.id; end if;
+   update public.retail_products set stock=stock+v_diff where id=v_product.id;
+   if v_diff>0 then
+    insert into public.retail_depot_balances(product_id,store_id,quantity) values(v_product.id,p_store,v_diff)
+    on conflict(product_id) do update set quantity=public.retail_depot_balances.quantity+excluded.quantity;
+   end if;
+  else
+   perform set_config('retail.inventory_location',case when v_branch_mode then v_count.location else '' end,true);
+   update public.retail_products set stock=stock+v_diff where id=v_product.id;
+  end if;
+  insert into public.retail_stock_movements(operation_id,product_id,store_id,user_id,delta,cost,occurred_at)
+  values(p_count,v_product.id,p_store,auth.uid(),v_diff,nullif(v_product.cost,0),now());
+ end loop;
+ perform set_config('retail.inventory_location',coalesce(v_previous,''),true);
+ update public.retail_stock_counts set status='confirmed',closed_by=auth.uid(),closed_email=auth.jwt()->>'email',closed_at=now() where id=p_count;
+ return jsonb_build_object('id',p_count,'status','confirmed','lines',(select count(*) from public.retail_stock_count_lines where count_id=p_count and adjustment<>0));
+end $$;
+
+create function public.retail_cancel_stock_count(p_store uuid,p_count uuid) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ if not retail_private.can_count_stock(p_store) then raise exception 'Tu perfil no permite contar stock' using errcode='42501'; end if;
+ update public.retail_stock_counts set status='cancelled',closed_by=auth.uid(),closed_email=auth.jwt()->>'email',closed_at=now()
+  where id=p_count and store_id=p_store and status='open';
+ if not found and not exists(select 1 from public.retail_stock_counts where id=p_count and store_id=p_store and status='cancelled') then
+  raise exception 'Este conteo ya está cerrado';
+ end if;
+end $$;
+
+revoke all on function public.retail_start_stock_count(uuid,uuid,text,uuid,text),public.retail_save_stock_count_lines(uuid,uuid,jsonb),
+ public.retail_confirm_stock_count(uuid,uuid),public.retail_cancel_stock_count(uuid,uuid) from public,anon;
+grant execute on function public.retail_start_stock_count(uuid,uuid,text,uuid,text),public.retail_save_stock_count_lines(uuid,uuid,jsonb),
+ public.retail_confirm_stock_count(uuid,uuid),public.retail_cancel_stock_count(uuid,uuid) to authenticated;
+
+-- Pérdidas de conteos confirmados en el mes, valuadas al costo del momento de confirmar.
+-- Los sobrantes se informan aparte y compensan; costo cero cuenta como desconocido.
+create function public.retail_month_stock_losses(p_store uuid,p_month date) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare first_day date:=date_trunc('month',p_month)::date; next_day date; zone text:='America/Argentina/Buenos_Aires';
+begin
+ if coalesce(retail_private.role_for(p_store),'') not in ('owner','admin') then raise exception 'Solo la administración puede ver el resultado' using errcode='42501'; end if;
+ next_day:=(first_day+interval '1 month')::date;
+ return (with line as (
+  select l.reason,l.adjustment,l.unit_cost from public.retail_stock_count_lines l join public.retail_stock_counts c on c.id=l.count_id
+  where c.store_id=p_store and c.status='confirmed' and l.adjustment<>0
+   and c.closed_at>=(first_day::timestamp at time zone zone) and c.closed_at<(next_day::timestamp at time zone zone)
+ ) select jsonb_build_object(
+  'losses',coalesce((select sum(-adjustment*unit_cost) from line where adjustment<0),0),
+  'surplus',coalesce((select sum(adjustment*unit_cost) from line where adjustment>0),0),
+  'uncosted_lines',(select count(*) from line where unit_cost is null),
+  'by_reason',coalesce((select jsonb_agg(jsonb_build_object('reason',r.reason,'amount',r.amount,'units',r.units) order by r.amount desc)
+   from (select reason,sum(-adjustment*coalesce(unit_cost,0)) as amount,sum(-adjustment) as units from line where adjustment<0 group by reason) r),'[]'::jsonb)
+ ));
+end $$;
+revoke all on function public.retail_month_stock_losses(uuid,date) from public,anon;
+grant execute on function public.retail_month_stock_losses(uuid,date) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_9daed2281b904f3b$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611020002_stock_counts.sql','9daed2281b904f3b615feaa1219e2aefa68e12f2789ed8b359569634b9780932','schema');
+ end if;
+end;
+
+-- 63/66: 202611020003_stock_count_sections.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611020003_stock_count_sections.sql') then
+  raise notice 'Aplicando 202611020003_stock_count_sections.sql';
+  execute replace($retail_source_9f3258490d566b00$
+-- Conteos por sección: todo, una categoría, una marca o ambas. Varias secciones del mismo lugar pueden estar
+-- abiertas a la vez; un producto solo puede contarse en un conteo abierto por lugar, así no se ajusta dos veces.
+
+alter table public.retail_stock_counts add column brand text check(brand is null or length(btrim(brand)) between 1 and 160);
+drop index public.retail_stock_counts_one_open;
+create unique index retail_stock_counts_one_open_section on public.retail_stock_counts(store_id,location,coalesce(category_id::text,''),coalesce(lower(btrim(brand)),''))
+ where status='open';
+
+drop function public.retail_start_stock_count(uuid,uuid,text,uuid,text);
+create function public.retail_start_stock_count(p_store uuid,p_id uuid,p_location text,p_category uuid default null,p_notes text default null,p_brand text default null) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare v_existing public.retail_stock_counts; v_store public.retail_stores; v_brand text:=nullif(btrim(coalesce(p_brand,'')),'');
+begin
+ if not retail_private.can_count_stock(p_store) then raise exception 'Tu perfil no permite contar stock' using errcode='42501'; end if;
+ if p_id is null or p_location is null then raise exception 'Elegí dónde vas a contar'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('stock-count:'||p_id::text,0));
+ select * into v_existing from public.retail_stock_counts where id=p_id;
+ if found then
+  if v_existing.store_id<>p_store or v_existing.location<>p_location then raise exception 'El identificador ya corresponde a otro conteo'; end if;
+  return p_id;
+ end if;
+ select * into v_store from public.retail_stores where id=p_store;
+ if p_location='depot' then
+  if not v_store.depot_enabled then raise exception 'Este comercio no usa depósito'; end if;
+ elsif not exists(select 1 from public.retail_branches where store_id=p_store and id::text=p_location) then
+  raise exception 'Elegí una sucursal de este comercio';
+ end if;
+ if p_category is not null and not exists(select 1 from public.retail_categories where store_id=p_store and id=p_category) then raise exception 'Elegí una categoría de este comercio'; end if;
+ if v_brand is not null and length(v_brand)>160 then raise exception 'Marca demasiado larga'; end if;
+ if exists(select 1 from public.retail_stock_counts where store_id=p_store and location=p_location and status='open'
+   and category_id is not distinct from p_category and lower(btrim(coalesce(brand,'')))=lower(coalesce(v_brand,''))) then
+  raise exception 'Ya hay un conteo abierto de esta sección en este lugar. Seguilo o cancelalo antes de empezar otro';
+ end if;
+ insert into public.retail_stock_counts(id,store_id,location,category_id,brand,notes,created_by,actor_email)
+ values(p_id,p_store,p_location,p_category,v_brand,nullif(btrim(coalesce(p_notes,'')),''),auth.uid(),auth.jwt()->>'email');
+ return p_id;
+end $$;
+revoke all on function public.retail_start_stock_count(uuid,uuid,text,uuid,text,text) from public,anon;
+grant execute on function public.retail_start_stock_count(uuid,uuid,text,uuid,text,text) to authenticated;
+
+create or replace function public.retail_save_stock_count_lines(p_store uuid,p_count uuid,p_lines jsonb) returns integer
+language plpgsql security definer set search_path='' as $$
+declare v_count public.retail_stock_counts; v_line jsonb; v_product public.retail_products; v_counted integer; v_previous public.retail_stock_count_lines; v_saved integer:=0;
+begin
+ if not retail_private.can_count_stock(p_store) then raise exception 'Tu perfil no permite contar stock' using errcode='42501'; end if;
+ select * into v_count from public.retail_stock_counts where id=p_count and store_id=p_store for update;
+ if not found then raise exception 'Conteo no disponible'; end if;
+ if v_count.status<>'open' then raise exception 'Este conteo ya está cerrado'; end if;
+ if jsonb_typeof(p_lines) is distinct from 'array' or jsonb_array_length(p_lines) not between 1 and 2000 then raise exception 'No hay renglones para guardar'; end if;
+ for v_line in select value from jsonb_array_elements(p_lines) loop
+  select * into v_product from public.retail_products where id=nullif(v_line->>'product_id','')::uuid and store_id=p_store;
+  if not found or not v_product.active then raise exception 'Producto no disponible en este comercio'; end if;
+  if jsonb_array_length(v_product.stock_components)>0 then raise exception '% no tiene stock propio: contá sus componentes',v_product.name; end if;
+  if v_count.category_id is not null and v_product.category_id<>v_count.category_id then raise exception '% no es de la categoría de este conteo',v_product.name; end if;
+  if v_count.brand is not null and lower(btrim(coalesce(v_product.brand,'')))<>lower(btrim(v_count.brand)) then raise exception '% no es de la marca de este conteo',v_product.name; end if;
+  if v_line->>'reason' is not null and v_line->>'reason' not in ('rotura','vencido','robo','error_carga','otro') then raise exception 'Motivo inválido'; end if;
+  if v_line->'counted' is null or jsonb_typeof(v_line->'counted')='null' then
+   delete from public.retail_stock_count_lines where count_id=p_count and product_id=v_product.id;
+   continue;
+  end if;
+  if coalesce(v_line->>'counted','')!~'^[0-9]{1,9}$' then raise exception 'Cantidad contada inválida para %',v_product.name; end if;
+  v_counted:=(v_line->>'counted')::integer;
+  -- Dos secciones abiertas del mismo lugar no pueden contar el mismo producto.
+  perform pg_advisory_xact_lock(hashtextextended('stock-count-product:'||p_store::text||v_count.location||v_product.id::text,0));
+  if exists(select 1 from public.retail_stock_count_lines l join public.retail_stock_counts c on c.id=l.count_id
+    where c.store_id=p_store and c.location=v_count.location and c.status='open' and c.id<>p_count and l.product_id=v_product.id) then
+   raise exception '% ya se está contando en otro conteo abierto de este lugar',v_product.name;
+  end if;
+  select * into v_previous from public.retail_stock_count_lines where count_id=p_count and product_id=v_product.id;
+  if found and v_previous.counted=v_counted then
+   update public.retail_stock_count_lines set reason=v_line->>'reason',note=nullif(btrim(coalesce(v_line->>'note','')),'') where count_id=p_count and product_id=v_product.id;
+  else
+   insert into public.retail_stock_count_lines(count_id,store_id,product_id,counted,expected,reason,note,counted_by,counted_email)
+   values(p_count,p_store,v_product.id,v_counted,retail_private.location_quantity(p_store,v_product.id,v_count.location),v_line->>'reason',
+    nullif(btrim(coalesce(v_line->>'note','')),''),auth.uid(),auth.jwt()->>'email')
+   on conflict(count_id,product_id) do update set counted=excluded.counted,expected=excluded.expected,reason=excluded.reason,note=excluded.note,
+    counted_by=excluded.counted_by,counted_email=excluded.counted_email,counted_at=now();
+  end if;
+  v_saved:=v_saved+1;
+ end loop;
+ return v_saved;
+end $$;
+
+notify pgrst,'reload schema';
+$retail_source_9f3258490d566b00$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611020003_stock_count_sections.sql','9f3258490d566b004171326307b86f84a0b9a75ed73640157dbdb86ef5d2a513','schema');
+ end if;
+end;
+
+-- 64/66: 202611020004_customer_accounts.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611020004_customer_accounts.sql') then
+  raise notice 'Aplicando 202611020004_customer_accounts.sql';
+  execute replace($retail_source_d1eade0c0e42edbd$
+-- Clientes y cuenta corriente. Una venta «Fiado» suma deuda al cliente y no suma efectivo a la caja;
+-- el efectivo entra a la caja cuando se registra el cobro. Ganancias cuenta la venta cuando se hace.
+
+-- Nuevo permiso: crear y editar clientes y fiar por encima del límite. No se asigna automáticamente.
+alter table public.retail_permission_profiles drop constraint retail_permission_profiles_permissions_check;
+alter table public.retail_permission_profiles add constraint retail_permission_profiles_permissions_check check(permissions <@ array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','manage_supplier_accounts','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai','refund_sales','manage_customers']::text[]);
+alter table public.retail_role_permissions drop constraint retail_role_permissions_permissions_check;
+alter table public.retail_role_permissions add constraint retail_role_permissions_permissions_check check(permissions <@ array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','manage_supplier_accounts','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai','refund_sales','manage_customers']::text[]);
+create or replace function public.retail_permissions(p_store uuid) returns text[] language sql stable security invoker set search_path='' as $$
+ select coalesce(array_agg(action order by action),'{}'::text[]) from unnest(array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales','replenish_stock','edit_prices','manage_quick_products','manage_products','manage_compositions','delete_products','manage_price_lists','review_remitos','manage_transfers','manage_funds','manage_supplier_accounts','attach_invoice','manage_store','manage_locations','manage_categories','manage_ledgers','manage_staff','manage_profiles','use_ai','refund_sales','manage_customers']::text[]) action where retail_private.has_permission(p_store,action);
+$$;
+
+create function retail_private.can_manage_customers(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$
+ select coalesce(retail_private.role_for(p_store) in ('owner','admin'),false) or retail_private.has_permission(p_store,'manage_customers');
+$$;
+-- Quien cobra necesita ver a quién le fía y cuánto debe.
+create function retail_private.can_use_customers(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$
+ select retail_private.can_manage_customers(p_store) or retail_private.has_permission(p_store,'sell');
+$$;
+revoke all on function retail_private.can_manage_customers(uuid),retail_private.can_use_customers(uuid) from public,anon;
+grant execute on function retail_private.can_manage_customers(uuid),retail_private.can_use_customers(uuid) to authenticated;
+
+create table public.retail_customers (
+ id uuid primary key, store_id uuid not null references public.retail_stores(id),
+ name text not null check(length(btrim(name)) between 1 and 120),
+ phone text check(phone is null or length(btrim(phone)) between 1 and 40),
+ credit_limit numeric(14,2) check(credit_limit is null or (credit_limit>=0 and credit_limit::text<>'NaN')),
+ active boolean not null default true,
+ created_by uuid not null references auth.users(id), created_at timestamptz not null default now(),
+ unique(store_id,id)
+);
+create index retail_customers_name on public.retail_customers(store_id,lower(name));
+
+create table public.retail_customer_movements (
+ id uuid primary key, store_id uuid not null, customer_id uuid not null,
+ kind text not null check(kind in ('sale','payment','return')),
+ -- Positivo: el cliente debe más. Negativo: pagó o se le descontó una devolución.
+ amount numeric(14,2) not null check(amount<>0 and amount::text<>'NaN'),
+ method text check(method is null or method in ('Efectivo','QR','Transferencia','Debito','Credito')),
+ sale_id uuid, return_id uuid, shift_id uuid, note text check(note is null or length(note)<=300),
+ created_by uuid not null references auth.users(id), actor_email text, created_at timestamptz not null default now(),
+ check((kind='payment')=(method is not null)), check(kind<>'payment' or amount<0), check(kind<>'sale' or amount>0),
+ foreign key(store_id,customer_id) references public.retail_customers(store_id,id),
+ foreign key(store_id,sale_id) references public.retail_sales(store_id,id),
+ foreign key(store_id,shift_id) references public.retail_shifts(store_id,id)
+);
+create index retail_customer_movements_customer on public.retail_customer_movements(customer_id,created_at desc);
+create index retail_customer_movements_shift on public.retail_customer_movements(shift_id) where shift_id is not null;
+
+alter table public.retail_customers enable row level security;
+alter table public.retail_customer_movements enable row level security;
+create policy customer_users_read on public.retail_customers for select to authenticated using(retail_private.can_use_customers(store_id));
+create policy customer_users_read on public.retail_customer_movements for select to authenticated using(retail_private.can_use_customers(store_id));
+revoke all on public.retail_customers,public.retail_customer_movements from public,anon,authenticated;
+grant select on public.retail_customers,public.retail_customer_movements to authenticated;
+
+alter table public.retail_sales drop constraint if exists retail_sales_payment_method_check;
+alter table public.retail_sales add constraint retail_sales_payment_method_check check(payment_method in ('Efectivo','QR','Transferencia','Mixto','Debito','Credito','Fiado'));
+alter table public.retail_sales add column customer_id uuid, add column customer_name text,
+ add constraint retail_sales_customer_fkey foreign key(store_id,customer_id) references public.retail_customers(store_id,id),
+ add constraint retail_sales_credit_needs_customer check(payment_method<>'Fiado' or customer_id is not null);
+
+create function retail_private.customer_balance(p_customer uuid) returns numeric language sql stable security definer set search_path='' as $$
+ select coalesce(sum(amount),0) from public.retail_customer_movements where customer_id=p_customer;
+$$;
+revoke all on function retail_private.customer_balance(uuid) from public,anon,authenticated;
+
+create function public.retail_save_customer(p_store uuid,p_id uuid,p_customer jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare v_name text:=btrim(coalesce(p_customer->>'name','')); v_phone text:=nullif(btrim(coalesce(p_customer->>'phone','')),'');
+ v_limit numeric; v_active boolean:=coalesce((p_customer->>'active')::boolean,true);
+begin
+ if not retail_private.can_manage_customers(p_store) then raise exception 'Tu perfil no permite cargar ni editar clientes' using errcode='42501'; end if;
+ if p_id is null then raise exception 'Datos del cliente incompletos'; end if;
+ if length(v_name) not between 1 and 120 then raise exception 'Escribí el nombre del cliente'; end if;
+ if v_phone is not null and length(v_phone)>40 then raise exception 'Teléfono demasiado largo'; end if;
+ if nullif(p_customer->>'credit_limit','') is not null then
+  if (p_customer->>'credit_limit')!~'^[0-9]{1,12}(\.[0-9]{1,2})?$' then raise exception 'Revisá el límite de deuda'; end if;
+  v_limit:=(p_customer->>'credit_limit')::numeric;
+ end if;
+ perform pg_advisory_xact_lock(hashtextextended('customer:'||p_id::text,0));
+ if exists(select 1 from public.retail_customers where id=p_id and store_id<>p_store) then raise exception 'El identificador ya corresponde a otro comercio'; end if;
+ insert into public.retail_customers(id,store_id,name,phone,credit_limit,active,created_by)
+ values(p_id,p_store,v_name,v_phone,v_limit,v_active,auth.uid())
+ on conflict(id) do update set name=excluded.name,phone=excluded.phone,credit_limit=excluded.credit_limit,active=excluded.active;
+ return p_id;
+end $$;
+
+-- Clientes con saldo, para la pantalla y para Inicio.
+create function public.retail_customer_balances(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if not retail_private.can_use_customers(p_store) then raise exception 'Tu perfil no permite ver clientes' using errcode='42501'; end if;
+ return (select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'name',c.name,'phone',c.phone,'credit_limit',c.credit_limit,'active',c.active,
+   'balance',coalesce(m.balance,0),'last_movement',m.last_at) order by coalesce(m.balance,0) desc,lower(c.name)),'[]'::jsonb)
+  from public.retail_customers c
+  left join (select customer_id,sum(amount) as balance,max(created_at) as last_at from public.retail_customer_movements where store_id=p_store group by customer_id) m on m.customer_id=c.id
+  where c.store_id=p_store);
+end $$;
+
+-- Cobro total o parcial. El efectivo entra a la caja abierta de quien cobra; los otros medios no tocan caja.
+create function public.retail_customer_payment(p_store uuid,p_customer uuid,p_request uuid,p_amount numeric,p_method text,p_shift uuid default null,p_note text default null) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare v_customer public.retail_customers; v_existing public.retail_customer_movements; v_balance numeric; v_shift public.retail_shifts;
+begin
+ if not retail_private.can_use_customers(p_store) then raise exception 'Tu perfil no permite registrar cobros' using errcode='42501'; end if;
+ if p_request is null or p_customer is null then raise exception 'Datos del cobro incompletos'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('customer-payment:'||p_request::text,0));
+ select * into v_existing from public.retail_customer_movements where id=p_request;
+ if found then
+  if v_existing.customer_id<>p_customer or v_existing.created_by<>auth.uid() then raise exception 'El identificador ya corresponde a otro movimiento'; end if;
+  return jsonb_build_object('id',p_request,'balance',retail_private.customer_balance(p_customer));
+ end if;
+ select * into v_customer from public.retail_customers where id=p_customer and store_id=p_store for update;
+ if not found then raise exception 'Cliente no disponible'; end if;
+ if p_method is null or p_method not in ('Efectivo','QR','Transferencia','Debito','Credito') then raise exception 'Elegí cómo te pagó'; end if;
+ if p_amount is null or p_amount<=0 or round(p_amount,2)<>p_amount or p_amount::text='NaN' then raise exception 'Revisá el importe cobrado'; end if;
+ v_balance:=retail_private.customer_balance(p_customer);
+ if p_amount>v_balance then raise exception 'El cobro supera lo que debe el cliente (%)',v_balance; end if;
+ if p_method='Efectivo' then
+  if p_shift is null then raise exception 'Abrí tu caja para cobrar en efectivo, o elegí otro medio'; end if;
+  v_shift:=retail_private.check_shift(p_shift);
+  if v_shift.store_id<>p_store then raise exception 'La caja no pertenece a este comercio'; end if;
+ end if;
+ insert into public.retail_customer_movements(id,store_id,customer_id,kind,amount,method,shift_id,note,created_by,actor_email)
+ values(p_request,p_store,p_customer,'payment',-p_amount,p_method,case when p_method='Efectivo' then v_shift.id end,
+  nullif(btrim(coalesce(p_note,'')),''),auth.uid(),auth.jwt()->>'email');
+ return jsonb_build_object('id',p_request,'balance',v_balance-p_amount);
+end $$;
+
+-- La caja suma el efectivo de los cobros de cuenta corriente hechos en ese turno.
+create or replace function retail_private.shift_expected_cash(p_shift uuid) returns numeric language sql stable security definer set search_path='' as $$
+ select s.opening_cash
+  + coalesce((select sum(x.cash_amount) from public.retail_sales x where x.shift_id=s.id),0)
+  + coalesce((select sum(case when m.type='INGRESO' then m.amount else -m.amount end) from public.retail_movements m where m.shift_id=s.id),0)
+  - coalesce((select sum(r.cash_amount) from public.retail_sale_returns r where r.shift_id=s.id),0)
+  - coalesce((select sum(c.amount) from public.retail_customer_movements c where c.shift_id=s.id and c.method='Efectivo'),0)
+ from public.retail_shifts s where s.id=p_shift;
+$$;
+
+-- Fiado: se valida con el cobro existente como medio sin efectivo y, en la misma transacción,
+-- se marca como Fiado, se controla el límite y se suma la deuda. Si algo falla, no queda venta ni stock movido.
+alter function public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb) rename to retail_checkout_before_credit;
+revoke all on function public.retail_checkout_before_credit(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb) from public,anon,authenticated;
+create function public.retail_checkout(p_shift uuid,p_request uuid,p_method text,p_paid numeric,p_items jsonb,p_price_list uuid default null,p_ledger uuid default null,p_payments jsonb default null,p_customer uuid default null,p_over_limit boolean default false)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare v_store uuid; v_customer public.retail_customers; v_sale public.retail_sales; v_balance numeric; saved uuid;
+begin
+ if p_method is distinct from 'Fiado' then
+  if p_customer is not null then raise exception 'El cliente se elige solo para ventas fiadas'; end if;
+  return public.retail_checkout_before_credit(p_shift,p_request,p_method,p_paid,p_items,p_price_list,p_ledger,p_payments);
+ end if;
+ if auth.uid() is null then raise exception 'Iniciá sesión'; end if;
+ if p_customer is null then raise exception 'Elegí a quién le fiás'; end if;
+ select store_id into v_store from public.retail_shifts where id=p_shift;
+ select * into v_customer from public.retail_customers where id=p_customer and store_id=v_store for update;
+ if not found or not v_customer.active then raise exception 'Cliente no disponible'; end if;
+ if not retail_private.can_use_customers(v_store) then raise exception 'Tu perfil no permite fiar' using errcode='42501'; end if;
+ select * into v_sale from public.retail_sales where id=p_request;
+ if found then
+  if v_sale.customer_id is distinct from p_customer then raise exception 'La solicitud ya fue usada con otro cliente'; end if;
+  return public.retail_checkout_before_credit(p_shift,p_request,'Transferencia',0,p_items,p_price_list,p_ledger,null);
+ end if;
+ saved:=public.retail_checkout_before_credit(p_shift,p_request,'Transferencia',0,p_items,p_price_list,p_ledger,null);
+ select * into v_sale from public.retail_sales where id=saved for update;
+ v_balance:=retail_private.customer_balance(p_customer);
+ if v_customer.credit_limit is not null and v_balance+v_sale.total>v_customer.credit_limit then
+  if not p_over_limit then
+   raise exception 'Con esta venta % debería %, más que su límite de %',v_customer.name,v_balance+v_sale.total,v_customer.credit_limit;
+  end if;
+  if not retail_private.can_manage_customers(v_store) then
+   raise exception 'Supera el límite de % y tu perfil no permite fiar por encima. Pedile a administración',v_customer.name using errcode='42501';
+  end if;
+ end if;
+ update public.retail_sales set payment_method='Fiado',payments=jsonb_build_array(jsonb_build_object('method','Fiado','amount',total)),
+  amount_paid=total,change=0,cash_amount=0,customer_id=p_customer,customer_name=v_customer.name where id=saved;
+ insert into public.retail_customer_movements(id,store_id,customer_id,kind,amount,sale_id,created_by,actor_email)
+ values(saved,v_store,p_customer,'sale',v_sale.total,saved,auth.uid(),auth.jwt()->>'email');
+ return saved;
+end $$;
+revoke all on function public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb,uuid,boolean) from public,anon;
+grant execute on function public.retail_checkout(uuid,uuid,text,numeric,jsonb,uuid,uuid,jsonb,uuid,boolean) to authenticated;
+
+-- Devolver una venta fiada descuenta de la cuenta del cliente en vez de entregar plata.
+alter function public.retail_return_sale(uuid,uuid,uuid,jsonb,text,jsonb,uuid) rename to retail_return_sale_before_credit;
+revoke all on function public.retail_return_sale_before_credit(uuid,uuid,uuid,jsonb,text,jsonb,uuid) from public,anon,authenticated;
+create function public.retail_return_sale(p_store uuid,p_sale uuid,p_request uuid,p_items jsonb,p_reason text,p_refund jsonb default null,p_shift uuid default null)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_sale public.retail_sales; v_parts jsonb:=p_refund; v_core jsonb; v_credit numeric; v_result jsonb;
+begin
+ select * into v_sale from public.retail_sales where id=p_sale and store_id=p_store;
+ if not found or v_sale.customer_id is null then
+  if exists(select 1 from jsonb_array_elements(coalesce(p_refund,'[]'::jsonb)) x where x->>'method'='Fiado') then raise exception 'Solo una venta fiada se devuelve a cuenta del cliente'; end if;
+  return public.retail_return_sale_before_credit(p_store,p_sale,p_request,p_items,p_reason,p_refund,p_shift);
+ end if;
+ -- Anular por primera vez repite el cobro original: todo a cuenta del cliente.
+ if v_parts is null and p_items is null and v_sale.returned_total=0 then v_parts:=jsonb_build_array(jsonb_build_object('method','Fiado','amount',v_sale.total)); end if;
+ if v_parts is null then return public.retail_return_sale_before_credit(p_store,p_sale,p_request,p_items,p_reason,p_refund,p_shift); end if;
+ select coalesce(sum((x->>'amount')::numeric) filter(where x->>'method'='Fiado'),0) into v_credit from jsonb_array_elements(v_parts) x;
+ select coalesce(jsonb_agg(case when x->>'method'='Fiado' then jsonb_set(x,'{method}','"Transferencia"') else x end),'[]'::jsonb) into v_core from jsonb_array_elements(v_parts) x;
+ v_result:=public.retail_return_sale_before_credit(p_store,p_sale,p_request,p_items,p_reason,v_core,p_shift);
+ if v_credit>0 then
+  update public.retail_sale_returns set payments=v_parts where id=p_request and payments is distinct from v_parts;
+  insert into public.retail_customer_movements(id,store_id,customer_id,kind,amount,sale_id,return_id,created_by,actor_email)
+  values(p_request,p_store,v_sale.customer_id,'return',-v_credit,p_sale,p_request,auth.uid(),auth.jwt()->>'email') on conflict(id) do nothing;
+ end if;
+ return v_result;
+end $$;
+revoke all on function public.retail_return_sale(uuid,uuid,uuid,jsonb,text,jsonb,uuid) from public,anon;
+grant execute on function public.retail_return_sale(uuid,uuid,uuid,jsonb,text,jsonb,uuid) to authenticated;
+
+revoke all on function public.retail_save_customer(uuid,uuid,jsonb),public.retail_customer_balances(uuid),
+ public.retail_customer_payment(uuid,uuid,uuid,numeric,text,uuid,text) from public,anon;
+grant execute on function public.retail_save_customer(uuid,uuid,jsonb),public.retail_customer_balances(uuid),
+ public.retail_customer_payment(uuid,uuid,uuid,numeric,text,uuid,text) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_d1eade0c0e42edbd$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611020004_customer_accounts.sql','d1eade0c0e42edbd036e264de72c50ea6c9141c90d8a4841a9e1a56c90c0c21d','schema');
+ end if;
+end;
+
+-- 65/66: 202611020005_customer_billing_and_credit.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611020005_customer_billing_and_credit.sql') then
+  raise notice 'Aplicando 202611020005_customer_billing_and_credit.sql';
+  execute replace($retail_source_d88f8756a740b886$
+-- Datos opcionales para facturarle al cliente y saldo a favor: un cobro puede superar la deuda
+-- y lo que sobra queda a cuenta para una próxima compra con «Fiado».
+
+alter table public.retail_customers
+ add column business_name text check(business_name is null or length(btrim(business_name)) between 1 and 160),
+ add column tax_id_type text check(tax_id_type is null or tax_id_type in ('CUIT','CUIL','DNI')),
+ add column tax_id text check(tax_id is null or tax_id ~ '^[0-9]{7,11}$'),
+ add column iva_condition text check(iva_condition is null or iva_condition in ('CF','RI','MO','EX')),
+ add column address text check(address is null or length(btrim(address)) between 1 and 200),
+ add column email text check(email is null or (length(email)<=254 and email ~ '^[^@\s]+@[^@\s]+\.[^@\s]+$')),
+ add constraint retail_customers_tax_id_pair check((tax_id is null)=(tax_id_type is null)),
+ add constraint retail_customers_tax_id_length check(tax_id is null or (tax_id_type='DNI' and length(tax_id) between 7 and 8) or (tax_id_type in ('CUIT','CUIL') and length(tax_id)=11));
+
+create or replace function public.retail_save_customer(p_store uuid,p_id uuid,p_customer jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare v_name text:=btrim(coalesce(p_customer->>'name','')); v_phone text:=nullif(btrim(coalesce(p_customer->>'phone','')),'');
+ v_limit numeric; v_active boolean:=coalesce((p_customer->>'active')::boolean,true);
+ v_business text:=nullif(btrim(coalesce(p_customer->>'business_name','')),'');
+ v_tax text:=nullif(regexp_replace(coalesce(p_customer->>'tax_id',''),'[^0-9]','','g'),'');
+ v_tax_type text:=nullif(btrim(coalesce(p_customer->>'tax_id_type','')),'');
+ v_iva text:=nullif(btrim(coalesce(p_customer->>'iva_condition','')),'');
+ v_address text:=nullif(btrim(coalesce(p_customer->>'address','')),'');
+ v_email text:=nullif(lower(btrim(coalesce(p_customer->>'email',''))),'');
+begin
+ if not retail_private.can_manage_customers(p_store) then raise exception 'Tu perfil no permite cargar ni editar clientes' using errcode='42501'; end if;
+ if p_id is null then raise exception 'Datos del cliente incompletos'; end if;
+ if length(v_name) not between 1 and 120 then raise exception 'Escribí el nombre del cliente'; end if;
+ if v_phone is not null and length(v_phone)>40 then raise exception 'Teléfono demasiado largo'; end if;
+ if nullif(p_customer->>'credit_limit','') is not null then
+  if (p_customer->>'credit_limit')!~'^[0-9]{1,12}(\.[0-9]{1,2})?$' then raise exception 'Revisá el límite de deuda'; end if;
+  v_limit:=(p_customer->>'credit_limit')::numeric;
+ end if;
+ if v_tax is null then v_tax_type:=null;
+ else
+  if v_tax_type is null then v_tax_type:=case when length(v_tax)=11 then 'CUIT' else 'DNI' end; end if;
+  if v_tax_type not in ('CUIT','CUIL','DNI') or (v_tax_type='DNI' and length(v_tax) not between 7 and 8) or (v_tax_type<>'DNI' and length(v_tax)<>11) then
+   raise exception 'Revisá el documento: el CUIT o CUIL lleva 11 números y el DNI 7 u 8';
+  end if;
+ end if;
+ if v_iva is not null and v_iva not in ('CF','RI','MO','EX') then raise exception 'Revisá la condición frente al IVA'; end if;
+ if v_business is not null and length(v_business)>160 then raise exception 'Razón social demasiado larga'; end if;
+ if v_address is not null and length(v_address)>200 then raise exception 'Domicilio demasiado largo'; end if;
+ if v_email is not null and (length(v_email)>254 or v_email!~'^[^@\s]+@[^@\s]+\.[^@\s]+$') then raise exception 'Revisá el email'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('customer:'||p_id::text,0));
+ if exists(select 1 from public.retail_customers where id=p_id and store_id<>p_store) then raise exception 'El identificador ya corresponde a otro comercio'; end if;
+ insert into public.retail_customers(id,store_id,name,phone,credit_limit,active,business_name,tax_id_type,tax_id,iva_condition,address,email,created_by)
+ values(p_id,p_store,v_name,v_phone,v_limit,v_active,v_business,v_tax_type,v_tax,v_iva,v_address,v_email,auth.uid())
+ on conflict(id) do update set name=excluded.name,phone=excluded.phone,credit_limit=excluded.credit_limit,active=excluded.active,
+  business_name=excluded.business_name,tax_id_type=excluded.tax_id_type,tax_id=excluded.tax_id,iva_condition=excluded.iva_condition,
+  address=excluded.address,email=excluded.email;
+ return p_id;
+end $$;
+
+create or replace function public.retail_customer_balances(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+begin
+ if not retail_private.can_use_customers(p_store) then raise exception 'Tu perfil no permite ver clientes' using errcode='42501'; end if;
+ return (select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'name',c.name,'phone',c.phone,'credit_limit',c.credit_limit,'active',c.active,
+   'business_name',c.business_name,'tax_id_type',c.tax_id_type,'tax_id',c.tax_id,'iva_condition',c.iva_condition,'address',c.address,'email',c.email,
+   'balance',coalesce(m.balance,0),'last_movement',m.last_at) order by coalesce(m.balance,0) desc,lower(c.name)),'[]'::jsonb)
+  from public.retail_customers c
+  left join (select customer_id,sum(amount) as balance,max(created_at) as last_at from public.retail_customer_movements where store_id=p_store group by customer_id) m on m.customer_id=c.id
+  where c.store_id=p_store);
+end $$;
+
+-- Un cobro puede superar la deuda: lo que sobra queda a favor del cliente.
+create or replace function public.retail_customer_payment(p_store uuid,p_customer uuid,p_request uuid,p_amount numeric,p_method text,p_shift uuid default null,p_note text default null) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare v_customer public.retail_customers; v_existing public.retail_customer_movements; v_balance numeric; v_shift public.retail_shifts;
+begin
+ if not retail_private.can_use_customers(p_store) then raise exception 'Tu perfil no permite registrar cobros' using errcode='42501'; end if;
+ if p_request is null or p_customer is null then raise exception 'Datos del cobro incompletos'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('customer-payment:'||p_request::text,0));
+ select * into v_existing from public.retail_customer_movements where id=p_request;
+ if found then
+  if v_existing.customer_id<>p_customer or v_existing.created_by<>auth.uid() then raise exception 'El identificador ya corresponde a otro movimiento'; end if;
+  return jsonb_build_object('id',p_request,'balance',retail_private.customer_balance(p_customer));
+ end if;
+ select * into v_customer from public.retail_customers where id=p_customer and store_id=p_store for update;
+ if not found then raise exception 'Cliente no disponible'; end if;
+ if p_method is null or p_method not in ('Efectivo','QR','Transferencia','Debito','Credito') then raise exception 'Elegí cómo te pagó'; end if;
+ if p_amount is null or p_amount<=0 or p_amount>999999999999.99 or round(p_amount,2)<>p_amount or p_amount::text='NaN' then raise exception 'Revisá el importe cobrado'; end if;
+ v_balance:=retail_private.customer_balance(p_customer);
+ if p_method='Efectivo' then
+  if p_shift is null then raise exception 'Abrí tu caja para cobrar en efectivo, o elegí otro medio'; end if;
+  v_shift:=retail_private.check_shift(p_shift);
+  if v_shift.store_id<>p_store then raise exception 'La caja no pertenece a este comercio'; end if;
+ end if;
+ insert into public.retail_customer_movements(id,store_id,customer_id,kind,amount,method,shift_id,note,created_by,actor_email)
+ values(p_request,p_store,p_customer,'payment',-p_amount,p_method,case when p_method='Efectivo' then v_shift.id end,
+  nullif(btrim(coalesce(p_note,'')),''),auth.uid(),auth.jwt()->>'email');
+ return jsonb_build_object('id',p_request,'balance',v_balance-p_amount);
+end $$;
+
+notify pgrst,'reload schema';
+$retail_source_d88f8756a740b886$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611020005_customer_billing_and_credit.sql','d88f8756a740b886117b430cc3360986acce8c8a31f567eb20124b2ed36922df','schema');
+ end if;
+end;
+
+-- 66/66: 202611020006_partial_credit.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611020006_partial_credit.sql') then
+  raise notice 'Aplicando 202611020006_partial_credit.sql';
+  execute replace($retail_source_c4cbb30b0390a791$
+-- Fiado parcial: un pago Mixto puede llevar una parte «Fiado», por ejemplo $500 en efectivo y el resto fiado.
+-- En una sola transacción el efectivo queda en la venta (y en la caja) y solo la parte fiada va a la cuenta del cliente.
+
+create or replace function public.retail_checkout(p_shift uuid,p_request uuid,p_method text,p_paid numeric,p_items jsonb,p_price_list uuid default null,p_ledger uuid default null,p_payments jsonb default null,p_customer uuid default null,p_over_limit boolean default false)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare v_store uuid; v_customer public.retail_customers; v_sale public.retail_sales; v_balance numeric; saved uuid;
+ v_credit numeric:=0; v_core_parts jsonb; v_placeholder text; v_core_method text; v_core_paid numeric;
+begin
+ if p_method='Mixto' and jsonb_typeof(p_payments)='array' then
+  select coalesce(sum((x->>'amount')::numeric) filter(where x->>'method'='Fiado'),0) into v_credit
+  from jsonb_array_elements(p_payments) x where coalesce(x->>'amount','')~'^[0-9]+(\.[0-9]{1,2})?$';
+  if exists(select 1 from jsonb_array_elements(p_payments) x where x->>'method'='Fiado') and v_credit<=0 then raise exception 'Revisá el importe fiado'; end if;
+ end if;
+ if p_method is distinct from 'Fiado' and v_credit=0 then
+  if p_customer is not null then raise exception 'El cliente se elige solo para ventas fiadas'; end if;
+  return public.retail_checkout_before_credit(p_shift,p_request,p_method,p_paid,p_items,p_price_list,p_ledger,p_payments);
+ end if;
+ if auth.uid() is null then raise exception 'Iniciá sesión'; end if;
+ if p_customer is null then raise exception 'Elegí a quién le fiás'; end if;
+ select store_id into v_store from public.retail_shifts where id=p_shift;
+ select * into v_customer from public.retail_customers where id=p_customer and store_id=v_store for update;
+ if not found or not v_customer.active then raise exception 'Cliente no disponible'; end if;
+ if not retail_private.can_use_customers(v_store) then raise exception 'Tu perfil no permite fiar' using errcode='42501'; end if;
+ -- El cobro existente valida la venta con la parte fiada como un medio sin efectivo que no esté ya en uso.
+ if p_method='Fiado' then
+  v_core_method:='Transferencia'; v_core_paid:=0; v_core_parts:=null;
+ else
+  select m into v_placeholder from unnest(array['Transferencia','QR','Debito','Credito']) m
+   where not exists(select 1 from jsonb_array_elements(p_payments) x where x->>'method'=m) limit 1;
+  if v_placeholder is null then raise exception 'Demasiados medios de pago en la misma venta'; end if;
+  select jsonb_agg(case when x->>'method'='Fiado' then jsonb_set(x,'{method}',to_jsonb(v_placeholder)) else x end) into v_core_parts from jsonb_array_elements(p_payments) x;
+  v_core_method:='Mixto'; v_core_paid:=p_paid;
+ end if;
+ select * into v_sale from public.retail_sales where id=p_request;
+ if found then
+  if v_sale.customer_id is distinct from p_customer then raise exception 'La solicitud ya fue usada con otro cliente'; end if;
+  return v_sale.id;
+ end if;
+ saved:=public.retail_checkout_before_credit(p_shift,p_request,v_core_method,v_core_paid,p_items,p_price_list,p_ledger,v_core_parts);
+ select * into v_sale from public.retail_sales where id=saved for update;
+ if p_method='Fiado' then v_credit:=v_sale.total; end if;
+ v_balance:=retail_private.customer_balance(p_customer);
+ if v_customer.credit_limit is not null and v_balance+v_credit>v_customer.credit_limit then
+  if not p_over_limit then
+   raise exception 'Con esta venta % debería %, más que su límite de %',v_customer.name,v_balance+v_credit,v_customer.credit_limit;
+  end if;
+  if not retail_private.can_manage_customers(v_store) then
+   raise exception 'Supera el límite de % y tu perfil no permite fiar por encima. Pedile a administración',v_customer.name using errcode='42501';
+  end if;
+ end if;
+ if p_method='Fiado' then
+  update public.retail_sales set payment_method='Fiado',payments=jsonb_build_array(jsonb_build_object('method','Fiado','amount',total)),
+   amount_paid=total,change=0,cash_amount=0,customer_id=p_customer,customer_name=v_customer.name where id=saved;
+ else
+  -- El efectivo ya quedó en cash_amount; se devuelve el desglose real con su parte fiada.
+  update public.retail_sales set payments=p_payments,customer_id=p_customer,customer_name=v_customer.name where id=saved;
+ end if;
+ insert into public.retail_customer_movements(id,store_id,customer_id,kind,amount,sale_id,created_by,actor_email)
+ values(saved,v_store,p_customer,'sale',v_credit,saved,auth.uid(),auth.jwt()->>'email');
+ return saved;
+end $$;
+
+-- Anular una venta con fiado parcial repite su desglose: el efectivo sale de la caja y lo fiado se descuenta de la cuenta.
+create or replace function public.retail_return_sale(p_store uuid,p_sale uuid,p_request uuid,p_items jsonb,p_reason text,p_refund jsonb default null,p_shift uuid default null)
+returns jsonb language plpgsql security definer set search_path='' as $$
+declare v_sale public.retail_sales; v_parts jsonb:=p_refund; v_core jsonb; v_credit numeric; v_result jsonb; v_placeholder text;
+begin
+ select * into v_sale from public.retail_sales where id=p_sale and store_id=p_store;
+ if not found or v_sale.customer_id is null then
+  if exists(select 1 from jsonb_array_elements(coalesce(p_refund,'[]'::jsonb)) x where x->>'method'='Fiado') then raise exception 'Solo una venta fiada se devuelve a cuenta del cliente'; end if;
+  return public.retail_return_sale_before_credit(p_store,p_sale,p_request,p_items,p_reason,p_refund,p_shift);
+ end if;
+ if v_parts is null and p_items is null and v_sale.returned_total=0 then v_parts:=v_sale.payments; end if;
+ if v_parts is null then return public.retail_return_sale_before_credit(p_store,p_sale,p_request,p_items,p_reason,p_refund,p_shift); end if;
+ select coalesce(sum((x->>'amount')::numeric) filter(where x->>'method'='Fiado'),0) into v_credit from jsonb_array_elements(v_parts) x;
+ select m into v_placeholder from unnest(array['Transferencia','QR','Debito','Credito']) m
+  where not exists(select 1 from jsonb_array_elements(v_parts) x where x->>'method'=m) limit 1;
+ if v_credit>0 and v_placeholder is null then raise exception 'Demasiados medios de devolución'; end if;
+ select coalesce(jsonb_agg(case when x->>'method'='Fiado' then jsonb_set(x,'{method}',to_jsonb(v_placeholder)) else x end),'[]'::jsonb) into v_core from jsonb_array_elements(v_parts) x;
+ v_result:=public.retail_return_sale_before_credit(p_store,p_sale,p_request,p_items,p_reason,v_core,p_shift);
+ if v_credit>0 then
+  update public.retail_sale_returns set payments=v_parts where id=p_request and payments is distinct from v_parts;
+  insert into public.retail_customer_movements(id,store_id,customer_id,kind,amount,sale_id,return_id,created_by,actor_email)
+  values(p_request,p_store,v_sale.customer_id,'return',-v_credit,p_sale,p_request,auth.uid(),auth.jwt()->>'email') on conflict(id) do nothing;
+ end if;
+ return v_result;
+end $$;
+
+notify pgrst,'reload schema';
+$retail_source_c4cbb30b0390a791$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611020006_partial_credit.sql','c4cbb30b0390a79134633987f21ccdb9dd006a2f5e025d0ba55ce7a73d3a75b2','schema');
  end if;
 end;
 

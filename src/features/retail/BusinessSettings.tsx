@@ -688,6 +688,7 @@ export function LedgerSettings({
                   Transferencia: <ArrowRightLeft size={16} />,
                   Debito: <CreditCard size={16} />,
                   Credito: <CreditCard size={16} />,
+                  Fiado: <CreditCard size={16} />,
                   Mixto: <Receipt size={16} />,
                 }[method.id] || <Coins size={16} />;
 

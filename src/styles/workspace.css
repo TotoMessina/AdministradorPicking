@@ -1519,3 +1519,56 @@ button.home-alert { cursor: pointer; }
 .finance-trend-items strong.is-up { color: var(--tone-danger); }
 .finance-trend-items strong.is-down { color: #1f7a4d; }
 @media (max-width: 560px) { .finance-trend-items > li { grid-template-columns: minmax(0, 1fr) auto; } .finance-trend-items small { grid-column: 1; grid-row: 2; } }
+
+/* Fiado: elegir cliente y avisar el límite, en el mismo lugar que la confirmación de pago. */
+.credit-customer { display: grid; gap: 8px; margin-top: 10px; }
+.credit-customer label { display: grid; gap: 4px; }
+.credit-customer select, .credit-customer input:not([type=checkbox]) { min-height: 40px; }
+.credit-customer small { color: var(--tone-muted); font-size: 12px; }
+.credit-customer-summary { margin: 0; font-size: 13px; }
+.credit-customer-alert { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 10px; border: 1px solid var(--tone-danger-border); border-radius: 8px; background: var(--tone-danger-soft); color: var(--tone-danger); font-size: 13px; }
+.credit-customer-alert .credit-customer-override { display: inline-flex; align-items: center; gap: 6px; color: var(--tone-text); font-weight: 600; }
+.sale-customer { display: grid; gap: 6px; margin-bottom: 12px; }
+.sale-customer label { display: grid; gap: 4px; font-size: 13px; }
+.sale-customer select, .sale-customer input { min-height: 40px; }
+.sale-customer small { color: var(--tone-muted); font-size: 12px; }
+.sale-customer-balance { justify-self: start; padding: 2px 10px; border-radius: 999px; font-size: 13px; font-weight: 700; background: var(--tone-soft); }
+.sale-customer-balance.is-debt { color: var(--tone-danger); background: var(--tone-danger-soft); }
+.sale-customer-balance.is-credit { color: #276345; background: color-mix(in srgb, #276345 12%, var(--tone-surface)); }
+
+/* Cobro en computadora: si no entra todo, el bloque de cobro se desplaza dentro del panel fijo. */
+@media (min-width: 761px) {
+  .pos-layout .sale-panel > .sale-cart { flex: 0 1 auto; min-height: 0; }
+  .pos-layout .sale-panel > .checkout { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+}
+
+/* Cliente de la venta: una línea en el panel y la elección en una ventana aparte. */
+.sale-customer { grid-template-columns: none; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.sale-customer small { flex-basis: 100%; }
+.sale-customer-name { font-size: 13px; }
+.sale-customer-add { display: inline-flex; align-items: center; gap: 6px; padding: 0; font-size: 13px; }
+.credit-customer-pick { display: inline-flex; align-items: center; gap: 6px; justify-self: start; }
+.credit-modal-backdrop { position: fixed; inset: 0; z-index: 5100; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.65); backdrop-filter: blur(4px); }
+.credit-customer-modal { display: grid; gap: 12px; max-height: min(640px, calc(100dvh - 2rem)); }
+.credit-modal-search { display: grid; gap: 4px; font-size: 13px; }
+.credit-modal-search input { min-height: 44px; font-size: 16px; }
+.credit-modal-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; overflow-y: auto; min-height: 0; max-height: 50dvh; overscroll-behavior: contain; }
+.credit-modal-list button { display: flex; width: 100%; align-items: center; justify-content: space-between; gap: 10px; min-height: 48px; padding: 8px 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); color: inherit; text-align: left; cursor: pointer; }
+.credit-modal-list button[aria-pressed='true'] { border-color: var(--tone-accent); background: var(--tone-accent-soft); }
+.credit-modal-list small { display: block; color: var(--tone-muted); font-size: 12px; }
+.credit-modal-empty { padding: 12px; color: var(--tone-muted); font-size: 13px; }
+
+/* Ventana de cobro: medios de pago, cliente y confirmación sin estirar el panel de la venta. */
+.pos-payment-backdrop { position: fixed; inset: 0; z-index: 5000; display: flex; align-items: center; justify-content: center; padding: 1rem; background: rgba(15, 23, 42, 0.55); }
+.pos-payment-modal { display: grid; gap: 12px; width: min(100%, 460px); max-height: calc(100dvh - 2rem); overflow-y: auto; overscroll-behavior: contain; padding: 20px; border-radius: 16px; background: var(--tone-surface, #fff); box-shadow: 0 20px 25px -5px rgba(0, 0, 0, .15); }
+.pos-payment-header { display: flex; align-items: center; gap: 12px; }
+.pos-payment-header > div { flex: 1; }
+.pos-payment-header h3 { margin: 0; font-size: 18px; }
+.pos-payment-header small { color: var(--tone-muted); font-size: 12px; }
+.pos-payment-header > strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.pos-payment-modal fieldset { min-width: 0; margin: 0; padding: 0; border: 0; }
+.pos-payment-modal .checkout-button { width: 100%; min-height: 54px; font-size: 17px; }
+@media (max-width: 760px) {
+  .pos-payment-backdrop { align-items: flex-end; padding: 0; }
+  .pos-payment-modal { width: 100%; max-height: 92dvh; border-radius: 16px 16px 0 0; padding: 16px 16px max(16px, env(safe-area-inset-bottom)); }
+}

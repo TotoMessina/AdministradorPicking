@@ -173,7 +173,40 @@ Abrir **http://localhost:3001/** en una tienda de pruebas con la migración apli
 
 Queda pendiente comprobar navegador, teclado/lector real, móvil, Supabase/RLS, SQL, concurrencia entre dispositivos y sincronización offline. La revisión de código no reemplaza esas pruebas.
 
-<a id="anular-y-devolver"></a>
+<a id="clientes-y-fiado"></a>
+
+## Clientes y cuenta corriente
+
+**Clientes** está en el menú de computadora y en Inicio. Cada cliente tiene nombre, teléfono y un límite de deuda opcional; sin límite, no se controla. En **Datos para facturar (opcional)** se cargan razón social, CUIT/CUIL/DNI, condición frente al IVA, domicilio y email. El CUIT y el CUIL llevan 11 números y el DNI 7 u 8. Las facturas todavía no usan estos datos y siguen saliendo a consumidor final. Dueño, administrador o quien tiene el permiso "Clientes y límites de fiado" carga y edita clientes. Un cliente que no debe fiarse más se marca así y conserva su saldo.
+
+- **Cliente en Vender:** arriba de los medios de pago se elige el cliente y se ve si debe, tiene a favor o está al día. La venta queda en su cuenta solo si se cobra con **Fiado**.
+- **Fiar:** **Fiado** exige el cliente y muestra cómo queda su saldo con la venta. Si tiene plata a favor, la venta se descuenta de ahí.
+- **Fiar una parte:** con el cliente elegido, en **Mixto** se pone lo que paga por el primer medio y en **Resto del pago** se elige **Fiado (a su cuenta)**. El primer medio entra como siempre, en efectivo a la caja, y solo el resto va a la cuenta. El límite se controla sobre lo fiado. El ticket muestra las dos partes. Si supera el límite, avisa. Fiar igual lo puede confirmar solo quien tiene ese permiso, y el servidor vuelve a controlarlo.
+- **Conexión:** fiar requiere conexión y operaciones sincronizadas, porque necesita el saldo del momento.
+- **Caja:** una venta fiada no suma efectivo cuando se vende. El efectivo entra cuando se cobra, en la caja abierta de quien cobra. Los cobros con QR, débito, crédito o transferencia no tocan la caja. El arqueo sigue a ciegas para el cajero.
+- **Ganancias:** cuenta la venta fiada en el mes en que se vende, como cualquier venta, aunque todavía no esté cobrada.
+- **Cobros y anticipos:** en la cuenta de cada cliente se registra un cobro total o parcial, con su medio y una nota opcional. Si paga de más, o deja plata sin deber nada (**Dejar plata a cuenta**), lo que sobra queda a favor para próximas compras. El anticipo en efectivo entra a la caja en ese momento. Un reintento por corte de conexión no registra el cobro dos veces.
+- **Movimientos y saldo:** se ven fiados, cobros y devoluciones con fecha y quién los hizo. Inicio muestra **Clientes que me deben** con el total y los que más deben.
+- **Devoluciones:** anular o devolver una venta fiada descuenta de la cuenta del cliente en vez de entregar plata. Si ya había pagado, puede quedar saldo a favor.
+
+### Guía de Pruebas — clientes y fiado
+
+En http://localhost:3001/, con un comercio de pruebas y la migración aplicada. No hacer ventas de prueba en producción.
+
+1. **Cargar un cliente:** en Clientes, crear "Ana" con límite $500. Esperado: aparece "Al día".
+2. **Fiar:** en Vender, cargar $300, elegir **Fiado** y elegir Ana. Esperado: muestra "queda en $300"; el botón dice "Fiar" y el efectivo esperado de la caja no cambia.
+3. **Límite:** fiar otros $300 a Ana. Esperado: aviso de límite y, como administrador, la opción "Fiar igual". Como cajero no deja.
+4. **Cobro parcial en efectivo:** en Clientes → Ana, cobrar $250 en efectivo con la caja abierta. Esperado: saldo menor y efectivo esperado +$250.
+5. **Cobro por transferencia:** cobrar por transferencia. Esperado: baja el saldo y la caja no cambia.
+5. **Saldo a favor:** con Ana al día, dejar $1.000 a cuenta en efectivo. Esperado: "A favor $1.000" y la caja +$1.000. En Vender, elegir a Ana. Esperado: muestra "Tiene a favor $1.000". Fiarle $300. Esperado: le quedan $700 a favor y la caja no cambia.
+5. **Datos fiscales:** editar a Ana, abrir **Datos para facturar** y cargar un CUIT con 10 números. Esperado: pide revisarlo. Con 11 números se guarda y se ve en su cuenta.
+6. **Inicio:** revisar Inicio. Esperado: "Clientes que me deben" con el total.
+6. **Fiar una parte:** venta de $800 a un cliente con **Mixto**: $500 en efectivo y el resto **Fiado (a su cuenta)**. Esperado: "Fiás $300", el efectivo esperado sube $500, el cliente debe $300 más y el ticket muestra las dos partes. Anularla con la caja abierta. Esperado: salen $500 de la caja y la deuda baja $300.
+7. **Anular una venta fiada:** anular una venta fiada desde Caja → Ventas. Esperado: baja la deuda de Ana y no sale plata.
+8. **Sin conexión:** cortar la conexión e intentar fiar. Esperado: pide conexión y no guarda nada.
+9. **Celular:** abrir Clientes desde Inicio, cobrar y revisar los movimientos.
+
+
 
 ## Anular y devolver ventas
 
