@@ -1,5 +1,6 @@
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import webpush from 'npm:web-push@3.6.7';
+import { reportFailure, validId } from '../_shared/errorReporting.ts';
 
 const cors = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type, x-client-info', 'Access-Control-Allow-Methods': 'POST, OPTIONS' };
 const json = (data: unknown, status = 200) => new Response(JSON.stringify(data), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
@@ -15,9 +16,10 @@ const endpointAllowed = (value: string) => {
 Deno.serve(async (request) => {
   if (request.method === 'OPTIONS') return new Response(null, { headers: cors });
   if (request.method !== 'POST') return json({ error: 'Método no permitido' }, 405);
+  let cron = false;
   try {
     const db = createClient(env('SUPABASE_URL'), env('SUPABASE_SERVICE_ROLE_KEY'), { auth: { persistSession: false } });
-    const cron = request.headers.get('x-push-secret') === env('PUSH_DISPATCH_SECRET');
+    cron = request.headers.get('x-push-secret') === env('PUSH_DISPATCH_SECRET');
     let only: string | null = null;
     if (!cron) {
       const token = request.headers.get('Authorization')?.replace(/^Bearer\s+/i, '');
@@ -25,6 +27,17 @@ Deno.serve(async (request) => {
       const { data: { user }, error } = await db.auth.getUser(token);
       if (error || !user) return json({ error: 'Sesión inválida' }, 401);
       const body = await request.json().catch(() => ({}));
+      if (body.monitoringTest === true) {
+        const comercio = validId(body.storeId);
+        const { data: member, error: memberError } = comercio
+          ? await db.from('retail_members').select('role').eq('store_id', comercio).eq('user_id', user.id).maybeSingle()
+          : { data: null, error: null };
+        if (memberError) throw memberError;
+        if (!member || !['owner', 'admin'].includes(member.role)) return json({ error: 'Solo la administración puede probar este aviso' }, 403);
+        const sent = await reportFailure(new Error('Prueba de aviso desde las funciones'),
+          { funcion: 'push-dispatch', comercio, prueba: true, fingerprint: ['prueba-aviso', 'funciones', String(Date.now())] });
+        return json({ sent });
+      }
       if (typeof body.deliveryId !== 'string' || !/^[0-9a-f-]{36}$/i.test(body.deliveryId)) return json({ error: 'Prueba inválida' }, 400);
       const { data: own, error: ownError } = await db.from('retail_push_deliveries').select('id,sent_at')
         .eq('id', body.deliveryId).eq('user_id', user.id).eq('kind', 'test').maybeSingle();
@@ -102,8 +115,10 @@ Deno.serve(async (request) => {
     }));
     return json({ accepted: statuses.filter(s => s === 'accepted').length, pending: statuses.filter(s => s === 'failed').length,
       expired: statuses.filter(s => s === 'expired').length, skipped: statuses.filter(s => s === 'skipped').length });
-  } catch {
+  } catch (error) {
     // Never log subscription endpoints, encryption keys or VAPID secrets.
+    // The scheduler runs every minute: one report per hour keeps a long outage from using up the quota.
+    if (!cron || new Date().getUTCMinutes() === 0) await reportFailure(error, { funcion: 'push-dispatch' });
     return json({ error: 'No se pudo enviar el aviso. Revisá la configuración del servicio push.' }, 503);
   }
 });

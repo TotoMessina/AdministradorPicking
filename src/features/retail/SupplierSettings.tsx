@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { useCallback, useEffect, useState } from 'react';
 import { FileCheck2, Truck } from 'lucide-react';
 import { NumberInput } from '../../components/NumberInput';
@@ -135,7 +136,7 @@ function SupplierForm({ storeId, supplier, initialName, format, busy, run, close
     {format && <p>
       <FileCheck2 size={14} aria-hidden="true" /> Formato de factura conocido ({format.samples} renglones confirmados): las facturas que coinciden se leen sin IA.{' '}
       <button type="button" className="text-button" disabled={busy} onClick={async () => {
-        if (!window.confirm(`¿Olvidar el formato de factura de ${format.supplier_name}? La próxima factura se lee con IA y se vuelve a aprender al aplicarla.`)) return;
+        if (!await askConfirm(`¿Olvidar el formato de factura de ${format.supplier_name}? La próxima factura se lee con IA y se vuelve a aprender al aplicarla.`)) return;
         if (await run(() => retail.deleteSupplierInvoiceFormat(storeId, format.supplier_name), 'Formato olvidado')) { onSaved(); close(); }
       }}>Olvidar formato</button>
     </p>}
@@ -143,7 +144,7 @@ function SupplierForm({ storeId, supplier, initialName, format, busy, run, close
     <div className="button-row">
       <button className="primary-button" disabled={busy || !valid}>{supplier ? 'Guardar cambios' : 'Guardar proveedor'}</button>
       {supplier && <button type="button" className="text-button danger-text" disabled={busy} onClick={async () => {
-        if (!window.confirm(`¿Eliminar ${supplier.name}? Los productos conservan el nombre del proveedor; solo se deja de proponer su descuento.`)) return;
+        if (!await askConfirm(`¿Eliminar ${supplier.name}? Los productos conservan el nombre del proveedor; solo se deja de proponer su descuento.`)) return;
         if (await run(() => retail.deleteSupplier(storeId, supplier), 'Proveedor eliminado')) { onSaved(); close(); }
       }}>Eliminar proveedor</button>}
     </div>

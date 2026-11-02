@@ -5,6 +5,7 @@
 
 import { createClient } from 'npm:@supabase/supabase-js@2.117.2';
 import forge from 'npm:node-forge@1.3.1';
+import { reportFailure, validId } from '../_shared/errorReporting.ts';
 
 const cors = {
   'Access-Control-Allow-Origin': '*',
@@ -317,6 +318,7 @@ Deno.serve(async (request) => {
     return json({ error: 'Método no permitido' }, 405);
   }
 
+  const place: { comercio?: string; sucursal?: string } = {};
   try {
     const supabaseUrl = env('SUPABASE_URL');
     const serviceRoleKey = env('SUPABASE_SERVICE_ROLE_KEY');
@@ -351,6 +353,8 @@ Deno.serve(async (request) => {
     }
 
     const { storeId, saleId, cbteTipo, puntoVenta, total, cuit, action } = body;
+    place.comercio = validId(storeId);
+    place.sucursal = validId(body.branchId);
 
     // 3. Validar permisos en el comercio
     const { data: member, error: memberError } = await db
@@ -453,6 +457,12 @@ Deno.serve(async (request) => {
       return json({ error: 'Parámetro saleId obligatorio para emitir comprobante' }, 400);
     }
 
+    // Una venta anulada no se factura: si ya tenía factura, corresponde una nota de crédito.
+    const { data: saleState } = await db.from('retail_sales').select('return_status').eq('id', saleId).eq('store_id', storeId).maybeSingle();
+    if (saleState?.return_status === 'voided') {
+      return json({ success: false, error: 'La venta fue anulada. No se emite factura.' }, 409);
+    }
+
     if (!store.billing_enabled) {
       return json({ error: 'La facturación electrónica está desactivada en este comercio' }, 400);
     }
@@ -510,6 +520,8 @@ Deno.serve(async (request) => {
 
     if (updateError) {
       console.warn('Error al persistir venta autorizada:', updateError);
+      // ARCA ya autorizó: sin este dato la venta queda sin su CAE en la base.
+      await reportFailure(new Error('CAE autorizado sin guardar en la venta'), { funcion: 'billing-authorize', ...place });
     }
 
     return json({
@@ -523,6 +535,7 @@ Deno.serve(async (request) => {
     });
   } catch (err: any) {
     console.error('Error en billing-authorize:', err);
+    await reportFailure(err, { funcion: 'billing-authorize', ...place });
     return json({
       success: false,
       error: err?.message || 'Error interno al procesar facturación con ARCA',

@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { CompositionFields } from './CompositionFields';
 import { useEffect, useRef, useState } from 'react';
 import { retail, errorMessage, type Product, type Category } from './api';
@@ -64,8 +65,8 @@ export function ProductCompositionEditor({ storeId, product, products, categorie
     </div>
     {hasComposition(product) && <details className="composition-other-options"><summary>Más opciones</summary>
       <p>Quitar los componentes deja este producto con stock propio 0. No borra ni modifica las existencias de sus ingredientes.</p>
-      <button type="button" className="text-button danger-text" disabled={busy || !active || loose} onClick={() => {
-        if (window.confirm(`¿Quitar los componentes de ${product.name}? Sus ingredientes conservan sus existencias; este producto queda con stock propio 0.`)) void save([]);
+      <button type="button" className="text-button danger-text" disabled={busy || !active || loose} onClick={async () => {
+        if (await askConfirm(`¿Quitar los componentes de ${product.name}? Sus ingredientes conservan sus existencias; este producto queda con stock propio 0.`)) void save([]);
       }}>Quitar componentes</button>
     </details>}
   </form>}

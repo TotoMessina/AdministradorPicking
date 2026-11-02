@@ -15,9 +15,11 @@ Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caj
 | --- | --- |
 | Reglas de trabajo y preferencias | [.agents/rules/directrices_trabajo.md](.agents/rules/directrices_trabajo.md) |
 | Instalación, historial y actualización SQL | [SUPABASE_SETUP.md](SUPABASE_SETUP.md) |
+| Copias de seguridad, restauración y datos sin cubrir | [Copias de seguridad](docs/respaldos.md) |
+| Avisos cuando la app falla en un comercio | [Aviso de fallas](docs/aviso-de-fallas.md) |
 | Productos, insumos, combos, bultos, margen, categorías y bajas | [Productos y stock](docs/productos-y-stock.md) |
 | Inicio guiado, Mi comercio, datos fiscales ARCA, equipo y perfiles | [Administración](docs/administracion.md) |
-| Registros, listas, retiros, remitos y transferencias | [Operación y mercadería](docs/operacion-y-mercaderia.md) |
+| Registros, listas, anulaciones y devoluciones, retiros, remitos y transferencias | [Operación y mercadería](docs/operacion-y-mercaderia.md) |
 | Memoria del proveedor, propuestas de precios y análisis locales | [IA y facturas](docs/ia-y-facturas.md) |
 | Caja preparada y sincronización | [OFFLINE_POS.md](OFFLINE_POS.md) |
 | Instalación PWA, notificaciones y servidor push | [PUSH_SETUP.md](PUSH_SETUP.md) |
@@ -32,6 +34,8 @@ Las guías reunieron documentos anteriores por funcionalidad. Los prompts ya eje
 La app activa está en `src/features/retail`; Vender usa `src/components/PosTab.tsx`. Los estilos se cargan desde `src/styles/app.ts`. Reutilizar componentes y tokens existentes, con la paleta actual.
 
 Única comprobación de código autorizada: `npx tsc --noEmit -p tsconfig.app.json`. No ejecutar builds, lint ni otras pruebas automatizadas durante el trabajo habitual. Las comprobaciones de navegador, móvil y backend las realiza el usuario y no se dan por hechas.
+
+GitHub Actions ([ci.yml](.github/workflows/ci.yml)) corre TypeScript, lint y `npm test` en cada push a `main` y en cada pull request. No usa secretos ni datos reales: la base es una simulación local en PGlite y las pruebas no salen a internet.
 
 Para actualizar el archivo SQL consolidado después de agregar una migración: `node scripts/generate-schema.mjs`. Genera archivos locales; no conecta a una base ni compila la app. No editar las migraciones ya registradas ni avanzar automáticamente el baseline confirmado.
 

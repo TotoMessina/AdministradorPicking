@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, Camera, CheckCircle2, Download, FileText, QrCode } from 'lucide-react';
 import { retail, errorMessage, type PurchaseInvoice, type SupplierPayment } from './api';
@@ -51,8 +52,8 @@ function TrackingEditor({ row, rows, payments, showBalance, storeId, busy, run, 
     </div>}
     {isDebitNote && !row.accepted_at && <div className="purchase-tracking-row">
       <span>Esta nota de débito queda «En revisión» hasta aceptarla. Revisá su respaldo antes.</span>
-      <button type="button" className="secondary-button" disabled={busy} onClick={() => {
-        if (window.confirm(`¿Aceptar la ${voucherName(row).replace('Nota', 'nota')} por ${formatMoney(row.total)}? Pasa a formar parte de lo que se debe.`)) void save({ accept: true }, 'Nota de débito aceptada');
+      <button type="button" className="secondary-button" disabled={busy} onClick={async () => {
+        if (await askConfirm(`¿Aceptar la ${voucherName(row).replace('Nota', 'nota')} por ${formatMoney(row.total)}? Pasa a formar parte de lo que se debe.`)) void save({ accept: true }, 'Nota de débito aceptada');
       }}>Aceptar nota de débito</button>
     </div>}
     {!isCredit && (row.review_reason
@@ -184,6 +185,8 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
           <span className="location-pill-badge active">{monthRows.length} {monthRows.length === 1 ? 'factura o nota' : 'facturas y notas'}</span>
           {unbalanced > 0 && <span className="location-pill-badge"><AlertTriangle size={11} /> {unbalanced} con importes que no coinciden</span>}
         </div>
+        <details className="supplier-rules">
+        <summary>Totales y planillas <small>Para el contador</small></summary>
         <dl className="purchase-list-totals">
           {totals.map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
         </dl>
@@ -198,6 +201,7 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
             ? `Hay ${unbalanced} con importes que no coinciden: corregilos antes de enviar la planilla.`
             : 'Revisá la planilla con tu contador antes de presentarla.'}</p>
         </div>
+        </details>
       </>}
       {view === 'open' && openRows.length > 0 && <div className="purchase-list-controls">
         <label className="purchase-list-month">Estado
@@ -229,8 +233,7 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
             {canAccount && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.status !== 'cancelled' && <span className="location-pill-badge">
               Saldo {formatMoney(account.balance)} · {dueLabel(account)}
             </span>}
-            {row.balanced ? <span className="location-pill-badge active"><CheckCircle2 size={11} /> Importes OK</span>
-              : <span className="location-pill-badge"><AlertTriangle size={11} /> Importes no coinciden</span>}
+            {!row.balanced && <span className="location-pill-badge"><AlertTriangle size={11} /> Importes no coinciden</span>}
             {row.qr_verified && <span className="location-pill-badge active"><QrCode size={11} /> QR</span>}
             {canAccount && onPay && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.balance > 0.005 && <button type="button" className="primary-button supplier-pay-button" disabled={busy} onClick={() => onPay(row.issuer_cuit, row.id)}>Pagar</button>}
           </div>}>
@@ -246,7 +249,7 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
             {canManage && <TrackingEditor row={row} rows={all} payments={payments} showBalance={canAccount} storeId={storeId} busy={busy} run={run} onSaved={changed} />}
             <p>Los importes no se editan: para corregirlos, eliminá el comprobante y volvé a registrarlo. Las diferencias comerciales se resuelven con notas de crédito o débito.</p>
             {canManage && <button type="button" className="text-button danger-text" disabled={busy} onClick={async () => {
-              if (!window.confirm(`¿Eliminar el comprobante ${voucherName(row)} de ${row.supplier_name}? El stock no cambia; las notas vinculadas quedan sin vincular.`)) return;
+              if (!await askConfirm(`¿Eliminar el comprobante ${voucherName(row)} de ${row.supplier_name}? El stock no cambia; las notas vinculadas quedan sin vincular.`)) return;
               if (await run(() => retail.deletePurchaseInvoice(storeId, row.id), 'Comprobante eliminado')) { close(); changed(); }
             }}>Eliminar comprobante</button>}
           </div>}

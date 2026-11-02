@@ -1,16 +1,14 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { PLATFORM_SQL } from './platform.mjs';
 const db = new PGlite();
 const scalar = async (q, p = []) => Object.values((await db.query(q, p)).rows[0])[0];
 const owner = crypto.randomUUID(), stranger = crypto.randomUUID();
 const login = async id => { await db.exec('reset role'); await db.query("select set_config('request.jwt.claim.sub',$1,false)", [id]); await db.exec('set role authenticated'); };
 const sync = operation => scalar('select retail_sync_operation($1)', [JSON.stringify(operation)]);
 try {
-  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls; create schema auth;
-    create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
-    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
-    grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
+  await db.exec(PLATFORM_SQL);
   for (const file of (await readdir('supabase/migrations')).filter(f => f.endsWith('.sql')).sort()) await db.exec((await readFile(`supabase/migrations/${file}`, 'utf8')).replace(/^\uFEFF/, ''));
   for (const id of [owner, stranger]) await db.query('insert into auth.users values($1,$2,now())', [id, `${id}@example.test`]);
   await login(owner);
@@ -18,7 +16,7 @@ try {
   const register = await scalar('select id from retail_registers where store_id=$1', [store]);
   const branch = await scalar('select branch_id from retail_registers where id=$1', [register]);
   const category = await scalar('select id from retail_categories where store_id=$1 limit 1', [store]);
-  const product = await scalar("insert into retail_products(store_id,category_id,name,code,price,stock) values($1,$2,'Café','CAFE',100,10) returning id", [store, category]);
+  const product = (await scalar('select retail_save_product_at_branch($1,$2,false,null,$3)', [store, JSON.stringify({ category_id: category, name: 'Café', code: 'CAFE', price: 100, stock: 10 }), branch])).id;
   await db.query('select retail_save_quick_products($1,$2,$3)', [store, branch, [product]]);
   assert.equal(await scalar('select product_id from retail_quick_products'), product);
   await assert.rejects(() => db.query('select retail_save_quick_products($1,$2,$3)', [store, branch, [product, product]]), /20 productos/);
@@ -42,8 +40,9 @@ try {
   assert.equal((await sync(sale)).ticketNumber, receipt.ticketNumber, 'retry after closure is safe');
   assert.equal(await scalar('select count(*) from retail_sales'), 1);
   assert.equal(Number((await db.query('select * from retail_popular_products($1,$2)', [store, branch])).rows[0].units), 2);
+  await db.query("select set_config('retail.inventory_location',$1,false)", [branch]);
   await db.query('update retail_products set stock=7 where id=$1', [product]);
-  const stockOperation = { id: crypto.randomUUID(), kind: 'stock', store, at: new Date().toISOString(), items: [{ product, delta: 5, cost: 40 }] };
+  const stockOperation = { id: crypto.randomUUID(), kind: 'stock', store, branch, at: new Date().toISOString(), items: [{ product, delta: 5, cost: 40 }] };
   await sync(stockOperation); await sync(stockOperation);
   assert.equal(await scalar('select stock from retail_products where id=$1', [product]), 12);
   assert.equal(await scalar('select count(*) from retail_stock_movements'), 1);

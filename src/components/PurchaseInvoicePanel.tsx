@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { useEffect, useId, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Loader2, QrCode, Sparkles } from 'lucide-react';
 import { NumberInput } from './NumberInput';
 import type { PurchaseInvoice } from '../features/retail/api';
@@ -32,9 +32,13 @@ export function PurchaseInvoicePanel({
   const id = useId();
   const set = (patch: Partial<PurchaseInvoiceDraft>) => onChange({ ...draft, ...patch });
   const ready = !checks.missing.length;
+  // Cerrado si está todo bien; se abre solo cuando hay algo para revisar.
+  const problem = manual || !ready || !checks.balanced || checks.receiverMismatch || !!duplicate || (qrStatus === 'found' && !checks.qrVerified);
+  const [open, setOpen] = useState(problem);
+  useEffect(() => { if (problem) setOpen(true); }, [problem]);
   const status = !ready ? `Faltan: ${checks.missing.join(', ')}` : checks.balanced ? 'Cierra con el total' : 'Revisar importes';
   return (
-    <details className="purchase-invoice-panel" open>
+    <details className="purchase-invoice-panel" open={open} onToggle={event => setOpen(event.currentTarget.open)}>
       <summary>
         Datos fiscales para el contador
         <small className={ready && checks.balanced ? 'is-ok' : 'is-warning'}>{status}</small>

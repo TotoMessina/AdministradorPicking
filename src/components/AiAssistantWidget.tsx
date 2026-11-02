@@ -10,7 +10,7 @@ import { summarizeMargins, marginPrompt } from '../features/retail/marginAnalyti
 
 interface Props {
   storeName?: string;
-  currentTab?: "pos" | "cash" | "catalog" | "settings" | "remito" | "ai";
+  currentTab?: "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "settings" | "remito" | "ai";
   products: KioscoProduct[];
   cart: KioscoCartItem[];
   total: number;

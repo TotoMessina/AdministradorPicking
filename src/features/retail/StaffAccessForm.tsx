@@ -12,7 +12,7 @@ export function StaffAccessForm({ storeId, run, busy, profiles = [], allowAdmin 
   const [saving, setSaving] = useState(false);
   const running = useRef(false);
   return <>
-    <p>Creá la cuenta de la persona con su email y una contraseña inicial. Si ya usa el sistema, autorizá su cuenta existente.</p>
+    <p>Escribí su email y elegí qué va a hacer.</p>
     <form className="retail-form staff-access-form" onSubmit={async event => {
       event.preventDefault();
       if (running.current || busy) return;
@@ -50,20 +50,19 @@ export function StaffAccessForm({ storeId, run, busy, profiles = [], allowAdmin 
       }
     }}>
       <fieldset disabled={busy || saving} className="staff-fields">
-        <label>Email del colaborador<input name="email" type="email" autoComplete="off" required maxLength={254} /></label>
-        <label>Rol<select name="role" value={staffRole} onChange={event => { setStaffRole(event.target.value as StaffRole); setProfileId(''); }}><option value="cashier">Cajero: ventas y caja</option><option value="supervisor">Supervisor: operación y consulta de ventas asignadas</option>{allowAdmin && <option value="admin">Administrador: catálogo y configuración</option>}</select></label>
-        {staffRole !== 'admin' && <label>Perfil de acciones<select value={profileId} onChange={event => setProfileId(event.target.value)}>
-          <option value="">Permisos habituales del rol</option>{profiles.filter(profile => profile.base_role === staffRole).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
+        <label>Email de la persona<input name="email" type="email" autoComplete="off" required maxLength={254} /></label>
+        <label>¿Qué va a hacer?<select name="role" value={staffRole} onChange={event => { setStaffRole(event.target.value as StaffRole); setProfileId(''); }}><option value="cashier">Cajero: cobra y maneja su caja</option><option value="supervisor">Supervisor: cobra y consulta ventas</option>{allowAdmin && <option value="admin">Administrador: maneja productos y configuración</option>}</select></label>
+        {staffRole !== 'admin' && profiles.some(profile => profile.base_role === staffRole) && <label>Perfil a medida<select value={profileId} onChange={event => setProfileId(event.target.value)}>
+          <option value="">Lo habitual para ese rol</option>{profiles.filter(profile => profile.base_role === staffRole).map(profile => <option key={profile.id} value={profile.id}>{profile.name}</option>)}
         </select></label>}
-        <small>El perfil se aplica desde el primer ingreso. Después podés limitar su sucursal y caja en la asignación de la persona.</small>
         <label className="staff-existing"><input type="checkbox" checked={existingAccount} onChange={event => { setExistingAccount(event.target.checked); setNotice(''); setError(''); }} />Ya tiene una cuenta en el sistema</label>
         {!existingAccount && <>
           <label>Contraseña inicial<input name="password" type="password" autoComplete="new-password" minLength={8} maxLength={72} required /></label>
           <label>Repetir contraseña<input name="confirmPassword" type="password" autoComplete="new-password" minLength={8} maxLength={72} required /></label>
-          <small>Al menos 8 caracteres. Compartí los datos con el colaborador. Si se solicita, deberá confirmar su email antes de entrar.</small>
+          <small>Al menos 8 caracteres. Pasale el email y la contraseña a la persona.</small>
         </>}
         {error && <div className="error-banner" role="alert">{error}</div>}
-        <button className="primary-button" type="submit">{saving ? 'Guardando…' : existingAccount ? 'Autorizar cuenta existente' : 'Crear cuenta y dar acceso'}</button>
+        <button className="primary-button" type="submit">{saving ? 'Guardando…' : existingAccount ? 'Dar acceso a su cuenta' : 'Dar acceso'}</button>
       </fieldset>
     </form>
     {notice && <div className="info-banner" role="status">{notice}</div>}

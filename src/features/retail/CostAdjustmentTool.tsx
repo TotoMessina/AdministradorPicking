@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Calculator } from 'lucide-react';
 import { retail, errorMessage, type CostAdjustmentProduct } from './api';
@@ -53,7 +54,7 @@ export function CostAdjustmentTool({ storeId, busy, run, active = true }: { stor
     const message = `¿Ajustar el costo de ${selected.length} producto${selected.length === 1 ? '' : 's'} de ${supplier}?`
       + (withMarkup ? ` ${withMarkup} tiene${withMarkup === 1 ? '' : 'n'} precio por porcentaje sobre costo y su precio de venta también cambia.` : '')
       + ' Los tickets anteriores no cambian.';
-    if (!window.confirm(message)) return;
+    if (!await askConfirm(message)) return;
     const changes = selected.map(product => ({ id: product.id, expected: product.cost, cost: cents(product.cost * factor) }));
     if (await run(() => retail.adjustProductCosts(storeId, changes), `Costos ajustados: ${changes.length} producto${changes.length === 1 ? '' : 's'}`)) await load();
   };

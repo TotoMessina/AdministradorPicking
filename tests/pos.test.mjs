@@ -10,6 +10,8 @@ Object.assign(globalThis, {
   HTMLElement: dom.window.HTMLElement,
   MutationObserver: dom.window.MutationObserver,
   localStorage: dom.window.localStorage,
+  requestAnimationFrame: (callback) => setTimeout(callback, 0),
+  cancelAnimationFrame: clearTimeout,
   IS_REACT_ACT_ENVIRONMENT: true,
 });
 Object.defineProperty(globalThis, "navigator", {
@@ -71,6 +73,10 @@ try {
       category: "Mi categoria propia",
     },
   ];
+  const addAgua = () => {
+    fireEvent.change(document.querySelector('[aria-label="Buscar producto o escanear código"]'), { target: { value: "Agua" } });
+    fireEvent.click(screen.getByRole("button", { name: /Agregar Agua/ }));
+  };
   const calls = [];
   let rejectNext = false;
   let finish;
@@ -96,8 +102,9 @@ try {
     );
   }
   render(React.createElement(Harness));
-  assert.ok(screen.getByRole("button", { name: "Mi categoria propia" }));
-  fireEvent.click(screen.getByRole("button", { name: /Agregar Agua/ }));
+  fireEvent.change(document.querySelector('[aria-label="Buscar producto o escanear código"]'), { target: { value: "Agua" } });
+  assert.match(document.querySelector(".pos-search-info small").textContent, /Mi categoria propia/);
+  addAgua();
   assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, true);
   fireEvent.click(screen.getByRole("button", { name: "Monto exacto" }));
   assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, false);
@@ -125,7 +132,7 @@ try {
   console.log(
     "PASS custom categories, cash validation, retained cart after failure, idempotent retry, product ID, pending guard and successful clearing",
   );
-  fireEvent.click(screen.getByRole("button", { name: /Agregar Agua/ }));
+  addAgua();
   fireEvent.click(screen.getByRole("button", { name: "QR", exact: true }));
   assert.equal(screen.getByRole("button", { name: /Cobrar/ }).disabled, true);
   fireEvent.click(screen.getByRole("checkbox"));
@@ -153,7 +160,7 @@ try {
     return React.createElement(ToastProvider, null, React.createElement(PosTab, { products, cart, setCart, onTriggerChecklist() {}, onCompleteSale: async sale => { instant.push(sale); } }));
   }
   render(React.createElement(KeyboardHarness));
-  const add = () => fireEvent.click(screen.getByRole('button', { name: /Agregar Agua/ }));
+  const add = addAgua;
   for (const [key, method] of [['F1', 'Efectivo'], ['F2', 'QR'], ['F3', 'Transferencia']]) {
     add();
     await React.act(async () => { fireEvent.keyDown(window, { key }); fireEvent.keyDown(window, { key, repeat: true }); });

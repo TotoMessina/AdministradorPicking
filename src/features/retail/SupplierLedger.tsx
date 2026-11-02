@@ -74,7 +74,12 @@ export function SupplierLedger({ storeId, active = true, version, onPay, onShowD
           {!overdue.length && !week.length && <p>Nada vencido ni por vencer esta semana.</p>}
         </div>
         <dl className="purchase-list-totals">
-          {totals.map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
+          {totals.slice(0, 3).map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
+        </dl>
+        <details className="supplier-rules">
+        <summary>Más detalle y planillas <small>Para el contador</small></summary>
+        <dl className="purchase-list-totals">
+          {totals.slice(3).map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
         </dl>
         <div className="purchase-list-export">
           <button type="button" className="secondary-button" onClick={() => downloadCsv(supplierBalancesCsv(summaries.map(summary => ({ name: nameOf(summary.cuit), summary }))), 'saldos-proveedores.csv')}>
@@ -88,6 +93,7 @@ export function SupplierLedger({ storeId, active = true, version, onPay, onShowD
             <Download size={15} /> Retenciones ({monthRetentions})
           </button>
         </div>
+        </details>
       </>}
       {summaries.map(summary => {
         const name = nameOf(summary.cuit);

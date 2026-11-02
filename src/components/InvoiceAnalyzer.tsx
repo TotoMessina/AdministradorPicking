@@ -1,3 +1,4 @@
+import { askConfirm } from './ConfirmHost';
 import { NumberInput } from './NumberInput';
 import { AiIcon } from './AiIcon';
 import { InvoiceReviewTable, type InvoiceReviewAttention } from './InvoiceReviewTable';
@@ -1150,7 +1151,7 @@ export function InvoiceAnalyzer({
       return;
     }
     if (duplicatePurchase) {
-      if (!window.confirm(`Este comprobante ya se registró el ${new Date(duplicatePurchase.created_at).toLocaleDateString('es-AR')}. ¿Aplicar igual la reposición? El comprobante no se registra de nuevo.`)) return;
+      if (!await askConfirm(`Este comprobante ya se registró el ${new Date(duplicatePurchase.created_at).toLocaleDateString('es-AR')}. ¿Aplicar igual la reposición? El comprobante no se registra de nuevo.`)) return;
       registerAfter = false;
     }
     const finalCost = (item: InvoiceItem, cost = item.unitCost) => finalCostAt(items.indexOf(item), cost);
@@ -1482,7 +1483,7 @@ export function InvoiceAnalyzer({
   const pendingCount = items.filter(item => item.matchedProduct && item.action !== 'skip' && item.linkStatus === 'pending').length;
   const sureCount = items.filter(isSureLink).length;
   const confirmSureButton = sureCount > 0 && <button type="button" className="secondary-button" disabled={mappingBusy} onClick={() => void confirmSureLinks()}>
-    {sureCount === 1 ? 'Confirmar el vínculo seguro' : `Confirmar los ${sureCount} seguros`}
+    {sureCount === 1 ? 'Confirmar el seguro' : `Confirmar los ${sureCount} seguros`}
   </button>;
 
   const filteredItems = useMemo(() => {
@@ -1993,8 +1994,8 @@ export function InvoiceAnalyzer({
             {cuitNotice && <p className="invoice-format-note" role="status">{cuitNotice}</p>}
             {readWithFormat.format ? <p className="invoice-format-note" role="status">
               Leída sin IA con el formato guardado de {readWithFormat.format.supplier_name}. Si algún renglón no coincide con la factura,{' '}
-              <button type="button" className="text-button" onClick={() => {
-                if (window.confirm('Se vuelve a leer la factura con IA y se descartan los cambios hechos en esta revisión. ¿Continuar?')) void handleParse({ useAi: true });
+              <button type="button" className="text-button" onClick={async () => {
+                if (await askConfirm('Se vuelve a leer la factura con IA y se descartan los cambios hechos en esta revisión. ¿Continuar?')) void handleParse({ useAi: true });
               }}>volvé a leerla con IA</button>.
             </p> : <p className="invoice-format-note" role="status">
               {readWithFormat.mismatch ? `La factura no coincidió con el formato guardado de ${readWithFormat.mismatch} y se leyó con IA. Al aplicarla se actualiza el formato.`
@@ -2003,9 +2004,9 @@ export function InvoiceAnalyzer({
                 : 'Leída con IA. Indicá el proveedor para que se aprenda su formato al aplicar la factura.'}
             </p>}
             <p className="invoice-link-summary" role="status">
-              {items.filter(item => item.linkStatus === 'auto').length} auto-vinculados · {pendingCount} pendientes de confirmar.
-              {!normalizeSupplierText(providerName) && ' Indicá el proveedor para recordar las vinculaciones.'}
-              {' '}Revisá los nuevos y los vínculos antes de aplicar.
+              {items.filter(item => item.linkStatus === 'auto').length} reconocidos solos · {pendingCount} para revisar.
+              {!normalizeSupplierText(providerName) && ' Indicá el proveedor para recordarlos la próxima vez.'}
+              {' '}Revisá los productos nuevos y los dudosos antes de aplicar.
               {pendingCount > sureCount && sureCount > 0 && ` ${pendingCount - sureCount} con dudas quedan para revisar uno por uno.`}
             </p>
             {confirmSureButton}
@@ -2202,7 +2203,7 @@ export function InvoiceAnalyzer({
                   setExpandedItems(previous => new Set(previous).add(index));
                   revealReviewItem(index, 'action');
                 }
-              }}>Revisar vínculos ({pendingCount})</button>}
+              }}>Revisar productos ({pendingCount})</button>}
             </div>
           </div>
         )}

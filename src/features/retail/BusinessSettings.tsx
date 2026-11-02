@@ -312,7 +312,7 @@ export function BranchSettings({
                 isDeleting ? (
                   <div className="location-confirm-box">
                     <span>
-                      ¿Eliminar la sucursal <strong>"{openBranch.name}"</strong>? Solo es posible si no tiene cajas activas ni historial de ventas, turnos, stock o transferencias.
+                      ¿Eliminar la sucursal <strong>"{openBranch.name}"</strong>? Solo es posible si no tiene cajas activas ni historial de ventas, cierres de caja, stock o transferencias.
                     </span>
                     <div className="location-edit-actions-right">
                       <button

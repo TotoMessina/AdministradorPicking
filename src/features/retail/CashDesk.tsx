@@ -19,6 +19,7 @@ import { SectionNav } from './SectionNav';
 import { CashDenominationFields } from './CashDenominationFields';
 import { CASH_DENOMINATIONS, cashDenominationsFromDraft, cashDenominationsTotal, closingCashDenominations, type CashDenominationDraft } from '../../services/cashDenominations';
 import './cash-desk.css';
+import { SaleReturn, SaleReturnBadge, saleNet } from './SaleReturn';
 const money = (v: number) =>
   "$" + Number(v).toLocaleString("es-AR", { maximumFractionDigits: 2 });
 export function CashDesk({
@@ -46,6 +47,7 @@ export function CashDesk({
   onCloseRequestHandled,
   allowIncome = true,
   allowWithdrawal = true,
+  canRefund = false,
 }: {
   storeId: string;
   register: Register | undefined;
@@ -71,6 +73,7 @@ export function CashDesk({
   onCloseRequestHandled?: () => void;
   allowIncome?: boolean;
   allowWithdrawal?: boolean;
+  canRefund?: boolean;
 }) {
   const taskId = useId();
   const [task, setTask] = useState<'movement' | 'close'>('movement');
@@ -255,29 +258,29 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
 
   return (
     <div className="cash-workspace cash-workspace-adaptive">
-      {balanceError && <div className="error-banner" role="alert"><p>No se pudo consultar el saldo del turno. Actualizá antes de cerrar. {balanceError}</p><button type="button" className="secondary-button" disabled={busy} onClick={onRefresh}>Actualizar turno</button></div>}
+      {balanceError && <div className="error-banner" role="alert"><p>No se pudo consultar cuánto hay en la caja. Actualizá antes de cerrar. {balanceError}</p><button type="button" className="secondary-button" disabled={busy} onClick={onRefresh}>Actualizar caja</button></div>}
       <div className="section-heading">
         <div>
-          <h2>{shift ? 'Mi turno' : 'Abrir turno'}</h2>
+          <h2>{shift ? 'Mi caja' : 'Abrir la caja'}</h2>
           <p>
             {shift
               ? `Desde ${new Date(shift.opened_at).toLocaleString("es-AR")}`
-              : "Confirmá el efectivo inicial antes de vender."}
+              : "Contá la plata antes de empezar a vender."}
           </p>
         </div>
-        <span className="cash-turn-state">{shift ? 'Turno abierto' : occupiedByOther ? 'Caja ocupada' : 'Sin turno abierto'}</span>
+        <span className="cash-turn-state">{shift ? 'Caja abierta' : occupiedByOther ? 'Caja ocupada' : 'Caja cerrada'}</span>
       </div>
       {shift && (
-          <section className="cash-summary cash-turn-summary" aria-label="Resumen del turno">
+          <section className="cash-summary cash-turn-summary" aria-label="Resumen de la caja">
           <div className="cash-metrics">
             <div>
-              <small>Efectivo inicial</small>
+              <small>Plata al abrir</small>
               <strong>{money(shift.opening_cash)}</strong>
             </div>
             {cashierMode ? (
               <>
                 <div>
-                  <small>Ventas del turno</small>
+                  <small>Ventas de esta caja</small>
                   <strong>{sales.length} {sales.length === 1 ? 'ticket' : 'tickets'}</strong>
                 </div>
                 <div>
@@ -285,7 +288,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   <strong>{money(electronic)}</strong>
                 </div>
                 <div className="blind-audit-metric-card">
-                  <small>Al cerrar turno</small>
+                  <small>Al cerrar la caja</small>
                   <strong className="blind-audit-status">
                     <span className="blind-audit-dot" aria-hidden="true" />
                     Contá el efectivo
@@ -303,7 +306,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   <strong>{money(electronic)}</strong>
                 </div>
                 <div>
-                  <small>Efectivo esperado</small>
+                  <small>Debería haber</small>
                   <strong>{money(expected)}</strong>
                 </div>
               </>
@@ -314,9 +317,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
       <div className="cash-shift-layout" data-operating={!shift || canOperate} data-single={openingOnly}>
       <div className="cash-operation">
       {!shift ? (
-        <section className="retail-panel cash-opening" aria-label="Apertura de turno">
-          <p>Ingresá el efectivo que hay en esta caja antes de empezar.</p>
-          {occupiedByOther && <div className="info-banner" role="status"><span>Esta caja está ocupada. Elegí otra disponible o actualizá cuando termine el turno actual.</span><button type="button" className="secondary-button" disabled={!active || busy} onClick={onRefresh}>Actualizar cajas</button></div>}
+        <section className="retail-panel cash-opening" aria-label="Abrir la caja">
+          <p>Contá la plata que hay ahora en esta caja. Si no hay nada, dejá 0.</p>
+          {occupiedByOther && <div className="info-banner" role="status"><span>Esta caja está ocupada. Elegí otra disponible o actualizá cuando se cierre.</span><button type="button" className="secondary-button" disabled={!active || busy} onClick={onRefresh}>Actualizar cajas</button></div>}
           <form
             className="retail-form"
             onSubmit={async (e) => {
@@ -326,12 +329,12 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               );
               if (active && register?.active && !occupiedByOther && !busy && await run(
                   () => openShift(storeId, register.id, opening),
-                  "Turno abierto",
+                  "Caja abierta",
                 )) onOpened?.();
             }}
           >
             <label>
-              Efectivo inicial ($)
+              ¿Cuánta plata hay en la caja? ($)
               <NumberInput
                 ref={openingRef}
                 disabled={!active || busy || !register?.active || occupiedByOther}
@@ -344,7 +347,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
               />
             </label>
             <button className="primary-button" disabled={!active || busy || !register || occupiedByOther || !register.active}>
-              Abrir turno
+              Abrir la caja
             </button>
           </form>
         </section>
@@ -356,9 +359,9 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             </div>
           )}
           {canOperate && <div className="cash-operation-nav" ref={taskActions}>
-            <SectionNav name={taskName} label="Acciones de tu turno" value={currentTask} disabled={busy || movementBusy}
+            <SectionNav name={taskName} label="Acciones de tu caja" value={currentTask} disabled={busy || movementBusy}
               onChange={value => setTask(value as 'movement' | 'close')}
-              sections={[...(allowIncome || allowWithdrawal ? [{ id: 'movement', label: 'Registrar movimiento' }] : []), { id: 'close', label: 'Cerrar turno' }]} />
+              sections={[...(allowIncome || allowWithdrawal ? [{ id: 'movement', label: 'Poner o sacar plata' }] : []), { id: 'close', label: 'Cerrar la caja' }]} />
           </div>}
           {canOperate && (
             <div className="cash-task-panels" ref={taskPanel}>
@@ -367,16 +370,16 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} active={active && currentTask === 'movement'} run={run} onBusyChange={setMovementBusy} allowIncome={allowIncome} allowWithdrawal={allowWithdrawal} />
               </section>
               <section className="retail-panel cash-task-panel" role="tabpanel" id={`${taskName}-panel-close`} aria-labelledby={`${taskName}-tab-close`} hidden={currentTask !== 'close'}>
-                <h2 tabIndex={-1}>Cerrar turno</h2>
+                <h2 tabIndex={-1}>Cerrar la caja</h2>
 
                 <div className="cash-close-summary-card">
                   <div>
-                    <small>Ventas del turno</small>
+                    <small>Ventas de esta caja</small>
                     <strong>{closingTickets} {closingTickets === 1 ? 'ticket' : 'tickets'}</strong>
                   </div>
                   {!cashierMode && (
                     <div>
-                      <small>Efectivo esperado</small>
+                      <small>Debería haber</small>
                       <strong>{money(expected)}</strong>
                     </div>
                   )}
@@ -401,7 +404,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     if (
                       await run(
                         () => retail.closeShift(shift.id, Number(counted), denominations),
-                        `Turno cerrado. Conteo guardado: ${money(Number(counted))}.`,
+                        `Caja cerrada. Conteo guardado: ${money(Number(counted))}.`,
                       )
                     ) {
                       setCounted("");
@@ -414,7 +417,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   }}
                 >
                   <label>
-                    Efectivo contado en caja ($)
+                    ¿Cuánta plata contaste? ($)
                     <NumberInput
                       ref={countedRef}
                       name="counted"
@@ -461,12 +464,12 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   )}
                   {closeAsked && (
                     <div className="info-banner" role="status">
-                      <span>¿Cerrar el turno de {register?.name} con {money(Number(counted))} contados?</span>
+                      <span>¿Cerrar {register?.name} con {money(Number(counted))} contados?{!cashierMode && shift && ` A la plata de la sucursal se suman ${money(Number(counted) - shift.opening_cash)}.`}</span>
                       <button type="button" className="text-button" onClick={() => setCloseAsked(false)}>Volver</button>
                     </div>
                   )}
                   <button disabled={!active || currentTask !== 'close' || busy || hasPendingSale || movementBusy || (cashierMode && serverBalance === null)} className="primary-button">
-                    {closeAsked ? 'Confirmar cierre' : 'Cerrar turno'}
+                    {closeAsked ? 'Sí, cerrar la caja' : 'Cerrar la caja'}
                   </button>
                 </form>
                 <div className="cash-optional-analysis" hidden={cashierMode}>
@@ -480,10 +483,10 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                       {isAiLoading ? (
                         <>
                           <Loader2 size={16} className="ai-spin-icon" />
-                          <span>Analizando turno con IA…</span>
+                          <span>Analizando la caja con IA…</span>
                         </>
                       ) : (
-                        <><AiIcon /><span>{aiError ? 'Reintentar explicación del turno' : 'Explicar este turno con IA'}</span></>
+                        <><AiIcon /><span>{aiError ? 'Reintentar explicación' : 'Explicar esta caja con IA'}</span></>
                       )}
                     </button>
                   )}
@@ -502,11 +505,11 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                     <div
                       className="shift-ai-analysis-card"
                       role="region"
-                      aria-label="Análisis IA del turno"
+                      aria-label="Análisis IA de la caja"
                     >
                       <div className="shift-ai-card-header">
                         <AiIcon className="shift-ai-header-icon" />
-                        <h4>Análisis Inteligente del Turno</h4>
+                        <h4>Análisis de la caja</h4>
                       </div>
                       <div className="shift-ai-card-content">
                         {aiAnalysis
@@ -544,14 +547,14 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
       )}
       </div>
       {!openingOnly && <section className="retail-panel cash-activity" aria-label="Actividad de esta caja">
-        <h2>{shift ? 'Actividad del turno' : cashierMode ? 'Tus últimos cierres' : 'Últimos cierres de esta caja'}</h2>
+        <h2>{shift ? 'Qué pasó en esta caja' : cashierMode ? 'Tus últimos cierres' : 'Últimos cierres de esta caja'}</h2>
         {shift && <SectionNav name={activityName} label="Consultar actividad" value={currentActivity} onChange={setActivity}
           sections={[{ id: 'movements', label: `Movimientos (${movements.length})` }, { id: 'sales', label: `Ventas (${sales.length})` }, { id: 'history', label: 'Cierres' }]} />}
         {shift && <>
           <section role="tabpanel" id={`${activityName}-panel-sales`} aria-labelledby={`${activityName}-tab-sales`} hidden={currentActivity !== 'sales'}>
-            <h3>Ventas del turno</h3>
-            <div className="table-scroll" tabIndex={0} role="region" aria-label="Lista de ventas del turno">
-              <table className="cash-responsive-table" role="table" aria-label="Ventas del turno">
+            <h3>Ventas de esta caja</h3>
+            <div className="table-scroll" tabIndex={0} role="region" aria-label="Lista de ventas de esta caja">
+              <table className="cash-responsive-table" role="table" aria-label="Ventas de esta caja">
                 <thead>
                   <tr>
                     <th>Ticket</th>
@@ -564,10 +567,10 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                 <tbody>
                   {sales.map((s) => (
                     <tr key={s.id} role="row">
-                      <td role="cell" data-label="Ticket">{s.ticketNumber}<small>{s.priceListName} · {s.ledgerName}</small></td>
+                      <td role="cell" data-label="Ticket">{s.ticketNumber}<SaleReturnBadge sale={s} /><small>{s.priceListName} · {s.ledgerName}</small></td>
                       <td role="cell" data-label="Hora">{s.timestamp}</td>
                       <td role="cell" data-label="Medio">{s.paymentMethod}</td>
-                      <td role="cell" data-label="Total">{money(s.total)}</td>
+                      <td role="cell" data-label="Total">{money(saleNet(s))}{!!s.returnedTotal && <small className="sale-amount-original">{money(s.total)}</small>}</td>
                       <td role="cell" data-label="Comprobante">
                         <button
                           className="text-button"
@@ -575,13 +578,14 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                         >
                           Ver ticket
                         </button>
+                        <SaleReturn storeId={storeId} sale={s} shiftId={canOperate ? shift?.id : undefined} canRefund={canRefund} run={run} busy={busy} />
                       </td>
                     </tr>
                   ))}
                   {!sales.length && (
                     <tr>
                       <td colSpan={5} className="table-empty">
-                        Todavía no hay ventas en este turno.
+                        Todavía no hay ventas en esta caja.
                       </td>
                     </tr>
                   )}
@@ -765,7 +769,7 @@ function ShiftHistory({
           </div>
         ))
       ) : (
-        <p>No hay ventas disponibles para consultar en este turno.</p>
+        <p>No hay ventas para consultar en esta caja.</p>
       )}
     </section>
   );

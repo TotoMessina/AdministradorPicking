@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { retail, errorMessage, type Product, type ProductDeletionRecord } from './api';
 import type { Run } from './Management';
@@ -18,7 +19,7 @@ export function ProductDeletionEditor({ storeId, product, active, busy, run, onC
     if (!active || busy || saving.current) return;
     saving.current = true; setError('');
     if (permanent) {
-      if (!window.confirm(`¿Eliminar definitivamente ${product.name}? Se borrará del catálogo y de la botonera. Esta acción no se puede deshacer.`)) {
+      if (!await askConfirm(`¿Eliminar definitivamente ${product.name}? Se borrará del catálogo y de la botonera. Esta acción no se puede deshacer.`)) {
         saving.current = false;
         return;
       }
@@ -130,7 +131,7 @@ export function DeletedProducts({ storeId, active, busy, run, onClose }: Common)
         <td>{row.currentActive === true ? 'En catálogo' : row.currentActive === null ? 'No disponible' : rows.findIndex(item => item.product_id === row.product_id) === index && (
           <div className="button-row" style={{ gap: '0.4rem', flexWrap: 'wrap' }}>
             <button type="button" className="secondary-button" disabled={busy || loading} onClick={async () => {
-              if (!active || busy || restoring.current || !window.confirm(`¿Restaurar ${row.product_name} al catálogo? Se conservarán sus datos y stock actuales.`)) return;
+              if (!active || busy || restoring.current || !await askConfirm(`¿Restaurar ${row.product_name} al catálogo? Se conservarán sus datos y stock actuales.`)) return;
               restoring.current = true; setError('');
               const request = requests.current.get(row.product_id) || randomUUID();
               requests.current.set(row.product_id, request);
@@ -147,7 +148,7 @@ export function DeletedProducts({ storeId, active, busy, run, onClose }: Common)
               } finally { restoring.current = false; }
             }} aria-label={`Restaurar ${row.product_name}`}>Restaurar</button>
             <button type="button" className="danger-button" disabled={busy || loading} onClick={async () => {
-              if (!active || busy || !window.confirm(`¿Eliminar definitivamente ${row.product_name}? Se borrará del catálogo y de la botonera. Esta acción no se puede deshacer.`)) return;
+              if (!active || busy || !await askConfirm(`¿Eliminar definitivamente ${row.product_name}? Se borrará del catálogo y de la botonera. Esta acción no se puede deshacer.`)) return;
               setError('');
               try {
                 const ok = await run(async () => {

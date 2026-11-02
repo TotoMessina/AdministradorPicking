@@ -1,4 +1,5 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from '../../lib/supabase';
+import { reportSyncConflict } from '../../lib/errorReporting';
 import type { Session } from '@supabase/supabase-js';
 import type { KioscoSale } from '../../types/kiosco';
 import type { Product, Store, Shift, Register, Movement, Branch, PriceList, PriceOverride, SalesLedger } from './api';
@@ -137,6 +138,7 @@ export async function syncOffline() {
       if (error) {
         // Transport failures stay retryable. Business/authorization failures are explicit conflicts.
         if (error.code && !['PGRST000', 'PGRST001', 'PGRST002', 'PGRST003'].includes(error.code)) {
+          reportSyncConflict(entry.operation.kind, error.code);
           await transaction(user, s => { const current = s.queue.find(q => q.operation.id === entry.operation.id); if (current) current.error = entry.operation.kind === 'close_details' && error.message === 'Operación no admitida'
             ? 'Falta actualizar el cierre con billetes en Supabase. Aplicá schema.sql con 202610240001_shift_closing_details.sql y reintentá. El cierre y su detalle siguen guardados en este dispositivo.' : error.message; }, true);
         }
@@ -412,6 +414,9 @@ export function withOffline<T extends Remote>(source: T): T {
       });
       if (property === 'savePriceListTree' || property === 'savePriceList' || property === 'savePriceOverride' || property === 'deletePriceList') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar listas o precios fijos. El borrador se conserva.');
+      });
+      if (property === 'returnSale') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de anular o devolver una venta. El motivo se conserva.');
       });
       if (property === 'archiveProduct' || property === 'restoreProduct' || property === 'deleteProductPermanently') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de eliminar o restaurar productos.');

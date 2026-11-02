@@ -1,7 +1,11 @@
+import { ConfirmHost } from './components/ConfirmHost'
 import './utils/uuid';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client'
 import App from './App'
+import { initErrorReporting, uncaughtRenderError } from './lib/errorReporting';
+
+initErrorReporting();
 
 // Opt-in development worker supports push without caching Vite or hot reload.
 if ((import.meta.env.PROD || import.meta.env.VITE_ENABLE_DEV_PWA === 'true') && 'serviceWorker' in navigator) {
@@ -11,8 +15,9 @@ if ((import.meta.env.PROD || import.meta.env.VITE_ENABLE_DEV_PWA === 'true') && 
   });
 }
 
-createRoot(document.getElementById('root')!).render(
+createRoot(document.getElementById('root')!, { onUncaughtError: uncaughtRenderError }).render(
   <StrictMode>
     <App />
+    <ConfirmHost />
   </StrictMode>,
 )

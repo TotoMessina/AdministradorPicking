@@ -77,7 +77,7 @@ export function salesCsv(rows: import('../../types/kiosco').KioscoSale[]): strin
     }
   };
   return '\uFEFF' + [
-    ['ID', 'Ticket', 'Fecha', 'Sucursal', 'Caja', 'Lista', 'Registro', 'Estado fiscal ARCA', 'Tipo comprobante', 'Nro comprobante', 'CAE', 'Vto CAE', 'Estado de comprobante', 'Referencia externa', 'Medio', 'Total', 'Desglose de pagos'],
+    ['ID', 'Ticket', 'Fecha', 'Sucursal', 'Caja', 'Lista', 'Registro', 'Estado fiscal ARCA', 'Tipo comprobante', 'Nro comprobante', 'CAE', 'Vto CAE', 'Estado de comprobante', 'Referencia externa', 'Medio', 'Total', 'Desglose de pagos', 'Devuelto', 'Total neto', 'Estado de devolución'],
     ...rows.map(s => [
       s.id,
       s.ticketNumber,
@@ -96,6 +96,9 @@ export function salesCsv(rows: import('../../types/kiosco').KioscoSale[]): strin
       s.paymentMethod,
       s.total.toFixed(2).replace('.', ','),
       (s.payments || [{ method: s.paymentMethod, amount: s.total }]).map(p => `${p.method}: ${p.amount.toFixed(2).replace('.', ',')}`).join(' / '),
+      (s.returnedTotal || 0).toFixed(2).replace('.', ','),
+      (s.total - (s.returnedTotal || 0)).toFixed(2).replace('.', ','),
+      s.returnStatus === 'voided' ? 'Anulada' : s.returnStatus === 'partial' ? 'Devolución parcial' : 'Sin devolución',
     ]),
   ].map(row => row.map(cell).join(';')).join('\r\n');
 }

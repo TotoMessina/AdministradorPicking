@@ -13,7 +13,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 
 **Proveedores → Facturas → Subir foto de factura** abre el mismo importador con la sucursal elegida en Productos y al cerrarlo vuelve a Facturas. En la revisión, **Confirmar los N seguros** confirma de una vez los vínculos con confianza de 85% o más, costo leído y sin conflicto de código ni de presentación; los dudosos siguen uno por uno.
 
-**Productos → Más herramientas → Importar factura de compra** mantiene la lectura local con Tesseract y el análisis voluntario con Groq. Subir una imagen no modifica productos ni stock. El modelo general y la configuración por entorno se conservan; no se agrega otro proveedor de IA ni dependencias.
+**Productos → Recibir mercadería** mantiene la lectura local con Tesseract y el análisis voluntario con Groq. Subir una imagen no modifica productos ni stock. El modelo general y la configuración por entorno se conservan; no se agrega otro proveedor de IA ni dependencias.
 
 La lectura conserva proporciones de fotos y tickets largos, limita el tamaño total del lienzo y evita una compresión JPEG adicional. Si el primer OCR tiene poco texto o baja confianza, compara otra distribución de columnas. La limpieza conserva cantidades/códigos aislados y productos con «Original» en el nombre. Los PDF escaneados se leen página por página a resolución propia, en lugar de usar solo la miniatura de la primera. Si no puede leer una página, informa cuál y no presenta un documento parcial como completo.
 
@@ -109,7 +109,7 @@ Las RPC usan `security invoker` y RLS de membresía, incluyendo propietario, adm
 
 #### Guía de Pruebas de alias — pendiente de ejecución manual
 
-En **http://localhost:3001/**, usar un comercio de pruebas y Productos → Más herramientas → Importar factura de compra. Aplicar las dos migraciones en orden en ese entorno; no importar stock ficticio en producción.
+En **http://localhost:3001/**, usar un comercio de pruebas y Productos → Recibir mercadería. Aplicar las dos migraciones en orden en ese entorno; no importar stock ficticio en producción.
 
 1. Procesar un comprobante con «ALF JORG CHOC X24», elegir el producto correcto y pulsar **Confirmar y recordar**. Verificar confianza 1, presentación 24 y contador 1 en Supabase. Abrir **Ver alias del proveedor**: debe figurar la equivalencia con su fecha.
 2. Repetir la confirmación con el mismo proveedor hasta tener 3 usos. Desde el segundo aparece el badge; en el próximo análisis sin contradicciones debe aparecer **Auto-vinculado**, incrementarse una vez el contador y actualizarse la fecha. Repetir el renglón en una misma factura: no debe sumar varios usos automáticos del mismo alias.
@@ -125,7 +125,7 @@ La validación de SQL, RLS, concurrencia entre dispositivos, Groq y presentació
 
 Abrir **http://localhost:3001/** con un comercio de pruebas, después de aplicar únicamente la migración correspondiente. No aplicar reposiciones ni ventas ficticias en producción para verificar la memoria.
 
-1. **Datos antiguos:** conservar una copia del JSON local; abrir Productos → Más herramientas → Importar factura de compra. Esperado: subir los vínculos del comercio actual, limpiar su clave antigua al completar, guardar caché e indicador. Cerrar y abrir otra vez: no volver a incrementar los contadores por importar la caché.
+1. **Datos antiguos:** conservar una copia del JSON local; abrir Productos → Recibir mercadería. Esperado: subir los vínculos del comercio actual, limpiar su clave antigua al completar, guardar caché e indicador. Cerrar y abrir otra vez: no volver a incrementar los contadores por importar la caché.
 2. **Confirmación:** procesar una factura, elegir un producto y Confirmar y recordar. Esperado: una fila con proveedor normalizado, descripción original, producto y bulto; `times_used=1`. Volver a confirmar la misma combinación: misma fila, contador incrementado y fecha actualizada. Un doble clic mientras guarda no debe enviar dos confirmaciones.
 3. **Otro dispositivo/usuario:** entrar como otro miembro del mismo comercio desde un navegador sin datos locales, procesar el mismo texto y proveedor. Esperado: recuperar la memoria compartida y proponer el producto recordado, conservando las revisiones por código incompatible.
 4. **Offline preparado:** cargar vínculos con conexión, desconectar y volver a consultarlos. Esperado: lectura desde caché. Confirmar otro vínculo: aviso de guardado local pendiente, sin perder el formulario. Reconectar y pulsar Reintentar sincronización: comprobar fila remota, limpieza de pendientes y disponibilidad desde el segundo dispositivo.
@@ -137,7 +137,7 @@ Abrir **http://localhost:3001/** con un comercio de pruebas, después de aplicar
 
 ## Proveedores y descuento por comercio
 
-Cada comercio ve sus proveedores en **Mi comercio → Proveedores**, sección principal junto a Datos del comercio, Locales y cajas y Personas con acceso (administradores; delegados con `manage_products` la ven como sección Proveedores si acceden a Mi comercio). La lista une los proveedores con descuento guardado y los que solo tienen un formato de factura aprendido (aparecen con **Sin descuento** y la acción **Agregar descuento**). Cada proveedor tiene nombre, **descuento que te hace** (0 a menos de 100%, hasta dos decimales), notas y, si existe, la insignia **Factura conocida · N leídas sin IA** con la acción **Olvidar formato** dentro de su edición. Lectura para todo miembro; alta, edición, eliminación y olvido de formato por RPC con `manage_products` y control de revisión. Requiere conexión. Eliminar un proveedor no cambia productos, costos, alias ni su formato: solo deja de proponerse su descuento.
+Cada comercio ve sus proveedores en **Proveedores**, sección principal junto a Datos del comercio, Locales y cajas y Personas con acceso (administradores; delegados con `manage_products` la ven como sección Proveedores si acceden a Mi comercio). La lista une los proveedores con descuento guardado y los que solo tienen un formato de factura aprendido (aparecen con **Sin descuento** y la acción **Agregar descuento**). Cada proveedor tiene nombre, **descuento que te hace** (0 a menos de 100%, hasta dos decimales), notas y, si existe, la insignia **Factura conocida · N leídas sin IA** con la acción **Olvidar formato** dentro de su edición. Lectura para todo miembro; alta, edición, eliminación y olvido de formato por RPC con `manage_products` y control de revisión. Requiere conexión. Eliminar un proveedor no cambia productos, costos, alias ni su formato: solo deja de proponerse su descuento.
 
 **Al cargar una factura**, el campo **Proveedor** ofrece en la lista los proveedores guardados y los de formato conocido, y debajo explica qué va a pasar: descuento que se aplicará, si su formato es conocido (se lee sin IA) o si es nuevo (al aplicar se recuerdan vínculos y formato). Vacío, el proveedor se detecta: primero por un nombre de formato conocido en la cabecera y, si no, con la IA.
 
@@ -161,7 +161,7 @@ Las secciones con datos guardados se abren solas. Si al guardar hay un error en 
 #### Guía de Pruebas — ficha completa, pendiente de ejecución manual
 
 1. SQL Editor: aplicar 202610290005 y 202610290006, en ese orden.
-2. En **http://localhost:3001/**, Mi comercio → Proveedores → Editar: completar razón social, Responsable Inscripto, domicilios, contacto, alias `castilla.pagos`, plazo 30 y guardar. Esperado: la lista muestra «Responsable Inscripto» y «A 30 días»; al volver a editar, los datos están y sus secciones abiertas.
+2. En **http://localhost:3001/**, Proveedores → Editar: completar razón social, Responsable Inscripto, domicilios, contacto, alias `castilla.pagos`, plazo 30 y guardar. Esperado: la lista muestra «Responsable Inscripto» y «A 30 días»; al volver a editar, los datos están y sus secciones abiertas.
 3. CBU `2850590940090418135202` con la sección Pago cerrada → Guardar. Esperado: la sección se abre, el CBU queda enfocado con «El CBU no es válido» y no se guarda. Con `2850590940090418135201`: se guarda.
 4. Correo `admin@castilla`, alias `ab` o plazo 400: aviso en el campo y no se guarda.
 5. Vaciar un dato y guardar: queda vacío. Guardar solo el descuento de otro proveedor: su ficha no cambia.
@@ -191,7 +191,7 @@ SQL: `202610290007_purchase_invoice_tracking.sql`, **no aplicado remotamente**.
 
 ### Pagos a proveedores
 
-Etapa C de la cuenta corriente, en Mi comercio → Proveedores → **Pagos a proveedores**. Requiere el permiso «Cuenta corriente de proveedores» (`manage_supplier_accounts`) y conexión.
+Etapa C de la cuenta corriente, en Proveedores → **Pagos a proveedores**. Requiere el permiso «Cuenta corriente de proveedores» (`manage_supplier_accounts`) y conexión.
 
 - **Registrar pago**: proveedor, fecha, medio (efectivo de caja, transferencia, cheque u otro), importe, referencia y notas. **Retenciones** (IVA, Ganancias, IIBB, SUSS) con número de certificado: cancelan deuda aunque no sea dinero entregado.
 - **Aplicar a comprobantes**: importes por factura o nota de débito, o «Repartir desde el más antiguo». No se puede superar el saldo de cada comprobante ni el total del pago.
@@ -208,7 +208,7 @@ SQL: `202610300001_supplier_payments.sql` aplicado por el usuario el 30/10/2026;
 #### Guía de Pruebas — pagos, pendiente de ejecución manual
 
 1. SQL Editor: aplicar `202610300001_supplier_payments.sql`.
-2. En **http://localhost:3001/**, Mi comercio → Proveedores → Pagos a proveedores → Registrar pago: LYGA, transferencia, $1.000, referencia, aplicado a su factura. Esperado: el saldo baja $1.000 en «Con saldo pendiente» y el detalle muestra neto e IVA.
+2. En **http://localhost:3001/**, Proveedores → Pagos a proveedores → Registrar pago: LYGA, transferencia, $1.000, referencia, aplicado a su factura. Esperado: el saldo baja $1.000 en «Con saldo pendiente» y el detalle muestra neto e IVA.
 3. Pago de $5.000 aplicando $2.000: queda «A favor $3.000». Desde su detalle, aplicar $1.000 a un comprobante.
 4. Retención IIBB $500 con transferencia de $1.000: el total del pago es $1.500. Aplicar más que el total o que el saldo: rechazo.
 5. Con turno abierto: efectivo $1.000, turno y comprobante. Esperado: el retiro aparece en Caja como pago a proveedor y el efectivo esperado baja. Sin turno abierto: aviso. Sin comprobante: rechazo.
@@ -219,7 +219,7 @@ SQL: `202610300001_supplier_payments.sql` aplicado por el usuario el 30/10/2026;
 
 ### Vistas de Proveedores
 
-Mi comercio → Proveedores se divide en cuatro vistas, una por tarea: **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (datos de cada proveedor, y «Ajustar costos existentes» plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
+Proveedores se divide en cuatro vistas, una por tarea: **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (datos de cada proveedor, y «Ajustar costos existentes» plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
 
 Cuentas abre con lo urgente: vencido y por vencer en 7 días, con importe y cantidad; al tocarlo, Facturas muestra esas mismas filas.
 
@@ -231,7 +231,7 @@ La pantalla usa lenguaje simple: «¿Qué factura estás pagando?», «A tu favo
 
 ### Cuenta corriente con proveedores
 
-Etapa D, en Mi comercio → Proveedores → **Cuenta corriente**, con el permiso «Cuenta corriente de proveedores». No requiere SQL nuevo: se calcula con comprobantes y pagos.
+Etapa D, en Proveedores → **Cuenta corriente**, con el permiso «Cuenta corriente de proveedores». No requiere SQL nuevo: se calcula con comprobantes y pagos.
 
 - **Resumen**: saldo total, vencido, a 7 días, a 30 días, más adelante y a favor, general y por proveedor. El saldo es la deuda menos notas de crédito sin vincular y anticipos.
 - **Movimientos**: «Ver movimientos» lista cada proveedor por fecha con importe y saldo acumulado, como el ejemplo de la planilla. Facturas y notas de débito suman; notas de crédito y pagos (con sus retenciones) restan. Los pagos anulados no cuentan. Las notas de débito sin aceptar y los comprobantes en revisión figuran y suman, con su aclaración.
@@ -242,7 +242,7 @@ No incluye: avisos automáticos de vencimiento, orden de compra ni vínculo con 
 
 #### Guía de Pruebas — cuenta corriente, pendiente de ejecución manual
 
-1. En **http://localhost:3001/**, Mi comercio → Proveedores → Cuenta corriente. Esperado: un renglón por proveedor; la suma de saldos coincide con «Saldo total».
+1. En **http://localhost:3001/**, Proveedores → Cuenta corriente. Esperado: un renglón por proveedor; la suma de saldos coincide con «Saldo total».
 2. «Ver movimientos» de un proveedor con factura, nota de crédito y pago: el saldo acumulado baja en cada renglón y el saldo final coincide con el resumen.
 3. Anular un pago: desaparece de los movimientos y el saldo sube.
 4. Descargar saldos, pagos, retenciones y movimientos, y abrirlos en Excel: columnas separadas, coma decimal y acentos correctos.
@@ -264,8 +264,8 @@ SQL: `202610270005_supplier_invoice_formats.sql` (tabla `retail_supplier_invoice
 ### Guía de Pruebas — pendiente de ejecución manual
 
 1. Aplicar las actualizaciones pendientes en el SQL Editor del proyecto AdministradorKiosco según [Instalación](../SUPABASE_SETUP.md#actualización-individual-después-de-conciliar-34-migraciones). Esperado: 43 migraciones, última `202610280001_supplier_alias_usage_repair.sql` (repara la memoria de alias si la 202610200002 quedó registrada sin efecto).
-2. En **http://localhost:3001/**, Mi comercio → Proveedores → Agregar proveedor: nombre igual al de una factura y 10%. Esperado: aparece con «Descuento 10%». Repetir el mismo nombre con otra grafía de mayúsculas o tildes: se rechaza como duplicado.
-3. Productos → Importar factura: escribir el proveedor. Esperado: debajo «Descuento 10%.»; con un nombre nuevo, «Proveedor nuevo: …». Analizar: «Proveedor» y «Descuento» en 10 con «Descuento guardado de …», «Costo factura / u.» y «Final $… · −10%» bajo cada costo.
+2. En **http://localhost:3001/**, Proveedores → Agregar proveedor: nombre igual al de una factura y 10%. Esperado: aparece con «Descuento 10%». Repetir el mismo nombre con otra grafía de mayúsculas o tildes: se rechaza como duplicado.
+3. Productos → Recibir mercadería: escribir el proveedor. Esperado: debajo «Descuento 10%.»; con un nombre nuevo, «Proveedor nuevo: …». Analizar: «Proveedor» y «Descuento» en 10 con «Descuento guardado de …», «Costo factura / u.» y «Final $… · −10%» bajo cada costo.
 4. Cambiar el descuento a 8: ayuda «Solo para esta factura», botones «Usar 10%» y «Guardar 8% para próximas facturas». Guardar: mensaje de confirmación y Proveedores muestra 8%. Ingresar 100: Aplicar reposición se bloquea y enfoca el campo. Con un proveedor sin guardar y 5%: aparece «Guardar «nombre» con 5%».
 5. Navegar con Tab hasta el nombre del proveedor en la revisión y pulsar Enter: se puede editar; **Listo** lo cierra.
 6. Aplicar una factura con columnas fijas y al menos 3 productos, por ejemplo la foto de una factura LYGA (`995 ALF SHOT PASTA DE MANI 54X44G x1 un 21% 3 3 x 1u. 606,91 1.820,73`). Esperado en la pantalla final: «Formato de … guardado». En Proveedores: insignia «Factura conocida».
@@ -277,7 +277,7 @@ SQL: `202610270005_supplier_invoice_formats.sql` (tabla `retail_supplier_invoice
 
 ### Ficha fiscal y reglas de lectura por proveedor
 
-Cada proveedor puede tener **CUIT** y **Cómo factura este proveedor** (Mi comercio → Proveedores → Editar). Sin datos cargados, la lectura funciona como antes.
+Cada proveedor puede tener **CUIT** y **Cómo factura este proveedor** (Proveedores → Editar). Sin datos cargados, la lectura funciona como antes.
 
 - **CUIT**: se valida el dígito verificador y no puede repetirse en el comercio. Al leer una factura sin proveedor indicado, se buscan en el texto CUIT válidos (`30-70817362-9`, `30708173629`); si coincide exactamente uno registrado, ese proveedor se usa para el formato aprendido, el descuento, la memoria de alias y las reglas, y la revisión muestra «Proveedor reconocido por su CUIT …». El CUIT del comercio receptor no coincide con ningún proveedor y se ignora.
 - **Cantidad facturada → Siempre por unidad suelta**: el "X60" o "54X44G" de la descripción se trata como tamaño de caja; cada renglón queda con 1 unidad por bulto. En modo automático, un renglón que termina en `x1 un` o `x 1 u.` (LYGA) también se toma por unidad.
@@ -309,7 +309,7 @@ Las indicaciones de IVA y columna aplican cuando el proveedor se conoce antes de
 ### Guía de Pruebas — ficha fiscal, pendiente de ejecución manual
 
 1. SQL Editor (proyecto correcto): aplicar `202610290002_supplier_fiscal_profile.sql`. Esperado: sin errores.
-2. En **http://localhost:3001/**, Mi comercio → Proveedores → Editar un proveedor: CUIT `30-71114538-6`. Esperado: «El CUIT no es válido» y Guardar deshabilitado. Con `30711145385`: al salir del campo se muestra `30-71114538-5`; al guardar aparecen las insignias «CUIT 30-71114538-5». Cargar el mismo CUIT en otro proveedor: se rechaza.
+2. En **http://localhost:3001/**, Proveedores → Editar un proveedor: CUIT `30-71114538-6`. Esperado: «El CUIT no es válido» y Guardar deshabilitado. Con `30711145385`: al salir del campo se muestra `30-71114538-5`; al guardar aparecen las insignias «CUIT 30-71114538-5». Cargar el mismo CUIT en otro proveedor: se rechaza.
 3. Importar la factura de LYGA sin escribir el proveedor. Esperado: «Proveedor reconocido por su CUIT 30-71114538-5», proveedor LYGA y ALF SHOT con 3 unidades a $606,91 (no 162 unidades a $11,24).
 4. Supdrink con «Bonificaciones en renglón aparte» e «importe incluye IVA»: VILLAVICENCIO queda en un renglón de 2 packs a $5.530,84 por pack.
 5. Mabelherdi con «Siempre por unidad suelta»: PEP RUEDITAS 40GX60 queda en 4 unidades a $767,41.
@@ -336,7 +336,7 @@ SQL: `202610290003_purchase_invoices.sql`, **no aplicado remotamente** ([Instala
 
 1. SQL Editor (proyecto correcto): aplicar 202610290002 y 202610290003, en ese orden. Esperado: sin errores.
 2. En **http://localhost:3001/**, Mi comercio → Datos del comercio: el CUIT del comercio cargado en facturación.
-3. Productos → Importar factura con la foto de Mabelherdi. Esperado: «Buscando el código QR…» y luego «Verificado con el QR de ARCA», o «No se encontró el QR» si la foto no alcanza; cabecera Factura A, 00007-00366648, 28/09/2026, CUIT 30-67804306-7.
+3. Productos → Recibir mercadería con la foto de Mabelherdi. Esperado: «Buscando el código QR…» y luego «Verificado con el QR de ARCA», o «No se encontró el QR» si la foto no alcanza; cabecera Factura A, 00007-00366648, 28/09/2026, CUIT 30-67804306-7.
 4. «Completar importes vacíos con IA». Esperado: neto 21% $64.285,68, IVA $13.499,99, percepción IIBB $2.571,43, total $80.357,10 y «Cierra». Cambiar el IVA a 13.000: aparece la diferencia en rojo.
 5. Aplicar la reposición. Esperado: pantalla final «Comprobante registrado para el contador». En Proveedores → Comprobantes de compra (mes 09/2026): el comprobante con «Cierra» y «QR».
 6. Volver a importar la misma factura. Esperado: aviso «Este comprobante ya se registró…»; al aplicar, confirmación; aceptar aplica la mercadería sin registrar otro comprobante.
@@ -360,7 +360,7 @@ costo final = costo facturado − descuento del proveedor, + IVA si la factura v
 
 Ejemplo, CLAN: neto $580.426,55, IVA 21%, internos $2.167.549,16. Cada atado queda en neto × 1,21 más su parte de internos.
 
-**Ajustar costos existentes** (Mi comercio → Proveedores): elegir el proveedor (texto «Proveedor» de los productos) y el ajuste (sumar IVA 21% o 10,5%, o quitar 21% para deshacer). La vista previa lista costo actual → nuevo; se pueden destildar productos. No incluye combos ni costos en 0. Al confirmar se ajustan todos o ninguno; los productos con precio por porcentaje recalculan su precio de venta. Los tickets anteriores no cambian.
+**Ajustar costos existentes** (Proveedores): elegir el proveedor (texto «Proveedor» de los productos) y el ajuste (sumar IVA 21% o 10,5%, o quitar 21% para deshacer). La vista previa lista costo actual → nuevo; se pueden destildar productos. No incluye combos ni costos en 0. Al confirmar se ajustan todos o ninguno; los productos con precio por porcentaje recalculan su precio de venta. Los tickets anteriores no cambian.
 
 ### Guía de Pruebas — costo final, pendiente de ejecución manual
 
@@ -370,7 +370,7 @@ Ejemplo, CLAN: neto $580.426,55, IVA 21%, internos $2.167.549,16. Cada atado que
 4. CLAN: cargar impuestos internos $2.167.549,16 en los datos fiscales. Esperado: casilla «Repartir impuestos internos» marcada y «+internos» bajo cada costo.
 5. Proveedor Castilla con «Precios de la factura → Ya incluyen IVA…»: la revisión no suma IVA ni internos.
 6. Aplicar y revisar el costo del producto en Productos: coincide con el «Final».
-7. Mi comercio → Proveedores → Ajustar costos existentes: elegir un proveedor, «Sumar IVA 21%», destildar uno y confirmar. Esperado: solo los marcados cambian; los de precio por porcentaje también cambian su precio. Repetir sin recargar después de cambiar un costo desde otra pestaña: rechazo «El costo cambió en…» y ningún producto se ajusta.
+7. Proveedores → Ajustar costos existentes: elegir un proveedor, «Sumar IVA 21%», destildar uno y confirmar. Esperado: solo los marcados cambian; los de precio por porcentaje también cambian su precio. Repetir sin recargar después de cambiar un costo desde otra pestaña: rechazo «El costo cambió en…» y ningún producto se ajusta.
 
 ## Propuestas de precios
 

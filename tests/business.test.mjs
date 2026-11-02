@@ -5,7 +5,7 @@ const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http:
 Object.assign(globalThis, { window: dom.window, document: dom.window.document, HTMLElement: dom.window.HTMLElement, MutationObserver: dom.window.MutationObserver, FormData: dom.window.FormData, IS_REACT_ACT_ENVIRONMENT: true });
 Object.defineProperty(globalThis, 'navigator', { value: dom.window.navigator, configurable: true });
 const React = await import('react');
-const { render, fireEvent, cleanup, waitFor, screen } = await import('@testing-library/react');
+const { render, fireEvent, cleanup, waitFor, screen, within } = await import('@testing-library/react');
 const server = await createServer({ server: { middlewareMode: true, watch: null, hmr: false }, optimizeDeps: { noDiscovery: true, include: [] }, appType: 'custom' });
 let testSupabase;
 try {
@@ -25,7 +25,7 @@ try {
   const calls = [];
   const run = async action => { await action(); return true; };
   retail.saveBranch = async (...args) => calls.push(args);
-  render(React.createElement(BranchSettings, { storeId: 's', branches: [], run, busy: false }));
+  render(React.createElement(BranchSettings, { storeId: 's', branches: [], registers: [], renderRegisters: () => null, run, busy: false }));
   fireEvent.change(screen.getByLabelText('Nueva sucursal'), { target: { value: 'Centro' } });
   fireEvent.change(screen.getByLabelText('Dirección'), { target: { value: 'San Martín 100' } });
   await React.act(async () => fireEvent.submit(document.querySelector('form')));
@@ -34,10 +34,11 @@ try {
   console.log('PASS creating a branch submits the location within its store');
   retail.savePriceList = async (...args) => calls.push(args);
   retail.savePriceOverride = async (...args) => calls.push(args);
-  render(React.createElement(PriceListSettings, { storeId: 's', lists, overrides: [{ list_id: 'l', product_id: 'p', price: 80 }], products, run, busy: false }));
-  fireEvent.click(screen.getByText('Listas de precios · Ver y administrar'));
-  fireEvent.change(screen.getByLabelText('Consultar lista'), { target: { value: 'l' } });
-  const fixed = screen.getByLabelText('Precio fijo de Agua');
+  const listTree = [{ id: 'base', name: 'Principal', adjustment: 0, active: true, is_primary: true, base_kind: 'catalog' }, { ...lists[0], base_kind: 'list', parent_id: 'base' }];
+  render(React.createElement(PriceListSettings, { storeId: 's', lists: listTree, overrides: [{ list_id: 'l', product_id: 'p', price: 80 }], products, run, busy: false }));
+  fireEvent.click(screen.getAllByRole('button', { name: 'Ver precios de Mayorista' })[0]);
+  fireEvent.click(within(screen.getByRole('group', { name: 'Precio fijo de Agua' })).getByRole('button', { name: /Editar/ }));
+  const fixed = screen.getByLabelText('Precio fijo ($)');
   assert.equal(fixed.value, '80');
   fireEvent.change(fixed, { target: { value: '' } });
   await React.act(async () => fireEvent.submit(fixed.closest('form')));

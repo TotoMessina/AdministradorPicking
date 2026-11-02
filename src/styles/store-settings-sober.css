@@ -134,3 +134,5 @@
     transition: none;
   }
 }
+
+.retail-app .settings-workspace.settings-workspace-sober .permission-form fieldset.permission-group { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }

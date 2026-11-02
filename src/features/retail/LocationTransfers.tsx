@@ -8,6 +8,7 @@ import { errorMessage, retail, type Store, type Branch, type Product } from './a
 import type { Run } from './Management';
 import { locationTransfers, type LocationTransfer, type FundTransfer, type LocationFund, type OpenShiftCash } from './locationTransferApi';
 import { TransferFlowMap, type TransferMapRoute } from './TransferFlowMap';
+import { StockBadge } from './StockBadge';
 
 type HistoryStock = LocationTransfer & { legacy?: boolean };
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
@@ -210,6 +211,9 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     if (kind === 'transfer') setFundTo(previous => previous === location ? '' : previous);
     setComposing(true); setFormError('');
   };
+  const fundPreview = [fundKind === 'income' ? null : { id: fundFrom, sign: -1 }, fundKind === 'withdrawal' ? null : { id: fundTo, sign: 1 }]
+    .filter((row): row is { id: string; sign: number } => !!row?.id)
+    .map(row => { const before = funds.find(fund => fund.location === row.id)?.balance || 0; return { id: row.id, before, after: before + row.sign * (Number(amount) || 0) }; });
   const clearSelection = () => { setSelectedNode(''); setSelectedRoute(''); setVisible(25); };
   const routes = useMemo(() => {
     const grouped = new Map<string, TransferMapRoute>();
@@ -268,7 +272,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
 
   return <section className="retail-panel location-transfers" aria-labelledby="location-transfers-title">
     <div className="section-heading"><div><h2 id="location-transfers-title">Transferencias</h2><p>Sucursales y depósito · Productos y fondos</p></div>
-      <button type="button" className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)} onClick={newTransfer}><Plus size={16} />{composing ? 'Retomar borrador' : 'Nueva transferencia'}</button>
+      {!composing && <button type="button" className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)} onClick={newTransfer}><Plus size={16} />{(mode === 'stock' ? items.length || notes : amount || fundNote) ? 'Retomar borrador' : 'Nueva transferencia'}</button>}
     </div>
     <div className="location-transfer-tabs" role="group" aria-label="Tipo de transferencia">
       {canStock && <button type="button" aria-pressed={mode === 'stock'} disabled={!!saving} onClick={() => { setMode('stock'); clearSelection(); setFormError(''); }}><Package size={16} /> Productos</button>}
@@ -277,22 +281,24 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     {mode === 'stock' && !store.branch_inventory_enabled && <div className="location-transfer-setup">
       <h3>Distribuir el stock actual</h3><p>Lo guardado en depósito se conserva. Elegí dónde está hoy el stock del salón. Después podrás repartirlo con transferencias.</p>
       {isAdmin ? <><label>Sucursal inicial<select value={initialBranch} disabled={disabled} onChange={event => setInitialBranch(event.target.value)}><option value="">Elegir sucursal</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>
-        <p>Cerrá los turnos y sincronizá todos los dispositivos antes de activar.</p><button type="button" className="primary-button" disabled={disabled || !initialBranch} onClick={() => void execute('enable', () => retail.enableBranchInventory(store.id, initialBranch), 'Inventario distribuido sin duplicar existencias')}>Activar stock por sucursal y depósito</button></>
+        <p>Cerrá las cajas y sincronizá todos los dispositivos antes de activar.</p><button type="button" className="primary-button" disabled={disabled || !initialBranch} onClick={() => void execute('enable', () => retail.enableBranchInventory(store.id, initialBranch), 'Inventario distribuido sin duplicar existencias')}>Activar stock por sucursal y depósito</button></>
         : <p>Un administrador debe hacer la distribución inicial.</p>}
     </div>}
+    {!composing && <details className="location-transfer-more"><summary>Ver mapa de movimientos</summary>
     <TransferFlowMap nodes={nodes} routes={routes} selectedNode={selectedNode} selectedRoute={selectedRoute}
       onNode={id => { setSelectedNode(previous => previous === id ? '' : id); setSelectedRoute(''); setVisible(25); }}
       onRoute={id => { setSelectedRoute(previous => previous === id ? '' : id); setSelectedNode(''); setVisible(25); }} onClear={clearSelection} />
-    {mode === 'money' && <div className="location-fund-sheet" role="region" aria-label="Saldos por ubicación" tabIndex={0}>
+    </details>}
+    {mode === 'money' && !composing && <div className="location-fund-sheet" role="region" aria-label="Saldos por ubicación" tabIndex={0}>
       <table>
-        <caption className="sr-only">Saldo de cada ubicación y efectivo en turnos abiertos</caption>
-        <thead><tr><th scope="col">Ubicación</th><th scope="col" className="is-number">Saldo</th><th scope="col" className="is-number">En cajas abiertas</th><th scope="col">Acciones</th></tr></thead>
+        <caption className="sr-only">Saldo de cada ubicación y efectivo en cajas abiertas</caption>
+        <thead><tr><th scope="col">Ubicación</th><th scope="col" className="is-number">Plata</th><th scope="col" className="is-number">En cajas abiertas</th><th scope="col">Acciones</th></tr></thead>
         <tbody>{places.map(place => {
           const balance = funds.find(fund => fund.location === place.id)?.balance || 0, open = openCash.find(row => row.location === place.id);
           return <tr key={place.id}>
             <th scope="row">{place.name}</th>
             <td className={`is-number${balance < 0 ? ' is-negative' : ''}`}>{fundsLoaded ? money(balance) : '—'}</td>
-            <td className="is-number">{open ? `${money(open.cash)} · ${open.shifts} ${open.shifts === 1 ? 'turno' : 'turnos'}` : '—'}</td>
+            <td className="is-number">{open ? `${money(open.cash)} · ${open.shifts} ${open.shifts === 1 ? 'caja' : 'cajas'}` : '—'}</td>
             <td><div className="location-fund-actions">
               <button type="button" className="secondary-button" disabled={disabled} onClick={() => openFund('income', place.id)}>Ingreso</button>
               <button type="button" className="secondary-button" disabled={disabled || balance <= 0} onClick={() => openFund('transfer', place.id)}>Enviar</button>
@@ -335,11 +341,11 @@ export function LocationTransfers({ store, branches, products, run, busy, active
               <tbody>{matches.slice(0, sheetLimit).map(product => {
                 const chosen = quantityOf.get(product.id), origin = atLocation(product, stockFrom);
                 return <tr key={product.id} className={chosen ? chosen > origin ? 'is-over' : 'is-chosen' : undefined}>
-                  <th scope="row">{product.name}</th>
+                  <th scope="row"><span aria-hidden="true">{product.emoji || '📦'}</span> {product.name}</th>
                   <td>{product.code}</td>
                   <td>{product.category}</td>
                   <td className="is-number">{origin.toLocaleString('es-AR')}</td>
-                  <td className="is-number">{stockTo ? atLocation(product, stockTo).toLocaleString('es-AR') : '—'}</td>
+                  <td className="is-number">{stockTo ? <StockBadge units={atLocation(product, stockTo)} min={product.minStock} /> : '—'}</td>
                   <td className="is-number">{product.minStock.toLocaleString('es-AR')}</td>
                   <td className="is-number">{needAt(product) ? needAt(product).toLocaleString('es-AR') : '—'}</td>
                   <td className="location-transfer-qty">
@@ -368,9 +374,9 @@ export function LocationTransfers({ store, branches, products, run, busy, active
             {fundKind !== 'withdrawal' && locationSelect('Hacia', fundTo, setFundTo, fundKind === 'transfer' ? fundFrom : undefined)}
           </div>
           <label>Importe ($)<NumberInput min={0.01} max={999999999999.99} step={0.01} required value={amount} onValueChange={setAmount} /></label>
-          {fundKind !== 'income' && <p>Saldo del fondo de origen: <strong>{fundsLoaded ? money(funds.find(row => row.location === fundFrom)?.balance || 0) : 'No disponible'}</strong></p>}
+          {fundsLoaded && Number(amount) > 0 && fundPreview.length > 0 && <ul className="location-fund-preview" aria-label="Cómo queda después">{fundPreview.map(row => <li key={row.id}><span>{placeName(row.id)}</span><span>{money(row.before)} <ArrowRight size={13} aria-hidden="true" /> <strong className={row.after < 0 ? 'is-negative' : undefined}>{money(row.after)}</strong></span></li>)}</ul>}
           <label>Motivo<textarea required value={fundNote} maxLength={1000} rows={2} onChange={event => setFundNote(event.target.value)} /></label>
-          <p>Cada cierre de turno suma a su sucursal lo que generó: efectivo contado menos apertura.</p>
+          <p>Al cerrar una caja, su sucursal suma lo que se generó: plata contada menos plata con la que abrió.</p>
         </>}
       </fieldset>
       {formError && <p role="alert" className="error-banner">{formError}</p>}
@@ -379,6 +385,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
         {mode === 'stock' && <button type="button" className="secondary-button" disabled={disabled || !store.branch_inventory_enabled} onClick={() => void submit(false)}>Dejar pendiente</button>}
       </div>
     </form>}
+    <div hidden={composing}>
     <div className="section-heading location-transfer-history-heading"><div><h3>Historial {selectedNode ? `· ${placeName(selectedNode)}` : ''}</h3><small>Recorridos del historial cargado. Los registros anteriores no modificaron inventario.</small></div>
       <button type="button" className="secondary-button" disabled={disabled || loading} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button></div>
     {mode === 'stock' && <label className="stock-transfer-filter">Estado<select value={filter} onChange={event => { setFilter(event.target.value as typeof filter); setVisible(25); }}><option value="all">Todos</option><option value="pending">Pendientes</option><option value="confirmed">Confirmadas</option><option value="cancelled">Canceladas</option></select></label>}
@@ -394,13 +401,14 @@ export function LocationTransfers({ store, branches, products, run, busy, active
           {row.status === 'pending' && <div className="location-transfer-record-actions"><button type="button" className="primary-button" disabled={disabled} onClick={() => review(row, true)}><Check size={14} />{row.legacy ? 'Confirmar registro' : 'Confirmar traslado'}</button><button type="button" className="secondary-button" disabled={disabled} onClick={() => review(row, false)}><X size={14} /> Cancelar</button></div>}
         </article>
       </li>) : shownFunds.slice(0, visible).map(row => <li key={row.id}><article>
-        <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className="stock-transfer-status confirmed">{row.shift_id ? 'Cierre de turno' : 'Guardado'}</span><strong>{money(row.amount)}</strong></div>
-        <strong className="location-transfer-record-route">{row.from_location === null ? row.shift_id ? 'Ventas y caja del turno' : 'Ingreso externo' : placeName(row.from_location)} <ArrowRight size={15} aria-hidden="true" /> {row.to_location === null ? row.shift_id ? 'Faltante del turno' : 'Salida externa' : placeName(row.to_location)}</strong>
+        <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className="stock-transfer-status confirmed">{row.shift_id ? 'Cierre de caja' : 'Guardado'}</span><strong>{money(row.amount)}</strong></div>
+        <strong className="location-transfer-record-route">{row.from_location === null ? row.shift_id ? 'Ventas de la caja' : 'Ingreso externo' : placeName(row.from_location)} <ArrowRight size={15} aria-hidden="true" /> {row.to_location === null ? row.shift_id ? 'Faltante de la caja' : 'Salida externa' : placeName(row.to_location)}</strong>
         <p>{row.note}</p>{row.actor_email && <small>{row.actor_email}</small>}
       </article></li>)}
     </ol>
     {!(mode === 'stock' ? shownStock.length : shownFunds.length) && !loading && <p className="transfer-flow-empty">Sin movimientos para esta selección.</p>}
     {(mode === 'stock' ? shownStock.length : shownFunds.length) > visible && <button type="button" className="secondary-button" onClick={() => setVisible(previous => previous + 25)}>Mostrar más movimientos</button>}
     {(mode === 'stock' ? stockMore : fundMore) && <button type="button" className="secondary-button" disabled={disabled || loading} onClick={() => void more()}>Cargar historial anterior</button>}
+    </div>
   </section>;
 }

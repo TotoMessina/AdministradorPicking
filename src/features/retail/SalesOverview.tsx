@@ -8,11 +8,12 @@ import { MarginSummary } from './MarginSummary';
 import { SaleLedgerControl } from './SaleLedgerControl';
 import { BillingStatusBadge } from './BillingStatus';
 import { retrySaleBilling } from '../../services/billingService';
+import { SaleReturn, SaleReturnBadge, saleNet } from './SaleReturn';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const today = () => new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
 
-export function SalesOverview({ storeId, store, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canAttachInvoice = canManage, canMoveSale }: { storeId: string; store?: Store; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canAttachInvoice?: boolean; canMoveSale?: (s: KioscoSale) => boolean }) {
+export function SalesOverview({ storeId, store, branches, registers, shifts, ledgers, products = [], revision, run, busy, onTicket, onSaleMoved, canManage = true, canAttachInvoice = canManage, canMoveSale, canRefund = false, refundShift }: { storeId: string; store?: Store; branches: Branch[]; registers: Register[]; shifts: Shift[]; ledgers: SalesLedger[]; products?: Product[]; revision: number; run: Run; busy: boolean; onTicket: (s: KioscoSale) => void; onSaleMoved?: (s: KioscoSale) => void; canManage?: boolean; canAttachInvoice?: boolean; canMoveSale?: (s: KioscoSale) => boolean; canRefund?: boolean; refundShift?: string }) {
   const [from, setFrom] = useState(today);
   const [to, setTo] = useState(today);
   const [period, setPeriod] = useState({ from: today(), to: today() });
@@ -61,7 +62,7 @@ export function SalesOverview({ storeId, store, branches, registers, shifts, led
     <p>Período consultado: {period.from} al {period.to} · Hora de Argentina.</p>
     {loading ? <p role="status">Cargando todas las ventas del período…</p> : error ? <p role="alert">{error}</p> : <>
       <div className="cash-metrics">
-        <div><small>{canManage ? 'Total del comercio' : 'Total de ventas disponibles'}</small><strong>{money(rows.reduce((n, s) => n + s.total, 0))}</strong></div>
+        <div><small>{canManage ? 'Total del comercio' : 'Total de ventas disponibles'}</small><strong>{money(rows.reduce((n, s) => n + saleNet(s), 0))}</strong></div>
         {hasFiscalActivity && (
           <div>
             <small>Facturado con CAE (ARCA)</small>
@@ -83,15 +84,15 @@ export function SalesOverview({ storeId, store, branches, registers, shifts, led
             </strong>
           </div>
         )}
-        <div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div>
-        <div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + s.total, 0))}</strong></div>
+        <div><small>Con comprobante asociado</small><strong>{money(rows.filter(s => s.invoiceReference).reduce((n, s) => n + saleNet(s), 0))}</strong></div>
+        <div><small>Sin comprobante asociado</small><strong>{money(rows.filter(s => !s.invoiceReference).reduce((n, s) => n + saleNet(s), 0))}</strong></div>
       </div>
       <MarginSummary summary={summarizeMargins(rows, products)} />
-      <div className="table-scroll"><table><thead><tr><th>Sucursal</th><th>Cajas activas</th><th>Turnos abiertos</th><th>Ventas del período</th></tr></thead><tbody>{branches.map(b => <Fragment key={b.id}><tr><td>{b.name}</td><td>{registers.filter(r => r.branch_id === b.id && r.active).length}</td><td>{shifts.filter(s => !s.closed_at && registers.some(r => r.id === s.register_id && r.branch_id === b.id)).length}</td><td>{money(rows.filter(s => s.branchId === b.id).reduce((n, s) => n + s.total, 0))}</td></tr><tr><td colSpan={3}>Ventas excluyendo bajo margen · {b.name}</td><td>{money(summarizeMargins(rows.filter(s => s.branchId === b.id), products).standard.revenue)}</td></tr></Fragment>)}</tbody></table></div>
+      <div className="table-scroll"><table><thead><tr><th>Sucursal</th><th>Cajas activas</th><th>Cajas abiertas</th><th>Ventas del período</th></tr></thead><tbody>{branches.map(b => <Fragment key={b.id}><tr><td>{b.name}</td><td>{registers.filter(r => r.branch_id === b.id && r.active).length}</td><td>{shifts.filter(s => !s.closed_at && registers.some(r => r.id === s.register_id && r.branch_id === b.id)).length}</td><td>{money(rows.filter(s => s.branchId === b.id).reduce((n, s) => n + s.total, 0))}</td></tr><tr><td colSpan={3}>Ventas excluyendo bajo margen · {b.name}</td><td>{money(summarizeMargins(rows.filter(s => s.branchId === b.id), products).standard.revenue)}</td></tr></Fragment>)}</tbody></table></div>
       {shifts.some(s => s.closed_at) && (
         <details className="retail-details" style={{ marginTop: '20px', marginBottom: '20px' }}>
           <summary style={{ cursor: 'pointer', fontWeight: 600, padding: '10px 0', fontSize: '15px' }}>
-            🔒 Auditoría de arqueos y diferencias de turno ({shifts.filter(s => s.closed_at).length} cierres)
+            🔒 Cierres de caja y diferencias ({shifts.filter(s => s.closed_at).length} cierres)
           </summary>
           <div style={{ marginTop: '12px' }}>
             <p style={{ fontSize: '13px', color: 'var(--tone-muted)' }}>
@@ -197,12 +198,13 @@ export function SalesOverview({ storeId, store, branches, registers, shifts, led
           </button>
         </div>
       )}
-      <p>{visible.length} ventas en la consulta · {money(visible.reduce((n, s) => n + s.total, 0))}</p>
+      <p>{visible.length} ventas en la consulta · {money(visible.reduce((n, s) => n + saleNet(s), 0))}</p>
       <div className="table-scroll"><table><thead><tr><th>Venta</th><th>Sucursal / caja</th><th>Lista / registro</th><th>Total</th><th>Comprobante externo</th></tr></thead><tbody>
         {visible.slice(0, limit).map(s => <tr key={s.id}>
           <td>
             <button className="text-button" onClick={() => onTicket(s)}>{s.ticketNumber}</button>
             <small>{s.date} {s.timestamp}</small>
+            <SaleReturnBadge sale={s} />
             <BillingStatusBadge
               sale={s}
               puntoVenta={store?.punto_venta_afip || 1}
@@ -225,7 +227,9 @@ export function SalesOverview({ storeId, store, branches, registers, shifts, led
               setRows(previous => previous.map(sale => sale.id === saved.id ? { ...sale, ledgerId: saved.ledgerId, ledgerName: saved.ledgerName } : sale));
               onSaleMoved?.(saved);
             }} /></td>
-          <td>{money(s.total)}</td>
+          <td>{money(saleNet(s))}{!!s.returnedTotal && <small className="sale-amount-original">{money(s.total)}</small>}
+            <SaleReturn storeId={storeId} sale={s} shiftId={refundShift} canRefund={canRefund} run={run} busy={busy}
+              onReturned={saved => setRows(previous => previous.map(row => row.id === saved.id ? { ...row, returnedTotal: saved.returnedTotal, returnStatus: saved.returnStatus } : row))} /></td>
           <td>{s.invoiceReference || (canAttachInvoice ? <details><summary>Sin comprobante · Asociar</summary><form className="retail-form" onSubmit={e => { e.preventDefault(); const reference = String(new FormData(e.currentTarget).get('reference')); void run(() => retail.attachInvoice(s.id, reference), 'Comprobante asociado'); }}><label>Referencia del comprobante ya emitido<input name="reference" required maxLength={120} placeholder="Tipo, punto de venta y número" /></label><p>Se guarda la referencia y quién la asoció. Esta acción no emite ni valida una factura.</p><button className="secondary-button" disabled={busy}>Asociar comprobante</button></form></details> : 'Sin comprobante asociado')}</td>
         </tr>)}
         {!visible.length && <tr><td colSpan={5}>No hay ventas para esta consulta.</td></tr>}

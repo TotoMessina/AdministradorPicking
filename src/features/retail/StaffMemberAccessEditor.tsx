@@ -2,9 +2,10 @@ import { useState, type FormEvent } from 'react';
 import { ShieldCheck, Building2, SlidersHorizontal, Check, X } from 'lucide-react';
 import { retail, type Branch, type Register } from './api';
 import {
-  defaultPermissions,
+  habitualPermissions,
   permissionOptions,
   type PermissionProfile,
+  type RolePermissions,
   type StaffBaseRole,
 } from './permissions';
 import type { Run } from './Management';
@@ -16,6 +17,7 @@ export interface StaffMemberAccessEditorProps {
   role: StaffBaseRole;
   profileId?: string | null;
   profiles: PermissionProfile[];
+  roles?: RolePermissions | null;
   branchId?: string | null;
   registerId?: string | null;
   branches: Branch[];
@@ -33,6 +35,7 @@ export function StaffMemberAccessEditor({
   role,
   profileId,
   profiles,
+  roles,
   branchId,
   registerId,
   branches,
@@ -56,7 +59,7 @@ export function StaffMemberAccessEditor({
 
   const assignedPermissions =
     profiles.find((p) => p.id === nextProfileId)?.permissions ||
-    defaultPermissions(nextRole);
+    habitualPermissions(nextRole, roles ?? undefined);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -110,7 +113,7 @@ export function StaffMemberAccessEditor({
           <div className="team-editor-col">
             <div className="team-editor-col-header">
               <ShieldCheck size={14} />
-              <span>Rol y permisos</span>
+              <span>Qué puede hacer</span>
             </div>
 
             <div className="team-editor-field">
@@ -134,14 +137,14 @@ export function StaffMemberAccessEditor({
             </div>
 
             <div className="team-editor-field">
-              <label htmlFor={`profile-${targetId}`}>Perfil de acciones</label>
+              <label htmlFor={`profile-${targetId}`}>Perfil a medida</label>
               <select
                 id={`profile-${targetId}`}
                 disabled={busy || saving}
                 value={nextProfileId}
                 onChange={(e) => setNextProfileId(e.target.value)}
               >
-                <option value="">Predeterminado del rol</option>
+                <option value="">Lo habitual para ese rol</option>
                 {profiles
                   .filter((p) => p.base_role === nextRole)
                   .map((p) => (
@@ -153,7 +156,7 @@ export function StaffMemberAccessEditor({
             </div>
 
             <details className="permission-help team-editor-permissions-details">
-              <summary>Ver permisos activos ({assignedPermissions.length})</summary>
+              <summary>Ver lista de permisos ({assignedPermissions.length})</summary>
               <ul>
                 {permissionOptions
                   .filter((option) => assignedPermissions.includes(option.id))
@@ -161,7 +164,7 @@ export function StaffMemberAccessEditor({
                     <li key={option.id}>{option.label}</li>
                   ))}
               </ul>
-              <p>Siempre puede abrir y cerrar su propio turno y consultar su actividad.</p>
+              <p>Siempre puede abrir y cerrar su propia caja y ver su actividad.</p>
             </details>
           </div>
 
@@ -169,11 +172,11 @@ export function StaffMemberAccessEditor({
           <div className="team-editor-col">
             <div className="team-editor-col-header">
               <Building2 size={14} />
-              <span>Lugar de trabajo</span>
+              <span>Dónde trabaja</span>
             </div>
 
             <div className="team-editor-field">
-              <label htmlFor={`branch-${targetId}`}>Sucursal asignada</label>
+              <label htmlFor={`branch-${targetId}`}>Sucursal</label>
               <select
                 id={`branch-${targetId}`}
                 value={nextBranchId}
@@ -199,7 +202,7 @@ export function StaffMemberAccessEditor({
             </div>
 
             <div className="team-editor-field">
-              <label htmlFor={`register-${targetId}`}>Caja de cobro</label>
+              <label htmlFor={`register-${targetId}`}>Caja</label>
               <select
                 id={`register-${targetId}`}
                 value={nextRegisterId}
@@ -242,7 +245,7 @@ export function StaffMemberAccessEditor({
                 : nextBranchId
                   ? 'Podrá operar en cualquier caja de la sucursal elegida.'
                   : 'Podrá operar en cualquier sucursal y caja.'}{' '}
-              Los arqueos y movimientos de otras personas siguen siendo privados.
+              Los cierres de caja de otras personas siguen siendo privados.
             </p>
           </div>
         </div>

@@ -3,6 +3,7 @@ import type { KioscoProduct } from '../../types/kiosco';
 import { retail, errorMessage } from './api';
 import { formatPackStock, unitsPerPack } from '../../services/inventoryUnits';
 import { stockForSale } from '../../services/productComposition';
+import { stockLevel } from './StockBadge';
 export function QuickProducts({ storeId, branchId, products: inventory, manager, onAdd, onOpenManual, disabled, editorOnly = false }: {
   storeId: string; branchId: string; products: KioscoProduct[]; manager: boolean; onAdd: (p: KioscoProduct) => void; onOpenManual?: () => void; disabled: boolean;
   editorOnly?: boolean;
@@ -73,6 +74,7 @@ export function QuickProducts({ storeId, branchId, products: inventory, manager,
         if (!p) return null;
         return <button type="button" key={id} disabled={disabled || !!p.pricingError || stockForSale(p) <= 0} onClick={() => onAdd(p)} aria-label={p.pricingError ? `${p.name}: ${p.pricingError}` : `Venta rápida: ${p.name}`}>
           <span aria-hidden="true">{p.emoji || '📦'}</span><strong>{p.name}</strong><small>{p.pricingError || `$${p.price.toLocaleString('es-AR')}`}{stockForSale(p) <= 0 ? ' · Sin stock' : ''}</small>
+          {stockLevel(stockForSale(p), p.minStock) === 'low' && <small className="quick-product-low">Queda poco</small>}
           {unitsPerPack(p.pack_size) > 1 && <small>{formatPackStock(stockForSale(p), p.pack_size)}</small>}
           {!!p.depotStock && stockForSale(p) <= 0 && <small>{p.depotStock.toLocaleString('es-AR')} en depósito</small>}
         </button>;

@@ -1,5 +1,6 @@
 // Servicio de facturación electrónica ARCA (ex AFIP)
 import { supabase } from '../lib/supabase';
+import { errorContextBranch } from '../lib/errorReporting';
 import { cleanCuit, type BillingStatus, type CondicionIva } from '../features/retail/billing';
 import { retail, type Store } from '../features/retail/api';
 import type { KioscoSale } from '../types/kiosco';
@@ -138,6 +139,7 @@ export async function authorizeSaleInvoice(
     const { data, error } = await supabase.functions.invoke<ArcaAuthResult>('billing-authorize', {
       body: {
         storeId: store.id,
+        branchId: errorContextBranch(),
         saleId: sale.id,
         cuit: cuitClean,
         puntoVenta: ptoVta,
@@ -224,7 +226,7 @@ export async function processPendingSales(
   onSaleUpdated?: (saleId: string, result: Partial<KioscoSale>) => void,
 ): Promise<void> {
   if (!store.billing_enabled) return;
-  const pending = sales.filter(s => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending');
+  const pending = sales.filter(s => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending' && s.returnStatus !== 'voided');
   for (const s of pending) {
     try {
       const res = await authorizeSaleInvoice(store, s);

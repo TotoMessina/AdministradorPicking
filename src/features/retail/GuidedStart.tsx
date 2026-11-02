@@ -85,7 +85,7 @@ export function GuidedStart({ store, userId, branches, registers, register, shif
   return <>
     {!visible && (showResume || (!ready && error)) && ((state && !state.completed_at) || error) && <section className="retail-panel">
       <h2>Inicio del comercio</h2>
-      <p>{state?.details_confirmed_at ? 'Podés retomar los pasos pendientes. Omitirlos no los marca como realizados.' : 'Confirmá los datos, cargá tus productos y prepará tu turno.'}</p>
+      <p>{state?.details_confirmed_at ? 'Podés retomar los pasos pendientes. Omitirlos no los marca como realizados.' : 'Confirmá los datos, cargá tus productos y prepará tu caja.'}</p>
       {error && <p role="alert">{error}</p>}
       {state && !state.completed_at && <button className="secondary-button" disabled={locked || hasPendingSale} onClick={() => void change('resume')}>Retomar configuración</button>}
       {hasPendingSale && <p>Terminá o vaciá la venta antes de retomar la configuración. Tu carrito conserva su sucursal, caja y precios.</p>}
@@ -119,7 +119,7 @@ export function GuidedStart({ store, userId, branches, registers, register, shif
         <button className="primary-button" disabled={locked} onClick={() => void change('products')}>{configuredProducts ? 'Continuar' : 'Cargar productos después'}</button>
       </div>
       <div hidden={step !== 3}>
-        <p>{branches.find(b => b.id === register?.branch_id)?.name} · {register?.name || 'Sin caja disponible'} · {ownShift || opened === register?.id ? 'Turno abierto' : occupied || shift ? 'Caja en uso' : 'Turno cerrado'}</p>
+        <p>{branches.find(b => b.id === register?.branch_id)?.name} · {register?.name || 'Sin caja disponible'} · {ownShift || opened === register?.id ? 'Caja abierta' : occupied || shift ? 'Caja en uso' : 'Caja cerrada'}</p>
         {registers.filter(r => r.active).length > 1 && <label>Caja para trabajar<select disabled={locked || ownShift || !!opened} value={register?.id || ''} onChange={e => onRegisterChange(e.target.value)}>{registers.filter(r => r.active).map(r => <option key={r.id} value={r.id}>{branches.find(b => b.id === r.branch_id)?.name} · {r.name}</option>)}</select></label>}
         {ownShift || opened === register?.id ? <button className="primary-button" disabled={locked} onClick={() => void finish()}>Continuar a Vender</button> : <CashDesk
           storeId={store.id} register={register} shift={undefined} shifts={[]} sales={[]} movements={[]}

@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { HandCoins } from 'lucide-react';
 import { NumberInput } from '../../components/NumberInput';
@@ -127,7 +128,7 @@ function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close,
     if (busy) return;
     const problem = !cuit ? 'Elegí el proveedor.' : !paidOn ? 'Completá la fecha del pago.' : total <= 0 ? 'Completá el importe del pago.'
       : applied > total + 0.005 ? 'Lo asignado a facturas supera el total del pago.' : overBalance ? 'Un importe supera el saldo de su comprobante.'
-        : method === 'cash' && !shift ? 'Elegí el turno de caja del que sale el efectivo.' : method === 'cash' && !file ? 'Adjuntá el comprobante del pago.'
+        : method === 'cash' && !shift ? 'Elegí la caja de la que sale el efectivo.' : method === 'cash' && !file ? 'Adjuntá el comprobante del pago.'
           : method === 'cash' && amountOf(amount) <= 0 ? 'Completá el efectivo entregado.' : '';
     if (problem) { setError(problem); return; }
     setError('');
@@ -167,15 +168,15 @@ function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close,
     {favor > 0.005 && <p className="purchase-tracking-note">Este proveedor tiene {formatMoney(favor)} a tu favor. Antes de pagar de más, usalo desde el detalle de ese pago.</p>}
     {!!proposal?.skipped && <p className="purchase-tracking-note">No se incluyó{proposal.skipped === 1 ? ' 1 comprobante' : `n ${proposal.skipped} comprobantes`} en revisión: agregalo{proposal.skipped === 1 ? '' : 's'} abajo si corresponde pagar{proposal.skipped === 1 ? 'lo' : 'los'}.</p>}
     {method === 'cash' && <>
-      <label>Turno de caja
+      <label>Caja
         <select value={shift} disabled={busy} onChange={event => setShift(event.target.value)}>
-          <option value="">Elegí el turno</option>
+          <option value="">Elegí la caja</option>
           {shifts.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}
         </select>
       </label>
-      {!shifts.length && <p className="purchase-tracking-note">No hay turnos abiertos. Abrí un turno para pagar en efectivo, o elegí otro medio.</p>}
+      {!shifts.length && <p className="purchase-tracking-note">No hay cajas abiertas. Abrí una para pagar en efectivo, o elegí otro medio.</p>}
       <label>Comprobante del pago<input type="file" accept="image/*,application/pdf" disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
-      <p className="purchase-tracking-note">Se registra como retiro «Pago a proveedor» en ese turno, igual que desde Caja, y cuenta en el arqueo.</p>
+      <p className="purchase-tracking-note">Se registra como retiro «Pago a proveedor» en esa caja, igual que desde Caja, y cuenta en el arqueo.</p>
     </>}
     {method !== 'cash' && <label>Referencia (opcional)<input maxLength={120} value={reference} disabled={busy} onChange={event => setReference(event.target.value)} placeholder={method === 'check' ? 'Banco y número de cheque' : 'Número de operación'} /></label>}
     <details className="supplier-rules">
@@ -238,8 +239,8 @@ function PaymentDetail({ payment, invoices, payments, storeId, busy, run, onSave
       <div className="purchase-tracking-row">
         <label>Anular pago (motivo)<input maxLength={300} value={reason} disabled={busy} onChange={event => setReason(event.target.value)} placeholder="Ej.: cargado por error" /></label>
         <button type="button" className="text-button danger-text" disabled={busy || !reason.trim()} onClick={async () => {
-          const warning = payment.method === 'cash' ? ' El retiro de caja no se revierte: si el efectivo volvió, registrá un ingreso en el turno.' : '';
-          if (!window.confirm(`¿Anular este pago de ${formatMoney(paymentTotal(payment))}? Los comprobantes vuelven a tener saldo.${warning}`)) return;
+          const warning = payment.method === 'cash' ? ' El retiro de caja no se revierte: si el efectivo volvió, registrá un ingreso en la caja.' : '';
+          if (!await askConfirm(`¿Anular este pago de ${formatMoney(paymentTotal(payment))}? Los comprobantes vuelven a tener saldo.${warning}`)) return;
           if (await run(() => retail.voidSupplierPayment(storeId, payment.id, reason.trim()), 'Pago anulado')) onSaved();
         }}>Anular pago</button>
       </div>

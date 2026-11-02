@@ -1,3 +1,4 @@
+import { askConfirm } from '../../components/ConfirmHost';
 import { NumberInput } from '../../components/NumberInput';
 import { ProductMarkupField } from './ProductMarkupField';
 import { draftMarkupPrice } from '../../services/productSalePrice';
@@ -6,6 +7,7 @@ import { useState, useMemo, useEffect, useRef, useId, useCallback } from "react"
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
 import { SectionNav } from './SectionNav';
 import { PushSettings } from './PushSettings';
+import { FailureAlertTest } from './FailureAlertTest';
 import { StaffAccessForm } from './StaffAccessForm';
 import { CashierAccess } from './CashierAccess';
 import { StaffMemberAccessEditor } from './StaffMemberAccessEditor';
@@ -20,12 +22,12 @@ import { ProductCompositionEditor } from './ProductCompositionEditor';
 import { NewCompositeEditor } from './NewCompositeEditor';
 import { compositionCost, hasComposition, productsAtBranch, stockForSale } from '../../services/productComposition';
 import { DepotSettings } from './DepotSettings';
-import { SupplierAccountSection } from './SupplierAccountSection';
 import { DepotHistory } from './DepotHistory';
 import { BillingSettings } from './BillingSettings';
 import { errorMessage } from './api';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
+import { StockBadge } from './StockBadge';
 import {
   AlertCircle,
   AlertTriangle,
@@ -75,7 +77,6 @@ import {
   FolderTree,
   LogOut,
   RefreshCw,
-  Truck,
 } from "lucide-react";
 import { groqChat } from "../../services/groqService";
 import { unitsPerPack } from '../../services/inventoryUnits';
@@ -196,7 +197,7 @@ export const CATALOG_COLUMNS: CatalogColumnDef[] = [
   { id: 'price', label: 'Precio', defaultVisible: true },
   { id: 'margin', label: '% Rentabilidad', defaultVisible: false },
   { id: 'stock', label: 'Stock', defaultVisible: true },
-  { id: 'minStock', label: 'Stock mínimo', defaultVisible: false },
+  { id: 'minStock', label: 'Avisar cuando queden', defaultVisible: false },
   { id: 'expiry', label: 'Vencimiento', defaultVisible: false },
 ];
 
@@ -597,7 +598,7 @@ export function CatalogEditor({
 
   const handleApplyBulkPriceChanges = async () => {
     if (bulkMatchedProducts.length === 0) return;
-    const confirmed = window.confirm(
+    const confirmed = await askConfirm(
       `¿Estás seguro de que deseás actualizar los precios de ${bulkMatchedProducts.length} productos seleccionados? Esta acción modificará el catálogo de forma inmediata.`,
     );
     if (!confirmed) return;
@@ -1632,21 +1633,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <Coins size={16} /> Ajustar precios
             </button>
           )}
-          {canEditCatalog && (
-            <button
-              type="button"
-              className="secondary-button ai-action"
-              disabled={busy || !categories.length}
-              onClick={() => setIsInvoiceModalOpen(true)}
-              title="Analizar facturas de compra con IA e importar productos a tu stock"
-            >
-              <AiIcon />
-              <span>Importar factura con IA</span>
-            </button>
-          )}
           </div></details>}
           {!guided && canEditCatalog && canCompose && <button type="button" className="secondary-button" disabled={busy || !categories.length}
             onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositeOpen(true); }}>Crear combo o paquete</button>}
+          {!guided && canEditCatalog && <button type="button" className="secondary-button ai-action" disabled={busy || !categories.length}
+            onClick={() => setIsInvoiceModalOpen(true)} title="Sacale una foto a la factura: se cargan los productos y el stock">
+            <AiIcon /><span>Recibir mercadería</span>
+          </button>}
           <button
             type="button"
             className="primary-button"
@@ -3405,7 +3398,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               {visibleColumns.price && <th className="th-price">Precio</th>}
               {visibleColumns.margin && <th className="th-margin">% Rentabilidad</th>}
               {visibleColumns.stock && <th className="th-stock">{store.depot_enabled ? 'Stock total' : 'Stock'}</th>}
-              {visibleColumns.minStock && <th className="th-minstock">Stock mín.</th>}
+              {visibleColumns.minStock && <th className="th-minstock">Avisar con</th>}
               {visibleColumns.expiry && <th className="th-expiry">Vencimiento</th>}
               <th className="th-actions">Acciones</th>
             </tr>
@@ -3499,14 +3492,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   )}
                   {visibleColumns.stock && (
                     <td data-label="Stock" className="stock-col">
-                      <span className={unitsHere(p) <= p.minStock ? "stock-low" : "stock-pill"}>
-                        {(operationBranch ? unitsHere(p) : p.stock).toLocaleString('es-AR')} {unitsHere(p) <= p.minStock && (hasComposition(p) ? '· Componentes' : '· Reponer')}
-                      </span>
+                      <StockBadge units={unitsHere(p)} min={p.minStock} shown={operationBranch ? unitsHere(p) : p.stock} note={hasComposition(p) ? 'Revisar componentes' : undefined} />
                       {store.depot_enabled && !hasComposition(p) && <small className="depot-stock-detail">{store.branch_inventory_enabled ? `Total: ${p.stock.toLocaleString('es-AR')}` : `Salón: ${stockForSale(p).toLocaleString('es-AR')}`} · Depósito: {(p.depotStock || 0).toLocaleString('es-AR')}</small>}
                     </td>
                   )}
                   {visibleColumns.minStock && (
-                    <td data-label="Stock mín." className="minstock-col">
+                    <td data-label="Avisar con" className="minstock-col">
                       {typeof p.minStock === 'number' ? p.minStock : '—'}
                     </td>
                   )}
@@ -4482,7 +4473,6 @@ export function StoreSettings({
   onSignOut,
   userEmail,
   onOpenAi,
-  onUploadInvoice,
   active = true,
 }: {
   store: Store;
@@ -4506,10 +4496,9 @@ export function StoreSettings({
   onSignOut?: () => void;
   userEmail?: string;
   onOpenAi?: () => void;
-  onUploadInvoice?: () => void;
   active?: boolean;
 }) {
-  const view = ['general', 'locations', 'team', 'suppliers', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
+  const view = ['general', 'locations', 'team', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
   const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -4534,7 +4523,7 @@ export function StoreSettings({
   };
   const [appVisited, setAppVisited] = useState(view === 'app');
   useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
-  const isDirectPrimary = ['general', 'locations', 'team', 'suppliers'].includes(view);
+  const isDirectPrimary = ['general', 'locations', 'team'].includes(view);
   const isMoreSub = ['more', 'app', 'ledgers'].includes(view);
   const primaryView = isDirectPrimary ? view : (isMoreSub ? 'more' : '');
   if (role !== 'owner' && role !== 'admin') return null;
@@ -4545,7 +4534,6 @@ export function StoreSettings({
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
           { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
           { id: 'team', label: 'Personas con acceso', icon: <Users size={16} /> },
-          { id: 'suppliers', label: 'Proveedores', icon: <Truck size={16} /> },
           { id: 'more', label: 'Más opciones', icon: <SlidersHorizontal size={16} /> },
         ]} />
       <div
@@ -4834,7 +4822,10 @@ export function StoreSettings({
           className="more-subview-panel"
         >
           {(appVisited || view === 'app') && (
-            <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />
+            <>
+              <PushSettings key={store.id + userId} storeId={store.id} userId={userId} />
+              <FailureAlertTest storeId={store.id} />
+            </>
           )}
         </div>
         <div
@@ -4859,9 +4850,6 @@ export function StoreSettings({
             renderRegisters={(branchId) => <RegistersSettings storeId={store.id} registers={registers} branches={branches} run={run} busy={busy} branchId={branchId} />} />
         </div>
       </div>
-      <div hidden={view !== 'suppliers'} role="tabpanel" id="settings-panel-suppliers" aria-labelledby="settings-tab-suppliers">
-        <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={active && view === 'suppliers'} canManage canAccount onUploadInvoice={categories.length ? onUploadInvoice : undefined} />
-      </div>
       {(role === "owner" || role === "admin") && (
         <div
           hidden={view !== 'team'}
@@ -4878,23 +4866,11 @@ export function StoreSettings({
                 </div>
                 <div className="store-settings-header-text">
                   <h3>Personas con acceso</h3>
-                  <p>Colaboradores que pueden ingresar al comercio. Si trabajás por tu cuenta, no necesitás agregar personas.</p>
+                  <p>Quién puede entrar a tu comercio y qué puede hacer.</p>
                 </div>
               </div>
 
               <div className="location-card-body">
-                {/* Resumen de badges */}
-                <div className="team-summary-badges">
-                  <span className="location-pill-badge active">
-                    <UserCheck size={12} /> {members.length} {members.length === 1 ? 'miembro activo' : 'miembros activos'}
-                  </span>
-                  {invitations.length > 0 && (
-                    <span className="location-pill-badge" style={{ borderColor: 'var(--tone-warning-border, #fef08a)', background: 'var(--tone-warning-bg, #fefce8)', color: 'var(--tone-warning-text, #854d0e)' }}>
-                      <Clock size={12} /> {invitations.length} {invitations.length === 1 ? 'pendiente' : 'pendientes'}
-                    </span>
-                  )}
-                </div>
-
                 {/* Alta de nueva persona */}
                 {(role === 'owner' || role === 'admin') ? (
                   <div className="team-add-member-wrapper">
@@ -4927,7 +4903,7 @@ export function StoreSettings({
                   <div className="team-section-block">
                     <div className="team-section-header">
                       <Clock size={15} />
-                      <h4>Invitaciones pendientes ({invitations.length})</h4>
+                      <h4>Todavía no entraron ({invitations.length})</h4>
                     </div>
                     <div className="team-members-list">
                       {invitations.map((i) => {
@@ -5004,6 +4980,7 @@ export function StoreSettings({
                                 role={i.role as 'cashier' | 'supervisor'}
                                 profileId={i.profile_id}
                                 profiles={staffProfiles.profiles}
+                              roles={staffProfiles.roles}
                                 branchId={i.branch_id}
                                 registerId={i.register_id}
                                 branches={branches}
@@ -5024,8 +5001,7 @@ export function StoreSettings({
                 {/* Miembros activos */}
                 <div className="team-section-block">
                   <div className="team-section-header">
-                    <UserCheck size={15} />
-                    <h4>Miembros del comercio ({members.length})</h4>
+                    <h4>Personas ({members.length})</h4>
                   </div>
                   <div className="team-members-list">
                     {members.map((m) => {
@@ -5038,6 +5014,13 @@ export function StoreSettings({
                         supervisor: 'Supervisor',
                         cashier: 'Cajero',
                       }[m.role] || m.role;
+
+                      const roleHint = {
+                        owner: 'Puede hacer todo',
+                        admin: 'Maneja productos y configuración',
+                        supervisor: 'Cobra y consulta ventas',
+                        cashier: 'Cobra y maneja su caja',
+                      }[m.role];
 
                       const emailDisplay = m.email || 'Email no disponible';
                       const initial = (emailDisplay[0] || 'U').toUpperCase();
@@ -5059,6 +5042,7 @@ export function StoreSettings({
                                 <span className={`team-role-badge role-${m.role}`}>{roleLabel}</span>
                               </div>
                               <div className="team-member-meta">
+                                {roleHint && <span className="team-role-hint">{roleHint}</span>}
                                 {(m.role === 'cashier' || m.role === 'supervisor') && (
                                   <span className="team-sub-badge">
                                     <Building2 size={11} /> {branchName || 'Todas las sucursales'} · {registerName || 'Todas las cajas'}
@@ -5091,9 +5075,9 @@ export function StoreSettings({
                                   type="button"
                                   disabled={busy}
                                   className="danger-button-outline"
-                                  onClick={() => {
+                                  onClick={async () => {
                                     if (
-                                      window.confirm(
+                                      await askConfirm(
                                         '¿Quitar el acceso de este usuario al comercio?',
                                       )
                                     )
@@ -5118,6 +5102,7 @@ export function StoreSettings({
                               role={m.role as 'cashier' | 'supervisor'}
                               profileId={m.profile_id}
                               profiles={staffProfiles.profiles}
+                              roles={staffProfiles.roles}
                               branchId={m.branch_id}
                               registerId={m.register_id}
                               branches={branches}
@@ -5135,23 +5120,11 @@ export function StoreSettings({
               </div>
             </div>
 
-            {/* Tarjeta Derecha: Perfiles y permisos */}
-            <div className="store-settings-card">
-              <div className="store-settings-header">
-                <div className="store-settings-header-icon">
-                  <ShieldCheck size={22} />
-                </div>
-                <div className="store-settings-header-text">
-                  <h3>Perfiles y permisos</h3>
-                  <p>Definí qué acciones pueden realizar los cajeros y supervisores en el sistema.</p>
-                </div>
-              </div>
-
+            {/* Perfiles: uso ocasional, plegados debajo de las personas */}
+            <details className="team-profiles-more" key={staffProfiles.profiles.length ? 'with-profiles' : 'no-profiles'} open={staffProfiles.profiles.length > 0}>
+              <summary><span><strong>Roles y permisos</strong><small>{staffProfiles.profiles.length ? `${staffProfiles.profiles.length} ${staffProfiles.profiles.length === 1 ? 'perfil creado' : 'perfiles creados'}` : 'Qué puede hacer cada rol'}</small></span></summary>
               <div className="location-card-body team-profiles-body">
-                <div className="team-helper-notice" style={{ marginBottom: 4 }}>
-                  <ShieldCheck size={16} />
-                  <span>Asigná a cada cajero o supervisor un perfil. El perfil define sus acciones; la asignación limita su sucursal y caja.</span>
-                </div>
+                <p className="team-profiles-intro">Cambiá lo que puede hacer cada rol, o creá un perfil para una persona en particular.</p>
 
                 {staffProfiles.loading && (
                   <div className="location-empty-state">
@@ -5171,16 +5144,18 @@ export function StoreSettings({
                   <PermissionProfileSettings
                     storeId={store.id}
                     profiles={staffProfiles.profiles}
+                    roles={staffProfiles.roles}
                     busy={busy}
                     run={run}
                     onSaved={staffProfiles.reload}
+                    peopleWith={id => members.filter(member => member.profile_id === id).length + invitations.filter(invite => invite.profile_id === id).length}
                   />
                 )}
                 <button type="button" className="text-button team-refresh-profiles-btn" disabled={busy || staffProfiles.loading} onClick={staffProfiles.reload}>
                   <RotateCcw size={13} /> Actualizar perfiles
                 </button>
               </div>
-            </div>
+            </details>
           </div>
         </div>
       )}

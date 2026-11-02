@@ -1759,6 +1759,7 @@
 @media (max-width: 640px) { .cost-adjust-list label { flex-wrap: wrap; } .cost-adjust-values { flex-basis: 100%; padding-left: 28px; } }
 .purchase-list-month { display: flex; flex-direction: column; gap: 6px; max-width: 220px; font-size: 13px; font-weight: 600; color: var(--tone-text); }
 .purchase-list-month :is(input, select) { min-height: 40px; padding: 6px 10px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); color: var(--tone-ink); font: inherit; }
+.purchase-list-totals dd { font-size: 20px; }
 .purchase-list-totals { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin: 0; }
 .purchase-list-totals > div, .purchase-list-detail dl > div { padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-canvas); }
 .purchase-list-totals dt, .purchase-list-detail dt { color: var(--tone-muted); font-size: 12px; }
@@ -1796,7 +1797,7 @@
 .supplier-urgent p { margin: 0; color: var(--tone-text); font-size: 13px; }
 .supplier-urgent-item { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border: 1px solid var(--tone-border-strong); border-radius: 10px; background: var(--tone-soft); color: var(--tone-ink); font: inherit; text-align: left; cursor: pointer; }
 .supplier-urgent-item.is-overdue { border-color: #f0d4a8; background: #fff4e0; color: #8a4b00; }
-.supplier-urgent-item strong { font-size: 15px; }
+.supplier-urgent-item strong { font-size: 19px; }
 .supplier-urgent-item span { font-size: 12.5px; }
 
 .manual-kind-step { display: flex; flex-direction: column; gap: 8px; padding: 8px 0; color: var(--tone-ink); }
@@ -2357,3 +2358,32 @@
 .text-button-danger:hover:not(:disabled) {
   background: rgba(220, 38, 38, 0.08);
 }
+
+/* Personas con acceso: una columna, alta visible y perfiles plegados. */
+.team-settings-container { grid-template-columns: minmax(0, 1fr); gap: 16px; }
+.team-add-member-wrapper .settings-editor { padding: 0; border: 0; background: transparent; }
+.team-add-member-wrapper .settings-editor:hover { background: transparent; }
+.team-add-member-wrapper .settings-editor:not(.settings-editor-open) .team-row .secondary-button { min-height: 46px; width: 100%; color: #fff; background: var(--tone-accent); border-color: var(--tone-accent); font-size: 15px; }
+.team-add-member-wrapper .settings-editor-open { padding: 14px 16px; }
+.team-role-hint { color: var(--tone-muted); font-size: 12.5px; }
+.team-profiles-more { border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-surface); }
+.team-profiles-more > summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 60px; padding: 12px 18px; list-style: none; cursor: pointer; }
+.team-profiles-more > summary::-webkit-details-marker { display: none; }
+.team-profiles-more > summary::after { content: ''; flex: none; width: 9px; height: 9px; margin-right: 4px; border-right: 2px solid var(--tone-muted); border-bottom: 2px solid var(--tone-muted); transform: rotate(45deg); transition: transform 150ms ease; }
+.team-profiles-more[open] > summary::after { transform: rotate(225deg); }
+.team-profiles-more > summary strong { display: block; color: var(--tone-ink); font-size: 15px; }
+.team-profiles-more > summary small { display: block; margin-top: 2px; color: var(--tone-muted); font-size: 12.5px; }
+.team-profiles-more .team-profiles-body { padding: 0 18px 18px; }
+.team-profiles-body .permission-profiles .settings-editor,
+.team-profiles-body .permission-profiles .settings-editor-open,
+.team-profiles-body .permission-profile-new-wrapper .settings-editor { padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+.team-profiles-body .settings-editor-open > .team-row { display: none; }
+.team-profiles-body .permission-profiles > .settings-editor,
+.team-profiles-body .permission-profiles .settings-editor { margin-block: 0; }
+.team-profiles-body .permission-profiles > .settings-editor { padding-block: 12px; border-bottom: 1px solid var(--tone-border); }
+.team-profiles-body .permission-profile-new-wrapper { margin: 12px 0 0; }
+.permission-list-title { margin: 14px 0 2px; color: var(--tone-ink); font-size: 13px; font-weight: 650; }
+.permission-role-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.permission-profile-empty { margin: 0 0 4px; color: var(--tone-muted); font-size: 13px; }
+.team-profiles-body .team-refresh-profiles-btn { align-self: flex-start; }
+.team-profiles-intro { margin: 0; color: var(--tone-muted); font-size: 13px; }

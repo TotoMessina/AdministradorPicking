@@ -25,7 +25,7 @@ Si faltan migraciones intermedias o hubo una ejecución fallida, no declarar com
 
 ## Ejecutar el archivo completo
 
-1. Conservar un respaldo apropiado del entorno antes de aplicar cambios pendientes y confirmar proyecto/baseline.
+1. Hacer una [copia de seguridad](docs/respaldos.md) del entorno antes de aplicar cambios pendientes y confirmar proyecto/baseline.
 2. Abrir `supabase/schema.sql`, copiar **todo** y ejecutar una sola vez en el SQL Editor con la cuenta administrativa del proyecto.
 3. Revisar errores y el resultado final: `filename`, `origin` y `registered_at`. Un error revierte la transacción completa, incluido su historial; no continuar ejecutando fragmentos.
 4. Actualizar la app y el catálogo en los dispositivos una vez confirmada la instalación.
@@ -346,3 +346,24 @@ Preparado el 30/10/2026, **sin ejecutar SQL remoto**: [202610300003_branch_inven
 ## Ventas en los fondos de sucursal
 
 Aplicada por el usuario el 30/10/2026: [202610300005_shift_cash_into_branch_funds.sql](supabase/migrations/202610300005_shift_cash_into_branch_funds.sql), incluida en `supabase/schema.sql`. Cada cierre de turno posterior suma al fondo de su sucursal el efectivo contado menos la apertura, y `retail_open_shift_cash` informa a administración el efectivo en cajas abiertas.
+
+## Roles editables
+
+Aplicada por el usuario el 30/10/2026: [202610300006_editable_role_permissions.sql](supabase/migrations/202610300006_editable_role_permissions.sql), incluida en `supabase/schema.sql`. Guarda por comercio qué puede hacer Cajero y Supervisor. Sin cambios guardados se conservan los permisos de siempre.
+
+## Gastos y ganancia del mes
+
+Aplicada por el usuario el 30/10/2026: [202610300007_expenses_and_month_result.sql](supabase/migrations/202610300007_expenses_and_month_result.sql), incluida en `supabase/schema.sql`. Agrega gastos y el cálculo mensual: ventas menos costo de lo vendido, guardado en cada ticket, menos gastos. Solo para dueños y administradores.
+
+## Anular y devolver ventas
+
+**Pendiente de aplicar:** [202611020001_sale_returns.sql](supabase/migrations/202611020001_sale_returns.sql), incluida en `supabase/schema.sql`. Agrega las devoluciones como registros propios, sin borrar ni reescribir la venta original. También suma el permiso `refund_sales`, que ningún perfil ni rol recibe automáticamente. El efectivo esperado de la caja, el cierre, el efectivo de cajas abiertas y Ganancias pasan a restar lo devuelto. No modifica ventas existentes: todas quedan con 0 devuelto. Aplicarla antes de publicar la versión de la app que muestra "Anular o devolver". Una app anterior sigue funcionando, pero no muestra el botón.
+
+Comprobación en el SQL Editor, de solo lectura:
+
+```sql
+select count(*) as devoluciones, (select count(*) from public.retail_sales where return_status <> 'none') as ventas_con_devolucion
+from public.retail_sale_returns;
+```
+
+Recién aplicada debe dar 0 y 0.

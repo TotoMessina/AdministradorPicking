@@ -41,12 +41,12 @@ try {
   signupResult = { data: { user: null, session: null }, error: { message: 'Email rate limit exceeded' } };
   await assert.rejects(() => createStaffAccount('store', 'cashier@example.test', 'cashier', 'Example-pass-123'), /acceso quedó autorizado/);
   assert.equal(disposals, signups);
-  await assert.rejects(() => authorizeStaff('store', 'cashier@example.test', 'admin'), /otros permisos/);
+  await assert.rejects(() => authorizeStaff('store', 'cashier@example.test', 'admin'), /otro rol o perfil/);
   signupResult = { data: { user: { id: 'new-user', identities: [{}] }, session: { user: { id: 'new-user' } } }, error: null };
   assert.equal(await createStaffAccount('store', 'cashier@example.test', 'cashier', 'Example-pass-123'), 'ready');
   const { StaffAccessForm } = await server.ssrLoadModule('/src/features/retail/StaffAccessForm.tsx');
   render(React.createElement(StaffAccessForm, { storeId: 'store', busy: false, run: async action => { await action(); return true; } }));
-  fireEvent.change(screen.getByLabelText('Email del colaborador'), { target: { value: 'cashier@example.test' } });
+  fireEvent.change(screen.getByLabelText('Email de la persona'), { target: { value: 'cashier@example.test' } });
   fireEvent.change(screen.getByLabelText('Contraseña inicial'), { target: { value: 'Example-pass-123' } });
   fireEvent.change(screen.getByLabelText('Repetir contraseña'), { target: { value: 'different' } });
   const before = signups;

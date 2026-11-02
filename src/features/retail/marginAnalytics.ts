@@ -16,6 +16,9 @@ export function marginSales(sales: KioscoSale[], products: KioscoProduct[], grou
   const byId = new Map(products.map(p => [p.id, p]));
   const byName = new Map(products.map(p => [normalize(p.name), p]));
   return sales.flatMap(sale => {
+    // Anuladas no cuentan; en devoluciones parciales cada renglón se reduce en la misma proporción (aproximación analítica).
+    if (sale.returnStatus === 'voided') return [];
+    const kept = sale.total > 0 ? Math.max(0, sale.total - (sale.returnedTotal || 0)) / sale.total : 1;
     let raw: Item[] = Array.isArray(sale.items) ? sale.items : [];
     if (typeof sale.items === 'string') { try { const parsed = JSON.parse(sale.items); if (Array.isArray(parsed)) raw = parsed; } catch { /* Legacy ticket with no line details. */ } }
     if (!raw.length && sale.total > 0) raw = [{ name: 'Venta sin detalle histórico', qty: 1, unitPrice: sale.total, subtotal: sale.total }];
@@ -24,7 +27,7 @@ export function marginSales(sales: KioscoSale[], products: KioscoProduct[], grou
       const classification = item.marginGroup ?? product?.margin_group ?? 'standard';
       if (classification !== group) return [];
       const unitCost = item.unitCost !== undefined ? item.unitCost : product?.cost && product.cost > 0 ? product.cost : null;
-      return [{ ...item, marginGroup: classification, unitCost, subtotal: cents(Number(item.subtotal ?? item.qty * item.unitPrice) || 0) / 100 }];
+      return [{ ...item, marginGroup: classification, unitCost, qty: Number(item.qty) * kept, subtotal: cents((Number(item.subtotal ?? item.qty * item.unitPrice) || 0) * kept) / 100 }];
     });
     if (!items.length) return [];
     const total = items.reduce((sum, i) => sum + cents(i.subtotal), 0) / 100;

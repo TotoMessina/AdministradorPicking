@@ -1,6 +1,7 @@
 import { supabase, isValidUUID } from "../../lib/supabase";
+import { technicalMessage } from '../../lib/errorReporting';
 import { randomUUID } from "../../utils/uuid";
-import type { KioscoProduct, KioscoSale, StockComponent } from "../../types/kiosco";
+import type { KioscoProduct, KioscoSale, PaymentPart, StockComponent } from "../../types/kiosco";
 import { hasComposition, withAvailableStock } from '../../services/productComposition';
 import { closingCashDenominations, type CashDenominations } from '../../services/cashDenominations';
 import { syncOffline, withOffline } from './offline';
@@ -13,7 +14,7 @@ import { toSupplierProfile, type SupplierProfile } from '../../services/supplier
 import { PURCHASE_AMOUNT_FIELDS, type PurchaseAmountField } from '../../services/purchaseInvoiceFields';
 import { REMITO_BUCKET, remitoExtension, remitoPath, remitoReference, type PendingReplenishment, type PendingReplenishmentItem } from './remitos';
 export type { PendingReplenishment, PendingReplenishmentItem } from './remitos';
-import type { Permission, PermissionProfile, StaffBaseRole } from './permissions';
+import type { Permission, PermissionProfile, RolePermissions, StaffBaseRole } from './permissions';
 import type { BillingStatus, CondicionIva } from './billing';
 export type { BillingStatus, CondicionIva } from './billing';
 export type Role = "owner" | "admin" | "supervisor" | "cashier";
@@ -221,7 +222,14 @@ export interface Invitation {
   branch_id: string | null;
   register_id: string | null;
 }
+export interface SaleReturn {
+  id: string; kind: 'void' | 'partial'; total: number | string; cash_amount: number | string; payments: PaymentPart[];
+  items: { index: number; productId?: string | null; name: string; qty: number; unitPrice: number; subtotal: number }[];
+  reason: string; credit_note_required: boolean; credit_note_reference: string | null; actor_email: string | null; created_at: string;
+}
 export interface SaleRow {
+  returned_total?: number | string;
+  return_status?: KioscoSale['returnStatus'];
   shift_id?: string;
   store_id?: string;
   created_by?: string;
@@ -259,6 +267,17 @@ export interface EanLookupResult {
   source?: "ai" | "community" | "verified";
   confidence_score?: number;
 }
+/** Los textos en inglés de la base o del navegador no le sirven a quien usa la app. */
+function plainError(message?: string) {
+  if (!message) return message;
+  if (/failed to fetch|networkerror|load failed|err_connection|timeout/i.test(message)) return 'No hay conexión. Revisá internet y probá de nuevo.';
+  if (technicalMessage.test(message)) {
+    console.error(message);
+    return 'Algo salió mal y no se guardó. Probá de nuevo en un momento; si sigue pasando, avisale al administrador.';
+  }
+  return message;
+}
+
 export function errorMessage(error: unknown): string {
   const e = error as { code?: string; message?: string };
   if (['PGRST202', 'PGRST204', '42703', '42P01'].includes(e?.code || '') && /retail_set_billing_settings|retail_update_sale_billing|billing_enabled|cuit|razon_social/.test(e.message || ''))
@@ -323,7 +342,7 @@ export function errorMessage(error: unknown): string {
   if (e?.message === "Email not confirmed")
     return "Confirmá tu email antes de ingresar.";
   return (
-    e?.message ||
+    plainError(e?.message) ||
     "No se pudo conectar. Verificá tu conexión y volvé a intentar."
   );
 }
@@ -366,6 +385,8 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   billingStatus: row.billing_status ?? 'none',
   billingError: row.billing_error ?? null,
   billingAttempts: row.billing_attempts ?? 0,
+  returnedTotal: Number(row.returned_total ?? 0),
+  returnStatus: row.return_status ?? 'none',
   id: row.id,
   ticketNumber: `T-${row.ticket_number}`,
   items: row.items,
@@ -503,6 +524,17 @@ const remoteRetail = {
   async saleLedgerHistory(store: string, sale: string) {
     return allRows<SaleLedgerChange>((from, to) => supabase.from('retail_sale_ledger_changes').select('id,from_name,to_name,changed_by,changed_at')
       .eq('store_id', store).eq('sale_id', sale).order('changed_at', { ascending: false }).order('id').range(from, to));
+  },
+  async returnSale(store: string, sale: string, request: string, items: { index: number; qty: number }[] | null, reason: string, refund: PaymentPart[] | null, shift: string | null) {
+    return result<{ id: string; returnedTotal: number; returnStatus: 'partial' | 'voided'; total: number; creditNoteRequired: boolean }>(supabase.rpc('retail_return_sale', {
+      p_store: store, p_sale: sale, p_request: request, p_items: items, p_reason: reason, p_refund: refund, p_shift: shift }));
+  },
+  async saleReturns(store: string, sale: string) {
+    return allRows<SaleReturn>((from, to) => supabase.from('retail_sale_returns').select('id,kind,items,total,cash_amount,payments,reason,credit_note_required,credit_note_reference,actor_email,created_at')
+      .eq('store_id', store).eq('sale_id', sale).order('created_at').order('id').range(from, to));
+  },
+  async attachCreditNote(store: string, saleReturn: string, reference: string) {
+    return result(supabase.rpc('retail_attach_credit_note', { p_store: store, p_return: saleReturn, p_reference: reference }));
   },
   async reportSales(store: string, fromDate: string, toDate: string) {
     const rows = await allRows<SaleRow>((from, to) => supabase.from('retail_sales').select('*').eq('store_id', store).gte('created_at', fromDate).lt('created_at', toDate).order('created_at').order('id').range(from, to));
@@ -996,6 +1028,13 @@ const remoteRetail = {
   },
   async updateProductPrice(store: string, product: string, price: number, expected: number) {
     return result(supabase.rpc('retail_update_product_price', { p_store: store, p_product: product, p_price: price, p_expected: expected }));
+  },
+  async rolePermissions(store: string) {
+    const rows = await result<{ role: StaffBaseRole; permissions: Permission[]; revision: number }[]>(supabase.from('retail_role_permissions').select('role,permissions,revision').eq('store_id', store));
+    return Object.fromEntries(rows.map(({ role, permissions, revision }) => [role, { permissions, revision }])) as RolePermissions;
+  },
+  async saveRolePermissions(store: string, role: StaffBaseRole, permissions: Permission[], revision = 0) {
+    return result(supabase.rpc('retail_save_role_permissions', { p_store: store, p_role: role, p_permissions: permissions, p_revision: revision }));
   },
   async savePermissionProfile(store: string, profile: Omit<PermissionProfile, 'id' | 'store_id'>, id?: string, requestId?: string, revision = 0) {
     return result(supabase.rpc('retail_save_permission_profile', { p_store: store, p_id: id || requestId || randomUUID(), p_name: profile.name.trim(), p_role: profile.base_role, p_permissions: profile.permissions, p_revision: revision }));

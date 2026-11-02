@@ -21,7 +21,7 @@ try {
     registers: async () => [{ id: 'reg', branch_id: 'branch', active: true, name: 'Caja' }],
     registerAvailability: async () => [{ register_id: 'reg', occupied: false }],
     shifts: async () => [], products: async () => [{ id: 'product', name: 'Agua', price: 50, stock: serverStock }],
-    ledgers: async () => [{ id: 'ledger', name: 'General', is_default: true, active: true }], priceLists: async () => [],
+    ledgers: async () => [{ id: 'ledger', name: 'General', is_default: true, active: true }], priceLists: async () => [], priceOverrides: async () => [],
     sales: async () => [], movements: async () => [], shiftBalance: async () => 100,
     permissions: async () => ['sell', 'open_shift', 'close_shift', 'cash_income', 'cash_withdrawal'],
     openShift: async () => assert.fail('Must not wait for remote writes'), checkout: async () => assert.fail('Must not write remotely before durable enqueue'),
@@ -29,7 +29,7 @@ try {
     replenishProductStock: async () => assert.fail('Must enqueue stock'), replenishStockBatch: async () => assert.fail('Must enqueue stock'),
   };
   const retail = offline.withOffline(remote); offline.configureOffline(account);
-  for (const method of ['stores', 'branches', 'registers', 'registerAvailability', 'shifts', 'products', 'ledgers', 'priceLists', 'permissions']) await retail[method](...(method === 'stores' ? [] : ['store']));
+  for (const method of ['stores', 'branches', 'registers', 'registerAvailability', 'shifts', 'products', 'ledgers', 'priceLists', 'priceOverrides', 'permissions']) await retail[method](...(method === 'stores' ? [] : ['store']));
   await retail.role('store', account);
   online = false;
   const shift = await retail.openShift('store', 'reg', 100);

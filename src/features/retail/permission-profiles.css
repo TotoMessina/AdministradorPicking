@@ -5,16 +5,18 @@
 .permission-role { align-self: center; padding: 6px 12px; border-radius: 999px; background: var(--tone-soft); color: var(--tone-accent); font-size: 12px; font-weight: 600; }
 .permission-section-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .permission-section-heading > span { color: var(--tone-muted); font-size: 12px; }
-.permission-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
-.permission-form .permission-group { min-width: 0; margin: 0; padding: 6px 14px 10px; border: 1px solid var(--tone-border); border-radius: 14px; background: var(--tone-surface); }
-.permission-group > legend { padding: 0 6px; color: var(--tone-muted); font-size: 12px; font-weight: 600; }
-.permission-form label.permission-switch { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; min-height: 52px; margin: 0; cursor: pointer; }
+.permission-groups { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px 32px; }
+.permission-form .permission-group { min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+.permission-group > legend { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; float: left; width: 100%; padding: 0 0 6px; border-bottom: 2px solid var(--tone-border); color: var(--tone-ink); font-size: 13px; font-weight: 650; }
+.permission-group > legend small { color: var(--tone-muted); font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.permission-group > legend + label { clear: both; }
+.permission-form label.permission-switch { display: flex; flex-direction: row; justify-content: space-between; align-items: center; gap: 12px; min-height: 44px; margin: 0; cursor: pointer; }
 .permission-switch + .permission-switch { border-top: 1px solid var(--tone-border); }
 .permission-switch-label { color: var(--tone-text); font-size: 13px; line-height: 1.4; }
 .permission-switch-control { position: relative; display: inline-flex; flex: 0 0 44px; width: 44px; height: 26px; }
 .permission-form .permission-switch input[type='checkbox'] { position: absolute; inset: 0; z-index: 1; width: 44px; height: 26px; min-height: 0; margin: 0; padding: 0; opacity: 0; cursor: pointer; }
-.permission-switch-track { display: block; width: 44px; height: 26px; border: 1px solid var(--tone-muted); border-radius: 999px; background: var(--tone-canvas); transition: background-color 150ms ease; }
-.permission-switch-track::before { content: ''; position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--tone-muted); transition: transform 150ms ease, background-color 150ms ease; }
+.permission-switch-track { display: block; width: 44px; height: 26px; border: 1px solid var(--tone-border-strong); border-radius: 999px; background: var(--tone-border); transition: background-color 150ms ease; }
+.permission-switch-track::before { content: ''; position: absolute; top: 4px; left: 4px; width: 18px; height: 18px; border-radius: 50%; background: var(--tone-surface); box-shadow: 0 1px 2px rgba(15, 18, 30, .25); transition: transform 150ms ease, background-color 150ms ease; }
 .permission-switch input:checked + .permission-switch-track { border-color: var(--tone-accent); background: var(--tone-accent); }
 .permission-switch input:checked + .permission-switch-track::before { transform: translateX(18px); background: var(--tone-surface); }
 .permission-switch input:focus-visible + .permission-switch-track { outline: 3px solid var(--tone-accent); outline-offset: 4px; }

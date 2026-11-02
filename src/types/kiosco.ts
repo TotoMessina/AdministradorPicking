@@ -64,6 +64,9 @@ export interface KioscoSale {
   billingStatus?: 'none' | 'pending' | 'authorized' | 'error' | 'retry';
   billingError?: string | null;
   billingAttempts?: number;
+  /** Acumulado anulado o devuelto; la venta original no cambia. */
+  returnedTotal?: number;
+  returnStatus?: 'none' | 'partial' | 'voided';
   id: string;
   ticketNumber: string; // Ej: "T-0042"
   storeName?: string;

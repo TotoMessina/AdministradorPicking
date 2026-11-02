@@ -1,6 +1,7 @@
 import { PGlite } from '@electric-sql/pglite';
 import { readFile, readdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { PLATFORM_SQL } from './platform.mjs';
 const db = new PGlite();
 const scalar = async (sql, params = []) => Object.values((await db.query(sql, params)).rows[0])[0];
 const login = async id => {
@@ -14,10 +15,7 @@ const open = (store, register) => scalar('select retail_open_shift($1,$2,100)', 
 const move = (shift, amount = 10) => scalar("select retail_add_movement($1,'INGRESO',$2,'Prueba',$3)", [shift, amount, crypto.randomUUID()]);
 const sale = shift => scalar("select retail_checkout($1,$2,'Efectivo',50,$3)", [shift, crypto.randomUUID(), JSON.stringify([{ name: 'Manual', qty: 1, unit_price: 50 }])]);
 try {
-  await db.exec(`create role anon; create role authenticated; create role service_role bypassrls;
-    create schema auth; create table auth.users(id uuid primary key,email text,email_confirmed_at timestamptz);
-    create function auth.uid() returns uuid language sql stable as $$select nullif(current_setting('request.jwt.claim.sub',true),'')::uuid$$;
-    grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;`);
+  await db.exec(PLATFORM_SQL);
   for (const file of (await readdir('supabase/migrations')).filter(f => f.endsWith('.sql')).sort()) {
     await db.exec((await readFile(`supabase/migrations/${file}`, 'utf8')).replace(/^\uFEFF/, ''));
   }
@@ -38,8 +36,8 @@ try {
   const otherStore = await scalar("select retail_create_store('Otro')");
   const otherReg = await scalar('select id from retail_registers where store_id=$1', [otherStore]);
   const otherBranch = await scalar('select id from retail_branches where store_id=$1', [otherStore]);
-  await assert.rejects(() => db.query('select * from retail_team($1)', [store]), /Sin permiso/);
-  await assert.rejects(() => scope(store, users.one), /Sin permiso/);
+  await assert.rejects(() => db.query('select * from retail_team($1)', [store]), /Tu perfil no permite/);
+  await assert.rejects(() => scope(store, users.one), /Tu perfil no permite/);
   await login(users.admin);
   const team = (await db.query('select * from retail_team($1)', [store])).rows;
   assert.equal(team.length, 4); assert.equal(team.find(m => m.user_id === users.one).email, 'one@example.test');
@@ -52,8 +50,8 @@ try {
   assert.equal(await scalar('select count(*) from retail_branches'), 1);
   assert.equal(await scalar('select count(*) from retail_registers'), 2);
   assert.equal(await scalar('select count(*) from retail_members'), 1);
-  await assert.rejects(() => db.query('select * from retail_team($1)', [store]), /Sin permiso/);
-  await assert.rejects(() => scope(store, users.one), /Sin permiso/);
+  await assert.rejects(() => db.query('select * from retail_team($1)', [store]), /Tu perfil no permite/);
+  await assert.rejects(() => scope(store, users.one), /Tu perfil no permite/);
   await assert.rejects(() => db.query('update retail_members set branch_id=null where user_id=$1', [users.one]), /permission denied/);
   await assert.rejects(() => open(store, reg), /Sin acceso/);
   console.log('PASS manager emails, branch scope, cross-store rejection and no cashier privilege escalation');

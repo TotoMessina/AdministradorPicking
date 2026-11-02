@@ -104,7 +104,7 @@ export function InvoiceReviewTable(props: Props) {
           <th scope="col" data-group="stock">Cant. factura</th>
           <th scope="col" data-group="stock">U. / bulto</th>
           <th scope="col" data-group="stock">Ingresan (u.)</th>
-          <th scope="col" data-group="stock" title="Mínimo de unidades a mantener en stock">Stock mínimo</th>
+          <th scope="col" data-group="stock" title="Se avisa cuando queden estas unidades o menos">Stock mínimo</th>
           <th scope="col" className="invoice-sheet-money" data-group="price">{props.finalCostNote ? 'Costo factura / u. ($)' : 'Costo / u. ($)'}</th>
           <th scope="col" data-group="price">Aumento (%)</th>
           <th scope="col" className="invoice-sheet-money" data-group="price">Venta / u. ($)</th>
@@ -140,7 +140,7 @@ export function InvoiceReviewTable(props: Props) {
                   <div className="invoice-sheet-state">
                     {isNew ? <span>{!it.manual && <AiIcon size={12} />} {it.manual ? 'Manual' : 'Nuevo'}</span> : skipped ? <span>Omitido</span>
                       : product ? <span className={it.linkStatus === 'pending' ? 'invoice-sheet-warning' : ''} title={it.linkReason}>
-                        {it.linkStatus === 'pending' ? 'Revisar vínculo' : it.linkStatus === 'auto' ? 'Vínculo automático' : 'Confirmado'}
+                        {it.linkStatus === 'pending' ? '¿Es este producto?' : it.linkStatus === 'auto' ? 'Reconocido' : 'Confirmado'}
                       </span> : <span>Elegir producto</span>}
                     {(it.mapping?.times_used ?? 0) >= 2 && <span title="Usos del alias; no equivale a cantidad de facturas únicas.">🔗 {it.mapping!.times_used} usos</span>}
                     {!product && !skipped && <button type="button" className="ai-action invoice-sheet-ai" disabled={

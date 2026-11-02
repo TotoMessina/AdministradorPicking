@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { askConfirm } from '../../components/ConfirmHost';
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import {
   Store as StoreIcon,
@@ -14,6 +15,12 @@ import {
   BookOpen,
   ChevronDown,
   MapPin,
+  ArrowLeftRight,
+  Banknote,
+  Truck,
+  TrendingUp,
+  House,
+  PackagePlus,
 } from "lucide-react";
 import { supabase } from "../../lib/supabase";
 import { useToast } from "../../context/ToastContext";
@@ -40,6 +47,11 @@ import {
 } from "./api";
 import { CatalogEditor, StoreSettings, type Run } from "./Management";
 import { DelegatedSettings } from './DelegatedSettings';
+import { HomeTab, type HomeAction } from './HomeTab';
+import { FinanceTab } from './FinanceTab';
+import { SettingsEditorGroup } from './SettingsEditor';
+import { SupplierAccountSection } from './SupplierAccountSection';
+import { NumberInput } from '../../components/NumberInput';
 import { CashDesk } from "./CashDesk";
 import { PriceListSettings } from './BusinessSettings';
 import { SalesOverview } from './SalesOverview';
@@ -50,7 +62,7 @@ import { QuickProducts } from './QuickProducts';
 import { catalogPermissions, settingsPermissions, type Permission } from './permissions';
 import { productsForList } from './pricing';
 import { SectionNav } from './SectionNav';
-import { hasComposition, productsAtBranch } from '../../services/productComposition';
+import { hasComposition, productsAtBranch, stockForSale } from '../../services/productComposition';
 import { disconnectPushOnLogout, initialPushIntent, readPushIntent } from './push';
 import { PushWelcome } from './PushWelcome';
 import { useMobileScreenMotion } from './useMobileExperience';
@@ -61,7 +73,9 @@ import { QuickRemito } from './QuickRemito';
 import { usePendingReplenishments } from './usePendingReplenishments';
 import { LocationTransfers } from './LocationTransfers';
 import { GuidedStart } from './GuidedStart';
-type Tab = "pos" | "cash" | "catalog" | "settings" | "ai" | "remito";
+import { saleNet } from './SaleReturn';
+import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
+type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "settings" | "ai" | "remito";
 export function RetailApp({ session }: { session: Session }) {
   useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
   const [stores, setStores] = useState<Store[]>([]);
@@ -239,7 +253,7 @@ function Workspace({
     const intent = initialPushIntent();
     return intent?.storeId === store.id ? intent : null;
   });
-  const [tab, setTab] = useState<Tab>(pushEntry?.view || 'pos');
+  const [tab, setTab] = useState<Tab>(pushEntry?.view || 'home');
   const mainRef = useRef<HTMLElement>(null);
   useMobileScreenMotion(mainRef, tab);
   const [cashView, setCashView] = useState(pushEntry?.view === 'cash' ? 'overview' : 'shift');
@@ -247,7 +261,8 @@ function Workspace({
   const [closeRequest, setCloseRequest] = useState(0);
   const [catalogView, setCatalogView] = useState('products');
   const [invoiceRequest, setInvoiceRequest] = useState(0);
-  const uploadInvoice = () => { setCatalogView('products'); setTab('catalog'); setInvoiceRequest(value => value + 1); };
+  const invoiceReturn = useRef<Tab>('suppliers');
+  const uploadInvoice = () => { invoiceReturn.current = tab; setCatalogView('products'); setTab('catalog'); setInvoiceRequest(value => value + 1); };
   const [settingsView, setSettingsView] = useState(pushEntry?.view === 'settings' ? 'app' : 'general');
   const [guiding, setGuiding] = useState(false);
   const [guideReady, setGuideReady] = useState(false);
@@ -261,6 +276,10 @@ function Workspace({
   const [availability, setAvailability] = useState<{ register_id: string; occupied: boolean }[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [branchId, setBranchId] = useState('');
+  useEffect(() => {
+    setErrorContext({ storeId: store.id, branchId, screen: tab });
+    return () => setErrorContext(null);
+  }, [store.id, branchId, tab]);
   const branchSelection = useRef('');
   const [priceLists, setPriceLists] = useState<PriceList[]>([]);
   const [priceOverrides, setPriceOverrides] = useState<PriceOverride[]>([]);
@@ -311,6 +330,7 @@ function Workspace({
   const canReviewSales = can('view_sales') || can('attach_invoice');
   const canOpenCatalog = manager || catalogPermissions.some(can);
   const canOpenSettings = manager || settingsPermissions.some(can);
+  const canOpenSuppliers = can('manage_products') || can('manage_supplier_accounts');
   const [managementLocations, setManagementLocations] = useState<{ branches: Branch[]; registers: Register[] } | null>(null);
   const [managementLocationError, setManagementLocationError] = useState('');
   const configurationBranches = !manager && managementLocations ? managementLocations.branches : branches;
@@ -330,11 +350,41 @@ function Workspace({
   const hasPrimaryList = saleLists.some(l => l.is_primary && l.active);
   const canChooseList = manager && (saleLists.filter(l => l.active).length + (hasPrimaryList ? 0 : 1) > 1);
   const canChooseLedger = saleLedgers.filter(l => l.active).length > 1 || saleLedgers.some(l => l.id === ledgerId && !l.active);
-  const mobileTabs = ['pos', 'cash', ...(canOpenCatalog ? ['catalog'] : []), ...(canOpenSettings ? ['settings'] : []), ...(!manager && can('submit_remito') ? ['remito'] : [])];
+  const mobileTabs = ['home', 'pos', 'cash', ...(canOpenCatalog ? ['catalog'] : []), ...(canOpenSuppliers ? ['suppliers'] : []), ...(canOpenSettings ? ['settings'] : []), ...(!manager && can('submit_remito') ? ['remito'] : [])];
   const canOperate =
     !!shift && !!register?.active && (manager || shift.opened_by === session.user.id);
+  const openableRegister = !shift && !occupiedByOther && !!register?.active;
+  const lowStock = useMemo(() => productsAtBranch(products, store.branch_inventory_enabled ? branchId : undefined)
+    .filter(product => !hasComposition(product) && product.code !== 'MANUAL' && stockForSale(product) <= product.minStock)
+    .map(product => product.name), [products, store.branch_inventory_enabled, branchId]);
+  const soldToday = useMemo(() => {
+    if (!manager) return null;
+    const today = new Date().toDateString();
+    const rows = (allStoreSales.length > 0 ? allStoreSales : sales).filter(sale => sale.createdAt && new Date(sale.createdAt).toDateString() === today);
+    return { total: rows.reduce((sum, sale) => sum + saleNet(sale), 0), tickets: rows.length };
+  }, [manager, allStoreSales, sales]);
+  const soldWeek = useMemo(() => {
+    if (!manager) return [];
+    const rows = allStoreSales.length > 0 ? allStoreSales : sales;
+    return Array.from({ length: 7 }, (_, index) => {
+      const date = new Date(); date.setDate(date.getDate() - 6 + index);
+      const day = date.toDateString();
+      const total = rows.filter(sale => sale.createdAt && new Date(sale.createdAt).toDateString() === day).reduce((sum, sale) => sum + saleNet(sale), 0);
+      return { day, total, label: index === 6 ? 'Hoy' : date.toLocaleDateString('es-AR', { weekday: 'short' }).replace('.', '') };
+    });
+  }, [manager, allStoreSales, sales]);
+  const goToProducts = () => { setCatalogView('products'); setTab('catalog'); };
+  const homeActions: HomeAction[] = [
+    ...(can('sell') ? [{ id: 'sell', label: 'Vender', hint: cart.length ? 'Tenés una venta sin cobrar' : canOperate ? 'Buscá el producto y cobrá' : 'Primero abrís la caja', icon: ShoppingBag, main: true, onClick: () => setTab('pos') }] : []),
+    { id: 'cash', label: 'Caja', hint: canOperate ? 'Contar la plata y cerrar' : 'Abrir o ver la caja', icon: Wallet, onClick: () => { setCashView('shift'); setTab('cash'); } },
+    ...(can('manage_products') && categories.length ? [{ id: 'receive', label: 'Recibir mercadería', hint: 'Sacale una foto a la factura', icon: Camera, onClick: uploadInvoice }]
+      : canOpenCatalog && can('replenish_stock') ? [{ id: 'receive', label: 'Recibir mercadería', hint: 'Sumá lo que llegó', icon: PackagePlus, onClick: goToProducts }] : []),
+    ...(can('manage_transfers') ? [{ id: 'transfer', label: 'Pasar mercadería', hint: 'De un local a otro', icon: ArrowLeftRight, onClick: () => { setCatalogView('transfers'); setTab('catalog'); } }] : []),
+    ...(can('manage_supplier_accounts') ? [{ id: 'pay', label: 'Pagar a proveedores', hint: 'Ver cuánto debo', icon: Banknote, onClick: () => setTab('suppliers') }] : []),
+    ...(manager ? [{ id: 'finance', label: 'Ganancias', hint: 'Cuánto te quedó este mes', icon: TrendingUp, onClick: () => setTab('finance') }] : []),
+  ];
   useEffect(() => {
-    if (!loading && ((tab === 'settings' && !canOpenSettings) || (tab === 'ai' && !can('use_ai')) || (tab === 'catalog' && !canOpenCatalog))) setTab('pos');
+    if (!loading && ((tab === 'settings' && !canOpenSettings) || (tab === 'ai' && !can('use_ai')) || (tab === 'catalog' && !canOpenCatalog) || (tab === 'suppliers' && !canOpenSuppliers) || (tab === 'finance' && !manager))) setTab('pos');
   }, [loading, manager, canOpenCatalog, canOpenSettings, permissions, tab]);
   useEffect(() => {
     if (!loading && tab === 'remito' && !manager && !permissions.includes('submit_remito')) setTab('cash');
@@ -543,6 +593,7 @@ function Workspace({
       }
       return true;
     } catch (err) {
+      reportTechnicalFailure(err, tab);
       setError(errorMessage(err));
       notify("error", errorMessage(err));
       return false;
@@ -551,9 +602,7 @@ function Workspace({
       setBusy(false);
     }
   };
-  const confirmLeave = () =>
-    !cart.length ||
-    window.confirm("Hay una venta sin cobrar. ¿Descartarla y continuar?");
+  const confirmLeave = async () => !cart.length || askConfirm("¿Descartar la venta sin cobrar y continuar?");
   const showTicket = (sale: KioscoSale) =>
     setTicket({
       ...sale,
@@ -575,7 +624,7 @@ function Workspace({
     const destination = ledgerForPayment(sale.paymentMethod);
     if (!destination || !ledgers.some(l => l.id === destination.id && l.active)) throw new Error('El registro asignado ya no está activo. Pedile al administrador que lo reactive o revisá el registro antes de volver a cargar la venta.');
     if (!shift || !canOperate || running.current)
-      throw new Error("Abrí tu turno antes de vender.");
+      throw new Error("Abrí la caja antes de vender.");
     running.current = true;
     setBusy(true);
     try {
@@ -616,6 +665,7 @@ function Workspace({
         );
       });
     } catch (err) {
+      reportTechnicalFailure(err, 'cobro');
       throw new Error(errorMessage(err));
     } finally {
       running.current = false;
@@ -933,6 +983,7 @@ function Workspace({
         <nav aria-label="Navegación principal" style={{ '--nav-count': mobileTabs.length, '--nav-index': Math.max(0, mobileTabs.indexOf(tab)) } as React.CSSProperties}>
           {(
             [
+              { id: "home", label: "Inicio", icon: House },
               { id: "pos", label: "Vender", icon: ShoppingBag },
               { id: "cash", label: "Caja", icon: Wallet },
               ...(manager
@@ -942,15 +993,17 @@ function Workspace({
                       label: "Productos y stock",
                       icon: Package,
                     },
+                    { id: "suppliers", label: "Proveedores", icon: Truck },
+                    { id: "finance", label: "Ganancias", icon: TrendingUp },
                     { id: "settings", label: "Mi comercio", icon: Settings2 },
                   ]
-                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(canOpenSettings ? [{ id: 'settings', label: 'Mi comercio', icon: Settings2 }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
+                : [...(canOpenCatalog ? [{ id: 'catalog', label: 'Productos y stock', icon: Package }] : []), ...(canOpenSuppliers ? [{ id: 'suppliers', label: 'Proveedores', icon: Truck }] : []), ...(canOpenSettings ? [{ id: 'settings', label: 'Mi comercio', icon: Settings2 }] : []), ...(can('submit_remito') ? [{ id: 'remito', label: 'Remito', icon: Camera }] : [])]),
             ] as const
           ).map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               disabled={busy || guiding}
-              className={`nav-item ${tab === id ? "active" : ""}`}
+              className={`nav-item ${tab === id ? "active" : ""}${id === 'finance' ? ' nav-item-desktop' : ''}`}
               aria-current={tab === id ? "page" : undefined}
               onClick={() => {
                 setOpenFromSale(false);
@@ -962,7 +1015,7 @@ function Workspace({
             >
               <Icon size={18} />
               <span className="desktop-nav-label">{label}</span>
-              <span className="mobile-nav-label">{{ pos: "Vender", cash: "Caja", catalog: "Productos", settings: "Comercio", ai: "Asistente", remito: 'Remito' }[id]}</span>
+              <span className="mobile-nav-label">{{ home: "Inicio", pos: "Vender", cash: "Caja", catalog: "Productos", suppliers: "Proveedores", finance: "Ganancias", settings: "Comercio", ai: "Asistente", remito: 'Remito' }[id]}</span>
               {id === 'catalog' && pendingRemitos.records.length > 0 && <span className="remito-nav-badge" aria-label={`${pendingRemitos.records.length} remitos pendientes`}>{pendingRemitos.records.length > 99 ? '99+' : pendingRemitos.records.length}</span>}
             </button>
           ))}
@@ -997,7 +1050,7 @@ function Workspace({
             className="text-button"
             disabled={busy}
             onClick={() => {
-              if (!guiding && confirmLeave()) onCreate();
+              if (!guiding) void confirmLeave().then(ok => { if (ok) onCreate(); });
             }}
           >
             + Crear otro comercio
@@ -1017,8 +1070,7 @@ function Workspace({
             className="text-button"
             disabled={busy}
             onClick={() => {
-              if (confirmLeave())
-                void onSignOut().catch((e) => notify("error", errorMessage(e)));
+              void confirmLeave().then(ok => { if (ok) void onSignOut().catch((e) => notify("error", errorMessage(e))); });
             }}
           >
             <LogOut size={15} /> Cerrar sesión
@@ -1042,18 +1094,21 @@ function Workspace({
               <span className="desktop-page-title">
               {
                 {
+                  home: "Inicio",
                   pos: "Vender",
                   cash: "Caja",
                   catalog: "Productos y precios",
+                  suppliers: "Proveedores",
+                  finance: "Ganancias",
                   settings: "Mi comercio",
                   ai: "Asistente de negocio",
                   remito: 'Cargar remito',
                 }[tab]
               }
               </span>
-              <span className="mobile-page-title">{{ pos: "Vender", cash: "Caja", catalog: "Productos", settings: "Mi comercio", ai: "Asistente", remito: 'Cargar remito' }[tab]}</span>
+              <span className="mobile-page-title">{{ home: "Inicio", pos: "Vender", cash: "Caja", catalog: "Productos", suppliers: "Proveedores", finance: "Ganancias", settings: "Mi comercio", ai: "Asistente", remito: 'Cargar remito' }[tab]}</span>
             </h1>
-            <p>{{ pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí tu turno, registrá ingresos o retiros y cerrá contando el efectivo.', catalog: 'Mantené tus productos, existencias y precios al día.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.', remito: 'Una foto, las cantidades y la aprobación del encargado.' }[tab]}</p>
+            <p>{{ home: '¿Qué querés hacer ahora?', pos: 'Buscá, agregá y cobrá. Todo desde el mismo lugar.', cash: 'Abrí la caja, poné o sacá plata y cerrala contando el efectivo.', catalog: 'Mantené tus productos, existencias y precios al día.', suppliers: 'Cuánto debés, qué pagaste y las facturas de cada proveedor.', finance: 'Cuánto vendiste, cuánto gastaste y cuánto te quedó.', settings: 'Organizá tu comercio y elegí cómo trabajar.', ai: 'Consultá los datos de tu comercio y prepará tu próximo paso.', remito: 'Una foto, las cantidades y la aprobación del encargado.' }[tab]}</p>
           </div>
           <div className={`register-picker ${tab !== 'pos' && tab !== 'cash' ? 'context-picker-hidden' : ''}`}>
             <button
@@ -1085,6 +1140,11 @@ function Workspace({
           </div>
         ) : (
           <>
+            <div hidden={tab !== 'home'}>
+              <HomeTab place={[branches.find(branch => branch.id === branchId)?.name, register?.name].filter(Boolean).join(' · ') || store.name} cashOpen={!!shift} sold={soldToday} week={soldWeek} lowStock={lowStock}
+                remitos={can('review_remitos') ? pendingRemitos.records.length : 0} actions={homeActions} disabled={busy || guiding}
+                onLowStock={canOpenCatalog ? goToProducts : undefined} onRemitos={canOpenCatalog ? goToProducts : undefined} />
+            </div>
             <div hidden={tab !== 'pos'}>
               {!canOperate ? (
                 <section className="retail-panel start-selling">
@@ -1096,22 +1156,29 @@ function Workspace({
                         ? "No tenés una caja disponible"
                       : shift || occupiedByOther
                         ? "Esta caja está en uso"
-                        : "Abrí tu turno para vender"}
+                        : "Abrí la caja para vender"}
                   </h2>
                   <p>
                     {!register
                       ? manager ? 'Agregá una caja en Mi comercio, dentro de Cajas de cobro.' : 'Pedile al administrador que revise tu asignación de sucursal y caja.'
                       : occupiedByOther || (shift && !canOperate)
-                      ? "Elegí otra caja disponible o esperá a que termine el turno actual. Usá Actualizar para comprobar si ya se liberó."
-                      : "Ingresá el efectivo inicial para comenzar a registrar las ventas de este turno."}
+                      ? "Elegí otra caja disponible o esperá a que se cierre. Usá Actualizar para comprobar si ya se liberó."
+                      : "Contá la plata que hay ahora en la caja. Si no hay nada, dejá 0."}
                   </p>
-                  <button
+                  {openableRegister ? <form className="start-selling-form" onSubmit={event => {
+                    event.preventDefault();
+                    const opening = Number(new FormData(event.currentTarget).get('opening'));
+                    if (!busy) void run(() => retail.openShift(store.id, register!.id, opening), 'Caja abierta. ¡A vender!');
+                  }}>
+                    <label>¿Cuánta plata hay en la caja?<NumberInput name="opening" type="number" min="0" step="0.01" required defaultValue="0" disabled={busy} /></label>
+                    <button className="primary-button" disabled={busy}>Abrir caja y vender</button>
+                  </form> : <button
                     className="primary-button"
                     disabled={busy || (!register && !manager) || occupiedByOther || (!!shift && !canOperate)}
                     onClick={() => { setOpenFromSale(true); setCashView('shift'); if (!register && manager) setSettingsView('locations'); setTab(!register && manager ? 'settings' : 'cash'); }}
                   >
-                    {!register && manager ? 'Agregar una caja' : 'Abrir turno'}
-                  </button>
+                    {!register && manager ? 'Agregar una caja' : 'Abrir la caja'}
+                  </button>}
                 </section>
               ) : (
                 <>
@@ -1141,8 +1208,8 @@ function Workspace({
               )}
             </div>
             <div hidden={tab !== 'cash'}>
-                {canReviewSales && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi turno' }, { id: 'overview', label: 'Ver ventas' }]} />}
-                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} store={store} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canManage={manager} canAttachInvoice={can('attach_invoice')} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
+                {canReviewSales && <SectionNav name="cash" label="Vistas de caja" value={cashView} onChange={setCashView} disabled={busy} sections={[{ id: 'shift', label: 'Mi caja' }, { id: 'overview', label: 'Ver ventas' }]} />}
+                {canReviewSales && cashView === 'overview' && <div role="tabpanel" id="cash-panel-overview" aria-labelledby="cash-tab-overview"><SalesOverview storeId={store.id} store={store} products={products} branches={branches} registers={registers} shifts={shifts} ledgers={ledgers} revision={revision} run={run} busy={busy} onTicket={showTicket} onSaleMoved={handleSaleLedgerChange} canRefund={can('refund_sales')} refundShift={canOperate ? shift?.id : undefined} canManage={manager} canAttachInvoice={can('attach_invoice')} canMoveSale={sale => can('move_sale_ledger') && (manager || (sale.created_by === session.user.id && shifts.some(own => own.id === sale.shift_id && !own.closed_at && own.opened_by === session.user.id)))} />
                   <details className="retail-panel"><summary className="ai-action"><AiIcon /> Explicar estos resultados con IA</summary><AIReportPanel storeId={store.id} shifts={shifts} allSales={allStoreSales.length > 0 ? allStoreSales : sales} products={products} storeName={store.name} role={role} /></details>
                 </div>}
                 <div hidden={canReviewSales && cashView !== 'shift'} role={canReviewSales ? 'tabpanel' : undefined} id="cash-panel-shift" aria-labelledby={canReviewSales ? 'cash-tab-shift' : undefined}>
@@ -1172,6 +1239,7 @@ function Workspace({
                     busy={busy || ledgerLoading}
                     onTicket={showTicket}
                     onRefresh={refreshAll}
+                    canRefund={can('refund_sales')}
                   />
                 </div>
                 </div>
@@ -1200,7 +1268,7 @@ function Workspace({
                 onRefreshRemitos={() => void pendingRemitos.refresh()}
                 onReviewedRemito={pendingRemitos.reviewed}
                 invoiceRequest={invoiceRequest}
-                onInvoiceRequestClosed={() => setTab('settings')}
+                onInvoiceRequestClosed={() => setTab(invoiceReturn.current)}
               />
               </div>
               </div>
@@ -1214,7 +1282,7 @@ function Workspace({
               </section>}
               <CatalogEditor initialBranchId={branchId} store={store} products={products} categories={categories} role={role} run={run} busy={busy}
                 active={!guiding && tab === 'catalog' && catalogView === 'products'} allowRestock={can('replenish_stock')} allowPriceEdit={can('edit_prices')} permissions={permissions}
-                pendingRemitos={pendingRemitos.records} pendingRemitoError={pendingRemitos.error} branches={configurationBranches} onRefreshRemitos={() => void pendingRemitos.refresh()} onReviewedRemito={pendingRemitos.reviewed} invoiceRequest={invoiceRequest} onInvoiceRequestClosed={() => setTab('settings')} />
+                pendingRemitos={pendingRemitos.records} pendingRemitoError={pendingRemitos.error} branches={configurationBranches} onRefreshRemitos={() => void pendingRemitos.refresh()} onReviewedRemito={pendingRemitos.reviewed} invoiceRequest={invoiceRequest} onInvoiceRequestClosed={() => setTab(invoiceReturn.current)} />
               </div>
             </div>}
             {manager && <div hidden={tab !== 'settings'}>
@@ -1236,10 +1304,10 @@ function Workspace({
                 busy={busy}
                 stores={stores}
                 onSelectStore={(storeId) => {
-                  if (confirmLeave()) setSelected(storeId);
+                  void confirmLeave().then(ok => { if (ok) setSelected(storeId); });
                 }}
                 onCreateStore={() => {
-                  if (!guiding && confirmLeave()) onCreate();
+                  if (!guiding) void confirmLeave().then(ok => { if (ok) onCreate(); });
                 }}
                 onRefreshAccess={() =>
                   void run(async () => {
@@ -1247,15 +1315,17 @@ function Workspace({
                   }, "Accesos actualizados")
                 }
                 onSignOut={() => {
-                  if (confirmLeave())
-                    void onSignOut().catch((e) => notify("error", errorMessage(e)));
+                  void confirmLeave().then(ok => { if (ok) void onSignOut().catch((e) => notify("error", errorMessage(e))); });
                 }}
                 userEmail={session.user.email}
                 onOpenAi={() => setIsAiOpen(true)}
-                onUploadInvoice={uploadInvoice}
               />
             </div>}
-            {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} onUploadInvoice={uploadInvoice} /></div>}
+            {canOpenSuppliers && <div hidden={tab !== 'suppliers'}><SettingsEditorGroup><section className="retail-panel settings-workspace settings-workspace-sober">
+              <SupplierAccountSection key={`suppliers-${store.id}`} storeId={store.id} busy={busy} run={run} active={!guiding && tab === 'suppliers'} canManage={can('manage_products')} canAccount={can('manage_supplier_accounts')} onUploadInvoice={categories.length ? uploadInvoice : undefined} />
+            </section></SettingsEditorGroup></div>}
+            {manager && <div hidden={tab !== 'finance'}><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance'} /></div>}
+            {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
             {tab === "ai" && can('use_ai') && (
               <AIAssistant
                 store={store}

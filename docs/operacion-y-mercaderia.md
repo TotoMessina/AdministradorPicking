@@ -173,6 +173,31 @@ Abrir **http://localhost:3001/** en una tienda de pruebas con la migración apli
 
 Queda pendiente comprobar navegador, teclado/lector real, móvil, Supabase/RLS, SQL, concurrencia entre dispositivos y sincronización offline. La revisión de código no reemplaza esas pruebas.
 
+<a id="anular-y-devolver"></a>
+
+## Anular y devolver ventas
+
+Desde **Caja → Ventas** o **Ver ventas**, cada venta tiene **Anular o devolver**. Lo pueden hacer dueño y administrador. A otras personas se les da con el permiso "Anular y devolver ventas", siempre sobre ventas que ya pueden ver.
+
+- **Qué queda guardado:** la venta original no se borra ni se modifica. Queda un registro con renglones, importe, medio, motivo obligatorio, quién y cuándo. La venta muestra "Anulada" o "Devuelto $X" y su total neto.
+- **Stock:** vuelve a la sucursal donde se vendió. Los combos reponen sus componentes con la composición guardada en el ticket. Los importes manuales no mueven stock.
+- **Caja:** el efectivo devuelto sale de la caja abierta de quien hace la devolución y baja su efectivo esperado. El arqueo sigue a ciegas para el cajero. Si la caja de la venta ya cerró, ese cierre no cambia. QR, débito, crédito o transferencia no tocan efectivo ni exigen caja abierta.
+- **Ganancias y reportes:** lo devuelto resta en el mes de la devolución, con el costo guardado en el ticket. Resumen, Inicio y CSV muestran el neto. El análisis de margen reparte las devoluciones parciales en proporción.
+- **Factura:** si está pendiente o con error, anular la cancela; para devolver una parte primero tiene que quedar facturada. Si está autorizada, la devolución queda con "Falta nota de crédito". Se emite en ARCA y se carga su número en la misma venta. La app todavía no emite notas de crédito.
+- **Conexión:** requiere conexión y operaciones sincronizadas. Una venta cobrada sin conexión se devuelve después de sincronizar. Un reintento tras perder la respuesta no duplica la devolución.
+
+### Guía de Pruebas — anular y devolver
+
+En http://localhost:3001/, con un comercio de pruebas y la migración aplicada. No hacer ventas de prueba en producción.
+
+1. Vender 3 aguas, 2 combos y un importe manual en efectivo. En **Caja → Ventas**, devolver 1 agua y 1 combo en efectivo con motivo. Esperado: stock del agua +1, componentes del combo repuestos, efectivo esperado menor y la venta con "Devuelto".
+2. Cortar la conexión justo al guardar y volver a guardar sin cambiar nada. Esperado: una sola devolución.
+3. Anular lo que queda, por transferencia. Esperado: "Anulada", stock completo y efectivo sin cambios.
+4. Cerrar la caja, abrir otra y anular en efectivo una venta de la caja cerrada. Esperado: el cierre anterior no cambia y la caja nueva baja su esperado.
+5. Con facturación activa, anular una venta autorizada. Esperado: "Falta nota de crédito" y campo para cargar su número.
+6. Entrar como cajero sin el permiso. Esperado: no aparece **Anular o devolver**. Con el permiso, solo sobre sus ventas.
+7. En **Ganancias**, revisar el mes. Esperado: ventas netas y el aviso de lo devuelto.
+
 <a id="retiros-y-comprobantes"></a>
 
 ## Retiros y comprobantes

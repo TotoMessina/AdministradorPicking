@@ -87,7 +87,7 @@ export function PushSettings({ storeId, userId }: { storeId: string; userId: str
       <fieldset className="push-preferences" disabled={!available || !ready || busy || loading}>
         <legend>Qué querés recibir</legend>
         <label><input type="checkbox" checked={lowStock} onChange={e => setLowStock(e.target.checked)} /><span><strong>Stock bajo</strong><small>Cuando un producto llega al mínimo configurado. No se repite con cada venta.</small></span></label>
-        <label><input type="checkbox" checked={shiftClosed} onChange={e => setShiftClosed(e.target.checked)} /><span><strong>Cierres de caja</strong><small>Cuando se cierra un turno de cualquier sucursal del comercio.</small></span></label>
+        <label><input type="checkbox" checked={shiftClosed} onChange={e => setShiftClosed(e.target.checked)} /><span><strong>Cierres de caja</strong><small>Cuando se cierra una caja de cualquier sucursal del comercio.</small></span></label>
       </fieldset>
       <div className="push-actions">
         {enabled ? <>

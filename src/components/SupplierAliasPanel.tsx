@@ -1,3 +1,4 @@
+import { askConfirm } from './ConfirmHost';
 import { useEffect, useId, useRef, useState } from 'react';
 import { deleteMapping, getMappings, type SupplierMapping } from '../services/supplierMappingService';
 
@@ -40,7 +41,7 @@ export function SupplierAliasPanel({ storeId, supplier, disabled, onDeleted }: P
   };
 
   const remove = async (mapping: SupplierMapping) => {
-    if (working.current || !window.confirm(`¿Eliminar el alias «${mapping.invoice_text}» de ${supplier}? Dejará de usarse en futuras facturas. No modifica productos ni importaciones realizadas.`)) return;
+    if (working.current || !await askConfirm(`¿Eliminar el alias «${mapping.invoice_text}» de ${supplier}? Dejará de usarse en futuras facturas. No modifica productos ni importaciones realizadas.`)) return;
     working.current = true;
     setBusy(true);
     setMessage('');

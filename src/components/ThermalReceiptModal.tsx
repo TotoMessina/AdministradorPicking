@@ -110,6 +110,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
       }),
       "--------------------------------",
       `TOTAL:          $${sale.total.toLocaleString("es-AR")}`,
+      ...(sale.returnStatus === 'voided' ? ['VENTA ANULADA'] : sale.returnStatus === 'partial' ? [`Devuelto:       $${(sale.returnedTotal || 0).toLocaleString('es-AR')}`] : []),
       `Forma de Pago:  ${sale.paymentMethod}`,
       ...(sale.payments || []).map(p => `${p.method}: $${p.amount.toLocaleString('es-AR')}`),
       ...(sale.syncStatus === 'pending' ? ['GUARDADO LOCAL · PENDIENTE DE SINCRONIZAR'] : []),
@@ -483,6 +484,10 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                 <span>TOTAL:</span>
                 <span>${sale.total.toLocaleString("es-AR")}</span>
               </div>
+              {sale.returnStatus && sale.returnStatus !== 'none' && <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700 }}>
+                <span>{sale.returnStatus === 'voided' ? 'VENTA ANULADA' : 'Devuelto:'}</span>
+                {sale.returnStatus === 'partial' && <span>${(sale.returnedTotal || 0).toLocaleString('es-AR')}</span>}
+              </div>}
               <div
                 style={{
                   display: "flex",
