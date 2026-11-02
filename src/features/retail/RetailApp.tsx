@@ -79,6 +79,7 @@ import { saleNet } from './SaleReturn';
 import { StockCount } from './StockCount';
 import { CustomersTab } from './CustomersTab';
 import { PurchaseOrders } from './PurchaseOrders';
+import { BranchComparison } from './BranchComparison';
 import type { Customer } from './api';
 import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
 type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "customers" | "settings" | "ai" | "remito";
@@ -284,6 +285,7 @@ function Workspace({
   const [branchId, setBranchId] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [ordersFocus, setOrdersFocus] = useState(0);
+  const [financeView, setFinanceView] = useState<'month' | 'branches'>('month');
   useEffect(() => {
     setErrorContext({ storeId: store.id, branchId, screen: tab });
     return () => setErrorContext(null);
@@ -1351,7 +1353,11 @@ function Workspace({
                 ordersPanel={<PurchaseOrders store={store} branches={manager ? branches : configurationBranches} products={products} run={run} busy={busy} active={!guiding && tab === 'suppliers'} />} focusOrders={ordersFocus} />
             </section></SettingsEditorGroup></div>}
             {canUseCustomers && <div hidden={tab !== 'customers'}><CustomersTab storeId={store.id} customers={customers} shiftId={canOperate ? shift?.id : undefined} canManage={canManageCustomers} run={run} busy={busy} active={!guiding && tab === 'customers'} onChanged={loadCustomers} /></div>}
-            {manager && <div hidden={tab !== 'finance'}><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance'} /></div>}
+            {manager && <div hidden={tab !== 'finance'}>
+              <SectionNav name="finance" label="Vistas de Ganancias" value={financeView} onChange={value => setFinanceView(value as 'month' | 'branches')} disabled={busy} sections={[{ id: 'month', label: 'Resultado del mes' }, { id: 'branches', label: 'Comparar sucursales' }]} />
+              <div hidden={financeView !== 'month'} role="tabpanel" id="finance-panel-month" aria-labelledby="finance-tab-month"><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance' && financeView === 'month'} /></div>
+              <div hidden={financeView !== 'branches'} role="tabpanel" id="finance-panel-branches" aria-labelledby="finance-tab-branches"><BranchComparison storeId={store.id} active={!guiding && tab === 'finance' && financeView === 'branches'} /></div>
+            </div>}
             {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
             {tab === "ai" && can('use_ai') && (
               <AIAssistant

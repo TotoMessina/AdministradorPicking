@@ -1,0 +1,33 @@
+.branch-comparison { display: grid; gap: 14px; }
+.branch-comparison-period { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.branch-comparison-period label { display: grid; gap: 6px; min-width: 150px; flex: 1 1 150px; max-width: 240px; }
+.branch-comparison-period select, .branch-comparison-period input { min-height: 40px; }
+.branch-comparison-warning { display: flex; align-items: flex-start; gap: 8px; margin: 0; padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-soft); font-size: 13px; }
+.branch-comparison-warning.is-serious { border-color: var(--tone-danger-border); background: var(--tone-danger-soft); color: var(--tone-danger); }
+.branch-comparison-warning svg { flex-shrink: 0; margin-top: 2px; }
+.branch-comparison-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.branch-comparison-card { display: grid; gap: 10px; align-content: start; padding: 14px; border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-surface); min-width: 0; }
+.branch-comparison-card header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.branch-comparison-card h3 { margin: 0; font-size: 16px; overflow-wrap: anywhere; }
+.branch-comparison-card h4 { margin: 4px 0 0; font-size: 13px; }
+.branch-comparison-flag { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; color: var(--tone-danger); background: var(--tone-danger-soft); white-space: nowrap; }
+.branch-comparison-sales { display: grid; gap: 4px; }
+.branch-comparison-sales strong { font-size: 24px; font-variant-numeric: tabular-nums; }
+.branch-comparison-sales small, .branch-comparison-metrics small, .branch-comparison-note, .branch-comparison-list small { color: var(--tone-muted); font-size: 12px; }
+.branch-comparison-bar { display: block; height: 6px; border-radius: 999px; background: var(--tone-soft); overflow: hidden; }
+.branch-comparison-bar > span { display: block; height: 100%; border-radius: inherit; background: var(--tone-accent); }
+.branch-comparison-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; }
+.branch-comparison-metrics > div { display: grid; gap: 2px; padding: 8px; border-radius: 8px; background: var(--tone-canvas); min-width: 0; }
+.branch-comparison-metrics dt { font-size: 11px; color: var(--tone-muted); }
+.branch-comparison-metrics dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.branch-comparison-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 4px; font-size: 13px; }
+.branch-comparison-list li { display: flex; justify-content: space-between; gap: 8px; }
+.branch-comparison-list li > span { min-width: 0; overflow-wrap: anywhere; }
+.branch-comparison-list small { display: block; }
+.branch-comparison-list strong { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.branch-comparison-idle > summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
+.branch-comparison-empty { margin: 0; color: var(--tone-muted); font-size: 13px; }
+@media (max-width: 420px) {
+  .branch-comparison-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .branch-comparison-period label { max-width: none; }
+}

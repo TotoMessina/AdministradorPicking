@@ -18,7 +18,7 @@ Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caj
 | Copias de seguridad, restauración y datos sin cubrir | [Copias de seguridad](docs/respaldos.md) |
 | Avisos cuando la app falla en un comercio | [Aviso de fallas](docs/aviso-de-fallas.md) |
 | Productos, insumos, combos, bultos, margen, categorías, conteo físico y bajas | [Productos y stock](docs/productos-y-stock.md) |
-| Inicio guiado, Mi comercio, datos fiscales ARCA, equipo y perfiles | [Administración](docs/administracion.md) |
+| Inicio guiado, Mi comercio, datos fiscales ARCA, equipo, perfiles y comparar sucursales | [Administración](docs/administracion.md) |
 | Registros, listas, clientes y fiado, anulaciones y devoluciones, retiros, remitos y transferencias | [Operación y mercadería](docs/operacion-y-mercaderia.md) |
 | Memoria del proveedor, propuestas de precios, pedidos a proveedores y análisis locales | [IA y facturas](docs/ia-y-facturas.md) |
 | Caja preparada y sincronización | [OFFLINE_POS.md](OFFLINE_POS.md) |

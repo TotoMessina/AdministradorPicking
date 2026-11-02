@@ -246,3 +246,30 @@ Para que el backend procese las firmas CMS y solicitudes SOAP con AFIP:
 
 
 
+
+
+<a id="comparar-sucursales"></a>
+
+## Comparar sucursales
+
+En **Ganancias → Comparar sucursales**, solo dueños y administradores, se elige el período: hoy, últimos 7 días, este mes, mes anterior o fechas a elección, de hasta un año. Cada sucursal tiene una tarjeta con:
+
+- **Ventas:** netas de devoluciones, con la parte del total y lo devuelto.
+- **Ganancia bruta:** ventas menos el costo guardado en cada ticket, con el margen. Los gastos siguen en «Resultado del mes».
+- **Tickets y ticket promedio.**
+- **Más vendidos:** los 5 con más unidades. Los combos cuentan por sus componentes y las ventas anuladas no cuentan.
+- **Sin rotación:** productos con stock en esa sucursal que no se vendieron en el período. Primero se muestran los que tienen más plata inmovilizada.
+
+El cálculo es el mismo de Ganancias y se hace en el servidor. Si una parte de lo vendido no tiene costo cargado, se avisa cuánto es. Desde el 5% de las ventas sin costo, el panel indica que la ganancia no es confiable y marca la sucursal con «Faltan costos». En celular las tarjetas se apilan.
+
+### Guía de Pruebas — comparar sucursales
+
+En http://localhost:3001/, con un comercio de pruebas con dos sucursales.
+
+1. **Ventas por sucursal:** vender en cada sucursal y abrir **Ganancias → Comparar sucursales** con «Hoy». Esperado: una tarjeta por sucursal, ordenadas por ventas, con tickets y ticket promedio correctos.
+2. **Mismo cálculo que Ganancias:** con «Este mes», la suma de ventas coincide con «Vendiste» de «Resultado del mes».
+3. **Devoluciones:** hacer una devolución parcial. Esperado: bajan las ventas de esa sucursal y se muestra lo devuelto.
+4. **Costos faltantes:** vender un producto sin costo por más del 5% del total. Esperado: aviso de ganancia no confiable y «Faltan costos» en la sucursal.
+5. **Sin rotación:** un producto con stock que no se vendió en el período aparece en «Sin rotación» con su valor.
+6. **Permisos:** un cajero o supervisor no ve Ganancias.
+7. **Celular:** las tarjetas se apilan sin desplazamiento lateral y el período se cambia cómodo.

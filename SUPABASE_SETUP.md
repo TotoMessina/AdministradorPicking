@@ -403,3 +403,7 @@ select (select count(*) from public.retail_customers) as clientes, (select count
 ## Pedidos a proveedores
 
 **Pendiente de aplicar:** [202611020007_purchase_orders.sql](supabase/migrations/202611020007_purchase_orders.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020006_partial_credit.sql`. Agrega pedidos con sus renglones y el costo de cada producto al pedir. Suma `retail_product_sales_velocity`, que calcula lo vendido por producto y sucursal con los combos por sus componentes y sin las ventas anuladas. Al cargar una factura con el lector, guarda lo recibido en el pedido abierto más reciente del mismo proveedor y sucursal. No agrega permisos nuevos: arma pedidos quien puede editar productos o manejar cuentas de proveedores. No cambia stock ni datos existentes.
+
+## Comparar sucursales
+
+**Pendiente de aplicar:** [202611020008_branch_comparison.sql](supabase/migrations/202611020008_branch_comparison.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020007_purchase_orders.sql`. El cálculo de ventas, devoluciones y costo de Ganancias pasa a una sola función interna por período (`retail_private.sales_period`), que usan el resultado del mes y el panel nuevo `retail_branch_comparison`. Lo mismo pasa con las unidades vendidas (`retail_private.units_sold`), que usan los pedidos y el panel. El resultado del mes devuelve los mismos datos que antes. Solo dueños y administradores, con períodos de hasta un año. No cambia datos.
