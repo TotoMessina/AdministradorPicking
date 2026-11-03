@@ -44,9 +44,9 @@ Lo más importante: **las copias de la base no incluyen los archivos**. Guardan 
 | Comprobantes de retiros, `retail-vouchers` | **No** | Sí, con el paso de archivos | Descargarlos en cada copia. |
 | Fotos de remitos, `retail-remitos` | **No** | Sí, con el paso de archivos | Descargarlos en cada copia. |
 | Permisos de esos archivos | Sí | **No** | Ejecutar [restore_storage_policies.sql](../supabase/maintenance/restore_storage_policies.sql) al restaurar. |
-| Certificado y clave de ARCA por comercio | Sí | Sí | Están como texto en `retail_private.store_billing_credentials`. Por eso la copia debe ir cifrada. |
+| Certificado y clave de ARCA por comercio | Sí | Sí, cifrada | Desde `202611030002` la clave está en Vault. Una copia restaurada en otro proyecto no puede descifrarla: volver a cargar el certificado y la clave en Mi comercio. Las copias anteriores a esa actualización la tienen como texto: guardarlas cifradas. |
 | Funciones `push-dispatch` y `billing-authorize` | No | No | El código está en el repositorio: volver a publicarlas. |
-| Secretos de funciones (claves push, `ARCA_CERT`, `ARCA_KEY`) | No | No | Guardar `.env.push.local` y los demás en un gestor de contraseñas. |
+| Secretos de funciones (claves push) | No | No | Guardar `.env.push.local` en un gestor de contraseñas. `ARCA_CERT`, `ARCA_KEY` y `ARCA_ENVIRONMENT` ya no se usan: se pueden borrar. |
 | Vault y tarea programada de avisos | Sí | No | Tras una copia manual, rearmar con [PUSH_SETUP.md](../PUSH_SETUP.md) y `supabase/push-schedule.sql`. |
 | Ajustes de Auth, API keys y Realtime | No | No | Anotar URL del sitio, redirecciones y correo. |
 | `.env.local` y datos de publicación de la app | No | No | Guardar en el gestor de contraseñas. |

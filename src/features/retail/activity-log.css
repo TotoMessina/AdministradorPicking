@@ -1,0 +1,28 @@
+.activity-log { display: grid; gap: 14px; }
+.activity-filters { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; }
+.activity-filters label { display: grid; gap: 6px; flex: 1 1 160px; min-width: 0; }
+.activity-filters select, .activity-filters input { min-height: 40px; min-width: 0; }
+.activity-filters .activity-search { flex: 2 1 260px; }
+.activity-search > span { display: flex; gap: 8px; }
+.activity-search input { flex: 1; }
+.activity-day h3 { margin: 6px 0; font-size: 13px; text-transform: capitalize; color: var(--tone-muted); }
+.activity-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.activity-list > li { display: grid; gap: 4px; padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); min-width: 0; }
+.activity-row-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.activity-row-head time { color: var(--tone-muted); font-variant-numeric: tabular-nums; font-size: 12px; }
+.activity-row-head strong { overflow-wrap: anywhere; }
+.activity-list small, .activity-note, .activity-empty { color: var(--tone-muted); font-size: 12px; }
+.activity-kind { padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 700; background: var(--tone-soft); }
+.activity-kind.kind-borrados, .activity-kind.kind-anulaciones { color: var(--tone-danger); background: var(--tone-danger-soft); }
+.activity-kind.kind-permisos { color: var(--tone-accent); background: var(--tone-accent-soft); }
+.activity-detail { margin: 0; font-size: 13px; overflow-wrap: anywhere; }
+.activity-changes { display: grid; gap: 2px; margin: 4px 0 0; font-size: 13px; }
+.activity-changes > div { display: flex; flex-wrap: wrap; gap: 4px 8px; }
+.activity-changes dt { color: var(--tone-muted); min-width: 110px; }
+.activity-changes dd { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; overflow-wrap: anywhere; }
+.activity-before { text-decoration: line-through; color: var(--tone-muted); }
+.activity-after { font-weight: 600; }
+@media (max-width: 560px) {
+  .activity-filters label { flex-basis: 100%; }
+  .activity-changes dt { min-width: 0; flex-basis: 100%; }
+}

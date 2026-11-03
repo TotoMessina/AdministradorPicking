@@ -50,7 +50,7 @@ export function withAvailableStock<T extends KioscoProduct>(products: T[]): T[] 
     }),
    )) };
    if (resolved.sale_markup == null || resolved.sellable === false) return resolved;
-   try { return { ...resolved, price: priceFromMarkup(Number(resolved.cost), resolved.sale_markup), pricingError: undefined }; }
+   try { return { ...resolved, price: priceFromMarkup(Number(resolved.cost), resolved.sale_markup, resolved.price_step ?? 0), pricingError: undefined }; }
    catch (error) { return { ...resolved, pricingError: error instanceof Error ? error.message : 'Revisá costo y porcentaje.' }; }
   });
 }

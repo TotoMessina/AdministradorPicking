@@ -15,6 +15,9 @@ export interface KioscoProduct {
   pricingError?: string; // Missing cost/configuration: never substitute a fabricated sale price.
   cost?: number; // Costo de compra mayorista
   sellable?: boolean; // false: insumo con stock, no se vende directamente
+  price_pending?: boolean; // Alta desde el catálogo global sin precio: no se vende hasta cargarlo.
+  price_rounding?: number | null; // Redondeo propio del precio por costo; null usa el del comercio.
+  price_step?: number; // Redondeo que se aplica (propio o del comercio), resuelto al cargar.
   stock: number; // Total físico; en compuestos, disponibilidad calculada.
   depotStock?: number; // Parte del total guardada en depósito (0 si no se usa).
   branchStocks?: Record<string, number>; // Physical allocation when location inventory is active.
@@ -72,6 +75,12 @@ export interface KioscoSale {
   customerName?: string | null;
   /** Fiar por encima del límite, confirmado por quien vende. */
   creditOverLimit?: boolean;
+  /** Cliente elegido para la factura en una venta que no es fiada. */
+  invoiceCustomerId?: string | null;
+  /** Receptor de la factura autorizada: 80 CUIT, 86 CUIL, 96 DNI, 99 consumidor final. */
+  receptorDocTipo?: number | null;
+  receptorDocNro?: number | null;
+  receptorName?: string | null;
   id: string;
   ticketNumber: string; // Ej: "T-0042"
   storeName?: string;

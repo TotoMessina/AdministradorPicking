@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { askConfirm } from '../../components/ConfirmHost';
 import {
   AlertCircle,
   Check,
@@ -82,7 +83,7 @@ export function BillingSettings({
   const [keyContent, setKeyContent] = useState('');
   const [certFileName, setCertFileName] = useState('');
   const [keyFileName, setKeyFileName] = useState('');
-  const [environment, setEnvironment] = useState<'homo' | 'prod'>('prod');
+  const [environment, setEnvironment] = useState<'homo' | 'prod'>('homo');
   const [savingCreds, setSavingCreds] = useState(false);
   const [credsSuccessMsg, setCredsSuccessMsg] = useState('');
 
@@ -268,10 +269,12 @@ export function BillingSettings({
       setError('Cargá o seleccioná el archivo del Certificado Digital (.crt)');
       return;
     }
-    if (!keyContent.trim()) {
+    if (!keyContent.trim() && !credentialsStatus?.configured) {
       setError('Cargá o seleccioná el archivo de la Clave Privada (.key)');
       return;
     }
+    if (environment === 'prod' && credentialsStatus?.environment !== 'prod'
+      && !await askConfirm('¿Pasar a producción? Desde ahora cada venta genera una factura real ante ARCA. Hacelo después de probar en homologación y con el visto bueno de tu contador.')) return;
 
     setSavingCreds(true);
     setError('');
@@ -803,19 +806,9 @@ openssl req -new -key privada.key -subj "/C=AR/O=${razonSocial.trim() || 'MI_COM
               <div className="billing-field" style={{ marginBottom: 12 }}>
                 <label>
                   Entorno de ARCA / AFIP
-                  <small>Elegí "Producción" para facturas reales con validez fiscal</small>
+                  <small>Empezá en homologación: son facturas de prueba, sin validez fiscal. Producción emite facturas reales.</small>
                 </label>
                 <div style={{ display: 'flex', gap: 16, marginTop: 4 }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '13px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      name="arca_env"
-                      value="prod"
-                      checked={environment === 'prod'}
-                      onChange={() => setEnvironment('prod')}
-                    />
-                    <strong>Producción Oficial</strong> (AFIP real)
-                  </label>
                   <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '13px', cursor: 'pointer' }}>
                     <input
                       type="radio"
@@ -824,7 +817,17 @@ openssl req -new -key privada.key -subj "/C=AR/O=${razonSocial.trim() || 'MI_COM
                       checked={environment === 'homo'}
                       onChange={() => setEnvironment('homo')}
                     />
-                    <span>Homologación (Testing AFIP)</span>
+                    <span>Homologación (pruebas)</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: '13px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      name="arca_env"
+                      value="prod"
+                      checked={environment === 'prod'}
+                      onChange={() => setEnvironment('prod')}
+                    />
+                    <strong>Producción</strong> (facturas reales)
                   </label>
                 </div>
               </div>

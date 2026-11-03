@@ -9,13 +9,13 @@ import { CompositionFields, type CompositionRow } from './CompositionFields';
 import { errorMessage, retail, type Category, type Product } from './api';
 import type { Run } from './Management';
 
-export function NewCompositeEditor({ storeId, products, categories, active, busy, run, onClose, initialComponent, focusOnActivate = true }: {
+export function NewCompositeEditor({ storeId, products, categories, active, busy, run, onClose, initialComponent, focusOnActivate = true, priceStep = 0, defaultMarkup }: {
   storeId: string; products: Product[]; categories: Category[]; active: boolean; busy: boolean; run: Run; onClose: () => void;
-  initialComponent?: Product; focusOnActivate?: boolean;
+  initialComponent?: Product; focusOnActivate?: boolean; priceStep?: number; defaultMarkup?: number;
 }) {
   const [name, setName] = useState('');
   const [code, setCode] = useState('');
-  const [markup, setMarkup] = useState('');
+  const [markup, setMarkup] = useState(defaultMarkup != null ? String(defaultMarkup) : '');
   const [categoryId, setCategory] = useState(() => defaultProductCategory(categories));
   const [rows, setRows] = useState<CompositionRow[]>([{ product_id: initialComponent?.id || '', quantity: '1' }]);
   const [error, setError] = useState('');
@@ -25,7 +25,7 @@ export function NewCompositeEditor({ storeId, products, categories, active, busy
   useEffect(() => { if (active && focusOnActivate) first.current?.focus(); }, [active, focusOnActivate]);
   const components = rows.map(row => ({ product_id: row.product_id, quantity: Number(row.quantity) })).sort((a, b) => a.product_id.localeCompare(b.product_id));
   const cost = compositionCost(components, products);
-  const price = draftMarkupPrice(cost.cost, markup);
+  const price = draftMarkupPrice(cost.cost, markup, priceStep);
   const draft: Product = { id: request.current.id, name, code, category: '', categoryId, price: Number(price), cost: cost.cost, stock: 0, minStock: 4, active: true, stock_components: components };
   const available = withAvailableStock([...products.filter(product => product.id !== draft.id), draft]).find(product => product.id === draft.id)?.stock || 0;
   const candidates = products.filter(product => !hasComposition(product));

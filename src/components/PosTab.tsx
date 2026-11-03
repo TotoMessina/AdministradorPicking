@@ -57,8 +57,10 @@ interface Props {
   /** Clientes de cuenta corriente: habilitan el pago «Fiado». */
   customers?: CreditCustomer[];
   canOverLimit?: boolean;
+  /** Facturación ARCA activa: el cliente elegido recibe la factura a su nombre. */
+  billingEnabled?: boolean;
 }
-export interface CreditCustomer { id: string; name: string; balance: number; credit_limit: number | null; active: boolean }
+export interface CreditCustomer { id: string; name: string; balance: number; credit_limit: number | null; active: boolean; tax_id?: string | null; iva_condition?: string | null }
 const money = (n: number) =>
   "$" + n.toLocaleString("es-AR", { maximumFractionDigits: 2 });
 // Los borradores de otras pantallas pueden conservar diálogos montados pero ocultos.
@@ -203,6 +205,7 @@ export function PosTab({
   onMobilePosViewChange,
   customers,
   canOverLimit = false,
+  billingEnabled = false,
 }: Props) {
   const { notify } = useToast();
   const [query, setQuery] = useState("");
@@ -368,7 +371,8 @@ export function PosTab({
     } else if (searchMatches.length > 0) {
       notify("info", "Elegí un producto de los resultados para agregarlo.");
     } else {
-      notify("warning", `Código o producto no encontrado: ${qTrim}`);
+      const pending = products.find((p) => p.price_pending && p.code === qTrim);
+      notify("warning", pending ? `${pending.name} todavía no tiene precio. Cargalo en Productos para venderlo.` : `Código o producto no encontrado: ${qTrim}`);
     }
   };
   const checkout = async (chosen: PaymentMethod = method, shortcut = false) => {
@@ -408,7 +412,8 @@ export function PosTab({
       total,
       paymentMethod: chosen,
       payments,
-      ...((chosen === 'Fiado' || (chosen === 'Mixto' && splitSecond === 'Fiado')) && creditCustomer ? { customerId: creditCustomer.id, customerName: creditCustomer.name, creditOverLimit } : {}),
+      ...((chosen === 'Fiado' || (chosen === 'Mixto' && splitSecond === 'Fiado')) && creditCustomer ? { customerId: creditCustomer.id, customerName: creditCustomer.name, creditOverLimit }
+        : creditCustomer ? { invoiceCustomerId: creditCustomer.id } : {}),
       amountPaid: chosen === "Efectivo" ? tendered : total,
       change: chosen === "Efectivo" ? (cents(tendered) - cents(total)) / 100 : 0,
       timestamp: new Date().toLocaleTimeString("es-AR"),
@@ -798,7 +803,7 @@ export function PosTab({
                 <span className={`sale-customer-balance ${creditCustomer.balance > 0 ? 'is-debt' : creditCustomer.balance < 0 ? 'is-credit' : ''}`}>{creditCustomer.balance < 0 ? `Tiene a favor ${money(-creditCustomer.balance)}` : balanceLabel(creditCustomer.balance)}</span>
                 <button type="button" className="text-button" onClick={() => setCustomerModal(true)}>Cambiar</button>
               </> : <button type="button" className="text-button sale-customer-add" onClick={() => setCustomerModal(true)}><UserRound size={15} aria-hidden="true" /> {method === 'Fiado' || creditInMixed ? 'Elegir cliente' : 'Elegir cliente (opcional)'}</button>}
-              {creditCustomer && method !== 'Fiado' && !creditInMixed && <small>Para usar su cuenta, elegí Fiado o Mixto con el resto fiado.</small>}
+              {creditCustomer && method !== 'Fiado' && !creditInMixed && <small>{billingEnabled ? (creditCustomer.tax_id ? 'La factura sale a su nombre. ' : 'No tiene CUIT ni DNI cargado: la factura sale a consumidor final. ') : ''}Para usar su cuenta, elegí Fiado o Mixto con el resto fiado.</small>}
             </div>}
             <div className="payment-methods">
               {paymentMethods.map(({ id, label, icon: Icon }) => (

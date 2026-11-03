@@ -103,3 +103,18 @@
 .location-fund-sheet tbody td.is-negative:nth-child(2) { color: var(--tone-danger); }
 .location-transfer-more { margin-top: 12px; }
 .location-transfer-more > summary { padding: 8px 0; color: var(--tone-accent); font-size: 13px; font-weight: 600; cursor: pointer; }
+
+/* Plata en camino: salió del origen y espera que alguien confirme cuánto llegó. */
+.funds-in-transit { display: grid; gap: 8px; margin-top: 16px; padding: 14px; border: 1px solid var(--tone-border-strong); border-radius: 10px; background: var(--tone-accent-soft); }
+.funds-in-transit h3 { margin: 0; font-size: 15px; }
+.funds-in-transit p { margin: 0; font-size: 13px; color: var(--tone-text); }
+.funds-in-transit ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.funds-in-transit li { display: grid; gap: 6px; padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.funds-in-transit li.is-late { border-color: var(--tone-danger-border); }
+.funds-in-transit-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.funds-in-transit-head span { display: inline-flex; align-items: center; gap: 6px; }
+.funds-in-transit small { color: var(--tone-muted); font-size: 12px; overflow-wrap: anywhere; }
+.funds-in-transit-late, small.funds-in-transit-late { display: inline-flex; align-items: center; gap: 4px; color: var(--tone-danger); font-weight: 600; }
+.funds-in-transit-form { display: grid; gap: 8px; }
+.funds-in-transit-form label { display: grid; gap: 6px; }
+.location-transfer-history article > small.funds-in-transit-late { color: var(--tone-danger); font-weight: 600; }

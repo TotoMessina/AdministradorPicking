@@ -10,6 +10,8 @@ export interface LocationTransfer {
 export interface FundTransfer {
   id: string; from_location: string | null; to_location: string | null; amount: number;
   note: string; created_at: string; actor_email: string | null; shift_id?: string | null;
+  /** Entre ubicaciones: en camino hasta que se confirma cuánto llegó, o vuelve al origen. */
+  status?: 'done' | 'in_transit' | 'received' | 'returned'; received_amount?: number | null; received_email?: string | null; received_at?: string | null; review_note?: string | null;
 }
 export interface LocationFund { location: string; balance: number }
 export interface OpenShiftCash { location: string; cash: number; shifts: number }
@@ -34,6 +36,8 @@ export const locationTransfers = {
   review: (store: string, id: string, confirm: boolean) => rpc('retail_review_location_transfer', { p_store: store, p_id: id, p_confirm: confirm }),
   moveFunds: (store: string, from: string | null, to: string | null, amount: number, note: string, request: string) =>
     rpc('retail_move_location_funds', { p_store: store, p_from: from, p_to: to, p_amount: amount, p_note: note, p_request: request }, false),
+  receiveFunds: (store: string, id: string, amount: number, note: string) => rpc('retail_receive_location_funds', { p_store: store, p_id: id, p_amount: amount, p_note: note || null }, false),
+  returnFunds: (store: string, id: string, note: string) => rpc('retail_return_location_funds', { p_store: store, p_id: id, p_note: note }, false),
   async stockHistory(store: string, before?: { created_at: string; id: string }) {
     if (navigator.onLine === false) throw new Error('Conectate para consultar el historial de transferencias.');
     let query = supabase.from('retail_location_transfers').select('*').eq('store_id', store).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(100);
@@ -66,6 +70,6 @@ export const locationTransfers = {
     if (before) query = query.or(`created_at.lt.${before.created_at},and(created_at.eq.${before.created_at},id.lt.${before.id})`);
     const { data, error } = await query;
     if (error) throw error;
-    return (data || []).map(row => ({ ...row, amount: Number(row.amount) })) as FundTransfer[];
+    return (data || []).map(row => ({ ...row, amount: Number(row.amount), received_amount: row.received_amount === null || row.received_amount === undefined ? null : Number(row.received_amount) })) as FundTransfer[];
   },
 };

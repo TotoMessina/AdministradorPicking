@@ -1,7 +1,7 @@
 import { askConfirm } from '../../components/ConfirmHost';
 import { NumberInput } from '../../components/NumberInput';
-import { ProductMarkupField } from './ProductMarkupField';
-import { draftMarkupPrice } from '../../services/productSalePrice';
+import { ProductMarkupField, ProductRoundingField } from './ProductMarkupField';
+import { draftMarkupPrice, markupFromPrice, priceFromMarkup, priceRoundingSteps, roundingLabel } from '../../services/productSalePrice';
 import { AiIcon } from '../../components/AiIcon';
 import { useState, useMemo, useEffect, useRef, useId, useCallback } from "react";
 import { BranchSettings, LedgerSettings } from './BusinessSettings';
@@ -16,6 +16,7 @@ import { ProductPriceEditor } from './ProductPriceEditor';
 import { CategoryLabelEditor } from './CategoryLabelEditor';
 import { ProductMarginStatus } from './ProductMarginStatus';
 import { MarginThresholdSettings } from './MarginThresholdSettings';
+import { PriceRoundingSettings } from './PriceRoundingSettings';
 import { productMargin } from '../../services/productMarginService';
 import { ProductDeletionEditor, DeletedProducts } from './ProductDeletionTools';
 import { ProductCompositionEditor } from './ProductCompositionEditor';
@@ -77,6 +78,7 @@ import {
   FolderTree,
   LogOut,
   RefreshCw,
+  Globe,
 } from "lucide-react";
 import { groqChat } from "../../services/groqService";
 import { unitsPerPack } from '../../services/inventoryUnits';
@@ -102,6 +104,10 @@ import { randomUUID } from "../../utils/uuid";
 import { InvoiceAnalyzer } from "../../components/InvoiceAnalyzer";
 import { useToast } from "../../context/ToastContext";
 import { purchaseOrders } from "./purchaseOrderApi";
+import { ActivityLog } from "./ActivityLog";
+import { GlobalCatalog } from "./GlobalCatalog";
+import { CatalogProductAdder } from "./CatalogProductAdder";
+import { supabase } from "../../lib/supabase";
 import { PendingReplenishments } from './PendingReplenishments';
 export type Run = (
   action: () => Promise<unknown>,
@@ -379,7 +385,8 @@ export function CatalogEditor({
     categoryId: defaultProductCategory(categories),
     emoji: "📦",
     price: "",
-    markup: '' as string | null,
+    markup: (store.default_markup != null ? String(store.default_markup) : '') as string | null,
+    rounding: null as number | null,
     sellable: true,
     cost: "0",
     stock: "0",
@@ -403,7 +410,17 @@ export function CatalogEditor({
   const editingRecipeCost = editing && hasComposition(editing) ? compositionCost(editing.stock_components!, products) : null;
   const pricingByMarkup = formData.sellable && formData.markup !== null;
   const pricingCost = editingRecipeCost?.cost ?? Number(formData.cost);
-  const formSalePrice = pricingByMarkup ? draftMarkupPrice(pricingCost, formData.markup!) : Number(formData.price);
+  const storeRounding = store.price_rounding ?? 0;
+  const formSalePrice = pricingByMarkup ? draftMarkupPrice(pricingCost, formData.markup!, formData.rounding ?? storeRounding) : Number(formData.price);
+  // El precio manual se pide: deja de seguir al costo hasta volver al cálculo.
+  const requestManualPrice = async () => {
+    if (!await askConfirm('¿Poner el precio a mano? Deja de seguir al costo: si el costo cambia, el precio no se actualiza. Podés volver al cálculo por costo cuando quieras.')) return;
+    setFormData(prev => ({ ...prev, price: String(formSalePrice || prev.price), markup: null }));
+    requestAnimationFrame(() => editorRef.current?.querySelector<HTMLInputElement>('input[name="price"]')?.focus());
+  };
+  const useCostPrice = () => setFormData(prev => ({ ...prev,
+    markup: markupFromPrice(Number(prev.price), pricingCost) || (store.default_markup != null ? String(store.default_markup) : ''),
+  }));
   const draftMargin = productMargin(formSalePrice || 0, pricingCost, store.low_margin_threshold);
   const suggestedPriceDraft = (previous: typeof formData, price: number) => ({
     ...previous, price: String(price),
@@ -450,6 +467,11 @@ export function CatalogEditor({
   >("increase_pct");
   const [bulkAdjustValue, setBulkAdjustValue] = useState<string>("15");
   const [bulkRoundMultiple, setBulkRoundMultiple] = useState<number>(0);
+  // Con la actualización 202611030007 el ajuste masivo cambia la ganancia sobre costo, no el precio.
+  const costBulk = store.price_rounding !== undefined;
+  const [bulkMarkupMode, setBulkMarkupMode] = useState<'set' | 'raise' | 'lower'>('raise');
+  const [bulkMarkupValue, setBulkMarkupValue] = useState('5');
+  const [bulkRounding, setBulkRounding] = useState('keep');
   const [bulkIsUpdating, setBulkIsUpdating] = useState(false);
   const [bulkProgress, setBulkProgress] = useState(0);
   const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
@@ -469,7 +491,12 @@ export function CatalogEditor({
   const canCompose = can('manage_compositions');
   const canDelete = can('delete_products');
   const [newCompositeOpen, setNewCompositeOpen] = useState(false);
-  const productEditing = canEditCatalog && (adding || !!editing || (newCompositeOpen && canCompose));
+  const [catalogAddOpen, setCatalogAddOpen] = useState(false);
+  const productEditing = canEditCatalog && (adding || !!editing || (newCompositeOpen && canCompose) || catalogAddOpen);
+  const closeCatalogAdd = () => {
+    setCatalogAddOpen(false);
+    requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); });
+  };
   const closeNewComposite = () => {
     setNewCompositeOpen(false);
     requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); });
@@ -544,7 +571,21 @@ export function CatalogEditor({
     bulkFilterSelectedTags,
   ]);
 
+  /** Ganancia, redondeo y precio nuevos de un producto, o null si no se puede calcular por costo. */
+  const bulkPlan = (p: Product): { markup: number; rounding: number | null; price: number } | null => {
+    if (!(p.cost > 0)) return null;
+    const value = Number(bulkMarkupValue);
+    if (!bulkMarkupValue.trim() || !Number.isFinite(value)) return null;
+    const current = p.sale_markup ?? Number(markupFromPrice(p.price, p.cost));
+    const raw = bulkMarkupMode === 'set' ? value : bulkMarkupMode === 'raise' ? current + value : current - value;
+    const markup = Math.round(raw * 100) / 100;
+    if (markup <= -100 || markup > 10000) return null;
+    const rounding = bulkRounding === 'keep' ? p.price_rounding ?? null : bulkRounding === 'store' ? null : Number(bulkRounding);
+    try { return { markup, rounding, price: priceFromMarkup(p.cost, markup, rounding ?? store.price_rounding ?? 0) }; } catch { return null; }
+  };
+
   const calculateNewPrice = (p: Product): number => {
+    if (costBulk) return bulkPlan(p)?.price ?? p.price;
     const numVal = parseFloat(bulkAdjustValue) || 0;
     let newPrice = p.price;
 
@@ -597,9 +638,36 @@ export function CatalogEditor({
       next += newP * monthlyUnits;
     });
     return { currentEstRevenue: Math.round(cur), newEstRevenue: Math.round(next) };
-  }, [bulkMatchedProducts, salesCountMap, bulkAdjustMode, bulkAdjustValue, bulkRoundMultiple]);
+  }, [bulkMatchedProducts, salesCountMap, bulkAdjustMode, bulkAdjustValue, bulkRoundMultiple, bulkMarkupMode, bulkMarkupValue, bulkRounding]);
+  const bulkPlans = costBulk ? bulkMatchedProducts.map(product => ({ product, plan: bulkPlan(product) })) : [];
+  const bulkApplicable = costBulk ? bulkPlans.filter(row => row.plan).length : bulkMatchedProducts.length;
+  const bulkNoCost = bulkPlans.filter(row => !(row.product.cost > 0)).length;
+  const bulkToCost = bulkPlans.filter(row => row.plan && row.product.sale_markup == null).length;
+
+  const handleApplyBulkMarkup = async () => {
+    const items = bulkPlans.filter(row => row.plan).map(({ product, plan }) => ({
+      id: product.id, markup: plan!.markup, expected: product.price, ...(bulkRounding === 'keep' ? {} : { rounding: plan!.rounding }),
+    }));
+    if (!items.length) return;
+    const extra = [bulkToCost ? `${bulkToCost} con precio manual pasan a seguir al costo.` : '', bulkNoCost ? `${bulkNoCost} sin costo no cambian.` : ''].filter(Boolean).join(' ');
+    if (!await askConfirm(`¿Ajustar la ganancia de ${items.length} productos? Los precios se recalculan con su costo y redondeo. ${extra}`.trim())) return;
+    setBulkIsUpdating(true); setBulkProgress(0);
+    let updated = 0; let skipped = 0;
+    const ok = await run(async () => {
+      for (let i = 0; i < items.length; i += 500) {
+        const result = await retail.bulkUpdatePricing(store.id, items.slice(i, i + 500));
+        updated += result.updated; skipped += result.skipped.length;
+        setBulkProgress(Math.round((Math.min(i + 500, items.length) / items.length) * 100));
+      }
+    });
+    setBulkIsUpdating(false); setBulkProgress(0);
+    if (!ok) return;
+    notify(skipped ? 'warning' : 'success', `Se ajustó la ganancia de ${updated} productos.${skipped ? ` ${skipped} se omitieron porque cambiaron en otro dispositivo, no tienen costo o ya no se venden.` : ''}`);
+    setIsBulkPriceModalOpen(false);
+  };
 
   const handleApplyBulkPriceChanges = async () => {
+    if (costBulk) { await handleApplyBulkMarkup(); return; }
     if (bulkMatchedProducts.length === 0) return;
     const confirmed = await askConfirm(
       `¿Estás seguro de que deseás actualizar los precios de ${bulkMatchedProducts.length} productos seleccionados? Esta acción modificará el catálogo de forma inmediata.`,
@@ -692,7 +760,8 @@ export function CatalogEditor({
       categoryId: defaultProductCategory(categories),
       emoji: "📦",
       price: "",
-      markup: '',
+      markup: store.default_markup != null ? String(store.default_markup) : '',
+      rounding: null,
       sellable: true,
       cost: "0",
       stock: "0",
@@ -722,9 +791,12 @@ export function CatalogEditor({
       code: p.code,
       categoryId: p.categoryId,
       emoji: p.emoji || "📦",
-      price: String(p.price),
-      markup: p.sale_markup == null ? null : String(p.sale_markup),
-      sellable: p.sellable !== false,
+      price: p.price_pending ? '' : String(p.price),
+      // Un «sin precio» se completa por costo; un manual existente sigue manual hasta que se pida el cálculo.
+      markup: p.sale_markup != null ? String(p.sale_markup) : p.price_pending ? (store.default_markup != null ? String(store.default_markup) : '') : null,
+      rounding: p.price_rounding ?? null,
+      // Un producto «sin precio» se abre como producto a la venta para completarle el precio.
+      sellable: p.sellable !== false || p.price_pending === true,
       cost: String(p.cost || 0),
       stock: String(p.stock),
       min: String(p.minStock),
@@ -1437,6 +1509,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       price: formSalePrice || 0,
       sale_markup: pricingByMarkup ? Number(formData.markup) : null,
       sellable: formData.sellable,
+      ...(editing?.price_pending ? { price_pending: false } : {}),
+      ...(store.price_rounding !== undefined ? { price_rounding: formData.rounding } : {}),
       cost: editingRecipeCost?.cost ?? (creatingComposition ? 0 : Number(formData.cost)),
       stock: creatingComposition ? 0 : Number(formData.stock),
       minStock: Number(formData.min),
@@ -1633,10 +1707,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               onClick={() => setIsBulkPriceModalOpen(true)}
               title="Ajuste masivo de precios por marca, distribuidor o categoría"
             >
-              <Coins size={16} /> Ajustar precios
+              <Coins size={16} /> {costBulk ? 'Ajustar ganancia' : 'Ajustar precios'}
             </button>
           )}
           </div></details>}
+          {!guided && canEditCatalog && <button type="button" className="secondary-button" disabled={busy || !categories.length || adding || !!editing || catalogAddOpen}
+            onClick={event => { editorTrigger.current = event.currentTarget; setCatalogAddOpen(true); }}
+            title="Dar de alta productos que ya están en el catálogo global, por marca o categoría"><Globe size={16} /> Agregar desde catálogo global</button>}
           {!guided && canEditCatalog && canCompose && <button type="button" className="secondary-button" disabled={busy || !categories.length}
             onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositeOpen(true); }}>Crear combo o paquete</button>}
           {!guided && canEditCatalog && <button type="button" className="secondary-button ai-action" disabled={busy || !categories.length}
@@ -1655,11 +1732,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
       </div>
 
-      {priceEditing && priceTarget && <ProductPriceEditor key={priceTarget.id} storeId={store.id} product={priceTarget} threshold={store.low_margin_threshold} busy={busy} run={run} active={active} onClose={closePriceEditor} />}
+      {priceEditing && priceTarget && <ProductPriceEditor key={priceTarget.id} storeId={store.id} store={store} product={priceTarget} threshold={store.low_margin_threshold} busy={busy} run={run} active={active} onClose={closePriceEditor} />}
       {canDelete && deletionTarget && <ProductDeletionEditor key={deletionTarget.id} storeId={store.id} product={deletionTarget} busy={busy} run={run} active={active} onClose={closeDeletion} />}
       {canDelete && deletionHistoryOpen && <DeletedProducts storeId={store.id} busy={busy} run={run} active={active} onClose={closeDeletion} />}
-      {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} product={compositionTarget} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} canCreateCombo={canEditCatalog} />}
-      {canEditCatalog && canCompose && newCompositeOpen && <NewCompositeEditor key={store.id} storeId={store.id} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeNewComposite} />}
+      {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} priceStep={store.price_rounding ?? 0} defaultMarkup={store.default_markup} product={compositionTarget} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} canCreateCombo={canEditCatalog} />}
+      {canEditCatalog && catalogAddOpen && <CatalogProductAdder key={store.id} storeId={store.id} store={store} products={products} categories={categories} busy={busy} run={run} active={active} onClose={closeCatalogAdd} />}
+      {canEditCatalog && canCompose && newCompositeOpen && <NewCompositeEditor key={store.id} storeId={store.id} priceStep={store.price_rounding ?? 0} defaultMarkup={store.default_markup} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeNewComposite} />}
       {canEditCatalog && (adding || editing) && (
         <form
           key={editing?.id || "new"}
@@ -1948,11 +2026,15 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             </label>
             {formData.sellable && formData.markup !== null && <ProductMarkupField value={formData.markup}
               onChange={markup => { invalidateProductSuggestions(); setFormData(prev => ({ ...prev, markup })); }} />}
-            {editing && formData.sellable && <label>Precio
-              <select value={formData.markup === null ? 'manual' : 'markup'} onChange={event => setFormData(prev => ({ ...prev,
-                price: String(formSalePrice || prev.price), markup: event.target.value === 'manual' ? null : prev.markup ?? (pricingCost > 0 ? String(Math.round((Number(prev.price) / pricingCost - 1) * 10000) / 100) : ''),
-              }))}><option value="markup">Por porcentaje sobre costo</option><option value="manual">Manual</option></select>
-            </label>}
+            {formData.sellable && formData.markup !== null && store.price_rounding !== undefined && <ProductRoundingField value={formData.rounding} storeStep={storeRounding}
+              onChange={rounding => { invalidateProductSuggestions(); setFormData(prev => ({ ...prev, rounding })); }} />}
+            {formData.sellable && <div className="price-mode-row">
+              {formData.markup !== null
+                ? <><small>El precio se calcula con el costo y la ganancia.</small>
+                  <button type="button" className="text-button" disabled={busy} onClick={() => void requestManualPrice()}>Poner precio manual</button></>
+                : <><small role="note">Precio manual: no sigue al costo.</small>
+                  <button type="button" className="text-button" disabled={busy || creatingComposition} onClick={useCostPrice}>Calcular por costo</button></>}
+            </div>}
             <label className="retail-price-field" hidden={!formData.sellable}>
               Precio en la lista principal por {saleUnit} ($)
               <NumberInput
@@ -2471,7 +2553,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     placeholder="0.00"
                   />
                 </label>
-                {receiving && <ProductMarginStatus price={replenishTarget.sale_markup == null ? replenishTarget.price : draftMarkupPrice(canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost, String(replenishTarget.sale_markup)) ?? 0} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />}
+                {receiving && <ProductMarginStatus price={replenishTarget.sale_markup == null ? replenishTarget.price : draftMarkupPrice(canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost, String(replenishTarget.sale_markup), replenishTarget.price_step ?? 0) ?? 0} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />}
               </div>
 
               <div className="replenish-input-grid" hidden={!receiving}>
@@ -2943,7 +3025,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             <div className="ai-modal-header">
               <div className="ai-modal-title" id="bulk-price-modal-title">
                 <Coins size={22} className="ai-brand-icon" />
-                <h3>Ajuste de Precios en Bloque</h3>
+                <h3>{costBulk ? 'Ajuste de ganancia en bloque' : 'Ajuste de Precios en Bloque'}</h3>
               </div>
               <button
                 type="button"
@@ -3054,9 +3136,38 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <div className="bulk-section-box">
                 <div className="bulk-section-title">
                   <DollarSign size={16} />
-                  <span>2. Modo de Ajuste de Precios</span>
+                  <span>{costBulk ? '2. Ganancia sobre costo' : '2. Modo de Ajuste de Precios'}</span>
                 </div>
 
+                {costBulk ? <>
+                <div className="bulk-mode-options">
+                  {([['raise', 'Subir ganancia', 'Suma puntos a la ganancia de cada producto'], ['lower', 'Bajar ganancia', 'Resta puntos a la ganancia de cada producto'], ['set', 'Fijar ganancia', 'Misma ganancia sobre costo para todos']] as const).map(([mode, label, help]) => (
+                    <label key={mode} className={`bulk-mode-card ${bulkMarkupMode === mode ? 'active' : ''}`}>
+                      <input type="radio" name="bulkMarkupMode" value={mode} checked={bulkMarkupMode === mode} onChange={() => setBulkMarkupMode(mode)} />
+                      <div className="bulk-mode-info">
+                        <span className="bulk-mode-name">{mode === 'raise' ? <ArrowUpRight size={15} /> : mode === 'lower' ? <ArrowDownRight size={15} /> : <Percent size={15} />} {label}</span>
+                        <small>{help}</small>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                <div className="bulk-value-and-rounding-row">
+                  <label className="bulk-value-input-wrap">
+                    <span>{bulkMarkupMode === 'set' ? 'Ganancia sobre costo (%):' : 'Puntos de ganancia:'}</span>
+                    <NumberInput type="number" step="0.01" min={bulkMarkupMode === 'set' ? '-99.99' : '0'} max="10000" value={bulkMarkupValue} onValueChange={setBulkMarkupValue} placeholder="5" />
+                  </label>
+                  <label className="bulk-rounding-wrap">
+                    <span>Redondeo:</span>
+                    <select value={bulkRounding} onChange={event => setBulkRounding(event.target.value)}>
+                      <option value="keep">Mantener el de cada producto</option>
+                      <option value="store">Como el comercio ({roundingLabel(store.price_rounding ?? 0).toLowerCase()})</option>
+                      {priceRoundingSteps.map(option => <option key={option} value={String(option)}>{roundingLabel(option)}{option > 0 ? ', hacia arriba' : ''}</option>)}
+                    </select>
+                  </label>
+                </div>
+                <p className="bulk-markup-note">Ejemplo: ganancia 30% + 5 puntos = 35%. El precio sale de costo + ganancia con el redondeo.
+                  {bulkToCost > 0 && ` ${bulkToCost} con precio manual pasan a seguir al costo.`}{bulkNoCost > 0 && ` ${bulkNoCost} sin costo no cambian.`}</p>
+                </> : <>
                 <div className="bulk-mode-options">
                   <label
                     className={`bulk-mode-card ${bulkAdjustMode === "increase_pct" ? "active" : ""}`}
@@ -3162,6 +3273,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     </select>
                   </label>
                 </div>
+                </>}
               </div>
 
               {/* 3. RESUMEN DE IMPACTO */}
@@ -3241,6 +3353,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                           <th>Categoría</th>
                           <th>Marca</th>
                           <th>Distribuidor</th>
+                          {costBulk && <th>Ganancia</th>}
                           <th>Precio actual</th>
                           <th>Precio nuevo</th>
                           <th>Delta</th>
@@ -3250,6 +3363,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                         {bulkMatchedProducts.map((p) => {
                           const newPrice = calculateNewPrice(p);
                           const delta = newPrice - p.price;
+                          const plan = costBulk ? bulkPlan(p) : null;
                           return (
                             <tr key={p.id}>
                               <td className="center-cell">{p.emoji || "📦"}</td>
@@ -3260,6 +3374,9 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                               <td>{p.category}</td>
                               <td>{p.brand || <span className="muted-dash">-</span>}</td>
                               <td>{p.supplier || <span className="muted-dash">-</span>}</td>
+                              {costBulk && <td>{plan
+                                ? <>{p.sale_markup != null ? `${p.sale_markup.toLocaleString('es-AR')}%` : 'Manual'} → <strong>{plan.markup.toLocaleString('es-AR')}%</strong></>
+                                : <span className="muted-dash">{p.cost > 0 ? 'Revisá el valor' : 'Sin costo: no cambia'}</span>}</td>}
                               <td className="price-cell">
                                 ${p.price.toLocaleString("es-AR")}
                               </td>
@@ -3296,7 +3413,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <button
                 type="button"
                 className="primary-button bulk-confirm-btn"
-                disabled={busy || bulkIsUpdating || bulkMatchedProducts.length === 0}
+                disabled={busy || bulkIsUpdating || bulkApplicable === 0}
                 onClick={handleApplyBulkPriceChanges}
               >
                 {bulkIsUpdating ? (
@@ -3305,7 +3422,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     <span>Guardando cambios…</span>
                   </>
                 ) : (
-                  `Aplicar cambios a ${bulkMatchedProducts.length} productos`
+                  `Aplicar cambios a ${bulkApplicable} productos`
                 )}
               </button>
             </div>
@@ -3429,7 +3546,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                         {!visibleColumns.code && <small className="product-code">{p.code}</small>}
                         {unitsPerPack(p.pack_size) > 1 && <small className="pack-size-badge">Pack ×{p.pack_size}</small>}
                         {hasComposition(p) && <small className="pack-size-badge">Stock compartido</small>}
-                        {p.sellable === false && <small className="pack-size-badge">Solo insumo</small>}
+                        {p.price_pending ? <small className="pack-size-badge">Sin precio</small> : p.sellable === false && <small className="pack-size-badge">Solo insumo</small>}
                         {p.margin_group === 'low_margin' && <small className="low-margin-badge">↓ Margen bajo</small>}
                       </div>
                     </td>
@@ -3469,7 +3586,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   )}
                   {visibleColumns.price && (
                     <td data-label="Precio" className="price-col">
-                      {p.sellable === false ? 'Solo insumo' : `$${p.price.toLocaleString("es-AR")}`}
+                      {p.price_pending ? 'Sin precio' : p.sellable === false ? 'Solo insumo' : `$${p.price.toLocaleString("es-AR")}`}
                     </td>
                   )}
                   {visibleColumns.margin && (
@@ -4506,14 +4623,21 @@ export function StoreSettings({
   onOpenAi?: () => void;
   active?: boolean;
 }) {
-  const view = ['general', 'locations', 'team', 'more', 'app', 'ledgers'].includes(requestedView) ? requestedView : 'general';
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  useEffect(() => {
+    let current = true;
+    // Solo decide si se muestra el catálogo global; cada cambio vuelve a validar el permiso en la base.
+    void supabase.rpc('retail_is_platform_admin').then(({ data, error }) => { if (current) setIsPlatformAdmin(!error && data === true); });
+    return () => { current = false; };
+  }, [userId]);
+  const view = ['general', 'locations', 'team', 'activity', 'more', 'app', 'ledgers', ...(isPlatformAdmin ? ['catalog'] : [])].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
   const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
   const [editingInviteId, setEditingInviteId] = useState<string | null>(null);
   const morePanelRef = useRef<HTMLDivElement>(null);
   const moreTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const openMoreSection = (next: 'app' | 'ledgers', trigger: HTMLButtonElement) => {
+  const openMoreSection = (next: 'app' | 'ledgers' | 'catalog', trigger: HTMLButtonElement) => {
     moreTriggerRef.current = trigger;
     setView(next);
     requestAnimationFrame(() => {
@@ -4531,8 +4655,8 @@ export function StoreSettings({
   };
   const [appVisited, setAppVisited] = useState(view === 'app');
   useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
-  const isDirectPrimary = ['general', 'locations', 'team'].includes(view);
-  const isMoreSub = ['more', 'app', 'ledgers'].includes(view);
+  const isDirectPrimary = ['general', 'locations', 'team', 'activity'].includes(view);
+  const isMoreSub = ['more', 'app', 'ledgers', 'catalog'].includes(view);
   const primaryView = isDirectPrimary ? view : (isMoreSub ? 'more' : '');
   if (role !== 'owner' && role !== 'admin') return null;
   return (
@@ -4542,8 +4666,12 @@ export function StoreSettings({
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
           { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
           { id: 'team', label: 'Personas con acceso', icon: <Users size={16} /> },
+          { id: 'activity', label: 'Actividad', icon: <History size={16} /> },
           { id: 'more', label: 'Más opciones', icon: <SlidersHorizontal size={16} /> },
         ]} />
+      <div hidden={view !== 'activity'} role="tabpanel" id="settings-panel-activity" aria-labelledby="settings-tab-activity">
+        {view === 'activity' && <ActivityLog storeId={store.id} branches={branches} active={view === 'activity'} />}
+      </div>
       <div
         ref={morePanelRef}
         hidden={primaryView !== 'more'}
@@ -4564,7 +4692,7 @@ export function StoreSettings({
             <div className="more-subview-breadcrumb">
               <span>Más opciones</span>
               <ChevronRight size={14} />
-              <strong>{view === 'ledgers' ? 'Registros de ventas' : 'App y avisos'}</strong>
+              <strong>{view === 'ledgers' ? 'Registros de ventas' : view === 'catalog' ? 'Catálogo global' : 'App y avisos'}</strong>
             </div>
           </div>
         )}
@@ -4646,6 +4774,27 @@ export function StoreSettings({
                       </div>
                       <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
                     </button>
+
+                    {isPlatformAdmin && (
+                      <button
+                        type="button"
+                        className="more-nav-card"
+                        disabled={busy}
+                        onClick={(event) => openMoreSection('catalog', event.currentTarget)}
+                      >
+                        <div className="more-nav-card-icon">
+                          <Globe size={20} />
+                        </div>
+                        <div className="more-nav-card-info">
+                          <div className="more-nav-card-top">
+                            <strong>Catálogo global</strong>
+                            <span className="location-pill-badge">Plataforma</span>
+                          </div>
+                          <small>Corregí y verificá los datos por código de barras que comparten todos los comercios.</small>
+                        </div>
+                        <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4846,11 +4995,23 @@ export function StoreSettings({
         >
           <LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} />
         </div>
+        {isPlatformAdmin && (
+          <div
+            hidden={view !== 'catalog'}
+            data-settings-view="catalog"
+            tabIndex={-1}
+            role="region"
+            aria-label="Catálogo global"
+            className="more-subview-panel"
+          >
+            {view === 'catalog' && <GlobalCatalog run={run} busy={busy} active={active && view === 'catalog'} />}
+          </div>
+        )}
       </div>
       <div className="settings-data settings-data-wide" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
         <StoreGeneralSettingsForm store={store} busy={busy} run={run} />
         <BillingSettings key={`billing-${store.id}`} store={store} busy={busy} run={run} active={active && view === 'general'} />
-        <MarginThresholdSettings key={`margin-${store.id}`} store={store} busy={busy} run={run} />
+        <MarginThresholdSettings key={`margin-${store.id}`} store={store} busy={busy} run={run} /><PriceRoundingSettings key={`pricing-${store.id}`} store={store} busy={busy} run={run} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
         <div className="locations-settings-container is-map">

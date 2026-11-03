@@ -407,3 +407,109 @@ select (select count(*) from public.retail_customers) as clientes, (select count
 ## Comparar sucursales
 
 **Pendiente de aplicar:** [202611020008_branch_comparison.sql](supabase/migrations/202611020008_branch_comparison.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020007_purchase_orders.sql`. El cálculo de ventas, devoluciones y costo de Ganancias pasa a una sola función interna por período (`retail_private.sales_period`), que usan el resultado del mes y el panel nuevo `retail_branch_comparison`. Lo mismo pasa con las unidades vendidas (`retail_private.units_sold`), que usan los pedidos y el panel. El resultado del mes devuelve los mismos datos que antes. Solo dueños y administradores, con períodos de hasta un año. No cambia datos.
+
+## Actividad: quién hizo qué
+
+**Pendiente de aplicar:** [202611020009_activity_log.sql](supabase/migrations/202611020009_activity_log.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020008_branch_comparison.sql`. Agrega un registro de solo lectura (`retail_audit_log`) para lo que antes no quedaba registrado: precios, ediciones de productos, stock editado desde la ficha, personas con acceso, perfiles y permisos, y configuración del comercio, locales, cajas y registros. Cada tabla guarda solo las columnas listadas. Nunca se registran contraseñas, tokens ni certificados: las credenciales de ARCA están en otra tabla que no se registra. Suma `retail_activity`, que junta ese registro con los historiales que ya existían, solo para dueños y administradores. Nadie puede editar ni borrar el registro, ni desde la app ni desde funciones.
+
+**Conservación:** el registro nuevo guarda 24 meses. Lo más antiguo se borra solo con `retail_private.purge_audit_log()`, que no se puede llamar desde la app. Las ventas, cajas, plata, stock y demás historiales operativos no se borran.
+
+Para limpiar a mano, en el SQL Editor y una vez por mes:
+
+```sql
+select retail_private.purge_audit_log();
+```
+
+Opcional, si el proyecto tiene `pg_cron` habilitado, se puede programar el día 1 de cada mes:
+
+```sql
+select cron.schedule('retail-audit-purge', '0 4 1 * *', $$select retail_private.purge_audit_log()$$);
+```
+
+## Plata en camino y conciliación
+
+**Pendiente de aplicar:** [202611030001_funds_in_transit_and_bank.sql](supabase/migrations/202611030001_funds_in_transit_and_bank.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020009_activity_log.sql`.
+
+- **Plata en camino:** un envío de plata entre dos ubicaciones sale del origen al enviarlo. Queda «en camino» y entra al destino cuando alguien confirma cuánto llegó. Si llegó menos, se pide una nota y la diferencia queda registrada como faltante. Si no llegó, vuelve entera al origen. Ingresos y salidas externas siguen siendo inmediatos, y los envíos anteriores quedan como estaban.
+- **Liquidaciones:** agrega `retail_bank_deposits`, las liquidaciones de QR, débito, crédito y transferencias con lo acreditado, la comisión y las retenciones. Las compara con lo vendido por cada medio y resta las comisiones en Ganancias desde ahí, una sola vez.
+
+Lo usan dueños, administradores y quienes tienen «Ver y mover la plata». El arqueo del cajero no cambia. No modifica saldos existentes.
+
+## Facturación sin duplicados
+
+**Pendiente de aplicar:** [202611030002_billing_safe_issue.sql](supabase/migrations/202611030002_billing_safe_issue.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030001_funds_in_transit_and_bank.sql` y **antes** de publicar la nueva `billing-authorize`: la función nueva no anda con la base anterior, y la anterior no puede marcar ventas autorizadas con la base nueva. Hacer los dos pasos seguidos, fuera del horario de venta.
+
+- **Requiere Vault** (`supabase_vault`), que Supabase trae activo. Si falta, la migración se detiene sin cambiar nada y pide activarlo en Database → Extensions.
+- **Clave en Vault:** las claves ya cargadas pasan a Vault y la columna de texto queda vacía. El certificado público sigue en `retail_private.store_billing_credentials`.
+- **Pedidos de CAE:** agrega `retail_billing_attempts`, con un solo pedido en curso por punto de venta, tipo y entorno, y el número anotado antes de mandarlo. Suma `retail_billing_begin`, que puede llamar quien vende o ve ventas, y cuatro funciones que solo usa el servidor (`retail_billing_mark_sent`, `retail_billing_finish`, `retail_billing_secrets`, `retail_billing_save_token`).
+- **Permiso de ARCA:** se guarda en `retail_private.billing_wsaa_tokens` hasta que vence.
+- **Certificados:** solo dueños y administradores. Al reemplazar el certificado se puede omitir la clave para conservar la actual.
+- **`retail_update_sale_billing`:** ya no acepta «autorizada» ni cambia una venta autorizada.
+
+Publicar la función, desde la carpeta del proyecto:
+
+```bash
+npx supabase functions deploy billing-authorize
+```
+
+Usa `SUPABASE_URL`, `SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`, que Supabase carga solo. Los secretos `ARCA_CERT`, `ARCA_KEY` y `ARCA_ENVIRONMENT` ya no se usan. Si estaban cargados, borrarlos en Edge Functions → Secrets después de comprobar que cada comercio tiene su certificado. Las ventas ya autorizadas no cambian.
+
+## Factura A y notas de crédito
+
+**Pendiente de aplicar:** [202611030003_billing_receptor_credit_notes.sql](supabase/migrations/202611030003_billing_receptor_credit_notes.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030002_billing_safe_issue.sql` y volver a publicar `billing-authorize`.
+
+- **Receptor:** la venta guarda a nombre de quién salió la factura (documento, nombre y condición frente al IVA) para el ticket y el QR. `retail_set_sale_receptor` elige el cliente antes de facturar, también en ventas que no son fiadas. En una venta fiada la factura va siempre al cliente de la cuenta.
+- **Factura A:** en comercios Responsables Inscriptos, un cliente Responsable Inscripto o Monotributista con CUIT recibe Factura A. Sin CUIT, la venta queda con error hasta cargarlo. El resto recibe Factura B, con su documento si lo tiene.
+- **Notas de crédito:** las devoluciones nuevas de ventas facturadas quedan «pendientes de nota de crédito». `retail_billing_begin_credit` la pide asociada a la factura original (A → 3, B → 8, C → 13), con el mismo receptor y el importe devuelto. Lo pueden hacer dueños, administradores y quienes devuelven ventas o asocian comprobantes. Al autorizarse, la devolución guarda el número («NC B 00003-00000012») y el CAE.
+- **Devoluciones anteriores:** las que ya esperaban nota de crédito siguen con carga manual. La carga manual se rechaza mientras la app está emitiendo esa nota o si ya la emitió.
+- No cambia ventas, facturas ni devoluciones existentes.
+
+## Administrador de plataforma y catálogo global
+
+**Pendiente de aplicar:** [202611030004_platform_admin_catalog.sql](supabase/migrations/202611030004_platform_admin_catalog.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030003_billing_receptor_credit_notes.sql`.
+
+- **Permiso aparte:** `retail_private.platform_admins` guarda quién administra el catálogo global (`retail_global_catalog`), que comparten todos los comercios. No depende de ser dueño ni administrador de un comercio. Solo se otorga desde el SQL Editor: la app no puede leer ni cambiar esa tabla.
+- **Sin escritura directa:** se quitan las reglas que dejaban a cualquier usuario con sesión insertar o cambiar filas, incluidos el origen y la confianza. La lectura no cambia.
+- **Aportes de los comercios:** siguen por `retail_contribute_catalog`, con la misma lógica. Un pedido con origen `verified` de quien no es administrador de plataforma queda como `community`.
+- **Herramientas del administrador:** `retail_admin_save_catalog` crea o reemplaza los datos de un EAN y lo marca verificado o no. Verificado queda con confianza 1 y los comercios no pueden cambiarlo. Desverificado vuelve a comunitario, con confianza de hasta 0,89. `retail_admin_delete_catalog` borra un EAN. Los productos que los comercios ya cargaron no cambian. `retail_is_platform_admin` indica si mostrar estas herramientas, aunque cada función vuelve a validar el permiso.
+
+Dar el permiso a una cuenta (SQL Editor, con el email de la cuenta):
+
+```sql
+insert into retail_private.platform_admins(user_id, note)
+select id, 'Curador del catálogo' from auth.users where email = 'tu-email@ejemplo.com';
+```
+
+Quitarlo:
+
+```sql
+delete from retail_private.platform_admins
+where user_id = (select id from auth.users where email = 'tu-email@ejemplo.com');
+```
+
+En la app, el administrador de plataforma lo ve en **Mi comercio → Más opciones → Catálogo global** ([guía](docs/administracion.md#catalogo-global)). El Table Editor y el SQL Editor siguen sirviendo y no pasan por estas reglas. Una carga en bloque por CSV desde el Table Editor entra tal como viene: revisar `source` y `confidence_score` antes de importar.
+
+## Catálogo global desde Excel
+
+**Pendiente de aplicar:** [202611030005_global_catalog_import.sql](supabase/migrations/202611030005_global_catalog_import.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030004_platform_admin_catalog.sql`. Agrega `retail_admin_import_catalog`, que guarda hasta 1.000 filas por vez, solo para administradores de plataforma. Cada lote entra completo o no entra, y repetir el mismo archivo no duplica nada. Una columna que no está en la planilla conserva el dato actual. No cambia datos existentes al aplicarla.
+
+## Alta de productos desde el catálogo global
+
+**Pendiente de aplicar:** [202611030006_add_products_from_global_catalog.sql](supabase/migrations/202611030006_add_products_from_global_catalog.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030005_global_catalog_import.sql`.
+
+- **Sin precio:** agrega la columna `price_pending` a `retail_products`. Marca productos dados de alta sin precio: no a la venta y con precio 0. Se borra sola cuando el producto pasa a la venta. Los productos existentes quedan en `false` y no cambian.
+- **Funciones:** `retail_global_catalog_facets` y `retail_global_catalog_matches` listan marcas, categorías y productos del catálogo global. `retail_add_from_global_catalog` da de alta hasta 500 productos por vez, con stock 0, y exige el permiso de crear y editar productos. Los códigos que el comercio ya tiene se omiten.
+- **Versiones de la app:** la app de esta versión necesita la migración para usar la función nueva. Una app anterior muestra los productos «sin precio» como «Solo insumo».
+
+## Precio por costo con redondeo
+
+**Pendiente de aplicar:** [202611030007_cost_based_pricing.sql](supabase/migrations/202611030007_cost_based_pricing.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030006_add_products_from_global_catalog.sql`. Sincronizar los dispositivos antes de aplicarla.
+
+- **Columnas nuevas:** `retail_stores.price_rounding` (0, 1, 5, 10, 50 o 100) y `retail_stores.default_markup`, además de `retail_products.price_rounding` (null = el del comercio). Los comercios existentes quedan con redondeo 0, así **ningún precio cambia al aplicarla**. Los nuevos arrancan con $10.
+- **Cálculo:** `retail_private.markup_price` redondea hacia arriba el precio por costo. Reemplaza `derive_product_markup_price` y `check_product_markup_price` con el redondeo, y `guard_product_capabilities` para que porcentaje y redondeo cuenten como precio, que alcanza con «editar precios».
+- **Funciones:** `retail_update_product_pricing` edita porcentaje y redondeo de un producto. `retail_set_store_pricing` guarda la ganancia por defecto y el redondeo, y si el redondeo cambia recalcula en el momento los precios por costo que usan el del comercio. Reemplaza `retail_add_from_global_catalog` para aceptar porcentaje sobre costo.
+- No cambia ventas, precios manuales ni listas derivadas.
+
+## Ajuste masivo de ganancia
+
+**Pendiente de aplicar:** [202611030008_bulk_markup_adjust.sql](supabase/migrations/202611030008_bulk_markup_adjust.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030007_cost_based_pricing.sql`. Agrega `retail_bulk_update_pricing`, que cambia la ganancia sobre costo (y si se pide, el redondeo) de hasta 500 productos por vez, con el permiso de editar precios. La base recalcula cada precio. Se omiten, informándolos, los productos que cambiaron de precio en otro dispositivo, los que no tienen costo y los que ya no se venden. No cambia datos al aplicarla.

@@ -380,3 +380,35 @@ Los fondos requieren conexión; no se encolan offline. Un error mantiene el borr
 10. **Borradores y tamaños:** escribir una transferencia de productos, cambiar a dinero y escribir otro borrador, navegar a Listas y volver. Esperado: ambos conservados; cerrar uno conserva el otro. Revisar una sucursal y muchas, nombres largos, teclado virtual y botones alcanzables en móvil. Falta de conexión/SQL muestra un error accionable, sin saldos ficticios ni bloqueo de Vender.
 
 Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0. No se aplicó SQL ni se probaron navegador, móvil, backend o concurrencia; TypeScript no valida migraciones, RLS ni la presentación visual.
+
+
+<a id="plata-en-camino"></a>
+
+## Plata en camino y conciliación
+
+**Plata en camino.** En **Productos y stock → Transferencias → Plata**, enviar plata entre una sucursal y el depósito, o entre sucursales, la descuenta del origen en ese momento. Queda en **Plata en camino** hasta que alguien confirma:
+
+- **Llegó todo:** entra al destino.
+- **Llegó otro importe:** entra lo que llegó. Hay que escribir qué pasó, y el faltante queda en el historial.
+- **No llegó:** vuelve entera al origen, con su motivo.
+
+Un envío sin confirmar después de 24 horas se marca para revisar. Ingresos y salidas externas siguen siendo inmediatos. El arqueo de cada caja no cambia: quien cobra no ve fondos ni envíos.
+
+**Conciliación.** En **Ganancias → Conciliación** se carga cada liquidación de QR, débito, crédito o transferencias:
+
+- **Datos de cada liquidación:** fecha en que entró, días de venta que cubre, importe acreditado, comisión y retenciones.
+- **La comparación:** para el período elegido, muestra por medio lo vendido contra lo liquidado (acreditado + comisión + retenciones) y marca «Falta acreditar» o «Liquidaron de más». Lo vendido incluye pagos de ventas, partes de pagos mixtos y cobros a clientes, menos devoluciones por ese medio. Se comparan las liquidaciones cuyos días de venta caen dentro del período. El efectivo no entra acá, porque se controla en el arqueo.
+
+**Comisiones en Ganancias.** «Resultado del mes» resta las comisiones de las liquidaciones que entraron en ese mes, una sola vez. No hay que cargarlas también como gasto. Las retenciones se muestran aparte y no se restan, porque son impuestos a cuenta.
+
+### Guía de Pruebas — plata en camino y conciliación
+
+En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
+
+1. **Envío:** con .000 en una sucursal, enviar 00 al depósito. Esperado: la sucursal baja a 00, el depósito no cambia y aparece en «Plata en camino».
+2. **Llegó otro importe:** tocar **Llegó otro importe**, poner 50 sin nota. Esperado: pide la nota. Con nota, el depósito suma 50 y el historial muestra el faltante de 0.
+3. **No llegó:** enviar 00 y tocar **No llegó** con un motivo. Esperado: los 00 vuelven a la sucursal.
+4. **Arqueo a ciegas:** como cajero, cerrar la caja. Esperado: sigue sin ver efectivo esperado, fondos ni envíos.
+5. **Conciliación:** vender por QR y débito. En **Ganancias → Conciliación**, cargar una liquidación de QR por lo vendido menos una comisión. Esperado: «Coincide». Cargar una de débito por menos. Esperado: «Falta acreditar» con la diferencia.
+6. **Comisiones:** en «Resultado del mes», esperado: «− Comisiones de cobro» con la suma, y el resultado ya descontado. Anular una liquidación. Esperado: su comisión deja de restarse.
+7. **Celular:** revisar los dos listados y los formularios.

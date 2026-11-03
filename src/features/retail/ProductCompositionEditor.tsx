@@ -9,10 +9,10 @@ import { SectionNav } from './SectionNav';
 import { NewCompositeEditor } from './NewCompositeEditor';
 import './composition-editor.css';
 
-export function ProductCompositionEditor({ storeId, product, products, categories, active, busy, run, onClose, newProduct = false, canCreateCombo = false }: {
+export function ProductCompositionEditor({ storeId, product, products, categories, active, busy, run, onClose, newProduct = false, canCreateCombo = false, priceStep = 0, defaultMarkup }: {
   storeId: string; product: Product; products: Product[]; active: boolean; busy: boolean; run: Run; onClose: () => void;
   newProduct?: boolean;
-  categories: Category[]; canCreateCombo?: boolean;
+  categories: Category[]; canCreateCombo?: boolean; priceStep?: number; defaultMarkup?: number;
 }) {
   const [rows, setRows] = useState(() => product.stock_components?.length
     ? product.stock_components.map(row => ({ product_id: row.product_id, quantity: String(row.quantity) })) : [{ product_id: '', quantity: '1' }]);
@@ -48,7 +48,7 @@ export function ProductCompositionEditor({ storeId, product, products, categorie
       disabled={busy || !active} sections={[{ id: 'combo', label: 'Combo o paquete' }, { id: 'loose', label: 'Cigarrillos sueltos' }]}
       onChange={value => { setLoose(value === 'loose'); if (value === 'loose') setLooseVisited(true); setError(''); }} />}
     <div hidden={loose} id={`${nav}-panel-combo`} role={hasComposition(product) ? 'region' : 'tabpanel'} aria-label={hasComposition(product) ? `Componentes de ${product.name}` : undefined} aria-labelledby={!hasComposition(product) ? `${nav}-tab-combo` : undefined}>
-    {needsNewCombo && canCreateCombo ? <NewCompositeEditor storeId={storeId} products={products} categories={categories} active={active && !loose} busy={busy} run={run} onClose={onClose} initialComponent={product} focusOnActivate={false} /> : needsNewCombo ? <div className="composition-start">
+    {needsNewCombo && canCreateCombo ? <NewCompositeEditor storeId={storeId} priceStep={priceStep} defaultMarkup={defaultMarkup} products={products} categories={categories} active={active && !loose} busy={busy} run={run} onClose={onClose} initialComponent={product} focusOnActivate={false} /> : needsNewCombo ? <div className="composition-start">
       <p><strong>{product.name}</strong> tiene {product.stock.toLocaleString('es-AR')} unidades de stock propio.</p>
       <p>Creá otro producto que lo consuma junto a los demás componentes. Sus existencias se conservan.</p>
       <p>Pedile a administración permiso para crear productos y armar un combo nuevo.</p>

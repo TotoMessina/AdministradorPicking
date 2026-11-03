@@ -5,6 +5,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { askConfirm } from '../../components/ConfirmHost';
 import { randomUUID } from '../../utils/uuid';
 import { retail, errorMessage, type SaleReturn as SaleReturnRecord } from './api';
+import { authorizeCreditNote } from '../../services/billingService';
 import type { Run } from './Management';
 import './sale-return.css';
 
@@ -64,6 +65,13 @@ export function SaleReturn({ storeId, sale, shiftId, canRefund, run, busy, onRet
   const billingPending = ['pending', 'retry', 'error'].includes(sale.billingStatus || 'none');
   const invoiced = sale.billingStatus === 'authorized';
   const pendingCreditNotes = (history || []).filter(r => r.credit_note_required && !r.credit_note_reference);
+  const reload = async () => setHistory(await retail.saleReturns(storeId, sale.id).catch(() => history));
+  // La nota de crédito sale de ARCA asociada a la factura de la venta. Un reintento nunca emite dos.
+  const emitCreditNote = (id: string) => run(async () => {
+    const res = await authorizeCreditNote(storeId, id);
+    await reload();
+    if (!res.success) throw new Error(res.error || 'No se pudo emitir la nota de crédito. Reintentá en unos minutos');
+  }, 'Nota de crédito emitida en ARCA');
 
   if (sale.syncStatus === 'pending') return canRefund ? <small className="sale-return-note">Sincronizá esta venta para poder anularla o devolverla.</small> : null;
   if (!canRefund && !pendingCreditNotes.length) return null;
@@ -85,7 +93,11 @@ export function SaleReturn({ storeId, sale, shiftId, canRefund, run, busy, onRet
     request.current = randomUUID();
     setReason(''); setQuantities({}); setMethod('original'); setMode('void');
     onReturned?.({ ...sale, returnedTotal: Number(saved.returnedTotal), returnStatus: saved.returnStatus });
-    setHistory(await retail.saleReturns(storeId, sale.id).catch(() => history));
+    await reload();
+    if (saved.creditNoteRequired) {
+      const id = saved.id;
+      void authorizeCreditNote(storeId, id).then(reload);
+    }
   }
 
   return <details className="sale-return" open={open} onToggle={e => setOpen(e.currentTarget.open)}>
@@ -96,18 +108,22 @@ export function SaleReturn({ storeId, sale, shiftId, canRefund, run, busy, onRet
         {history.map(r => <li key={r.id}>
           <strong>{r.kind === 'void' ? 'Anulación' : 'Devolución'} · {money(Number(r.total))}</strong>
           <small>{new Date(r.created_at).toLocaleString('es-AR')} · {r.actor_email || 'Usuario'} · {r.reason}</small>
-          {r.credit_note_required && (r.credit_note_reference
-            ? <small>Nota de crédito: {r.credit_note_reference}</small>
-            : <form className="inline-form" onSubmit={e => {
+          {r.credit_note_required && r.credit_note_reference && <small>Nota de crédito: {r.credit_note_reference}{r.cae ? ` · CAE ${r.cae}` : ''}</small>}
+          {r.credit_note_required && !r.credit_note_reference && r.credit_note_status && r.credit_note_status !== 'none' && <div className="inline-form">
+            <small>{r.credit_note_status === 'error' ? `ARCA rechazó la nota de crédito: ${r.credit_note_error || 'sin detalle'}`
+              : r.credit_note_status === 'retry' ? (r.credit_note_error || 'ARCA no respondió. Reintentá en unos minutos') : 'Nota de crédito pendiente de emitir en ARCA'}</small>
+            <button type="button" className="secondary-button" disabled={busy} onClick={() => void emitCreditNote(r.id)}>{r.credit_note_status === 'pending' ? 'Emitir nota de crédito' : 'Reintentar'}</button>
+          </div>}
+          {r.credit_note_required && !r.credit_note_reference && (!r.credit_note_status || r.credit_note_status === 'none' || r.credit_note_status === 'error') && <form className="inline-form" onSubmit={e => {
               e.preventDefault();
               const reference = (creditNote[r.id] || '').trim();
               if (!reference) return;
               void run(() => retail.attachCreditNote(storeId, r.id, reference), 'Nota de crédito registrada')
                 .then(async ok => { if (ok) setHistory(await retail.saleReturns(storeId, sale.id).catch(() => history)); });
             }}>
-              <label>Número de la nota de crédito emitida en ARCA<input maxLength={120} value={creditNote[r.id] || ''} onChange={e => setCreditNote(prev => ({ ...prev, [r.id]: e.target.value }))} /></label>
+              <label>{r.credit_note_status === 'error' ? 'Si la emitiste por fuera de la app, número de la nota de crédito' : 'Número de la nota de crédito emitida en ARCA'}<input maxLength={120} value={creditNote[r.id] || ''} onChange={e => setCreditNote(prev => ({ ...prev, [r.id]: e.target.value }))} /></label>
               <button className="secondary-button" disabled={busy || !(creditNote[r.id] || '').trim()}>Guardar</button>
-            </form>)}
+            </form>}
         </li>)}
       </ul>}
       {canRefund && sale.returnStatus !== 'voided' && history && <form className="retail-form sale-return-form" onSubmit={e => { e.preventDefault(); void submit(); }}>

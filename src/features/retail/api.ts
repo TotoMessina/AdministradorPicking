@@ -28,6 +28,10 @@ export interface Store {
   accent_color: string;
   currency: string;
   low_margin_threshold?: number;
+  /** Redondeo de los precios por costo (0, 1, 5, 10, 50 o 100). Sin la actualización 202611030007 no viene. */
+  price_rounding?: number;
+  /** Ganancia por defecto sobre costo para productos nuevos. */
+  default_markup?: number;
   depot_enabled?: boolean;
   branch_inventory_enabled?: boolean;
   cuit?: string | null;
@@ -232,6 +236,7 @@ export interface SaleReturn {
   id: string; kind: 'void' | 'partial'; total: number | string; cash_amount: number | string; payments: PaymentPart[];
   items: { index: number; productId?: string | null; name: string; qty: number; unitPrice: number; subtotal: number }[];
   reason: string; credit_note_required: boolean; credit_note_reference: string | null; actor_email: string | null; created_at: string;
+  credit_note_status?: 'none' | 'pending' | 'authorized' | 'error' | 'retry'; credit_note_error?: string | null; cae?: string | null;
 }
 export interface SaleRow {
   customer_id?: string | null;
@@ -257,6 +262,9 @@ export interface SaleRow {
   billing_status?: BillingStatus;
   billing_error?: string | null;
   billing_attempts?: number;
+  receptor_doc_tipo?: number | null;
+  receptor_doc_nro?: number | string | null;
+  receptor_name?: string | null;
   id: string;
   ticket_number: number;
   items: KioscoSale["items"];
@@ -393,6 +401,9 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   billingStatus: row.billing_status ?? 'none',
   billingError: row.billing_error ?? null,
   billingAttempts: row.billing_attempts ?? 0,
+  receptorDocTipo: row.receptor_doc_tipo ?? null,
+  receptorDocNro: row.receptor_doc_nro == null ? null : Number(row.receptor_doc_nro),
+  receptorName: row.receptor_name ?? null,
   returnedTotal: Number(row.returned_total ?? 0),
   returnStatus: row.return_status ?? 'none',
   customerId: row.customer_id ?? null,
@@ -540,7 +551,7 @@ const remoteRetail = {
       p_store: store, p_sale: sale, p_request: request, p_items: items, p_reason: reason, p_refund: refund, p_shift: shift }));
   },
   async saleReturns(store: string, sale: string) {
-    return allRows<SaleReturn>((from, to) => supabase.from('retail_sale_returns').select('id,kind,items,total,cash_amount,payments,reason,credit_note_required,credit_note_reference,actor_email,created_at')
+    return allRows<SaleReturn>((from, to) => supabase.from('retail_sale_returns').select('*')
       .eq('store_id', store).eq('sale_id', sale).order('created_at').order('id').range(from, to));
   },
   async customers(store: string) {
@@ -566,6 +577,10 @@ const remoteRetail = {
       p_price_list: sale.priceListId || null, p_ledger: sale.ledgerId || null, p_payments: mixed ? sale.payments : null, p_customer: sale.customerId, p_over_limit: !!sale.creditOverLimit }));
     const row = await result<SaleRow>(supabase.from('retail_sales').select('*').eq('id', sale.id).single());
     return saleFromRow(row);
+  },
+  /** Cliente a cuyo nombre sale la factura. Solo antes de facturar. */
+  async setSaleReceptor(store: string, sale: string, customer: string | null) {
+    return result(supabase.rpc('retail_set_sale_receptor', { p_store: store, p_sale: sale, p_customer: customer }));
   },
   async attachCreditNote(store: string, saleReturn: string, reference: string) {
     return result(supabase.rpc('retail_attach_credit_note', { p_store: store, p_return: saleReturn, p_reference: reference }));
@@ -646,6 +661,8 @@ const remoteRetail = {
       last_restocked_at?: string | null;
       stock_components?: StockComponent[];
       sellable?: boolean;
+      price_pending?: boolean;
+      price_rounding?: number | null;
     }>((from, to) =>
       supabase
         .from("retail_products")
@@ -666,7 +683,7 @@ const remoteRetail = {
       return [];
     });
     const depot = new Map((balances || []).map(row => [row.product_id, Number(row.quantity)]));
-    const locationMode = await result<{ branch_inventory_enabled?: boolean }>(supabase.from('retail_stores').select('*').eq('id', store).single());
+    const locationMode = await result<{ branch_inventory_enabled?: boolean; price_rounding?: number }>(supabase.from('retail_stores').select('*').eq('id', store).single());
     const branchRows = locationMode.branch_inventory_enabled
       ? await allRows<{ product_id: string; branch_id: string; quantity: number }>((from, to) => supabase.from('retail_branch_stock').select('product_id,branch_id,quantity').eq('store_id', store).order('product_id').order('branch_id').range(from, to)) : [];
     const branchStock = new Map<string, Record<string, number>>();
@@ -702,6 +719,9 @@ const remoteRetail = {
       last_restocked_at: p.last_restocked_at ?? null,
       stock_components: p.stock_components || [],
       sellable: p.sellable !== false,
+      price_pending: p.price_pending === true,
+      ...(p.price_rounding !== undefined ? { price_rounding: p.price_rounding } : {}),
+      price_step: Number(p.price_rounding ?? locationMode.price_rounding ?? 0),
     })));
   },
   async shifts(store: string) {
@@ -780,6 +800,9 @@ const remoteRetail = {
       emoji: p.emoji,
       active: true,
       ...(p.sellable !== undefined ? { sellable: p.sellable } : {}),
+      // Solo existe con la actualización 202611030006: guardar la ficha resuelve el «sin precio».
+      ...(p.price_pending === false ? { price_pending: false } : {}),
+      ...(p.price_rounding !== undefined ? { price_rounding: p.price_rounding } : {}),
       brand: p.brand?.trim() || null,
       supplier: p.supplier?.trim() || null,
       supplier_code: p.supplierCode?.trim() || null,
@@ -1015,25 +1038,15 @@ const remoteRetail = {
     }
     return data;
   },
+  /** El par de claves y el pedido se generan en el navegador: el servidor nunca ve ni devuelve la clave. */
   async generateBillingCsr(
-    store: string,
+    _store: string,
     cuit: string,
     razonSocial: string,
     alias = 'kiosco_pos',
   ): Promise<{ success: boolean; privateKey: string; csr: string; error?: string }> {
-    const { data, error } = await supabase.functions.invoke('billing-authorize', {
-      body: {
-        storeId: store,
-        action: 'generate_csr',
-        cuit,
-        razonSocial,
-        alias,
-      },
-    });
-    if (error) {
-      throw new Error(error.message || 'Error al generar pedido de certificado en backend');
-    }
-    return data;
+    const { generateArcaCsr } = await import('./arcaCsr');
+    return { success: true, ...(await generateArcaCsr(cuit, razonSocial, alias)) };
   },
   async updateStore(
     store: string,
@@ -1059,6 +1072,17 @@ const remoteRetail = {
   },
   async permissionProfiles(store: string) {
     return result<PermissionProfile[]>(supabase.from('retail_permission_profiles').select('*').eq('store_id', store).order('name'));
+  },
+  /** Precio por costo: porcentaje y redondeo propio (null = el del comercio). Requiere conexión. */
+  async updateProductPricing(store: string, product: string, markup: number, rounding: number | null, expected: number) {
+    return result<number>(supabase.rpc('retail_update_product_pricing', { p_store: store, p_product: product, p_markup: markup, p_rounding: rounding, p_expected: expected }));
+  },
+  /** Ajuste masivo por ganancia: la base recalcula cada precio con su costo y redondeo. */
+  async bulkUpdatePricing(store: string, items: { id: string; markup: number; rounding?: number | null; expected: number }[]) {
+    return result<{ updated: number; skipped: { id: string; reason: 'unavailable' | 'no_cost' | 'changed' }[] }>(supabase.rpc('retail_bulk_update_pricing', { p_store: store, p_items: items }));
+  },
+  async setStorePricing(store: string, rounding: number, defaultMarkup: number) {
+    return result<number>(supabase.rpc('retail_set_store_pricing', { p_store: store, p_rounding: rounding, p_default_markup: defaultMarkup }));
   },
   async updateProductPrice(store: string, product: string, price: number, expected: number) {
     return result(supabase.rpc('retail_update_product_price', { p_store: store, p_product: product, p_price: price, p_expected: expected }));

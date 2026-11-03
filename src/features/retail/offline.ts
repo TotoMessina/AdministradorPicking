@@ -412,6 +412,9 @@ export function withOffline<T extends Remote>(source: T): T {
       if (property === 'saveMarginThreshold') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar el límite de bajo margen. El porcentaje ingresado se conserva.');
       });
+      if (property === 'setStorePricing' || property === 'updateProductPricing' || property === 'bulkUpdatePricing') await transaction(user, state => {
+        if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar el precio por costo o el redondeo. Lo ingresado se conserva.');
+      });
       if (property === 'savePriceListTree' || property === 'savePriceList' || property === 'savePriceOverride' || property === 'deletePriceList') await transaction(user, state => {
         if (state.queue.length) throw new Error('Sincronizá las operaciones pendientes antes de cambiar listas o precios fijos. El borrador se conserva.');
       });

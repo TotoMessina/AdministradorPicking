@@ -1,0 +1,42 @@
+.catalog-product-adder { display: grid; gap: 14px; }
+.catalog-adder-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.catalog-adder-head h3 { margin: 0 0 4px; }
+.catalog-adder-head p, .catalog-adder-note { margin: 0; font-size: 13px; color: var(--tone-muted); }
+.catalog-adder-head h3:focus-visible, .catalog-adder-review h4:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; }
+.catalog-adder-filters { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; }
+.catalog-adder-filters label { display: grid; gap: 6px; flex: 1 1 200px; min-width: 0; }
+.catalog-adder-filters select { min-height: 40px; min-width: 0; }
+.catalog-adder-review { display: grid; gap: 10px; }
+.catalog-adder-review h4 { margin: 0; font-size: 14px; }
+.catalog-adder-bulk { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: end; }
+.catalog-adder-bulk label { display: grid; gap: 6px; flex: 0 1 240px; min-width: 0; }
+.catalog-adder-bulk small { flex: 1 1 100%; color: var(--tone-muted); font-size: 12px; }
+.catalog-adder-sheet { max-height: 60vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.catalog-adder-sheet table { width: 100%; min-width: 760px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.catalog-adder-sheet th, .catalog-adder-sheet td { padding: 0 8px; height: 36px; border-right: 1px solid var(--tone-border); border-bottom: 1px solid var(--tone-border); text-align: left; vertical-align: middle; white-space: nowrap; }
+.catalog-adder-sheet tr > :last-child { border-right: 0; }
+.catalog-adder-sheet thead th { position: sticky; top: 0; z-index: 1; background: var(--tone-soft); font-size: 12px; font-weight: 700; color: var(--tone-muted); }
+.catalog-adder-sheet tbody th { font-weight: 500; white-space: normal; min-width: 220px; overflow-wrap: anywhere; }
+.catalog-adder-sheet tbody tr:nth-child(even) > * { background: color-mix(in srgb, var(--tone-soft) 45%, transparent); }
+.catalog-adder-sheet tbody tr.is-selected > * { background: var(--tone-accent-soft); }
+.catalog-adder-sheet tbody tr.is-existing > * { color: var(--tone-muted); }
+.catalog-adder-sheet .col-pick { width: 36px; text-align: center; padding: 0; }
+.catalog-adder-sheet .col-code { font-variant-numeric: tabular-nums; color: var(--tone-muted); }
+.catalog-adder-sheet .col-brand { max-width: 160px; overflow: hidden; text-overflow: ellipsis; }
+.catalog-adder-sheet .col-category { width: 170px; padding: 0; }
+.catalog-adder-sheet .col-money { width: 118px; padding: 0; }
+.catalog-adder-sheet td select, .catalog-adder-sheet td input:not([type="checkbox"]) { width: 100%; height: 35px; min-height: 0; margin: 0; padding: 0 8px; border: 0; border-radius: 0; background: transparent; font: inherit; color: inherit; box-shadow: none; }
+.catalog-adder-sheet td.col-money input { text-align: right; font-variant-numeric: tabular-nums; }
+.catalog-adder-sheet td select:focus-visible, .catalog-adder-sheet td input:not([type="checkbox"]):focus-visible { outline: 2px solid var(--tone-accent); outline-offset: -2px; background: var(--tone-surface); }
+.catalog-adder-existing { font-style: italic; }
+.catalog-adder-sheet .col-markup { width: 96px; padding: 0; }
+.catalog-adder-sheet td.col-markup input { text-align: right; font-variant-numeric: tabular-nums; }
+.catalog-adder-sheet td.col-calculated { padding: 0 8px; text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; }
+.catalog-adder-sheet td.col-calculated.is-empty { font-weight: 400; color: var(--tone-muted); }
+.catalog-adder-footer { position: sticky; bottom: 0; display: grid; gap: 8px; padding: 10px 0 calc(4px + env(safe-area-inset-bottom)); background: var(--tone-surface); border-top: 1px solid var(--tone-border); }
+.catalog-adder-footer p { margin: 0; font-size: 13px; }
+.catalog-adder-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+@media (max-width: 560px) {
+  .catalog-adder-filters label, .catalog-adder-filters button, .catalog-adder-bulk label { flex-basis: 100%; }
+  .catalog-adder-actions > button { flex: 1 1 auto; }
+}

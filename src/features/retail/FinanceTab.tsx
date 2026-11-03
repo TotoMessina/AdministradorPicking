@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 import { Loader2, Pencil, Plus, Trash2, TrendingDown, TrendingUp } from 'lucide-react';
 import { askConfirm } from '../../components/ConfirmHost';
 import { NumberInput } from '../../components/NumberInput';
@@ -31,6 +32,7 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
   const [draft, setDraft] = useState(() => emptyDraft(thisMonth()));
   const [saving, setSaving] = useState(false);
   const [stock, setStock] = useState<StockLosses | null>(null);
+  const [fees, setFees] = useState<{ commission: number; taxes: number } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true); setError('');
@@ -39,6 +41,9 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
       setResult({ ...summary, sales: Number(summary.sales), returns: Number(summary.returns || 0), cost: Number(summary.cost), expenses: Number(summary.expenses), shared_expenses: Number(summary.shared_expenses) });
       setExpenses(rows); setPrevious(last);
       // Sin la actualización de conteos, Ganancias sigue funcionando sin esa línea.
+      // Comisiones de cobro: salen solo de las liquidaciones cargadas en Conciliación, no de los gastos.
+      const { data: feeData, error: feeError } = await supabase.rpc('retail_month_commissions', { p_store: storeId, p_month: `${month}-01` });
+      setFees(feeError || !feeData ? null : { commission: Number(feeData.commission), taxes: Number(feeData.taxes) });
       setStock(await stockCounts.losses(storeId, month).then(row => ({ ...row, losses: Number(row.losses), surplus: Number(row.surplus) })).catch(() => null));
     } catch (e) {
       const message = errorMessage(e);
@@ -49,7 +54,7 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
 
   const gross = result ? result.sales - result.cost : 0;
   const shrink = stock ? stock.losses - stock.surplus : 0;
-  const profit = gross - (result?.expenses ?? 0) - shrink;
+  const profit = gross - (result?.expenses ?? 0) - shrink - (fees?.commission ?? 0);
   const fixedToCopy = useMemo(() => previous.filter(row => row.fixed && !expenses.some(item => item.fixed && item.category === row.category && item.description === row.description && item.branch_id === row.branch_id)), [previous, expenses]);
   const branchName = (id: string | null) => id ? branches.find(branch => branch.id === id)?.name ?? 'Sucursal anterior' : 'Todo el comercio';
 
@@ -91,6 +96,7 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
       <div><dt>Vendiste</dt><dd>{money(result.sales)}</dd><small>{result.tickets} {result.tickets === 1 ? 'venta' : 'ventas'}{result.returns ? ` · ya descontados ${money(result.returns)} devueltos` : ''}</small></div>
       <div><dt>− Costo de lo vendido</dt><dd>{money(result.cost)}</dd><small>Ganancia bruta {money(gross)}</small></div>
       <div><dt>− Gastos</dt><dd>{money(result.expenses)}</dd><small>{expenses.length} {expenses.length === 1 ? 'gasto' : 'gastos'}</small></div>
+      {fees && fees.commission > 0 && <div><dt>− Comisiones de cobro</dt><dd>{money(fees.commission)}</dd><small>De las liquidaciones de QR, tarjetas y transferencias{fees.taxes ? ` · retenciones ${money(fees.taxes)} aparte, no se restan` : ''}</small></div>}
       {stock && (stock.losses > 0 || stock.surplus > 0) && <div><dt>− Pérdidas de stock</dt><dd>{money(shrink)}</dd><small>{stock.by_reason.map(row => `${countReasons[row.reason]} ${money(Number(row.amount))}`).join(' · ') || 'Sin faltantes'}{stock.surplus ? ` · sobrantes ${money(stock.surplus)} ya descontados` : ''}</small></div>}
     </dl>}
     {!!stock?.uncosted_lines && <p className="finance-note">{stock.uncosted_lines} {stock.uncosted_lines === 1 ? 'ajuste de conteo no tiene' : 'ajustes de conteo no tienen'} costo cargado y no suman a las pérdidas.</p>}

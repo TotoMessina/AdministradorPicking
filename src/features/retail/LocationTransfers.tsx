@@ -9,6 +9,7 @@ import type { Run } from './Management';
 import { locationTransfers, type LocationTransfer, type FundTransfer, type LocationFund, type OpenShiftCash } from './locationTransferApi';
 import { TransferFlowMap, type TransferMapRoute } from './TransferFlowMap';
 import { StockBadge } from './StockBadge';
+import { FundsInTransit } from './FundsInTransit';
 
 type HistoryStock = LocationTransfer & { legacy?: boolean };
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
@@ -211,7 +212,8 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     if (kind === 'transfer') setFundTo(previous => previous === location ? '' : previous);
     setComposing(true); setFormError('');
   };
-  const fundPreview = [fundKind === 'income' ? null : { id: fundFrom, sign: -1 }, fundKind === 'withdrawal' ? null : { id: fundTo, sign: 1 }]
+  // Entre ubicaciones, el destino recién suma cuando se confirma lo que llegó.
+  const fundPreview = [fundKind === 'income' ? null : { id: fundFrom, sign: -1 }, fundKind === 'withdrawal' || fundKind === 'transfer' ? null : { id: fundTo, sign: 1 }]
     .filter((row): row is { id: string; sign: number } => !!row?.id)
     .map(row => { const before = funds.find(fund => fund.location === row.id)?.balance || 0; return { id: row.id, before, after: before + row.sign * (Number(amount) || 0) }; });
   const clearSelection = () => { setSelectedNode(''); setSelectedRoute(''); setVisible(25); };
@@ -289,6 +291,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
       onNode={id => { setSelectedNode(previous => previous === id ? '' : id); setSelectedRoute(''); setVisible(25); }}
       onRoute={id => { setSelectedRoute(previous => previous === id ? '' : id); setSelectedNode(''); setVisible(25); }} onClear={clearSelection} />
     </details>}
+    {mode === 'money' && !composing && <FundsInTransit storeId={store.id} transfers={fundHistory} placeName={placeName} run={run} disabled={disabled} onChanged={load} />}
     {mode === 'money' && !composing && <div className="location-fund-sheet" role="region" aria-label="Saldos por ubicación" tabIndex={0}>
       <table>
         <caption className="sr-only">Saldo de cada ubicación y efectivo en cajas abiertas</caption>
@@ -376,6 +379,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
           <label>Importe ($)<NumberInput min={0.01} max={999999999999.99} step={0.01} required value={amount} onValueChange={setAmount} /></label>
           {fundsLoaded && Number(amount) > 0 && fundPreview.length > 0 && <ul className="location-fund-preview" aria-label="Cómo queda después">{fundPreview.map(row => <li key={row.id}><span>{placeName(row.id)}</span><span>{money(row.before)} <ArrowRight size={13} aria-hidden="true" /> <strong className={row.after < 0 ? 'is-negative' : undefined}>{money(row.after)}</strong></span></li>)}</ul>}
           <label>Motivo<textarea required value={fundNote} maxLength={1000} rows={2} onChange={event => setFundNote(event.target.value)} /></label>
+          {fundKind === 'transfer' && <p>La plata sale ahora del origen y queda «en camino». Entra al destino cuando alguien confirma cuánto llegó.</p>}
           <p>Al cerrar una caja, su sucursal suma lo que se generó: plata contada menos plata con la que abrió.</p>
         </>}
       </fieldset>
@@ -401,9 +405,11 @@ export function LocationTransfers({ store, branches, products, run, busy, active
           {row.status === 'pending' && <div className="location-transfer-record-actions"><button type="button" className="primary-button" disabled={disabled} onClick={() => review(row, true)}><Check size={14} />{row.legacy ? 'Confirmar registro' : 'Confirmar traslado'}</button><button type="button" className="secondary-button" disabled={disabled} onClick={() => review(row, false)}><X size={14} /> Cancelar</button></div>}
         </article>
       </li>) : shownFunds.slice(0, visible).map(row => <li key={row.id}><article>
-        <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className="stock-transfer-status confirmed">{row.shift_id ? 'Cierre de caja' : 'Guardado'}</span><strong>{money(row.amount)}</strong></div>
+        <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className={`stock-transfer-status ${row.status === 'in_transit' ? 'pending' : row.status === 'returned' ? 'cancelled' : 'confirmed'}`}>{row.shift_id ? 'Cierre de caja' : row.status === 'in_transit' ? 'En camino' : row.status === 'received' ? 'Recibida' : row.status === 'returned' ? 'Volvió al origen' : 'Guardado'}</span><strong>{money(row.amount)}</strong></div>
         <strong className="location-transfer-record-route">{row.from_location === null ? row.shift_id ? 'Ventas de la caja' : 'Ingreso externo' : placeName(row.from_location)} <ArrowRight size={15} aria-hidden="true" /> {row.to_location === null ? row.shift_id ? 'Faltante de la caja' : 'Salida externa' : placeName(row.to_location)}</strong>
         <p>{row.note}</p>{row.actor_email && <small>{row.actor_email}</small>}
+        {row.status === 'received' && row.received_amount !== null && row.received_amount !== undefined && row.received_amount < row.amount && <small className="funds-in-transit-late">Llegaron {money(row.received_amount)}: faltante de {money(row.amount - row.received_amount)}.</small>}
+        {row.received_at && <small>{row.status === 'returned' ? 'Devuelta' : 'Recibida'} {new Date(row.received_at).toLocaleString('es-AR')}{row.received_email ? ` · ${row.received_email}` : ''}{row.review_note ? ` · ${row.review_note}` : ''}</small>}
       </article></li>)}
     </ol>
     {!(mode === 'stock' ? shownStock.length : shownFunds.length) && !loading && <p className="transfer-flow-empty">Sin movimientos para esta selección.</p>}

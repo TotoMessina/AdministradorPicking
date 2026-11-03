@@ -38,6 +38,10 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
   const cuitFormatted = formatCuit(store?.cuit);
   const ivaLabel = getCondicionIvaLabel(store?.condicion_iva);
   const caeVtoStr = formatCaeVto(sale?.caeVto);
+  const receptorDoc = { 80: 'CUIT', 86: 'CUIL', 96: 'DNI' }[sale?.receptorDocTipo || 0];
+  const receptorLine = isFiscal && receptorDoc && sale?.receptorDocNro
+    ? `Cliente: ${sale.receptorName || ''} · ${receptorDoc} ${receptorDoc === 'DNI' ? sale.receptorDocNro : formatCuit(String(sale.receptorDocNro))}`
+    : '';
 
   const qrUrl = isFiscal && sale
     ? buildArcaQrUrl({
@@ -48,6 +52,8 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
         importe: sale.total,
         fecha: sale.created_at || sale.createdAt || new Date().toISOString(),
         cae: sale.cae || '',
+        tipoDocRec: sale.receptorDocTipo ?? undefined,
+        nroDocRec: sale.receptorDocNro ?? undefined,
       })
     : '';
 
@@ -66,6 +72,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
           [sale.storeAddress, sale.storePhone].filter(Boolean).join(" · "),
           "================================",
           `${tipoLabel.toUpperCase()} NRO ${cbteNroStr}`,
+          receptorLine,
           `Ticket ref: ${sale.ticketNumber}`,
         ].filter(Boolean)
       : [
@@ -365,6 +372,7 @@ export const ThermalReceiptModal: React.FC<ThermalReceiptModalProps> = ({
                   <div style={{ fontSize: "0.5625rem", color: "#64748b", marginTop: "1px" }}>
                     DOCUMENTO FISCAL ELECTRÓNICO
                   </div>
+                  {receptorLine && <div style={{ fontSize: "0.6875rem", marginTop: "4px", textAlign: "left" }}>{receptorLine}</div>}
                 </div>
               )}
               <div

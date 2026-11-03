@@ -12,6 +12,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Categorías](#categorias)
 - [Conteo físico](#conteo-fisico)
 - [Eliminar y restaurar](#eliminar-y-restaurar)
+- [Alta desde el catálogo global](#alta-desde-catalogo-global)
 
 ## Precio principal por porcentaje
 
@@ -24,6 +25,31 @@ Los productos anteriores conservan sus precios manuales: no se les inventa un po
 **Solo insumo** sigue sin necesitar precio de venta. Los combos nuevos piden componentes y porcentaje: su costo es la suma de los insumos y su precio se calcula sobre esa suma en la misma transacción. Cambiar costos de componentes actualiza los combos con porcentaje. Es necesario conocer todos sus costos; costo cero no permite guardar un precio automático. No se transforma stock físico ni se cambian recetas.
 
 Preparación local: [actualización 202610270002](../supabase/updates/202610270002_primary_product_markup.sql), después de las actualizaciones anteriores. Agrega `sale_markup` opcional, una lista principal por comercio y validaciones de backend. **También cambia la base de las listas existentes**, conservando sus porcentajes, ramas y fijos: ver [listas](operacion-y-mercaderia.md#precios-por-sucursal). No aplicada remotamente.
+
+### Precio por costo por defecto, precio manual pedido y redondeo
+
+Requiere `202611030007_cost_based_pricing.sql`. Sin esa actualización, la app funciona como antes.
+
+- **Siempre por costo:** el producto nuevo, el combo nuevo, «Editar precio» y el alta desde el catálogo global calculan el precio con costo + **Ganancia sobre costo (%)**, que se precarga con la ganancia por defecto del comercio. Un producto «sin precio» también se completa por costo.
+- **Precio manual, a pedido:** en la ficha, en Editar precio y en el alta desde el catálogo global hay que tocar **Poner precio manual** (o **Cargar precios a mano**) y confirmar que el precio deja de seguir al costo. **Calcular por costo** vuelve al cálculo y precarga el porcentaje que corresponde al precio actual. Los productos que ya eran manuales siguen así hasta que se pida el cálculo. Editar precio abre por costo y, al guardar, el producto pasa a seguir al costo.
+- **Redondeo:** el comercio lo define en **Mi comercio → Datos del comercio → Precio por costo**. Las opciones son sin redondeo, $1, $5, $10, $50 o $100, siempre hacia arriba: costo $87 + 30% = $113,10, que con $10 queda en **$120**. Cada producto puede elegir otro redondeo en su ficha o en Editar precio; «Como el comercio» sigue al del comercio. Solo se redondean los precios calculados por costo. Los manuales y las listas derivadas mantienen sus reglas.
+- **Cambiar el redondeo del comercio** pide confirmación y recalcula en el momento los precios por costo que usan el del comercio. No toca los manuales, los que tienen redondeo propio ni las ventas hechas. Requiere conexión y no tener operaciones sin sincronizar.
+- **Permisos:** quien puede editar precios puede cambiar la ganancia y el redondeo de un producto. El redondeo y la ganancia por defecto del comercio piden «configurar el comercio».
+- **Comercios existentes:** al aplicar la actualización quedan sin redondeo y con ganancia por defecto de 30%, así ningún precio cambia. Los comercios nuevos arrancan con redondeo a $10.
+- **Ajustar ganancia** (en Más herramientas, antes «Ajustar precios»; requiere además `202611030008_bulk_markup_adjust.sql`): con los mismos filtros, **sube o baja puntos** de ganancia (30% + 5 puntos = 35%) o **fija** una ganancia para todos. El redondeo puede quedar como el de cada producto, pasar al del comercio o a uno elegido. La vista previa muestra la ganancia anterior y la nueva, y el precio resultante. Los productos sin costo no cambian. Los de precio manual pasan a seguir al costo, y la confirmación lo avisa. Si un producto cambió de precio en otro dispositivo, se omite y se informa. Las propuestas de precio de facturas no cambiaron.
+
+#### Guía de Pruebas — precio por costo y redondeo
+
+1. **Configurar:** en Mi comercio → Datos del comercio → Precio por costo, poner ganancia 30% y redondeo a $10. Esperado: el ejemplo muestra costo $87 + 30% = $120. Al guardar, pide confirmación y avisa cuántos precios se recalcularon.
+2. **Producto nuevo:** el porcentaje viene en 30. Con costo 87, el precio muestra $120. Cambiar el redondeo del producto a «Sin redondeo»: muestra $113,10. Guardar y recargar: se conservan porcentaje y redondeo.
+3. **Manual pedido:** tocar «Poner precio manual». Esperado: pide confirmar. Después se escribe el precio, que no se redondea. «Calcular por costo» vuelve al porcentaje.
+4. **Editar precio** (con un perfil solo de precios): abre con la ganancia y el redondeo y muestra el precio calculado. Guardar lo deja por costo. «Poner precio manual» pide confirmación y guarda un importe exacto.
+5. **Costo nuevo:** reponer con otro costo un producto por costo. Esperado: el precio se recalcula con el redondeo.
+6. **Alta desde el catálogo global:** la tabla muestra Costo, Ganancia % (precargada) y el Precio calculado. Sin costo dice «Sin precio». «Ganancia para todos» cambia todas las filas. «Cargar precios a mano» pide confirmación y cambia la columna Precio a editable.
+7. **Cambiar el redondeo del comercio:** pasar de $10 a $50. Esperado: los productos por costo sin redondeo propio cambian de precio. Los manuales y los que tienen redondeo propio no. Un carrito abierto avisa el cambio de precio antes de sumar más unidades.
+8. **Sin conexión o con pendientes:** cambiar el redondeo o el precio por costo pide sincronizar primero y conserva lo ingresado.
+9. **Ajustar ganancia:** filtrar una marca y elegir «Subir ganancia» 5 puntos. Esperado: la vista previa muestra, por ejemplo, 30% → 35% y el precio nuevo redondeado. Los productos sin costo dicen «Sin costo: no cambia» y los manuales figuran «Manual → 35%». Al aplicar, pide confirmación con esos datos, y después los precios siguen al costo.
+10. **Fijar ganancia y redondeo:** «Fijar ganancia» 40% con redondeo «A $50». Esperado: todos quedan en 40% y con redondeo propio a $50. Con «Mantener el de cada producto», ninguno cambia su redondeo.
 
 ### Guía de Pruebas — pendiente manual
 
@@ -409,3 +435,28 @@ En **http://localhost:3001/**, usando un comercio de prueba y después de instal
 10. **Botonera de venta rápida:** fijar un producto en la botonera de una sucursal. Eliminarlo (archivar): verificar que desaparece de inmediato de la botonera y que al pulsar Personalizar no figura en la selección ni bloquea el guardado.
 11. **Eliminación definitiva:** crear un producto de prueba, fijarlo en botonera y opcionalmente mover stock. En Productos eliminados o desde el formulario de eliminación, marcar Eliminar definitivamente y confirmar: el producto se borra por completo de la base de datos, del catálogo y de la botonera sin dejar registros huérfanos.
 
+<a id="alta-desde-catalogo-global"></a>
+
+## Alta desde el catálogo global
+
+En **Productos → Agregar desde catálogo global**, quien puede crear productos da de alta en su comercio productos que ya están en el catálogo global. Requiere `202611030006_add_products_from_global_catalog.sql` y conexión.
+
+- **Elegir:** por marca, por categoría o por las dos. Al elegir una, la otra lista muestra solo lo que existe dentro de ella, con cuántos productos hay. Se muestran hasta 1.000; si hay más, la app avisa que conviene combinar marca y categoría.
+- **Revisar antes:** los productos se ven en una planilla con columnas Código, Producto, Marca, Categoría, Precio y Costo. El encabezado queda fijo al desplazarse. La casilla del encabezado elige o quita todos. Escribir un precio o un costo, o cambiar la categoría, elige la fila. Enter y las flechas arriba/abajo pasan a la misma columna de la fila de abajo o de arriba, como en Excel. Los productos que el comercio ya tiene figuran «Ya está en tu catálogo» y no se pueden elegir. Cada producto toma la categoría equivalente del comercio, o «Varios» si no hay una igual. Se puede cambiar uno por uno o con «Todos en…».
+- **Stock 0:** siempre. Con inventario por sucursal o depósito no se asigna nada a ninguna ubicación.
+- **Precio:** opcional en cada fila, y el costo también. Con precio, el producto queda a la venta. Sin precio, queda **«Sin precio»**: no aparece en Vender, y si se lo escanea, la caja avisa que falta el precio. Al abrir su ficha, el producto ya viene como producto a la venta, y al guardarlo con precio deja de figurar «Sin precio». Si en la ficha se lo guarda como insumo, pasa a «Solo insumo». Quien solo puede editar precios no puede completarlo: hace falta el permiso de crear y editar productos.
+- **Datos:** nombre, marca y emoji salen del catálogo global. El alta usa el permiso de productos actual. Un código que el comercio ya tiene, aunque esté archivado, no se toca. Por eso, volver a confirmar el mismo pedido no duplica nada.
+
+### Guía de Pruebas — alta desde el catálogo global
+
+En http://localhost:3001/, con la migración aplicada, en un comercio de pruebas.
+
+1. **Por marca:** en Productos, abrir **Agregar desde catálogo global**, elegir una marca y **Ver productos**. Esperado: la lista de esa marca, con los que ya tenés marcados «Ya está en tu catálogo».
+2. **Marca y categoría:** elegir una categoría, y después una marca dentro de ella. Esperado: la lista de marcas se acota a esa categoría y la búsqueda muestra solo los que cumplen las dos.
+3. **Planilla:** destildar todos con la casilla del encabezado y escribir el precio de un producto. Esperado: esa fila queda elegida. Con Enter o flecha abajo, el foco pasa al precio de la fila siguiente. Cambiar la categoría de otra fila también la elige. El resumen del pie dice cuántos entran a la venta y cuántos sin precio.
+4. **Alta:** confirmar. Esperado: aviso con el resultado. Los productos aparecen en la lista con stock 0. Los que tenían precio muestran el precio; los demás, «Sin precio».
+5. **Vender:** buscar en Vender un producto «Sin precio». Esperado: no aparece; al escanear su código, la caja avisa que todavía no tiene precio.
+6. **Completar:** abrir su ficha, cargar el precio y guardar. Esperado: deja de figurar «Sin precio» y ya se puede vender.
+7. **Repetir:** volver a buscar la misma marca. Esperado: los recién dados de alta aparecen como «Ya está en tu catálogo».
+8. **Permisos:** con un perfil sin «Crear, editar e importar productos». Esperado: el botón no aparece.
+9. **Celular:** los filtros se apilan. La planilla se desplaza hacia el costado dentro de su recuadro, sin mover la página. Cancelar y Dar de alta quedan visibles al pie.

@@ -57,7 +57,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { CashDesk } from "./CashDesk";
 import { PriceListSettings } from './BusinessSettings';
 import { SalesOverview } from './SalesOverview';
-import { authorizeSaleInvoice, processPendingSales } from '../../services/billingService';
+import { authorizeSaleInvoice, holdSaleBilling, processPendingSales } from '../../services/billingService';
 import { SaleLedgerControl } from './SaleLedgerControl';
 import { resolveSaleLedger } from './ledgerRouting';
 import { QuickProducts } from './QuickProducts';
@@ -80,6 +80,7 @@ import { StockCount } from './StockCount';
 import { CustomersTab } from './CustomersTab';
 import { PurchaseOrders } from './PurchaseOrders';
 import { BranchComparison } from './BranchComparison';
+import { BankReconciliation } from './BankReconciliation';
 import type { Customer } from './api';
 import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
 type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "customers" | "settings" | "ai" | "remito";
@@ -285,7 +286,7 @@ function Workspace({
   const [branchId, setBranchId] = useState('');
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [ordersFocus, setOrdersFocus] = useState(0);
-  const [financeView, setFinanceView] = useState<'month' | 'branches'>('month');
+  const [financeView, setFinanceView] = useState<'month' | 'branches' | 'bank'>('month');
   useEffect(() => {
     setErrorContext({ storeId: store.id, branchId, screen: tab });
     return () => setErrorContext(null);
@@ -669,7 +670,12 @@ function Workspace({
       checkoutRequest.current = { signature: "", id: "" };
       setLastSale(saved);
       if (store.billing_enabled) {
-        void authorizeSaleInvoice(store, saved).then(authResult => {
+        // Factura a nombre de un cliente en una venta que no es fiada: se fija antes de pedir el CAE.
+        if (!onCredit && sale.invoiceCustomerId) holdSaleBilling(saved.id);
+        const receptor = !onCredit && sale.invoiceCustomerId
+          ? retail.setSaleReceptor(store.id, saved.id, sale.invoiceCustomerId).catch(err => setError('La factura sale a consumidor final: ' + errorMessage(err)))
+          : Promise.resolve();
+        void receptor.then(() => authorizeSaleInvoice(store, saved)).then(authResult => {
           if (authResult) {
             const updateWithAuth = (s: KioscoSale) => s.id === saved.id ? { ...s, ...authResult } : s;
             setLastSale(prev => prev ? updateWithAuth(prev) : prev);
@@ -1221,6 +1227,7 @@ function Workspace({
                   onCompleteSale={completeSale}
                   customers={canUseCustomers ? customers : undefined}
                   canOverLimit={canManageCustomers}
+                  billingEnabled={!!store.billing_enabled}
                   saleLedgerLabel={method => ledgerForPayment(method)?.name || 'No disponible'}
                   onTriggerChecklist={() => {}}
                   onGoToCreateProduct={
@@ -1354,9 +1361,10 @@ function Workspace({
             </section></SettingsEditorGroup></div>}
             {canUseCustomers && <div hidden={tab !== 'customers'}><CustomersTab storeId={store.id} customers={customers} shiftId={canOperate ? shift?.id : undefined} canManage={canManageCustomers} run={run} busy={busy} active={!guiding && tab === 'customers'} onChanged={loadCustomers} /></div>}
             {manager && <div hidden={tab !== 'finance'}>
-              <SectionNav name="finance" label="Vistas de Ganancias" value={financeView} onChange={value => setFinanceView(value as 'month' | 'branches')} disabled={busy} sections={[{ id: 'month', label: 'Resultado del mes' }, { id: 'branches', label: 'Comparar sucursales' }]} />
+              <SectionNav name="finance" label="Vistas de Ganancias" value={financeView} onChange={value => setFinanceView(value as 'month' | 'branches' | 'bank')} disabled={busy} sections={[{ id: 'month', label: 'Resultado del mes' }, { id: 'branches', label: 'Comparar sucursales' }, { id: 'bank', label: 'Conciliación' }]} />
               <div hidden={financeView !== 'month'} role="tabpanel" id="finance-panel-month" aria-labelledby="finance-tab-month"><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance' && financeView === 'month'} /></div>
               <div hidden={financeView !== 'branches'} role="tabpanel" id="finance-panel-branches" aria-labelledby="finance-tab-branches"><BranchComparison storeId={store.id} active={!guiding && tab === 'finance' && financeView === 'branches'} /></div>
+              <div hidden={financeView !== 'bank'} role="tabpanel" id="finance-panel-bank" aria-labelledby="finance-tab-bank"><BankReconciliation storeId={store.id} run={run} busy={busy} active={!guiding && tab === 'finance' && financeView === 'bank'} /></div>
             </div>}
             {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
             {tab === "ai" && can('use_ai') && (

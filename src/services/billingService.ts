@@ -2,7 +2,7 @@
 import { supabase } from '../lib/supabase';
 import { errorContextBranch } from '../lib/errorReporting';
 import { cleanCuit, type BillingStatus, type CondicionIva } from '../features/retail/billing';
-import { retail, type Store } from '../features/retail/api';
+import type { Store } from '../features/retail/api';
 import type { KioscoSale } from '../types/kiosco';
 
 export interface ArcaQrParams {
@@ -19,6 +19,8 @@ export interface ArcaQrParams {
 
 export interface ArcaAuthResult {
   success: boolean;
+  /** authorized, retry (se vuelve a pedir), error (ARCA rechazó), skip o voided (no se factura). */
+  state?: 'authorized' | 'retry' | 'error' | 'skip' | 'voided';
   cae?: string;
   cae_vto?: string;
   cbte_nro?: number;
@@ -112,10 +114,19 @@ export function calculateTaxBreakdown(total: number, cbteTipo: number) {
   };
 }
 
+// Después de un "reintentar más tarde" la venta espera un minuto antes del próximo pedido automático.
+const RETRY_PAUSE = 60_000;
+const retryAfter = new Map<string, number>();
+
+/** Frena el pedido automático de una venta un momento, por ejemplo mientras se le asigna el cliente de la factura. */
+export function holdSaleBilling(saleId: string, ms = 30_000) {
+  retryAfter.set(saleId, Date.now() + ms);
+}
+
 /**
  * Solicita la autorización fiscal real en ARCA (AFIP).
- * Se comunica con la Edge Function oficial que firma con certificado digital X.509
- * y autoriza comprobantes ante WSAA y WSFE. Nunca simula ni inventa CAEs.
+ * La función del servidor toma importes, tipo, CUIT y punto de venta de la venta guardada, evita pedir dos veces
+ * y deja el estado de facturación en la base. Nunca simula ni inventa CAEs.
  * Se ejecuta en segundo plano tras la venta o en reintentos; nunca bloquea el cobro al cliente.
  */
 export async function authorizeSaleInvoice(
@@ -123,85 +134,57 @@ export async function authorizeSaleInvoice(
   sale: KioscoSale,
 ): Promise<Partial<KioscoSale> | null> {
   if (!store.billing_enabled) return null;
+  if (!determineComprobanteTipo(store.condicion_iva)) return null;
 
-  const cbteTipo = determineComprobanteTipo(store.condicion_iva);
-  if (!cbteTipo) return null;
-
-  const cuitClean = cleanCuit(store.cuit);
-  const ptoVta = store.punto_venta_afip || 1;
-  const breakdown = calculateTaxBreakdown(sale.total, cbteTipo);
-
-  let authResult: ArcaAuthResult | null = null;
+  let data: ArcaAuthResult | null = null;
   let remoteError: string | null = null;
-
-  // Invocar Edge Function oficial de ARCA
   try {
-    const { data, error } = await supabase.functions.invoke<ArcaAuthResult>('billing-authorize', {
-      body: {
-        storeId: store.id,
-        branchId: errorContextBranch(),
-        saleId: sale.id,
-        cuit: cuitClean,
-        puntoVenta: ptoVta,
-        cbteTipo,
-        total: breakdown.impTotal,
-        neto: breakdown.impNeto,
-        iva: breakdown.impIVA,
-        condicionIva: store.condicion_iva,
-        razonSocial: store.razon_social,
-        fecha: sale.created_at || new Date().toISOString(),
-      },
+    const response = await supabase.functions.invoke<ArcaAuthResult>('billing-authorize', {
+      body: { storeId: store.id, branchId: errorContextBranch(), saleId: sale.id },
     });
-
-    if (!error && data && data.success) {
-      authResult = data;
-    } else {
-      remoteError = data?.error || error?.message || 'Error en comunicación con ARCA';
-    }
+    data = response.data;
+    if (response.error && !data) remoteError = response.error.message;
   } catch (err) {
     remoteError = err instanceof Error ? err.message : 'Error al conectar con la función de facturación ARCA';
   }
 
-  // Si hubo error de ARCA o de comunicación, registrar el error real en la venta sin simular
-  if (remoteError || !authResult?.success) {
-    const finalError = remoteError || authResult?.error || 'No se pudo obtener autorización de ARCA';
-    await retail.updateSaleBilling(store.id, sale.id, 'error', {
-      error: finalError,
-    }).catch(() => {});
-
+  if (data?.success && data.cae) {
+    retryAfter.delete(sale.id);
     return {
-      billingStatus: 'error',
-      billingError: finalError,
-      billingAttempts: (sale.billingAttempts || 0) + 1,
+      cae: data.cae,
+      caeVto: data.cae_vto,
+      cbteNro: data.cbte_nro,
+      cbteTipo: data.cbte_tipo,
+      billingStatus: 'authorized',
+      billingError: null,
     };
   }
+  if (data?.state === 'skip' || data?.state === 'voided') return null;
 
-  // 4. Autorización exitosa: persistir en base de datos
-  try {
-    await retail.updateSaleBilling(store.id, sale.id, 'authorized', {
-      cae: authResult.cae,
-      cae_vto: authResult.cae_vto,
-      cbte_nro: authResult.cbte_nro,
-      cbte_tipo: authResult.cbte_tipo || cbteTipo,
-    });
-  } catch (updateErr) {
-    const errorMsg =
-      updateErr instanceof Error
-        ? updateErr.message
-        : typeof updateErr === 'object' && updateErr
-          ? JSON.stringify(updateErr)
-          : String(updateErr);
-    console.warn('[billing] No se pudo persistir el CAE en base de datos, usando datos en memoria:', errorMsg);
-  }
-
+  // Sin respuesta del servidor o ARCA caído: la venta sigue pendiente y se vuelve a pedir más tarde.
+  const status: BillingStatus = data?.state === 'error' ? 'error' : 'retry';
+  if (status === 'retry') retryAfter.set(sale.id, Date.now() + RETRY_PAUSE);
   return {
-    cae: authResult.cae,
-    caeVto: authResult.cae_vto,
-    cbteNro: authResult.cbte_nro,
-    cbteTipo: authResult.cbte_tipo || cbteTipo,
-    billingStatus: 'authorized',
-    billingError: null,
+    billingStatus: status,
+    billingError: data?.error || remoteError || 'No se pudo obtener autorización de ARCA',
+    billingAttempts: (sale.billingAttempts || 0) + 1,
   };
+}
+
+/**
+ * Emite en ARCA la nota de crédito de una devolución de una venta facturada, asociada a esa factura.
+ * Usa el mismo circuito que las facturas: un solo pedido por devolución y recuperación si la respuesta se pierde.
+ */
+export async function authorizeCreditNote(storeId: string, returnId: string): Promise<ArcaAuthResult> {
+  try {
+    const { data, error } = await supabase.functions.invoke<ArcaAuthResult>('billing-authorize', {
+      body: { storeId, branchId: errorContextBranch(), returnId, action: 'credit_note' },
+    });
+    if (data) return data;
+    return { success: false, state: 'retry', error: error?.message || 'No se pudo conectar con ARCA' };
+  } catch (err) {
+    return { success: false, state: 'retry', error: err instanceof Error ? err.message : 'No se pudo conectar con ARCA' };
+  }
 }
 
 /**
@@ -211,9 +194,8 @@ export async function retrySaleBilling(
   store: Store,
   sale: KioscoSale,
 ): Promise<Partial<KioscoSale>> {
-  await retail.updateSaleBilling(store.id, sale.id, 'retry').catch(() => {});
-  const res = await authorizeSaleInvoice(store, { ...sale, billingStatus: 'retry' });
-  return res || { billingStatus: 'error' };
+  const res = await authorizeSaleInvoice(store, sale);
+  return res || { billingStatus: sale.billingStatus };
 }
 
 /**
@@ -226,7 +208,9 @@ export async function processPendingSales(
   onSaleUpdated?: (saleId: string, result: Partial<KioscoSale>) => void,
 ): Promise<void> {
   if (!store.billing_enabled) return;
-  const pending = sales.filter(s => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending' && s.returnStatus !== 'voided');
+  const now = Date.now();
+  const pending = sales.filter(s => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending'
+    && s.returnStatus !== 'voided' && (retryAfter.get(s.id) || 0) <= now);
   for (const s of pending) {
     try {
       const res = await authorizeSaleInvoice(store, s);
@@ -238,4 +222,3 @@ export async function processPendingSales(
     }
   }
 }
-

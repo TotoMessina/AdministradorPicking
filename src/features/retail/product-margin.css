@@ -6,3 +6,7 @@
 .margin-threshold-settings { margin-block: 20px; padding: 16px; border: 1px solid var(--tone-border); border-radius: 10px; }
 .margin-threshold-settings > summary { cursor: pointer; font-weight: 600; }
 .margin-threshold-settings > summary:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 4px; }
+/* Precio por costo o manual: el modo actual y el pedido explícito para cambiarlo. */
+.price-mode-row { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; grid-column: 1 / -1; }
+.price-mode-row small { color: var(--tone-muted); }
+.bulk-markup-note { margin: 8px 0 0; font-size: 13px; color: var(--tone-muted); }

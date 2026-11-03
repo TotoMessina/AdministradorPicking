@@ -1,0 +1,31 @@
+.bank-reconciliation { display: grid; gap: 14px; }
+.bank-period { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; }
+.bank-period label { display: grid; gap: 6px; flex: 1 1 150px; max-width: 220px; }
+.bank-period input { min-height: 40px; }
+.bank-methods { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.bank-method { display: grid; gap: 8px; align-content: start; padding: 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.bank-method.is-off { border-color: var(--tone-danger-border); }
+.bank-method h3 { margin: 0; font-size: 15px; }
+.bank-method dl { display: grid; gap: 4px; margin: 0; }
+.bank-method dl > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.bank-method dt { color: var(--tone-muted); }
+.bank-method dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.bank-difference { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; font-size: 13px; }
+.bank-method.is-off .bank-difference { color: var(--tone-danger); }
+.bank-method small, .bank-note, .bank-deposits small { color: var(--tone-muted); font-size: 12px; }
+.bank-note { margin: 0; font-size: 13px; }
+.bank-deposits-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+.bank-deposits-head h3 { margin: 0; }
+.bank-form { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-canvas); }
+.bank-form fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.bank-form label { display: grid; gap: 6px; }
+.bank-deposits { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.bank-deposits li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.bank-deposits li > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.bank-deposits li.is-voided { opacity: .6; }
+@media (max-width: 560px) {
+  .bank-period label { max-width: none; }
+  .bank-deposits-head > button, .bank-reconciliation .location-transfer-record-actions button { width: 100%; min-height: 44px; }
+}
+.bank-void { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; flex-basis: 100%; }
+.bank-void label { display: grid; gap: 4px; flex: 1 1 220px; }

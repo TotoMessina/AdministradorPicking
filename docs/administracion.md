@@ -5,6 +5,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Inicio guiado](#inicio-guiado)
 - [Personas y perfiles](#personas-y-perfiles)
 - [Facturación electrónica ARCA (ex AFIP)](#facturacion-electronica-arca)
+- [Catálogo global](#catalogo-global)
 
 <a id="inicio-guiado"></a>
 
@@ -128,21 +129,30 @@ La migración `supabase/migrations/202610260003_billing_fields.sql` (consolidada
 
 - **Seguridad, permisos y secretos**:
   - Los datos fiscales solo pueden ser leídos por miembros del comercio y modificados por usuarios con permiso `manage_store` (owner o admin) mediante el RPC `retail_set_billing_settings`.
-  - La actualización del estado fiscal de una venta se realiza mediante el RPC `retail_update_sale_billing`, accesible a usuarios con permiso `manage_store`, `sell` o `view_sales`.
-  - Los certificados X.509 y claves privadas para el web service de ARCA (WSAA) se gestionan exclusivamente en el backend (Supabase Vault / Secrets). Nunca viajan ni se almacenan en el navegador del cliente.
+  - El CAE lo registra solamente la función del servidor. Desde la app, `retail_update_sale_billing` solo marca pendiente, reintento o error, y nunca cambia una venta ya autorizada.
+  - El certificado y la clave los carga solo el dueño o un administrador. La clave queda cifrada en Supabase Vault y únicamente la lee la función del servidor. El pedido de certificado (.csr) y la clave se generan en el navegador: el servidor nunca devuelve una clave.
 
 ### Fases 2 y 3 — Servicio de facturación y flujo de venta
 
 - **Servicio y Edge Function (`billing-authorize`)**:
   - Función de Supabase en [supabase/functions/billing-authorize/index.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/supabase/functions/billing-authorize/index.ts). Autentica la sesión del usuario mediante token Bearer y verifica permisos en el comercio.
-  - Soporta certificados digitales X.509 en Supabase Vault (`ARCA_CERT` y `ARCA_KEY`) y modo de simulación/homologación inicial con correlatividad secuencial de comprobantes y formato de CAE oficial de 14 dígitos.
-  - La lógica del cliente en [src/services/billingService.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/services/billingService.ts) determina el tipo de comprobante (Factura B para Responsable Inscripto o Factura C para Monotributo) y calcula el desglose de IVA 21%.
+  - **Receptor y Factura A:** al cobrar, «Elegir cliente (opcional)» sirve también para facturar a su nombre. Comercio Responsable Inscripto: cliente RI o Monotributista con CUIT → Factura A; otros → Factura B con su documento; sin cliente → consumidor final. Monotributo: siempre Factura C. Las ventas sin conexión salen a consumidor final.
+  - **Notas de crédito:** al devolver o anular una venta facturada, la app pide la nota de crédito asociada a esa factura (A, B o C) por lo devuelto. En **Anular o devolver** se ve su estado, con **Emitir nota de crédito** o **Reintentar**. Si ARCA la rechaza, se puede cargar el número de una nota emitida por fuera.
+  - Usa el certificado de cada comercio. Ya no hay certificado ni entorno global: los secretos `ARCA_CERT`, `ARCA_KEY` y `ARCA_ENVIRONMENT` no se usan. Sin certificado cargado, el comercio arranca en **homologación** (pruebas).
+  - El navegador manda solo el comercio y la venta. Tipo (Factura B para Responsable Inscripto, C para Monotributo), importes con IVA 21%, CUIT y punto de venta salen de la base. La fecha es la de hoy en hora argentina.
   - Genera el código QR oficial de ARCA codificado en base64 según RG 4291/4892 (`https://www.afip.gob.ar/fe/qr/?p=...`).
+
+- **Sin facturas duplicadas** (migración `202611030002_billing_safe_issue.sql`):
+  - Cada pedido queda en `retail_billing_attempts`, que solo ven dueños y administradores. Hay un único pedido en curso por punto de venta, tipo y entorno, y uno por venta. Si otra caja está facturando, se espera y se reintenta.
+  - El número se anota antes de mandarlo a ARCA. Si la respuesta no llega, ese número se consulta en ARCA (`FECompConsultar`) antes de usar otro. Si figura con el mismo importe y fecha, se toma su CAE; si no figura, se pide de nuevo. Si figura con otros datos, la venta queda con error para revisarla con el contador.
+  - Una venta autorizada devuelve siempre el mismo comprobante. Si una autorización llega tarde para una venta que ya tenía factura, queda marcada como conflicto, no la reemplaza.
+  - Cada llamada a ARCA tiene un tiempo máximo. Si ARCA no responde o está caído, la venta queda «reintentar» y la app vuelve a probar al minuto. Si ARCA rechaza el comprobante, queda «con error» con el motivo.
+  - El permiso de ARCA (WSAA, 12 horas) se guarda en la base. Así un reinicio de la función no provoca el rechazo «ya posee un TA válido».
 
 - **Flujo de venta no bloqueante**:
   - Al completar el cobro en caja, la venta se guarda inmediatamente (en estado `'pending'` si el comercio tiene la facturación activada) y se dispara la solicitud en segundo plano. El cajero nunca espera la respuesta de ARCA para continuar operando.
   - Si ARCA aprueba el comprobante, la venta se actualiza con CAE y número correlativo en la base de datos y se refresca el ticket en pantalla en tiempo real.
-  - Si ocurre un fallo de red o rechazo, la venta queda en estado `'error'` con el mensaje descriptivo y un botón de reintento en el historial de ventas.
+  - Si ARCA rechaza, la venta queda en `'error'` con el motivo y un botón de reintento en el historial de ventas. Si no hubo respuesta, queda en `'retry'` y se reintenta sola.
 
 - **Ticket térmico con datos fiscales**:
   - Si la venta está autorizada (`billingStatus === 'authorized'`), [ThermalReceiptModal.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/components/ThermalReceiptModal.tsx) muestra la denominación fiscal oficial, CUIT, Condición IVA, punto de venta y número correlativo (ej. `Factura B N° 0001-00000042`), el código QR escaneable de ARCA, el CAE y su fecha de vencimiento.
@@ -191,6 +201,24 @@ En **http://localhost:3001/**, con un comercio de prueba y schema aplicado en Su
    - Si una venta queda en estado de error, verificar que en **Ver ventas** figure el banner de alerta y el botón de reintento (tanto individual en la fila como masivo).
 5. **Modo no fiscal (opt-in)**:
    - Desactivar la facturación en **Mi comercio** y realizar una venta: debe generarse como ticket no fiscal estándar con la leyenda `COMPROBANTE NO VÁLIDO COMO FACTURA` y estado `none`.
+
+### Prueba en homologación sin duplicados
+
+Hacerla en un **proyecto de Supabase de prueba**, nunca en producción: las facturas de homologación dejan un CAE de prueba en las ventas. Requiere el certificado de homologación de ARCA (WSASS, «Autogestión Certificados Homologación») y el servicio `wsfe` asociado. Ver [Copias de seguridad](respaldos.md) para armar el proyecto de prueba.
+
+1. Aplicar la migración `202611030002_billing_safe_issue.sql` y publicar la función: `npx supabase functions deploy billing-authorize`.
+2. En **Mi comercio → Facturación electrónica ARCA**, generar el pedido (.csr). La clave se descarga desde el navegador. Subir el .csr en WSASS, descargar el certificado y cargar los dos con **Homologación** marcado. **Probar conexión** muestra el último número.
+3. **Factura C**, con Monotributo: cobrar una venta y ver en el ticket Factura C con CAE y QR. **Factura B**, con Responsable Inscripto: el ticket discrimina el IVA. Cobrar dos ventas seguidas desde dos cajas: los números quedan consecutivos y no se repiten.
+4. **Doble pedido**: con la venta recién cobrada, tocar reintentar varias veces. Sigue siendo un solo comprobante y el mismo CAE.
+5. **ARCA caído**: cortar internet del equipo justo después de cobrar, o bloquear `wswhomo.afip.gov.ar`. La venta queda «reintentar» y el cobro no se frena. Al volver la conexión, se factura sola una sola vez.
+6. **Respuesta perdida**: en el SQL Editor del proyecto de prueba, ver los pedidos con `select status, cbte_nro, cae, error from retail_billing_attempts order by created_at desc limit 10;`. Un pedido «sent» se resuelve en el próximo intento, pasados 3 minutos, consultando ARCA, sin un número nuevo.
+7. **Anulada**: anular una venta pendiente antes de facturar. No se emite factura.
+
+8. **Factura A** (comercio RI): en Clientes, cargar un cliente con CUIT y condición Responsable Inscripto. En Vender, elegirlo en «Elegir cliente (opcional)» y cobrar con efectivo. El ticket dice Factura A, muestra el cliente y discrimina el IVA. Repetir con un Monotributista: también Factura A. Con un cliente RI sin CUIT, la venta queda con error «cargá el CUIT».
+9. **Nota de crédito**: devolver una parte de una venta facturada. En **Anular o devolver** aparece la nota de crédito B (o A, o C) con su número y CAE. Tocar **Reintentar** no emite otra. Cortar internet antes de devolver: queda «reintentar» y se emite al volver, una sola vez.
+10. En ARCA (Comprobantes en línea, consulta de homologación o el último número desde **Probar conexión**), comparar los números con los de la app: no hay saltos ni repetidos.
+
+Las alícuotas distintas del 21% y los exentos quedan pendientes de confirmar con tu contador. Ver la [lista de control](facturacion-contador.md).
 
 ### Guía de Puesta en Marcha Real con ARCA (AFIP)
 
@@ -273,3 +301,88 @@ En http://localhost:3001/, con un comercio de pruebas con dos sucursales.
 5. **Sin rotación:** un producto con stock que no se vendió en el período aparece en «Sin rotación» con su valor.
 6. **Permisos:** un cajero o supervisor no ve Ganancias.
 7. **Celular:** las tarjetas se apilan sin desplazamiento lateral y el período se cambia cómodo.
+
+
+<a id="actividad"></a>
+
+## Actividad: quién hizo qué
+
+En **Mi comercio → Actividad**, solo dueños y administradores, se ve en un solo lugar quién hizo qué. Cada acción muestra fecha y hora, persona, sucursal cuando corresponde, y el antes y después. Se filtra por período, tipo, persona, sucursal y texto. Es de solo lectura: nadie puede editar ni borrar lo registrado.
+
+| Qué | Dónde queda registrado |
+| --- | --- |
+| Cambios de precios y costos, precios fijos y listas | Registro nuevo de actividad, desde la migración 202611020009. |
+| Ediciones de productos (nombre, código, aviso, categoría, bulto, proveedor) | Registro nuevo. |
+| Stock editado desde la ficha del producto | Registro nuevo, con la sucursal. |
+| Reposiciones, depósito, traslados y conteos | Su propio historial. |
+| Aperturas y cierres de caja (esperado, contado y diferencia) | Historial de turnos. |
+| Ingresos y retiros, movimientos de plata, gastos, pagos a proveedores y cobros a clientes | Su propio historial. |
+| Anulaciones y devoluciones; pagos anulados; cambios de registro de una venta | Su propio historial. |
+| Personas con acceso, accesos pendientes, perfiles y permisos de roles | Registro nuevo. |
+| Datos del comercio, locales, cajas y registros de ventas | Registro nuevo. |
+| Productos eliminados y restaurados; gastos eliminados; borrados de configuración | Historial de bajas y registro nuevo. |
+
+**Qué no se muestra:**
+- **Las ventas una por una:** están en Caja y en los informes.
+- **Antes de la migración 202611020009:** los cambios de precios, permisos y configuración anteriores no quedaron registrados.
+
+**Qué nunca se guarda:** contraseñas, tokens ni certificados.
+
+**Conservación:** los cambios de precios, productos, permisos y configuración se guardan 24 meses. Las ventas, cajas, plata, stock y demás historiales operativos no se borran.
+
+### Guía de Pruebas — actividad
+
+En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
+
+1. **Cambio de precio:** cambiar el precio de un producto. En **Mi comercio → Actividad**, esperado: «Cambió producto «X»» con tu email y el precio anterior tachado y el nuevo.
+2. **Stock desde la ficha:** editar el stock en la ficha. Esperado: aparece en Stock con la sucursal y antes/después. Una venta no aparece como cambio de stock.
+3. **Caja:** abrir caja, hacer un retiro y cerrar. Esperado: apertura, retiro con su motivo y cierre con esperado, contado y diferencia.
+4. **Anulación:** anular una venta. Esperado: «Anuló la venta T-…» con el motivo.
+5. **Permisos:** dar acceso a una persona y cambiar un perfil. Esperado: aparecen en Permisos.
+6. **Filtros:** filtrar por persona, por tipo y buscar un texto del motivo.
+7. **Solo lectura:** desde el SQL Editor, intentar `delete from retail_audit_log;`. Esperado: error «solo lectura».
+8. **Celular:** los filtros se apilan y cada acción se lee sin desplazamiento lateral.
+
+<a id="catalogo-global"></a>
+## Catálogo global
+
+Datos por código de barras (nombre, marca, categoría sugerida, emoji y descripción) que comparten todos los comercios y que se proponen al cargar un producto. Lo administra solo quien está en `retail_private.platform_admins`, un permiso aparte de ser dueño o administrador de un comercio que se otorga desde el SQL Editor ([cómo](../SUPABASE_SETUP.md#administrador-de-plataforma-y-catálogo-global)). Requiere la migración `202611030004_platform_admin_catalog.sql`.
+
+- **Dónde:** **Mi comercio → Más opciones → Catálogo global**. La tarjeta solo aparece para administradores de plataforma. Ocultarla no da el permiso: la base lo vuelve a validar en cada cambio.
+- **Consultar:** por defecto muestra los productos sin verificar, primero los que más comercios aportaron. Se puede buscar por código exacto o por parte del nombre, y ver los verificados o todos.
+- **Editar o agregar:** reemplaza los datos del código. **Verificado** deja el producto con confianza 100% y los comercios ya no pueden cambiarlo. Si se desmarca, vuelve a ser comunitario.
+- **Eliminar:** borra el código del catálogo global. Los productos que los comercios ya cargaron no cambian, porque solo copiaron los datos.
+- Los comercios siguen aportando solo cuando guardan un producto: completan campos vacíos y nunca pisan datos existentes.
+
+### Trabajar con Excel
+
+Requiere además `202611030005_global_catalog_import.sql`.
+
+- **Descargar Excel:** baja todo el catálogo en un `.xlsx` con las columnas Código, Nombre, Marca, Categoría, Emoji, Descripción y Verificado. Aportes y Confianza % son informativos y se ignoran al subir. La hoja «Instrucciones» resume estas reglas.
+- **Subir Excel:** sirve para corregir productos y para agregar nuevos. La primera fila tiene que tener los nombres de las columnas, y «Código» es obligatoria. Antes de guardar, la app muestra cuántos productos son nuevos, cuántos cambian, cuántos quedan igual y qué filas tienen error. Las filas con error no se guardan.
+- **Celdas y columnas:** una celda vacía borra ese dato, salvo Nombre, que es obligatorio. Una columna que no está en la planilla no cambia. En Verificado, «Sí» lo deja oficial, «No» lo vuelve comunitario y vacío no cambia el estado. Un código nuevo sin «Sí» queda comunitario.
+- **Códigos:** dejar la columna Código como texto. Si Excel la convirtió en número y perdió dígitos, la fila sale con error. Un código que perdió un cero adelante no se puede detectar: revisar los de 12 dígitos.
+- **Archivos grandes:** se guarda de a 500 filas. Si se corta, lo ya guardado queda, y volver a subir el mismo archivo completa el resto sin duplicar.
+
+#### Guía de Pruebas — Excel
+
+1. **Descargar:** tocar **Descargar Excel**. Esperado: baja `catalogo_global_AAAA-MM-DD.xlsx` y Excel muestra los códigos completos, sin notación científica.
+2. **Sin cambios:** subir el mismo archivo sin tocarlo. Esperado: todo «sin cambios» y el botón dice «No hay cambios para guardar».
+3. **Corregir:** cambiar la marca de dos productos y poner «Sí» en Verificado a uno. Esperado: «2 con cambios» y, en «Ver qué cambia», los campos de cada uno. Al guardar, aparecen actualizados en la lista.
+4. **Agregar:** sumar una fila con código nuevo y nombre. Esperado: «1 nuevo». Con «Sí» en Verificado queda verificado; sin él, comunitario.
+5. **Errores:** dejar un nombre vacío, repetir un código y escribir «Quizás» en Verificado. Esperado: cada fila figura con su error y no se guarda. El resto se puede guardar igual.
+6. **Columnas parciales:** subir un Excel con solo Código y Marca. Esperado: cambian solo las marcas; nombres y estado quedan igual.
+7. **Archivo inválido:** subir un `.xlsx` sin columna Código. Esperado: aviso «Falta la columna «Código»…» sin cambios.
+8. **Celular:** en el celular, la revisión se lee sin desplazamiento lateral y Cancelar/Guardar quedan alcanzables.
+
+### Guía de Pruebas — catálogo global
+
+En http://localhost:3001/, con la migración aplicada.
+
+1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → Más opciones**. Esperado: no aparece «Catálogo global».
+2. **Con permiso:** agregar tu cuenta desde el SQL Editor, recargar la app y abrir la tarjeta. Esperado: lista de productos sin verificar.
+3. **Buscar:** buscar un código existente y después parte de un nombre. Esperado: aparece el producto. Con «Verificados» o «Todos» cambia la lista.
+4. **Verificar:** editar un producto sin verificar, corregir el nombre, marcar **Verificado** y guardar. Esperado: aviso de guardado. El producto sale de «Sin verificar» y aparece en «Verificados».
+5. **Protección:** en otro comercio, cargar un producto con ese código y otro nombre. Esperado: el catálogo global conserva el nombre verificado.
+6. **Agregar y eliminar:** agregar un código nuevo y después eliminarlo, confirmando. Esperado: deja de aparecer en la búsqueda.
+7. **Teclado y celular:** al abrir el editor, el foco va al título y Cancelar lo devuelve al botón que se usó. En el celular, los campos y los botones se apilan sin desplazamiento lateral.
