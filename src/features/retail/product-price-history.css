@@ -1,0 +1,80 @@
+/* Colores validados con la paleta de referencia (azul y naranja, CVD ΔE 24,7 sobre superficie clara). */
+.product-price-history {
+  --series-price: #2a78d6;
+  --series-cost: #eb6834;
+  --series-markup: #1baf7a;
+  display: grid; gap: 14px; position: relative; min-width: 0;
+}
+.price-history-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: 10px 16px; }
+.price-history-head h3 { margin: 0 0 4px; overflow-wrap: anywhere; }
+.price-history-head h3:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; }
+.price-history-head p, .price-history-note, .price-history-empty { margin: 0; font-size: 13px; color: var(--tone-muted); }
+.price-history-tools { display: flex; align-items: center; gap: 6px; }
+.price-history-periods { display: inline-flex; border: 1px solid var(--tone-border); border-radius: 8px; overflow: hidden; }
+.price-history-periods button { min-height: 34px; padding: 0 10px; border: 0; border-right: 1px solid var(--tone-border); background: var(--tone-surface); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.price-history-periods button:last-child { border-right: 0; }
+.price-history-periods button.is-active { background: var(--tone-accent-soft); font-weight: 700; }
+.price-history-periods button:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: -2px; }
+.price-history-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; margin: 0; }
+.price-history-stats > div { padding: 10px 12px; border: 1px solid var(--tone-border); border-radius: 10px; }
+.price-history-stats dt { font-size: 12px; color: var(--tone-muted); }
+.price-history-stats dd { display: grid; gap: 2px; margin: 4px 0 0; font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
+.price-history-stats dd small { font-size: 12px; font-weight: 400; color: var(--tone-muted); }
+.price-history-chart { position: relative; min-width: 0; }
+.price-history-chart svg { display: block; max-width: 100%; overflow: visible; touch-action: pan-y; }
+.price-history-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 6px; padding: 0; list-style: none; font-size: 13px; color: var(--tone-muted); }
+.price-history-legend li { display: inline-flex; align-items: center; gap: 6px; }
+.product-price-history .swatch { display: inline-block; width: 14px; height: 3px; border-radius: 2px; }
+.product-price-history .swatch.is-price { background: var(--series-price); }
+.product-price-history .swatch.is-cost { background: var(--series-cost); }
+.product-price-history .swatch.is-sale { width: 8px; height: 8px; border: 2px solid var(--series-price); border-radius: 50%; background: transparent; }
+.price-history-chart .grid line { stroke: var(--tone-border); stroke-width: 1; }
+.price-history-chart .grid text, .price-history-chart .axis { fill: var(--tone-muted); font-size: 11px; font-variant-numeric: tabular-nums; }
+.price-history-chart .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.price-history-chart .line.is-price { stroke: var(--series-price); }
+.price-history-chart .line.is-cost { stroke: var(--series-cost); }
+.price-history-chart .line.is-markup { stroke: var(--series-markup); }
+.price-history-chart .dot.is-sale { fill: var(--tone-surface); stroke: var(--series-price); stroke-width: 2; }
+.price-history-chart .direct-label { fill: currentColor; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.price-history-chart .crosshair line, .price-history-chart .crosshair-line { stroke: var(--tone-muted); stroke-width: 1; stroke-dasharray: 3 3; }
+.price-history-chart .marker { stroke: var(--tone-surface); stroke-width: 2; }
+.price-history-chart .marker.is-price { fill: var(--series-price); }
+.price-history-chart .marker.is-cost { fill: var(--series-cost); }
+.price-history-tooltip { position: absolute; top: 28px; transform: translateX(-50%); display: grid; gap: 2px; min-width: 150px; padding: 8px 10px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12); font-size: 12px; pointer-events: none; z-index: 2; }
+.price-history-tooltip span { display: inline-flex; align-items: center; gap: 6px; font-variant-numeric: tabular-nums; }
+.price-history-subtitle { margin: 12px 0 2px; font-size: 13px; color: var(--tone-muted); font-weight: 600; }
+.price-history-table { max-height: 320px; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; }
+.price-history-table table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.price-history-table caption { padding: 8px 10px; text-align: left; font-weight: 600; }
+.price-history-table th, .price-history-table td { padding: 6px 10px; border-top: 1px solid var(--tone-border); text-align: left; white-space: nowrap; }
+.price-history-table thead th { position: sticky; top: 0; background: var(--tone-soft); font-size: 12px; color: var(--tone-muted); }
+.price-history-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.product-name-button { padding: 0; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+.product-name-button:hover .product-name-text { text-decoration: underline; }
+.product-name-button:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; border-radius: 4px; }
+@media (max-width: 560px) {
+  .price-history-tools { width: 100%; }
+  .price-history-periods { flex: 1; }
+  .price-history-periods button { flex: 1; padding: 0 6px; }
+}
+/* Evolución de precios por grupo */
+.price-history-chart .reference-line { stroke: var(--tone-muted); stroke-width: 1; stroke-dasharray: 4 4; }
+.price-evolution-filters { display: flex; flex-wrap: wrap; gap: 10px 12px; align-items: end; }
+.price-evolution-filters label { display: grid; gap: 6px; flex: 0 1 240px; min-width: 0; }
+.price-evolution-filters select { min-height: 38px; min-width: 0; }
+.price-evolution-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.price-evolution-chips li { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; border: 1px solid var(--tone-border); border-radius: 999px; font-size: 13px; }
+.price-evolution-chips button { display: inline-grid; place-items: center; width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: inherit; cursor: pointer; }
+.price-evolution-chips button:hover { background: var(--tone-soft); }
+.price-evolution-chips button:focus-visible { outline: 2px solid var(--tone-accent); }
+.price-evolution .price-history-stats dt { display: flex; align-items: center; gap: 6px; }
+.price-evolution .price-history-stats dd { font-size: 17px; }
+.price-evolution-data summary { cursor: pointer; font-size: 13px; font-weight: 600; }
+.price-evolution-data .price-history-table { margin-top: 8px; }
+@media (max-width: 560px) { .price-evolution-filters label { flex-basis: 100%; } }
+/* Acceso al historial desde la lista de productos */
+.price-col-value { display: inline-flex; align-items: center; gap: 6px; }
+.price-history-button { display: inline-grid; place-items: center; width: 30px; height: 30px; padding: 0; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); color: var(--tone-accent); cursor: pointer; }
+.price-history-button:hover { background: var(--tone-accent-soft); }
+.price-history-button:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; }
+@media (pointer: coarse) { .price-history-button { width: 36px; height: 36px; } }

@@ -113,7 +113,7 @@ export function GuidedStart({ store, userId, branches, registers, register, shif
         {(!branches.length || !registers.some(r => r.active) || !categories.length) && <button className="secondary-button" disabled={locked} onClick={async () => { if (await change('dismiss')) onSettings(); }}>Completar recursos faltantes en Mi comercio</button>}
       </div>
       <div hidden={step !== 2}>
-        <p>{configuredProducts ? `${configuredProducts} productos guardados. Podés agregar más o continuar.` : 'Cargá tu primer producto. Si lo dejás para después, lo encontrás en Productos → Agregar producto.'}</p>
+        <p>{configuredProducts ? `${configuredProducts} productos guardados. Podés agregar más o continuar.` : 'Cargá tu primer producto. Si lo dejás para después, lo encontrás en Productos → Agregar → Productos.'}</p>
         {productsVisited && <CatalogEditor store={store} categories={categories} products={products} branches={branches} run={guidedRun} busy={locked} guided active={visible && step === 2} />}
         <button className="secondary-button" disabled={locked} onClick={() => void change('back_details')}>Volver a Tu comercio</button>
         <button className="primary-button" disabled={locked} onClick={() => void change('products')}>{configuredProducts ? 'Continuar' : 'Cargar productos después'}</button>

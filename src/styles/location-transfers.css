@@ -118,3 +118,16 @@
 .funds-in-transit-form { display: grid; gap: 8px; }
 .funds-in-transit-form label { display: grid; gap: 6px; }
 .location-transfer-history article > small.funds-in-transit-late { color: var(--tone-danger); font-weight: 600; }
+/* Cuentas de banco o billetera dentro de Dinero. */
+.money-accounts-bar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; }
+.money-accounts-bar p { flex: 1 1 320px; margin: 0; font-size: 13px; color: var(--tone-muted); }
+.location-fund-sheet tr.is-account th { color: inherit; }
+.money-account-tag { display: block; font-size: 11px; font-weight: 400; color: var(--tone-muted); }
+.money-account-editor { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.money-account-editor h3 { margin: 0; font-size: 15px; }
+.money-account-editor fieldset { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; margin: 0; padding: 0; border: 0; min-width: 0; }
+.money-account-editor fieldset > label { display: grid; gap: 6px; }
+.money-account-editor small { color: var(--tone-muted); font-size: 12px; }
+.money-account-methods { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+.money-account-methods > span { flex-basis: 100%; font-size: 13px; font-weight: 600; }
+.money-account-method { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 13px; }

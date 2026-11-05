@@ -8,10 +8,7 @@ import { StaffAccessForm } from './StaffAccessForm';
 import { CashierAccess } from './CashierAccess';
 import { PermissionProfileSettings, StaffProfileAssignment, usePermissionProfiles } from './PermissionProfiles';
 import { PushSettings } from './PushSettings';
-import { MarginThresholdSettings } from './MarginThresholdSettings';
-import { PriceRoundingSettings } from './PriceRoundingSettings';
-import { DepotSettings } from './DepotSettings';
-import { BillingSettings } from './BillingSettings';
+import { StoreConfiguration } from './StoreConfiguration';
 import { retail, type Store, type Branch, type Category, type Register, type SalesLedger, type Member, type Invitation } from './api';
 import type { Permission } from './permissions';
 
@@ -25,7 +22,7 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
   const team = can('manage_staff') || can('manage_profiles');
   const profiles = usePermissionProfiles(store.id, active && team);
   const sections = [
-    ...(can('manage_store') ? [{ id: 'general', label: 'Datos del comercio' }] : []),
+    ...(can('manage_store') ? [{ id: 'general', label: 'Datos del comercio' }, { id: 'config', label: 'Configuración' }] : []),
     ...(can('manage_locations') ? [{ id: 'locations', label: 'Locales y cajas' }] : []),
     ...(team ? [{ id: 'team', label: 'Personas y perfiles' }] : []),
     ...(can('manage_categories') ? [{ id: 'categories', label: 'Categorías' }] : []),
@@ -37,7 +34,8 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
   return <SettingsEditorGroup><section className="retail-panel settings-workspace settings-workspace-sober">
     {locationError && <p role="alert">{locationError}</p>}
     <SectionNav name="delegated-settings" label="Mi comercio" sections={sections} value={selected} onChange={onViewChange} disabled={busy} />
-    {can('manage_store') && <div hidden={selected !== 'general'}><StoreGeneralSettingsForm store={store} busy={busy} run={run} /><BillingSettings key={`billing-${store.id}`} store={store} busy={busy} run={run} active={active && selected === 'general'} /><MarginThresholdSettings key={`margin-${store.id}`} store={store} busy={busy} run={run} /><PriceRoundingSettings key={`pricing-${store.id}`} store={store} busy={busy} run={run} /><DepotSettings key={`depot-${store.id}`} store={store} busy={busy} run={run} active={active && selected === 'general'} /></div>}
+    {can('manage_store') && <div hidden={selected !== 'general'}><StoreGeneralSettingsForm store={store} busy={busy} run={run} /></div>}
+    {can('manage_store') && <div hidden={selected !== 'config'}><StoreConfiguration store={store} busy={busy} run={run} active={active && selected === 'config'} /></div>}
     {can('manage_locations') && <div hidden={selected !== 'locations'}><BranchSettings storeId={store.id} branches={branches} registers={registers} run={run} busy={busy} renderRegisters={(branchId) => <RegistersSettings storeId={store.id} registers={registers} branches={branches} run={run} busy={busy} branchId={branchId} />} /></div>}
     {can('manage_ledgers') && <div hidden={selected !== 'ledgers'}><LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} /></div>}
     {can('manage_categories') && <div hidden={selected !== 'categories'}><h3>Categorías de productos</h3>{categories.map(category => <SettingsEditor key={category.id} label="Cambiar nombre" summary={<strong>{category.name}</strong>} busy={busy}>

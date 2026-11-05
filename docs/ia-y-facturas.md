@@ -13,7 +13,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 
 **Proveedores → Facturas → Subir foto de factura** abre el mismo importador con la sucursal elegida en Productos y al cerrarlo vuelve a Facturas. En la revisión, **Confirmar los N seguros** confirma de una vez los vínculos con confianza de 85% o más, costo leído y sin conflicto de código ni de presentación; los dudosos siguen uno por uno.
 
-**Productos → Recibir mercadería** mantiene la lectura local con Tesseract y el análisis voluntario con Groq. Subir una imagen no modifica productos ni stock. El modelo general y la configuración por entorno se conservan; no se agrega otro proveedor de IA ni dependencias.
+**Productos → Agregar → Desde una factura** (antes «Recibir mercadería») mantiene la lectura local con Tesseract y el análisis voluntario con Groq. Subir una imagen no modifica productos ni stock. El modelo general y la configuración por entorno se conservan; no se agrega otro proveedor de IA ni dependencias.
 
 La lectura conserva proporciones de fotos y tickets largos, limita el tamaño total del lienzo y evita una compresión JPEG adicional. Si el primer OCR tiene poco texto o baja confianza, compara otra distribución de columnas. La limpieza conserva cantidades/códigos aislados y productos con «Original» en el nombre. Los PDF escaneados se leen página por página a resolución propia, en lugar de usar solo la miniatura de la primera. Si no puede leer una página, informa cuál y no presenta un documento parcial como completo.
 
@@ -335,7 +335,7 @@ SQL: `202610290003_purchase_invoices.sql`, **no aplicado remotamente** ([Instala
 ### Guía de Pruebas — comprobantes de compra, pendiente de ejecución manual
 
 1. SQL Editor (proyecto correcto): aplicar 202610290002 y 202610290003, en ese orden. Esperado: sin errores.
-2. En **http://localhost:3001/**, Mi comercio → Datos del comercio: el CUIT del comercio cargado en facturación.
+2. En **http://localhost:3001/**, Mi comercio → Configuración → Facturación electrónica: el CUIT del comercio cargado en facturación.
 3. Productos → Recibir mercadería con la foto de Mabelherdi. Esperado: «Buscando el código QR…» y luego «Verificado con el QR de ARCA», o «No se encontró el QR» si la foto no alcanza; cabecera Factura A, 00007-00366648, 28/09/2026, CUIT 30-67804306-7.
 4. «Completar importes vacíos con IA». Esperado: neto 21% $64.285,68, IVA $13.499,99, percepción IIBB $2.571,43, total $80.357,10 y «Cierra». Cambiar el IVA a 13.000: aparece la diferencia en rojo.
 5. Aplicar la reposición. Esperado: pantalla final «Comprobante registrado para el contador». En Proveedores → Comprobantes de compra (mes 09/2026): el comprobante con «Cierra» y «QR».

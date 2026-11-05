@@ -26,7 +26,7 @@ El worker de PDF.js ahora se referencia desde el paquete instalado mediante Vite
 
 En **http://localhost:3001/**:
 
-1. Limpiar solo los mensajes de Consola y abrir Mi comercio → Datos del comercio → guía de facturación. Esperado: no vuelve el aviso de `<ul>` dentro de `<p>`; pasos, enlaces y formularios siguen disponibles.
+1. Limpiar solo los mensajes de Consola y abrir Mi comercio → Configuración → Facturación electrónica → guía de facturación. Esperado: no vuelve el aviso de `<ul>` dentro de `<p>`; pasos, enlaces y formularios siguen disponibles.
 2. Abrir Importar factura y cargar un PDF. En Red, el worker debe provenir del mismo servidor de la app, sin solicitar `unpkg.com/pdfjs-dist…`; no debería aparecer el fallback de fake worker por ese CDN. Verificar también MIME/CSP del recurso en el alojamiento publicado; TypeScript no comprueba su entrega.
 3. Interrumpir la conexión a Groq en datos de prueba y analizar texto: debe mostrar conexión fallida o espera agotada, conservando el texto/partes completadas. No debe presentar un error de formato JSON ni cargar stock por ese fallo. Restablecer la conexión y reintentar por intención.
 4. Si persisten timeouts de productos/ventas y Groq, comparar desde otro navegador o red. Registrar qué dominios fallan y los estados de Red. Si solo falla Supabase, seguir el [diagnóstico de comunicación](../SUPABASE_SETUP.md#error-failed-to-fetch-apisupabasecom) y revisar el proyecto; el éxito de SQL Editor no certifica REST desde el navegador. No ejecutar migraciones para intentar corregir un timeout.

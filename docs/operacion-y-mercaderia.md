@@ -394,12 +394,25 @@ Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sal
 
 Un envío sin confirmar después de 24 horas se marca para revisar. Ingresos y salidas externas siguen siendo inmediatos. El arqueo de cada caja no cambia: quien cobra no ve fondos ni envíos.
 
-**Conciliación.** En **Ganancias → Conciliación** se carga cada liquidación de QR, débito, crédito o transferencias:
+**Cuentas de banco y billeteras virtuales.** En **Transferencias → Dinero**, el botón **Cuenta** agrega una cuenta (Banco, Billetera virtual u Otra) como una ubicación más de la plata. Requiere `202611040006_money_accounts.sql`.
 
-- **Datos de cada liquidación:** fecha en que entró, días de venta que cubre, importe acreditado, comisión y retenciones.
-- **La comparación:** para el período elegido, muestra por medio lo vendido contra lo liquidado (acreditado + comisión + retenciones) y marca «Falta acreditar» o «Liquidaron de más». Lo vendido incluye pagos de ventas, partes de pagos mixtos y cobros a clientes, menos devoluciones por ese medio. Se comparan las liquidaciones cuyos días de venta caen dentro del período. El efectivo no entra acá, porque se controla en el arqueo.
+- **Cobros que entran:** cada cuenta elige qué medios de pago caen en ella: QR, débito, crédito o transferencias. Desde ese momento, las ventas por esos medios, en una venta mixta solo su parte, y los cobros de fiado por esos medios suman solos a su saldo. Las devoluciones por esos medios restan. Un medio está en una sola cuenta: pasarlo a otra cuenta vale desde ahora, y lo cobrado antes queda donde entró.
+- **Saldo:** se ve en la tabla de saldos junto a sucursales y depósito, con lo cobrado aparte. El saldo inicial se carga con **Ingreso**.
+- **Retiros y pagos:** **Salida** registra un retiro del dueño, un pago o una comisión desde la cuenta, con su motivo. **Enviar** lleva plata de la cuenta a una sucursal o al depósito (por ejemplo, retirar efectivo del banco), o al revés (depositar el efectivo de una sucursal), y queda «en camino» hasta confirmar cuánto llegó, como entre sucursales.
+- **Archivar:** solo con saldo cero y sin envíos en camino. El historial se conserva.
+- **Qué no cambia:** las ventas, el cobro y el arqueo de las cajas siguen igual. El saldo de las cuentas se calcula, no se escribe en cada venta.
+- **Retiro desde la caja con origen:** en **Caja → Movimiento → Retiro**, quien tiene «Ver y mover la plata» ve **Sale de**: «Efectivo de esta caja» (como siempre, descuenta del esperado del turno) o una cuenta con su saldo. Desde una cuenta no cambia el efectivo de la caja: se registra como salida de la cuenta, con la categoría y el proveedor en el motivo, y no se adjunta comprobante (anotar el número de operación). No deja retirar más del saldo de la cuenta. Sin la actualización 202611040006, Dinero lo avisa y el retiro sigue siendo de efectivo.
+- Lo usan quienes tienen «Ver y mover la plata» (`manage_funds`). En Actividad, los movimientos con una cuenta todavía muestran la sucursal como «Sucursal anterior».
 
-**Comisiones en Ganancias.** «Resultado del mes» resta las comisiones de las liquidaciones que entraron en ese mes, una sola vez. No hay que cargarlas también como gasto. Las retenciones se muestran aparte y no se restan, porque son impuestos a cuenta.
+**Conciliación.** **Ganancias → Conciliación** es un informe para el contador: muestra lo cobrado por QR, débito, crédito y transferencias en el período, y el contador lo concilia con los extractos. Acá no se cargan acreditaciones ni comisiones. Requiere `202611040004_reconciliation_totals.sql`.
+
+- **Por medio:** ventas (con cantidad), devoluciones y anulaciones devueltas por ese medio, cobros de fiado y el **total cobrado**. En una venta mixta, cada medio cuenta solo su parte. El efectivo no entra, porque se controla en el arqueo de cada caja.
+- **Ver movimientos:** lista lo que forma el total de un medio, y la suma coincide con la tarjeta. Muestra fecha, tipo, ticket, caja, importe, total de la venta y quién la hizo; las devoluciones van en negativo y con su motivo, y los cobros de fiado con el nombre del cliente. **Por día** suma cada día. Se puede buscar por ticket, caja o persona y descargar ese medio en CSV. En pantalla muestra hasta 2.000 movimientos.
+- **Descargar Excel para el contador:** un `.xlsx` con tres hojas. **Resumen** trae el período y los totales por medio y en general. **Por día** tiene una columna por medio. **Movimientos** incluye todos los medios, con filtros, fecha y hora de Argentina e importes con formato de moneda. Incluye hasta 20.000 movimientos por medio; si hay más, el Resumen lo avisa en rojo y conviene exportar un período más corto.
+
+- **Cuentas y retiros** (requiere `202611040007_money_movements_report.sql`): debajo de los medios de pago se ven las **cuentas**, con lo cobrado en el período y el saldo actual. Sin cuentas, indica dónde crearlas. También aparecen los **retiros y movimientos de plata** con **Sale de** y **Va a**: efectivo de cada caja (retiros, pagos a proveedor e ingresos del turno), fondos de sucursal y depósito, y cuentas. Arriba se resume cuánto se retiró de cada origen. Se filtra por tipo (retiros, ingresos, envíos) y por origen (efectivo de las cajas, cuentas o una ubicación). El Excel suma las hojas **Cuentas** y **Retiros y movimientos**. Los cierres automáticos de caja no se repiten acá, porque ya están en el arqueo.
+
+**Liquidaciones anteriores y comisiones.** Las liquidaciones que se hayan cargado antes de este cambio se conservan en la base y sus comisiones siguen restándose en «Resultado del mes». Desde ahora no se cargan nuevas: si querés que las comisiones de cobro figuren en Ganancias, cargalas como gasto.
 
 ### Guía de Pruebas — plata en camino y conciliación
 
@@ -409,6 +422,15 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 2. **Llegó otro importe:** tocar **Llegó otro importe**, poner 50 sin nota. Esperado: pide la nota. Con nota, el depósito suma 50 y el historial muestra el faltante de 0.
 3. **No llegó:** enviar 00 y tocar **No llegó** con un motivo. Esperado: los 00 vuelven a la sucursal.
 4. **Arqueo a ciegas:** como cajero, cerrar la caja. Esperado: sigue sin ver efectivo esperado, fondos ni envíos.
-5. **Conciliación:** vender por QR y débito. En **Ganancias → Conciliación**, cargar una liquidación de QR por lo vendido menos una comisión. Esperado: «Coincide». Cargar una de débito por menos. Esperado: «Falta acreditar» con la diferencia.
-6. **Comisiones:** en «Resultado del mes», esperado: «− Comisiones de cobro» con la suma, y el resultado ya descontado. Anular una liquidación. Esperado: su comisión deja de restarse.
-7. **Celular:** revisar los dos listados y los formularios.
+5. **Conciliación:** vender por QR y débito, una venta mixta efectivo + QR y devolver una venta por QR. En **Ganancias → Conciliación**, esperado: QR con ventas (cantidad), devolución en negativo y total cobrado. La mixta suma solo su parte de QR. No hay formulario de liquidaciones ni «Falta acreditar».
+6. **Movimientos:** tocar **Ver movimientos** en QR. Esperado: la suma es igual al total cobrado de la tarjeta. **Por día** muestra un renglón por día.
+7. **Excel para el contador:** tocar **Descargar Excel para el contador**. Esperado: tres hojas (Resumen, Por día, Movimientos). Los totales del Resumen coinciden con las tarjetas, las fechas tienen la hora de Argentina y los importes se pueden sumar en Excel.
+8. **Comisiones anteriores:** si había liquidaciones cargadas, «Resultado del mes» las sigue restando. En un mes sin liquidaciones no aparece la línea de comisiones.
+9. **Celular:** las tarjetas y los botones se apilan, y la tabla de movimientos se desplaza dentro de su recuadro.
+10. **Cuenta nueva:** en Transferencias → Dinero, tocar **Cuenta**, crear «Mercado Pago» como billetera con QR y Transferencias. Esperado: aparece en la tabla con saldo $0 y «cobra QR, Transferencias».
+11. **Cobros automáticos:** vender $1.000 por QR y una mixta con $500 por transferencia. Esperado: el saldo de Mercado Pago sube $1.500, con «$1.500 cobrados». Devolver una venta por QR: el saldo baja.
+12. **Retiro y envío:** registrar una **Salida** de $300 desde la cuenta con un motivo. Esperado: el saldo baja $300 y queda en el historial. **Enviar** $200 a una sucursal: queda «en camino» y la sucursal suma al confirmar. No se puede sacar más del saldo disponible.
+13. **Reasignar un medio:** crear «Banco» con QR. Esperado: pide confirmar que QR pasa desde ahora; lo cobrado antes queda en Mercado Pago y las ventas nuevas por QR suman al Banco.
+14. **Archivar:** intentar archivar una cuenta con saldo. Esperado: pide dejarla en cero antes. Con saldo cero, se archiva y desaparece de la tabla.
+15. **Retiro desde la caja por cuenta:** en Caja → Movimiento → Retiro, elegir **Sale de: Mercado Pago**, $400, motivo «Retiro del dueño». Esperado: el saldo de Mercado Pago baja $400 y el efectivo esperado del turno no cambia. Con «Efectivo de esta caja», el esperado baja como siempre.
+16. **Conciliación:** en Ganancias → Conciliación, esperado: tarjetas de cuentas con lo cobrado en el período y el saldo. En «Cuentas y retiros», el retiro del paso 15 figura «Sale de: Mercado Pago» y uno de efectivo «Sale de: Efectivo · Caja 1». El resumen muestra cuánto se retiró de cada origen. El Excel trae las hojas Cuentas y Retiros y movimientos.

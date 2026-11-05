@@ -15,16 +15,12 @@ import { PermissionProfileSettings, StaffProfileAssignment, usePermissionProfile
 import { ProductPriceEditor } from './ProductPriceEditor';
 import { CategoryLabelEditor } from './CategoryLabelEditor';
 import { ProductMarginStatus } from './ProductMarginStatus';
-import { MarginThresholdSettings } from './MarginThresholdSettings';
-import { PriceRoundingSettings } from './PriceRoundingSettings';
 import { productMargin } from '../../services/productMarginService';
 import { ProductDeletionEditor, DeletedProducts } from './ProductDeletionTools';
 import { ProductCompositionEditor } from './ProductCompositionEditor';
 import { NewCompositeEditor } from './NewCompositeEditor';
 import { compositionCost, hasComposition, productsAtBranch, stockForSale } from '../../services/productComposition';
-import { DepotSettings } from './DepotSettings';
 import { DepotHistory } from './DepotHistory';
-import { BillingSettings } from './BillingSettings';
 import { errorMessage } from './api';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { SettingsEditor, SettingsEditorGroup } from './SettingsEditor';
@@ -61,6 +57,7 @@ import {
   Building2,
   Users,
   SlidersHorizontal,
+  Settings2,
   Monitor,
   Pencil,
   Plus,
@@ -79,6 +76,7 @@ import {
   LogOut,
   RefreshCw,
   Globe,
+  TrendingUp,
 } from "lucide-react";
 import { groqChat } from "../../services/groqService";
 import { unitsPerPack } from '../../services/inventoryUnits';
@@ -106,7 +104,11 @@ import { useToast } from "../../context/ToastContext";
 import { purchaseOrders } from "./purchaseOrderApi";
 import { ActivityLog } from "./ActivityLog";
 import { GlobalCatalog } from "./GlobalCatalog";
+import { StoreConfiguration } from "./StoreConfiguration";
 import { CatalogProductAdder } from "./CatalogProductAdder";
+import { ProductSheet } from "./ProductSheet";
+import { ProductPriceHistory } from "./ProductPriceHistory";
+import { PriceEvolution } from "./PriceEvolution";
 import { supabase } from "../../lib/supabase";
 import { PendingReplenishments } from './PendingReplenishments';
 export type Run = (
@@ -350,7 +352,7 @@ export function CatalogEditor({
   }, [page]);
   const [lowMarginFilter, setLowMarginFilter] = useState(false);
   const editorRef = useRef<HTMLFormElement>(null);
-  const editorTrigger = useRef<HTMLButtonElement | null>(null);
+  const editorTrigger = useRef<HTMLElement | null>(null);
   const panelRef = useRef<HTMLDivElement>(null);
   const csvTitleId = useId();
   const productOptionsRef = useRef<HTMLDetailsElement>(null);
@@ -397,6 +399,7 @@ export function CatalogEditor({
     tags: [] as string[],
     unitType: "unit" as "unit" | "kg" | "lt" | "pack" | "box",
     packSize: '',
+    displaySize: '',
     expiryDate: '',
   });
   useEffect(() => {
@@ -411,6 +414,7 @@ export function CatalogEditor({
   const pricingByMarkup = formData.sellable && formData.markup !== null;
   const pricingCost = editingRecipeCost?.cost ?? Number(formData.cost);
   const storeRounding = store.price_rounding ?? 0;
+  const displayReady = editing ? editing.display_size !== undefined : products.some(product => product.display_size !== undefined);
   const formSalePrice = pricingByMarkup ? draftMarkupPrice(pricingCost, formData.markup!, formData.rounding ?? storeRounding) : Number(formData.price);
   // El precio manual se pide: deja de seguir al costo hasta volver al cálculo.
   const requestManualPrice = async () => {
@@ -492,7 +496,23 @@ export function CatalogEditor({
   const canDelete = can('delete_products');
   const [newCompositeOpen, setNewCompositeOpen] = useState(false);
   const [catalogAddOpen, setCatalogAddOpen] = useState(false);
-  const productEditing = canEditCatalog && (adding || !!editing || (newCompositeOpen && canCompose) || catalogAddOpen);
+  const [historyTarget, setHistoryTarget] = useState<Product | null>(null);
+  const [evolutionOpen, setEvolutionOpen] = useState(false);
+  const evolutionTrigger = useRef<HTMLElement | null>(null);
+  const closeEvolution = () => {
+    setEvolutionOpen(false);
+    requestAnimationFrame(() => { if (evolutionTrigger.current?.isConnected) evolutionTrigger.current.focus(); else catalogSearch.current?.focus(); });
+  };
+  const historyTrigger = useRef<HTMLElement | null>(null);
+  const canSeeHistory = canEditCatalog || can('edit_prices');
+  const openHistory = (product: Product, trigger: HTMLElement) => { historyTrigger.current = trigger; setHistoryTarget(product); };
+  const closeHistory = () => {
+    setHistoryTarget(null);
+    requestAnimationFrame(() => { if (historyTrigger.current?.isConnected) historyTrigger.current.focus(); });
+  };
+  // Planilla de productos: alta de uno o varios, o edición de los que se ven en la lista.
+  const [sheet, setSheet] = useState<{ mode: 'new' } | { mode: 'edit'; products: Product[] } | null>(null);
+  const productEditing = canEditCatalog && (adding || !!editing || (newCompositeOpen && canCompose) || catalogAddOpen || !!sheet);
   const closeCatalogAdd = () => {
     setCatalogAddOpen(false);
     requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); });
@@ -772,6 +792,7 @@ export function CatalogEditor({
       tags: [],
       unitType: "unit",
       packSize: '',
+      displaySize: '',
       expiryDate: '',
     });
   };
@@ -806,6 +827,7 @@ export function CatalogEditor({
       tags: p.tags ? [...p.tags] : [],
       unitType: (p.unitType as "unit" | "kg" | "lt" | "pack" | "box") || "unit",
       packSize: p.pack_size == null ? '' : String(p.pack_size),
+      displaySize: p.display_size == null ? '' : String(p.display_size),
       expiryDate: p.expiry_date || '',
     });
   };
@@ -826,10 +848,20 @@ export function CatalogEditor({
   const replenishDialog = useRef<HTMLDivElement>(null);
   const replenishTrigger = useRef<HTMLButtonElement | null>(null);
   const [replenishQty, setReplenishQty] = useState<number>(12);
-  const [replenishByPack, setReplenishByPack] = useState(false);
+  // Presentación con la que se ingresa: unidad, display o bulto. Cantidad y costo van por esa presentación.
+  const [replenishBy, setReplenishBy] = useState<'unit' | 'display' | 'pack'>('unit');
   const replenishmentPackSize = unitsPerPack(replenishTarget?.pack_size);
-  const replenishmentUnits = replenishQty * (replenishByPack ? replenishmentPackSize : 1);
+  const replenishmentDisplaySize = replenishTarget?.display_size && replenishTarget.display_size > 1 ? replenishTarget.display_size : 1;
+  const replenishSize = replenishBy === 'pack' ? replenishmentPackSize : replenishBy === 'display' ? replenishmentDisplaySize : 1;
+  const replenishByPack = replenishBy !== 'unit';
+  const replenishmentUnits = replenishQty * replenishSize;
   const [replenishCost, setReplenishCost] = useState<string>("0");
+  const changeReplenishBy = (next: 'unit' | 'display' | 'pack') => {
+    const size = (mode: typeof next) => mode === 'pack' ? replenishmentPackSize : mode === 'display' ? replenishmentDisplaySize : 1;
+    // El costo escrito sigue siendo el mismo por unidad: se reexpresa para la presentación nueva.
+    setReplenishCost(previous => previous.trim() && Number.isFinite(Number(previous)) ? String(Math.round(Number(previous) / size(replenishBy) * size(next) * 100) / 100) : previous);
+    setReplenishBy(next); setReplenishQty(next === 'unit' ? 12 : 1);
+  };
   const [replenishSupplier, setReplenishSupplier] = useState<string>("");
   const [replenishNotes, setReplenishNotes] = useState<string>("");
   const [replenishTask, setReplenishTask] = useState<'receive' | 'to_salon' | 'to_depot'>('receive');
@@ -880,7 +912,7 @@ export function CatalogEditor({
     setReceiveInDepot(!!store.depot_enabled);
     setReplenishError('');
     setReplenishQty(store.depot_enabled && p.depotStock ? Math.min(12, p.depotStock) : 12);
-    setReplenishByPack(false);
+    setReplenishBy('unit');
     setReplenishCost(String(p.cost || 0));
     setReplenishSupplier("");
     setReplenishNotes("");
@@ -892,8 +924,9 @@ export function CatalogEditor({
     if (depotModeChanged) { setReplenishError('Cambió la configuración de depósito. Cerrá y volvé a abrir Reponer para revisar el destino.'); return; }
 
     const newStock = (replenishCurrent?.stock || 0) + (receiving ? replenishmentUnits : 0);
-    const numCost = parseFloat(replenishCost);
-    const validCost = receiving && canEditCatalog && !isNaN(numCost) && numCost >= 0 ? numCost : undefined;
+    // El costo se escribe por la presentación elegida y se guarda por unidad.
+    const numCost = parseFloat(replenishCost) / replenishSize;
+    const validCost = receiving && canEditCatalog && !isNaN(numCost) && numCost >= 0 ? Math.round(numCost * 100) / 100 : undefined;
     const depotAction = store.depot_enabled && (!receiving || receiveInDepot);
     const note = receiving ? [replenishSupplier.trim(), replenishNotes.trim()].filter(Boolean).join(' · ') : undefined;
     const signature = JSON.stringify([store.id, replenishTarget.id, replenishmentUnits, validCost ?? null, depotAction ? replenishTask : 'salon', depotAction ? note : null, operationBranch]);
@@ -1443,6 +1476,7 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
     tags?: string[];
     unitType?: string;
     pack_size?: number | null;
+    display_size?: number | null;
     margin_group?: 'standard' | 'low_margin' | null;
     expiry_date?: string | null;
     last_restocked_at?: string | null;
@@ -1495,6 +1529,11 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
   const handleSubmit = async (e: React.FormEvent, review = false) => {
     e.preventDefault();
     if (busy || (review && isCheckingAnomalies)) return;
+    if (displayReady && formData.displaySize.trim() && formData.packSize.trim() && Number(formData.packSize) % Number(formData.displaySize) !== 0) {
+      setProductOptionsOpen(true);
+      requestAnimationFrame(() => editorRef.current?.querySelector<HTMLInputElement>('input[name="display_size"]')?.focus());
+      return;
+    }
     if (pricingByMarkup && formSalePrice === null) {
       setProductReviewNote('Completá un costo mayor a cero y un porcentaje válido para calcular el precio principal.');
       editorRef.current?.querySelector<HTMLInputElement>('[data-product-markup]')?.focus();
@@ -1522,6 +1561,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       tags: formData.tags,
       unitType: formData.unitType,
       pack_size: formData.packSize.trim() ? Number(formData.packSize) : null,
+      // Solo con la actualización 202611040005, que carga display_size en los productos.
+      ...(displayReady ? { display_size: formData.displaySize.trim() ? Number(formData.displaySize) : null } : {}),
       expiry_date: formData.expiryDate ? formData.expiryDate : null,
     };
 
@@ -1676,7 +1717,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
         </div>
         <div className="catalog-actions-row">
           {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={openCsv}>Importar desde CSV / Excel</button>}
-          {!guided && (canEditCatalog || canRestock || can('edit_prices')) && <details className="catalog-tools" onKeyDown={e => { if (e.key === 'Escape') { e.currentTarget.open = false; e.currentTarget.querySelector('summary')?.focus(); } }}><summary>Más herramientas</summary><div className="catalog-tools-menu" onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
+          {!guided && (canEditCatalog || canRestock || can('edit_prices')) && <details className="catalog-tools" data-dropdown><summary>Más herramientas</summary><div className="catalog-tools-menu" data-dropdown-menu onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
           {store.depot_enabled && <small>CSV, facturas y remitos ingresan en salón. Para guardarlos en depósito, usá Reponer.</small>}
           <button
             type="button"
@@ -1710,17 +1751,35 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <Coins size={16} /> {costBulk ? 'Ajustar ganancia' : 'Ajustar precios'}
             </button>
           )}
+          {canSeeHistory && (
+            <button type="button" className="secondary-button" disabled={!products.length}
+              onClick={event => { evolutionTrigger.current = (event.currentTarget.closest('details')?.querySelector('summary') as HTMLElement | null) ?? event.currentTarget; setEvolutionOpen(true); }}
+              title="Índices de costo y precio por categoría, marca o proveedor">
+              <TrendingUp size={16} /> Evolución de precios
+            </button>
+          )}
           </div></details>}
-          {!guided && canEditCatalog && <button type="button" className="secondary-button" disabled={busy || !categories.length || adding || !!editing || catalogAddOpen}
-            onClick={event => { editorTrigger.current = event.currentTarget; setCatalogAddOpen(true); }}
-            title="Dar de alta productos que ya están en el catálogo global, por marca o categoría"><Globe size={16} /> Agregar desde catálogo global</button>}
-          {!guided && canEditCatalog && canCompose && <button type="button" className="secondary-button" disabled={busy || !categories.length}
-            onClick={event => { editorTrigger.current = event.currentTarget; setNewCompositeOpen(true); }}>Crear combo o paquete</button>}
-          {!guided && canEditCatalog && <button type="button" className="secondary-button ai-action" disabled={busy || !categories.length}
-            onClick={() => setIsInvoiceModalOpen(true)} title="Sacale una foto a la factura: se cargan los productos y el stock">
-            <AiIcon /><span>Recibir mercadería</span>
-          </button>}
-          <button
+          {/* Un solo punto de alta: la decisión es «cómo agrego», no cinco botones compitiendo. */}
+          {!guided && canEditCatalog && !adding && !editing && <details className="catalog-tools add-menu" data-dropdown>
+            <summary className="add-menu-summary" aria-disabled={busy || !categories.length || undefined}
+              onClick={event => { if (busy || !categories.length) event.preventDefault(); }}><Plus size={16} /> Agregar</summary>
+            <div className="catalog-tools-menu add-menu-list" data-dropdown-menu onClick={e => {
+              if (!(e.target as HTMLElement).closest('button')) return;
+              const details = e.currentTarget.closest('details');
+              editorTrigger.current = details?.querySelector('summary') ?? null;
+              if (details) details.open = false;
+            }}>
+              <button type="button" className="secondary-button" disabled={busy || !categories.length || !!sheet} onClick={() => setSheet({ mode: 'new' })}>
+                <PackagePlus size={16} /><span><strong>Productos</strong><small>Uno o varios en planilla, por unidad, display o bulto.</small></span></button>
+              <button type="button" className="secondary-button" disabled={busy || !categories.length || catalogAddOpen} onClick={() => setCatalogAddOpen(true)}>
+                <Globe size={16} /><span><strong>Desde el catálogo global</strong><small>Varios a la vez, por marca o categoría.</small></span></button>
+              {canCompose && <button type="button" className="secondary-button" disabled={busy || !categories.length} onClick={() => setNewCompositeOpen(true)}>
+                <Layers size={16} /><span><strong>Combo o paquete</strong><small>Un producto que se arma con otros.</small></span></button>}
+              <button type="button" className="secondary-button ai-action" disabled={busy || !categories.length} onClick={() => setIsInvoiceModalOpen(true)}>
+                <AiIcon /><span><strong>Desde una factura</strong><small>Sacale una foto: se cargan productos y stock.</small></span></button>
+            </div>
+          </details>}
+          {guided && <button
             type="button"
             className="primary-button"
             disabled={busy || !categories.length}
@@ -1728,7 +1787,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             onClick={event => { editorTrigger.current = event.currentTarget; startAdd(); }}
           >
             + Agregar producto
-          </button>
+          </button>}
         </div>
       </div>
 
@@ -1736,6 +1795,13 @@ ${JSON.stringify(catalogSample, null, 2)}`;
       {canDelete && deletionTarget && <ProductDeletionEditor key={deletionTarget.id} storeId={store.id} product={deletionTarget} busy={busy} run={run} active={active} onClose={closeDeletion} />}
       {canDelete && deletionHistoryOpen && <DeletedProducts storeId={store.id} busy={busy} run={run} active={active} onClose={closeDeletion} />}
       {compositionEditing && compositionTarget && <ProductCompositionEditor key={compositionTarget.id} storeId={store.id} priceStep={store.price_rounding ?? 0} defaultMarkup={store.default_markup} product={compositionTarget} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeCompositionEditor} newProduct={newCompositionProduct} canCreateCombo={canEditCatalog} />}
+      {canSeeHistory && evolutionOpen && <PriceEvolution key={store.id} storeId={store.id} products={products} categories={categories} onOpenProduct={openHistory} onClose={closeEvolution} />}
+      {canSeeHistory && historyTarget && <ProductPriceHistory key={historyTarget.id} storeId={store.id} product={historyTarget} onClose={closeHistory} />}
+      {canEditCatalog && sheet && <ProductSheet key={sheet.mode} mode={sheet.mode} store={store} products={products} categories={categories}
+        initial={sheet.mode === 'edit' ? sheet.products : undefined} busy={busy} run={run} operationBranch={operationBranch}
+        onOpenForm={() => { setSheet(null); startAdd(); }}
+        onOpenProductForm={product => { setSheet(null); startEdit(product); }}
+        onClose={() => { setSheet(null); requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); }); }} />}
       {canEditCatalog && catalogAddOpen && <CatalogProductAdder key={store.id} storeId={store.id} store={store} products={products} categories={categories} busy={busy} run={run} active={active} onClose={closeCatalogAdd} />}
       {canEditCatalog && canCompose && newCompositeOpen && <NewCompositeEditor key={store.id} storeId={store.id} priceStep={store.price_rounding ?? 0} defaultMarkup={store.default_markup} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeNewComposite} />}
       {canEditCatalog && (adding || editing) && (
@@ -2031,9 +2097,11 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             {formData.sellable && <div className="price-mode-row">
               {formData.markup !== null
                 ? <><small>El precio se calcula con el costo y la ganancia.</small>
-                  <button type="button" className="text-button" disabled={busy} onClick={() => void requestManualPrice()}>Poner precio manual</button></>
+                  <button type="button" className="text-button" disabled={busy} onClick={() => void requestManualPrice()}>Poner precio manual</button>
+                  {editing && <button type="button" className="text-button" onClick={event => openHistory(editing, event.currentTarget)}>Ver historial de precios</button>}</>
                 : <><small role="note">Precio manual: no sigue al costo.</small>
-                  <button type="button" className="text-button" disabled={busy || creatingComposition} onClick={useCostPrice}>Calcular por costo</button></>}
+                  <button type="button" className="text-button" disabled={busy || creatingComposition} onClick={useCostPrice}>Calcular por costo</button>
+                  {editing && <button type="button" className="text-button" onClick={event => openHistory(editing, event.currentTarget)}>Ver historial de precios</button>}</>}
             </div>}
             <label className="retail-price-field" hidden={!formData.sellable}>
               Precio en la lista principal por {saleUnit} ($)
@@ -2318,6 +2386,14 @@ ${JSON.stringify(catalogSample, null, 2)}`;
               <NumberInput name="pack_size" type="number" min="1" max="2147483647" step="1" value={formData.packSize} placeholder="Opcional, ej. 24" onValueChange={e => { invalidateProductSuggestions(); setFormData(prev => ({ ...prev, packSize: e })); }} />
               <small>El precio, el costo y el stock se expresan por {saleUnit}. El bulto se usa para convertir cantidades al reponer.</small>
             </label>
+            {displayReady && <label title="Cuántas unidades trae cada display. Un bulto con displays debe ser múltiplo del display.">
+              Unidades por display
+              <NumberInput name="display_size" type="number" min="1" max="2147483647" step="1" value={formData.displaySize} placeholder="Opcional, ej. 12"
+                onValueChange={e => { invalidateProductSuggestions(); setFormData(prev => ({ ...prev, displaySize: e })); }} />
+              {formData.displaySize.trim() && formData.packSize.trim() && Number(formData.packSize) % Number(formData.displaySize) !== 0
+                ? <small role="alert">El bulto ({formData.packSize} u.) tiene que ser múltiplo del display ({formData.displaySize} u.).</small>
+                : <small>{Number(formData.displaySize) > 1 && Number(formData.packSize) > 1 ? `Bulto = ${Number(formData.packSize) / Number(formData.displaySize)} displays × ${formData.displaySize} u.` : 'Permite reponer y cargar facturas por display.'}</small>}
+            </label>}
             <label>
               Avisar cuando queden
               <NumberInput
@@ -2505,10 +2581,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                 </div>
               </div>
 
-              {replenishmentPackSize > 1 && <label className="pack-mode-toggle">
-                <input type="checkbox" checked={replenishByPack} onChange={e => { setReplenishByPack(e.target.checked); setReplenishQty(1); }} />
-                Ingresar por bultos <small>({replenishmentPackSize} unidades por bulto)</small>
-              </label>}
+              {(replenishmentPackSize > 1 || replenishmentDisplaySize > 1) && <div className="replenish-presentation" role="group" aria-label="Ingresar por">
+                <span>Ingresar por</span>
+                <button type="button" className={replenishBy === 'unit' ? 'is-active' : ''} aria-pressed={replenishBy === 'unit'} onClick={() => changeReplenishBy('unit')}>Unidad</button>
+                {replenishmentDisplaySize > 1 && <button type="button" className={replenishBy === 'display' ? 'is-active' : ''} aria-pressed={replenishBy === 'display'} onClick={() => changeReplenishBy('display')}>Display <small>({replenishmentDisplaySize} u.)</small></button>}
+                {replenishmentPackSize > 1 && <button type="button" className={replenishBy === 'pack' ? 'is-active' : ''} aria-pressed={replenishBy === 'pack'} onClick={() => changeReplenishBy('pack')}>Bulto <small>({replenishmentDisplaySize > 1 && replenishmentPackSize % replenishmentDisplaySize === 0 ? `${replenishmentPackSize / replenishmentDisplaySize} displays × ${replenishmentDisplaySize} = ` : ''}{replenishmentPackSize} u.)</small></button>}
+              </div>}
               <div className="replenish-quick-buttons">
                 <span className="quick-label">Accesos rápidos:</span>
                 {(replenishByPack ? [1, 2, 3, 5, 10] : [6, 12, 24, 48, 100]).map((num) => (
@@ -2525,12 +2603,12 @@ ${JSON.stringify(catalogSample, null, 2)}`;
 
               <div className="replenish-input-grid">
                 <label>
-                  {replenishByPack ? 'Cantidad de bultos' : 'Cantidad a ingresar (+)'}
+                  {replenishBy === 'pack' ? 'Cantidad de bultos' : replenishBy === 'display' ? 'Cantidad de displays' : 'Cantidad a ingresar (+)'}
                   <NumberInput
                     type="number"
                     min="1"
                     step="1"
-                    max={Math.floor(1000000 / (replenishByPack ? replenishmentPackSize : 1))}
+                    max={Math.floor(1000000 / replenishSize)}
                     required
                     value={replenishQty}
                     onValueChange={(e) =>
@@ -2542,7 +2620,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   {replenishByPack && <small aria-live="polite">= {replenishmentUnits.toLocaleString('es-AR')} unidades individuales</small>}
                 </label>
                 <label hidden={!receiving}>
-                  Nuevo costo unitario ($) <small>{canEditCatalog ? '(opcional)' : '(reservado a administración)'}</small>
+                  {replenishBy === 'pack' ? 'Nuevo costo por bulto ($)' : replenishBy === 'display' ? 'Nuevo costo por display ($)' : 'Nuevo costo unitario ($)'} <small>{canEditCatalog ? '(opcional)' : '(reservado a administración)'}</small>
                   <NumberInput
                     type="number"
                     min="0"
@@ -2553,7 +2631,8 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     placeholder="0.00"
                   />
                 </label>
-                {receiving && <ProductMarginStatus price={replenishTarget.sale_markup == null ? replenishTarget.price : draftMarkupPrice(canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost, String(replenishTarget.sale_markup), replenishTarget.price_step ?? 0) ?? 0} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) : replenishTarget.cost} threshold={store.low_margin_threshold} />}
+                {receiving && replenishByPack && canEditCatalog && replenishCost.trim() && <small className="replenish-unit-cost" aria-live="polite">= ${(Math.round(Number(replenishCost) / replenishSize * 100) / 100).toLocaleString('es-AR')} por unidad</small>}
+                {receiving && <ProductMarginStatus price={replenishTarget.sale_markup == null ? replenishTarget.price : draftMarkupPrice(canEditCatalog && replenishCost.trim() ? Number(replenishCost) / replenishSize : replenishTarget.cost, String(replenishTarget.sale_markup), replenishTarget.price_step ?? 0) ?? 0} cost={canEditCatalog && replenishCost.trim() ? Number(replenishCost) / replenishSize : replenishTarget.cost} threshold={store.low_margin_threshold} />}
               </div>
 
               <div className="replenish-input-grid" hidden={!receiving}>
@@ -2742,23 +2821,26 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                                 +{r.quantityAdded} u.
                               </strong>
                               {r.warning && <small className="pack-conversion-warning"><AlertTriangle size={14} aria-hidden="true" />{r.warning}</small>}
-                              {unitsPerPack(r.product?.pack_size) > 1 && <label className="csv-pack-choice">
+                              {(unitsPerPack(r.product?.pack_size) > 1 || (r.product?.display_size ?? 0) > 1) && <label className="csv-pack-choice">
                                 Cantidad original: {r.rawQuantity}
-                                <select aria-label={`Interpretar cantidad de ${r.rawName}, fila ${i + 1}`} value={r.interpretedAsPacks ? 'packs' : 'units'} disabled={busy || isProcessingCsv} onChange={e => {
-                                  const asPacks = e.target.value === 'packs';
+                                <select aria-label={`Interpretar cantidad de ${r.rawName}, fila ${i + 1}`} value={r.interpretedAsPacks ? 'packs' : r.interpretedAsDisplays ? 'displays' : 'units'} disabled={busy || isProcessingCsv} onChange={e => {
+                                  const as = e.target.value as 'units' | 'displays' | 'packs';
                                   setCsvParseResult(previous => {
                                     if (!previous) return previous;
                                     const validRows = previous.validRows.map((row, index) => {
                                       if (index !== i) return row;
                                       const raw = row.rawQuantity ?? row.quantityAdded;
-                                      const size = unitsPerPack(row.product?.pack_size);
-                                      return { ...row, interpretedAsPacks: asPacks, quantityAdded: raw * (asPacks ? size : 1), warning: asPacks ? `Se interpretó como bultos y se multiplicó por pack_size (${size}): ${raw} × ${size} = ${raw * size} unidades.` : undefined };
+                                      const size = as === 'packs' ? unitsPerPack(row.product?.pack_size) : as === 'displays' ? Math.max(1, row.product?.display_size ?? 1) : 1;
+                                      const name = as === 'packs' ? 'bultos' : 'displays';
+                                      return { ...row, interpretedAsPacks: as === 'packs', interpretedAsDisplays: as === 'displays', quantityAdded: raw * size,
+                                        warning: as !== 'units' ? `Se interpretó como ${name} de ${size} unidades: ${raw} × ${size} = ${raw * size} unidades.` : undefined };
                                     });
                                     return { ...previous, validRows, totalUnitsToAdd: validRows.reduce((sum, row) => sum + row.quantityAdded, 0) };
                                   });
                                 }}>
                                   <option value="units">Unidades individuales</option>
-                                  <option value="packs" disabled={(r.rawQuantity || 0) * unitsPerPack(r.product?.pack_size) > 1000000}>Bultos ×{r.product?.pack_size}</option>
+                                  {(r.product?.display_size ?? 0) > 1 && <option value="displays" disabled={(r.rawQuantity || 0) * (r.product?.display_size ?? 1) > 1000000}>Displays ×{r.product?.display_size}</option>}
+                                  {unitsPerPack(r.product?.pack_size) > 1 && <option value="packs" disabled={(r.rawQuantity || 0) * unitsPerPack(r.product?.pack_size) > 1000000}>Bultos ×{r.product?.pack_size}</option>}
                                 </select>
                               </label>}
                             </td>
@@ -3473,15 +3555,19 @@ ${JSON.stringify(catalogSample, null, 2)}`;
             aria-label="Buscar productos por nombre, código o categoría"
           />
         </label>
+        {canEditCatalog && !guided && <button type="button" className="secondary-button" disabled={busy || !filtered.length || productEditing}
+          title={filtered.length > 300 ? 'Se abren los primeros 300 de la lista: filtrá para elegir otros.' : 'Editar los productos de la lista como planilla'}
+          onClick={event => { editorTrigger.current = event.currentTarget; setSheet({ mode: 'edit', products: filtered.slice(0, 300) }); }}>
+          <Pencil size={15} /> Editar en planilla{filtered.length < products.length ? ` (${Math.min(filtered.length, 300)})` : ''}</button>}
         <button className="secondary-button" aria-pressed={stockFilter} onClick={() => { setStockFilter(!stockFilter); setPage(1); }}><Filter size={15} />{stockFilter ? 'Mostrando stock bajo' : 'Stock bajo'}</button>
         <button className="secondary-button" aria-pressed={lowMarginFilter} onClick={() => { setLowMarginFilter(!lowMarginFilter); setPage(1); }}><Filter size={15} />{lowMarginFilter ? 'Mostrando bajo margen' : 'Bajo margen'}</button>
         {canDelete && <button type="button" className="secondary-button" disabled={busy} title="Ver productos eliminados" onClick={event => { editorTrigger.current = event.currentTarget; setDeletionHistoryOpen(true); }}><Trash2 size={13} aria-hidden="true" /><span>Eliminados</span></button>}
-        <details className="catalog-columns-picker" ref={columnsDetailsRef}>
+        <details className="catalog-columns-picker" ref={columnsDetailsRef} data-dropdown data-dropdown-keep-open>
           <summary className="secondary-button" title="Configurar columnas visibles en la tabla">
             <SlidersHorizontal size={14} aria-hidden="true" />
             <span>Columnas</span>
           </summary>
-          <div className="catalog-columns-dropdown" role="menu">
+          <div className="catalog-columns-dropdown" role="menu" data-dropdown-menu>
             <div className="catalog-columns-dropdown-header">
               <span>Columnas visibles</span>
               <button
@@ -3540,7 +3626,10 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                     <td className="product-col">
                       <div className="product-title-wrap">
                         <span className="product-emoji" aria-hidden="true">{p.emoji || "📦"}</span>
-                        <strong className="product-name-text">{p.name}</strong>
+                        {canSeeHistory
+                          ? <button type="button" className="product-name-button" title="Ver historial de precios" aria-label={`${p.name}: ver historial de precios`}
+                            onClick={event => openHistory(p, event.currentTarget)}><strong className="product-name-text">{p.name}</strong></button>
+                          : <strong className="product-name-text">{p.name}</strong>}
                       </div>
                       <div className="product-meta-row">
                         {!visibleColumns.code && <small className="product-code">{p.code}</small>}
@@ -3586,7 +3675,11 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                   )}
                   {visibleColumns.price && (
                     <td data-label="Precio" className="price-col">
-                      {p.price_pending ? 'Sin precio' : p.sellable === false ? 'Solo insumo' : `$${p.price.toLocaleString("es-AR")}`}
+                      <span className="price-col-value">
+                        {p.price_pending ? 'Sin precio' : p.sellable === false ? 'Solo insumo' : `$${p.price.toLocaleString("es-AR")}`}
+                        {canSeeHistory && <button type="button" className="icon-button price-history-button" title="Historial de precios"
+                          aria-label={`Historial de precios de ${p.name}`} onClick={event => openHistory(p, event.currentTarget)}><TrendingUp size={15} /></button>}
+                      </span>
                     </td>
                   )}
                   {visibleColumns.margin && (
@@ -3648,7 +3741,7 @@ ${JSON.stringify(catalogSample, null, 2)}`;
                       type="button"
                       className="action-icon-btn action-btn-edit"
                       disabled={busy}
-                      onClick={event => { editorTrigger.current = event.currentTarget; startEdit(p); }}
+                      onClick={event => { editorTrigger.current = event.currentTarget; if (hasComposition(p) || guided) startEdit(p); else setSheet({ mode: 'edit', products: [p] }); }}
                       hidden={!canEditCatalog}
                       aria-label={`Editar ${p.name}`}
                       title="Editar producto"
@@ -4630,7 +4723,7 @@ export function StoreSettings({
     void supabase.rpc('retail_is_platform_admin').then(({ data, error }) => { if (current) setIsPlatformAdmin(!error && data === true); });
     return () => { current = false; };
   }, [userId]);
-  const view = ['general', 'locations', 'team', 'activity', 'more', 'app', 'ledgers', ...(isPlatformAdmin ? ['catalog'] : [])].includes(requestedView) ? requestedView : 'general';
+  const view = ['general', 'config', 'locations', 'team', 'activity', 'more', 'app', 'ledgers', ...(isPlatformAdmin ? ['catalog'] : [])].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
   const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -4655,7 +4748,7 @@ export function StoreSettings({
   };
   const [appVisited, setAppVisited] = useState(view === 'app');
   useEffect(() => { if (view === 'app') setAppVisited(true); }, [view]);
-  const isDirectPrimary = ['general', 'locations', 'team', 'activity'].includes(view);
+  const isDirectPrimary = ['general', 'config', 'locations', 'team', 'activity'].includes(view);
   const isMoreSub = ['more', 'app', 'ledgers', 'catalog'].includes(view);
   const primaryView = isDirectPrimary ? view : (isMoreSub ? 'more' : '');
   if (role !== 'owner' && role !== 'admin') return null;
@@ -4664,6 +4757,7 @@ export function StoreSettings({
       <SectionNav name="settings" label="Secciones de Mi comercio" value={primaryView} onChange={setView} disabled={busy}
         sections={[
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
+          { id: 'config', label: 'Configuración', icon: <Settings2 size={16} /> },
           { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
           { id: 'team', label: 'Personas con acceso', icon: <Users size={16} /> },
           { id: 'activity', label: 'Actividad', icon: <History size={16} /> },
@@ -4701,7 +4795,6 @@ export function StoreSettings({
           <div className="more-settings-container">
             {/* Columna Izquierda: Opciones y herramientas + Cuenta y comercios */}
             <div className="more-settings-column">
-              <DepotSettings key={`depot-${store.id}`} store={store} busy={busy} run={run} active={view === 'more'} />
               {/* Tarjeta 1: Opciones y herramientas */}
               <div className="store-settings-card">
                 <div className="store-settings-header">
@@ -5010,8 +5103,9 @@ export function StoreSettings({
       </div>
       <div className="settings-data settings-data-wide" hidden={view !== 'general'} role="tabpanel" id="settings-panel-general" aria-labelledby="settings-tab-general">
         <StoreGeneralSettingsForm store={store} busy={busy} run={run} />
-        <BillingSettings key={`billing-${store.id}`} store={store} busy={busy} run={run} active={active && view === 'general'} />
-        <MarginThresholdSettings key={`margin-${store.id}`} store={store} busy={busy} run={run} /><PriceRoundingSettings key={`pricing-${store.id}`} store={store} busy={busy} run={run} />
+      </div>
+      <div className="settings-data settings-data-wide" hidden={view !== 'config'} role="tabpanel" id="settings-panel-config" aria-labelledby="settings-tab-config">
+        <StoreConfiguration store={store} busy={busy} run={run} active={active && view === 'config'} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
         <div className="locations-settings-container is-map">

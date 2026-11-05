@@ -41,7 +41,8 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
       setResult({ ...summary, sales: Number(summary.sales), returns: Number(summary.returns || 0), cost: Number(summary.cost), expenses: Number(summary.expenses), shared_expenses: Number(summary.shared_expenses) });
       setExpenses(rows); setPrevious(last);
       // Sin la actualización de conteos, Ganancias sigue funcionando sin esa línea.
-      // Comisiones de cobro: salen solo de las liquidaciones cargadas en Conciliación, no de los gastos.
+      // Comisiones de cobro: salen de las liquidaciones cargadas antes en Conciliación (ya no se cargan nuevas;
+      // desde ese cambio las comisiones se registran como gasto).
       const { data: feeData, error: feeError } = await supabase.rpc('retail_month_commissions', { p_store: storeId, p_month: `${month}-01` });
       setFees(feeError || !feeData ? null : { commission: Number(feeData.commission), taxes: Number(feeData.taxes) });
       setStock(await stockCounts.losses(storeId, month).then(row => ({ ...row, losses: Number(row.losses), surplus: Number(row.surplus) })).catch(() => null));

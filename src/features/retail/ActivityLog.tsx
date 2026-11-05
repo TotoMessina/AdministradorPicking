@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ArrowRight, Loader2, RefreshCw } from 'lucide-react';
+import { ArrowRight, Download, Loader2, RefreshCw, X } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { errorMessage, type Branch } from './api';
 import './activity-log.css';
@@ -83,46 +83,86 @@ export function ActivityLog({ storeId, branches, active }: { storeId: string; br
     return groups;
   }, []);
 
+  const time = (at: string) => new Date(at).toLocaleTimeString('es-AR', { timeZone: zone, hour: '2-digit', minute: '2-digit' });
+  const filtersOn = Boolean(kind || actor || branch || search);
+  const clearFilters = () => { setKind(''); setActor(''); setBranch(''); setQuery(''); setSearch(''); };
+  const columns = branches.length > 1 ? 6 : 5;
+  const download = () => {
+    const quote = (value: string) => `"${value.replace(/"/g, '""')}"`;
+    const lines = [['Fecha', 'Hora', 'Tipo', 'Qué pasó', 'Detalle', 'Cambios', 'Quién', 'Sucursal'].join(';'),
+      ...items.map(item => [new Date(item.at).toLocaleDateString('es-AR', { timeZone: zone }), time(item.at), kinds[item.kind] || item.kind, item.title, item.detail || '',
+        changes(item).map(key => `${labels[key] || key}: ${item.before && key in item.before ? show(key, item.before[key]) : ''}${item.before && key in item.before && item.after && key in item.after ? ' → ' : ''}${item.after && key in item.after ? show(key, item.after[key]) : ''}`).join(' | '),
+        item.actor_email || 'Sistema', item.branch_id ? branchName(item.branch_id) : ''].map(value => quote(String(value))).join(';'))];
+    // BOM para que Excel abra bien los acentos.
+    const url = URL.createObjectURL(new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = `actividad_${period.from}_${period.to}.csv`;
+    document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+  };
+
   return <section className="retail-panel activity-log" aria-labelledby="activity-title">
     <div className="section-heading"><div><h2 id="activity-title">Actividad</h2>
       <p>Quién hizo qué y cuándo. Es de solo lectura: nadie puede editar ni borrar lo registrado.</p></div>
-      <button type="button" className="secondary-button" disabled={loading || !active} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button>
+      <div className="activity-actions">
+        <button type="button" className="secondary-button" disabled={!items.length} onClick={download}><Download size={15} /> Descargar CSV</button>
+        <button type="button" className="secondary-button" disabled={loading || !active} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button>
+      </div>
     </div>
-    <form className="activity-filters" onSubmit={event => { event.preventDefault(); setSearch(query.trim()); }}>
-      <label>Período<select value={preset} onChange={event => setPreset(event.target.value as typeof preset)}>
-        <option value="today">Hoy</option><option value="week">Últimos 7 días</option><option value="month">Últimos 30 días</option><option value="custom">Elegir fechas</option>
-      </select></label>
-      {preset === 'custom' && <>
+
+    <div className="activity-toolbar">
+      <div className="activity-segmented" role="group" aria-label="Período">
+        {([['today', 'Hoy'], ['week', '7 días'], ['month', '30 días'], ['custom', 'Elegir fechas']] as const).map(([id, label]) =>
+          <button key={id} type="button" className={preset === id ? 'is-active' : ''} aria-pressed={preset === id} onClick={() => setPreset(id)}>{label}</button>)}
+      </div>
+      {preset === 'custom' && <div className="activity-dates">
         <label>Desde<input type="date" value={custom.from} max={custom.to} onChange={event => setCustom(previous => ({ ...previous, from: event.target.value }))} /></label>
         <label>Hasta<input type="date" value={custom.to} min={custom.from} onChange={event => setCustom(previous => ({ ...previous, to: event.target.value }))} /></label>
-      </>}
-      <label>Qué<select value={kind} onChange={event => setKind(event.target.value)}><option value="">Todo</option>{Object.entries(kinds).map(([id, label]) => <option key={id} value={id}>{label}</option>)}</select></label>
+      </div>}
+    </div>
+    <div className="activity-kinds" role="group" aria-label="Tipo de actividad">
+      <button type="button" className={!kind ? 'is-active' : ''} aria-pressed={!kind} onClick={() => setKind('')}>Todo</button>
+      {Object.entries(kinds).map(([id, label]) => <button key={id} type="button" className={`kind-${id} ${kind === id ? 'is-active' : ''}`} aria-pressed={kind === id} onClick={() => setKind(kind === id ? '' : id)}>{label}</button>)}
+    </div>
+    <form className="activity-filters" onSubmit={event => { event.preventDefault(); setSearch(query.trim()); }}>
       <label>Quién<select value={actor} onChange={event => setActor(event.target.value)}><option value="">Todas las personas</option>{people.map(person => <option key={person.id} value={person.id}>{person.email}</option>)}</select></label>
       {branches.length > 1 && <label>Sucursal<select value={branch} onChange={event => setBranch(event.target.value)}><option value="">Todas</option>{branches.map(row => <option key={row.id} value={row.id}>{row.name}</option>)}</select></label>}
       <label className="activity-search">Buscar<span><input type="search" value={query} onChange={event => setQuery(event.target.value)} placeholder="Producto, motivo, caja…" /><button className="secondary-button" disabled={loading}>Buscar</button></span></label>
+      {filtersOn && <button type="button" className="text-button activity-clear" onClick={clearFilters}><X size={14} /> Limpiar filtros</button>}
     </form>
+
     {error && <p role="alert" className="error-banner">{error}</p>}
+    {!error && items.length > 0 && <p className="activity-count" role="status">{items.length} {items.length === 1 ? 'movimiento' : 'movimientos'}{next ? ' (hay más antiguos)' : ''}</p>}
     {!loading && !items.length && !error && <p className="activity-empty">No hay actividad con estos filtros.</p>}
-    {days.map(group => <div key={group.label} className="activity-day">
-      <h3>{group.label}</h3>
-      <ol className="activity-list">{group.rows.map((item, index) => <li key={`${item.at}-${index}`}>
-        <div className="activity-row-head">
-          <time dateTime={item.at}>{new Date(item.at).toLocaleTimeString('es-AR', { timeZone: zone, hour: '2-digit', minute: '2-digit' })}</time>
-          <span className={`activity-kind kind-${item.kind}`}>{kinds[item.kind] || item.kind}</span>
-          <strong>{item.title}</strong>
-        </div>
-        <small>{item.actor_email || 'Sistema'}{item.branch_id ? ` · ${branchName(item.branch_id)}` : ''}</small>
-        {item.detail && <p className="activity-detail">{item.detail}</p>}
-        {changes(item).length > 0 && <dl className="activity-changes">{changes(item).map(key => <div key={key}>
-          <dt>{labels[key] || key}</dt>
-          <dd>{item.before && key in item.before && <span className="activity-before">{show(key, item.before[key])}</span>}
-            {item.before && key in item.before && item.after && key in item.after && <ArrowRight size={12} aria-label="pasó a" />}
-            {item.after && key in item.after && <span className="activity-after">{show(key, item.after[key])}</span>}</dd>
-        </div>)}</dl>}
-      </li>)}</ol>
-    </div>)}
+    {items.length > 0 && <div className="activity-table" role="region" aria-label="Actividad" tabIndex={0}>
+      <table>
+        <thead><tr>
+          <th scope="col" className="col-time">Hora</th>
+          <th scope="col" className="col-kind">Tipo</th>
+          <th scope="col">Qué pasó</th>
+          <th scope="col">Cambio</th>
+          <th scope="col" className="col-who">Quién</th>
+          {branches.length > 1 && <th scope="col">Sucursal</th>}
+        </tr></thead>
+        {days.map(group => <tbody key={group.label}>
+          <tr className="activity-day-row"><th scope="colgroup" colSpan={columns}>{group.label}</th></tr>
+          {group.rows.map((item, index) => <tr key={`${item.at}-${index}`}>
+            <td className="col-time"><time dateTime={item.at}>{time(item.at)}</time></td>
+            <td className="col-kind"><span className={`activity-kind kind-${item.kind}`}>{kinds[item.kind] || item.kind}</span></td>
+            <td className="col-what"><strong>{item.title}</strong>{item.detail && <small>{item.detail}</small>}</td>
+            <td className="col-change">{changes(item).length ? <ul>{changes(item).map(key => <li key={key}>
+              <span className="activity-field">{labels[key] || key}:</span>{' '}
+              {item.before && key in item.before && <span className="activity-before">{show(key, item.before[key])}</span>}
+              {item.before && key in item.before && item.after && key in item.after && <ArrowRight size={12} aria-label="pasó a" />}
+              {item.after && key in item.after && <span className="activity-after">{show(key, item.after[key])}</span>}
+            </li>)}</ul> : <span className="activity-muted">—</span>}</td>
+            <td className="col-who" title={item.actor_email || 'Sistema'}>{item.actor_email || 'Sistema'}</td>
+            {branches.length > 1 && <td>{item.branch_id ? branchName(item.branch_id) : '—'}</td>}
+          </tr>)}
+        </tbody>)}
+      </table>
+    </div>}
     {loading && <p role="status"><Loader2 size={15} className="spin" /> Cargando…</p>}
-    {next && !loading && <button type="button" className="secondary-button" onClick={() => void load(next)}>Ver más antiguos</button>}
-    <small className="activity-note">Los cambios de precios, productos, permisos y configuración se conservan 24 meses. Las ventas, cajas, plata y stock quedan en su propio historial y no se borran.</small>
+    {next && !loading && <button type="button" className="secondary-button activity-more" onClick={() => void load(next)}>Ver más antiguos</button>}
+    <small className="activity-note">Los cambios de precios, productos, permisos y configuración se conservan 24 meses. Las ventas, cajas, plata y stock quedan en su propio historial y no se borran. El CSV incluye lo que se ve en pantalla: con «Ver más antiguos» se suma al archivo.</small>
   </section>;
 }

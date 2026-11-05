@@ -34,6 +34,8 @@ export interface CsvParsedRow {
   errorMessage?: string;
   rawQuantity?: number;
   interpretedAsPacks?: boolean;
+  /** La cantidad del archivo se tomó como displays (display_size unidades cada uno). */
+  interpretedAsDisplays?: boolean;
   warning?: string;
 }
 

@@ -170,7 +170,14 @@ export function InvoiceReviewTable(props: Props) {
                   aria-invalid={badQuantity || undefined} onValueChange={value => onUpdate(index, { qty: Number(value) * it.unitsPerPack })} />
                   {badQuantity && <small className="invoice-sheet-warning">Revisar cantidad</small>}</td>
                 <td><NumberInput aria-label={`${label}: unidades por bulto`} data-column="pack" min={1} max={999}
-                  value={it.unitsPerPack} disabled={skipped} onValueChange={value => props.onPackChange(index, Number(value))} /></td>
+                  value={it.unitsPerPack} disabled={skipped} onValueChange={value => props.onPackChange(index, Number(value))} />
+                  {/* Presentaciones guardadas en el producto: la factura puede venir por display o por bulto. */}
+                  {product && !skipped && ((product.display_size ?? 0) > 1 || (product.pack_size ?? 0) > 1) && <div className="invoice-sheet-presentations">
+                    {(product.display_size ?? 0) > 1 && <button type="button" aria-pressed={it.unitsPerPack === product.display_size}
+                      aria-label={`${label}: la factura viene por display de ${product.display_size} unidades`} onClick={() => props.onPackChange(index, product.display_size!)}>Display ×{product.display_size}</button>}
+                    {(product.pack_size ?? 0) > 1 && <button type="button" aria-pressed={it.unitsPerPack === product.pack_size}
+                      aria-label={`${label}: la factura viene por bulto de ${product.pack_size} unidades`} onClick={() => props.onPackChange(index, product.pack_size!)}>Bulto ×{product.pack_size}</button>}
+                  </div>}</td>
                 <td className="invoice-sheet-total"><strong>{addsStock ? it.qty.toLocaleString('es-AR') : '0'}</strong>
                   {product && <small title="Stock actual → stock tras aplicar la acción elegida">
                     {product.stock.toLocaleString('es-AR')}{addsStock ? ` → ${(product.stock + it.qty).toLocaleString('es-AR')}` : ' actual'}

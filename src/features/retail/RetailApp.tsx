@@ -83,9 +83,12 @@ import { BranchComparison } from './BranchComparison';
 import { BankReconciliation } from './BankReconciliation';
 import type { Customer } from './api';
 import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
+import { installDropdownMenus } from '../../components/dropdownMenus';
 type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "customers" | "settings" | "ai" | "remito";
 export function RetailApp({ session }: { session: Session }) {
   useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
+  // Desplegables: uno por vez, por encima de las barras fijas y dentro de la pantalla.
+  useEffect(() => installDropdownMenus(), []);
   const [stores, setStores] = useState<Store[]>([]);
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(true);
@@ -1258,6 +1261,7 @@ function Workspace({
                     cashierMode={!manager}
                     allowIncome={can('cash_income')}
                     allowWithdrawal={can('cash_withdrawal')}
+                    canUseAccounts={can('manage_funds')}
                     occupiedByOther={occupiedByOther}
                     onSell={() => setTab('pos')}
                     key={registerId + shift?.id}

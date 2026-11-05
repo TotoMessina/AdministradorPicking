@@ -162,9 +162,9 @@ La migración `supabase/migrations/202610260003_billing_fields.sql` (consolidada
 
 - **Panel de monitoreo en Mi Comercio ([BillingSettings.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/BillingSettings.tsx))**:
   - Al tener la facturación activa, muestra un monitor en vivo con el Punto de Venta fiscal, la denominación y número del último comprobante emitido correlativo con su fecha/hora, y el estado de la cola de emisión (comprobantes pendientes o con error).
-  - Consulta los contadores solo al estar visible Mi comercio → Datos del comercio. Al salir, cancela las solicitudes del monitor; los borradores fiscales siguen montados. El estado de credenciales tampoco se consulta desde esa pantalla oculta.
+  - Consulta los contadores solo al estar visible Mi comercio → Configuración. Al salir, cancela las solicitudes del monitor; los borradores fiscales siguen montados. El estado de credenciales tampoco se consulta desde esa pantalla oculta.
   - Un error o una espera de más de 15 segundos muestra **Reintentar consulta**. Los errores devueltos por Supabase y los contadores ausentes no se convierten en cero ni en “Al día”. Reintentar actualiza únicamente la lectura del monitor; no emite facturas ni cambia estados fiscales.
-  - Guía manual pendiente en **http://localhost:3001/**: en Vender, con la pestaña Red abierta, no deben iniciarse las tres consultas de métricas fiscales; al abrir Datos del comercio con facturación activa, debe aparecer una carga y luego datos válidos. Simular falta de conexión en datos de prueba: muestra error y reintento, sin “Al día”; restablecer conexión y reintentar: recupera métricas sin duplicar comprobantes. Navegar con un borrador fiscal: conserva sus campos. No se probaron estos recorridos en navegador/backend.
+  - Guía manual pendiente en **http://localhost:3001/**: en Vender, con la pestaña Red abierta, no deben iniciarse las tres consultas de métricas fiscales; al abrir Configuración con facturación activa, debe aparecer una carga y luego datos válidos. Simular falta de conexión en datos de prueba: muestra error y reintento, sin “Al día”; restablecer conexión y reintentar: recupera métricas sin duplicar comprobantes. Navegar con un borrador fiscal: conserva sus campos. No se probaron estos recorridos en navegador/backend.
 - **Métricas fiscales en el Historial de Ventas ([SalesOverview.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/SalesOverview.tsx))**:
   - Tarjetas de resumen con el importe total facturado con CAE y la cantidad de comprobantes emitidos en el período consultado.
   - Alerta visible y conteo cuando existen comprobantes pendientes o con error.
@@ -307,7 +307,11 @@ En http://localhost:3001/, con un comercio de pruebas con dos sucursales.
 
 ## Actividad: quién hizo qué
 
-En **Mi comercio → Actividad**, solo dueños y administradores, se ve en un solo lugar quién hizo qué. Cada acción muestra fecha y hora, persona, sucursal cuando corresponde, y el antes y después. Se filtra por período, tipo, persona, sucursal y texto. Es de solo lectura: nadie puede editar ni borrar lo registrado.
+En **Mi comercio → Actividad**, solo dueños y administradores, se ve en un solo lugar quién hizo qué. Se ve como **tabla agrupada por día**, con columnas Hora, Tipo, Qué pasó (con su detalle o motivo), Cambio (antes tachado → después), Quién y Sucursal (si hay más de una). El encabezado y el día quedan fijos al desplazarse.
+
+- **Filtros:** período con botones (Hoy, 7 días, 30 días o Elegir fechas), tipo con un toque en su chip (tocarlo de nuevo lo quita), persona, sucursal y texto. **Limpiar filtros** vuelve a ver todo.
+- **Descargar CSV:** baja lo que se ve, con fecha, hora, tipo, qué pasó, detalle, cambios, quién y sucursal, para abrir en Excel. «Ver más antiguos» suma más filas a la tabla y al archivo.
+Es de solo lectura: nadie puede editar ni borrar lo registrado.
 
 | Qué | Dónde queda registrado |
 | --- | --- |
@@ -341,7 +345,9 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 5. **Permisos:** dar acceso a una persona y cambiar un perfil. Esperado: aparecen en Permisos.
 6. **Filtros:** filtrar por persona, por tipo y buscar un texto del motivo.
 7. **Solo lectura:** desde el SQL Editor, intentar `delete from retail_audit_log;`. Esperado: error «solo lectura».
-8. **Celular:** los filtros se apilan y cada acción se lee sin desplazamiento lateral.
+8. **Tabla y filtros:** elegir **7 días** y tocar el chip **Precios**. Esperado: solo cambios de precio, agrupados por día, con el antes tachado y el después en negrita. Tocar **Precios** otra vez vuelve a Todo. **Limpiar filtros** quita persona, sucursal y búsqueda.
+9. **CSV:** tocar **Descargar CSV**. Esperado: abre en Excel con acentos y una fila por movimiento, con los cambios en una columna.
+10. **Celular:** los botones de período ocupan el ancho, los filtros se apilan y la tabla se desplaza dentro de su recuadro, sin mover la página.
 
 <a id="catalogo-global"></a>
 ## Catálogo global

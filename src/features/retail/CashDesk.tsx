@@ -47,6 +47,7 @@ export function CashDesk({
   onCloseRequestHandled,
   allowIncome = true,
   allowWithdrawal = true,
+  canUseAccounts = false,
   canRefund = false,
 }: {
   storeId: string;
@@ -73,6 +74,7 @@ export function CashDesk({
   onCloseRequestHandled?: () => void;
   allowIncome?: boolean;
   allowWithdrawal?: boolean;
+  canUseAccounts?: boolean;
   canRefund?: boolean;
 }) {
   const taskId = useId();
@@ -367,7 +369,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             <div className="cash-task-panels" ref={taskPanel}>
               <section className="retail-panel cash-task-panel" role="tabpanel" id={`${taskName}-panel-movement`} aria-labelledby={`${taskName}-tab-movement`} hidden={currentTask !== 'movement' || (!allowIncome && !allowWithdrawal)}>
                 <h2 tabIndex={-1}>{allowIncome && allowWithdrawal ? 'Registrar ingreso o retiro' : allowIncome ? 'Registrar ingreso' : 'Registrar retiro'}</h2>
-                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} active={active && currentTask === 'movement'} run={run} onBusyChange={setMovementBusy} allowIncome={allowIncome} allowWithdrawal={allowWithdrawal} />
+                <CashMovementForm key={shift.id} store={storeId} shift={shift.id} busy={busy} active={active && currentTask === 'movement'} run={run} onBusyChange={setMovementBusy} allowIncome={allowIncome} allowWithdrawal={allowWithdrawal} canUseAccounts={canUseAccounts} />
               </section>
               <section className="retail-panel cash-task-panel" role="tabpanel" id={`${taskName}-panel-close`} aria-labelledby={`${taskName}-tab-close`} hidden={currentTask !== 'close'}>
                 <h2 tabIndex={-1}>Cerrar la caja</h2>

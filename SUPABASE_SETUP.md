@@ -186,9 +186,9 @@ La URL `retail_sales?select=id&store_id=...&billing_status=in.(pending,retry)` c
 
 Se corrigió el monitor en el frontend: solo consulta en la sección visible, cancela sus solicitudes al salir y limita la espera de sus tres lecturas a 15 segundos. Revisa los errores de cada respuesta de Supabase antes de mostrar contadores y ofrece reintento explícito; ya no presenta respuestas fallidas como cero pendientes. La consulta de credenciales queda limitada a la sección activa. No cambia la emisión, la cola offline, los datos fiscales ni la autorización del backend; tampoco modifica SQL por este timeout.
 
-Diagnóstico manual pendiente: comparar en la pestaña Red la carga de productos/ventas con la apertura de Datos del comercio. Si fallan todas las solicitudes al dominio del proyecto, revisar conexión y salud del proyecto antes de tocar schema. Si únicamente fallan los conteos, revisar la solicitud, logs y el plan de consulta con el rol correspondiente; no desactivar RLS ni crear índices duplicados a ciegas. Un `select 1` correcto desde SQL Editor solo comprueba ese canal, no certifica el acceso REST del navegador.
+Diagnóstico manual pendiente: comparar en la pestaña Red la carga de productos/ventas con la apertura de Mi comercio → Configuración. Si fallan todas las solicitudes al dominio del proyecto, revisar conexión y salud del proyecto antes de tocar schema. Si únicamente fallan los conteos, revisar la solicitud, logs y el plan de consulta con el rol correspondiente; no desactivar RLS ni crear índices duplicados a ciegas. Un `select 1` correcto desde SQL Editor solo comprueba ese canal, no certifica el acceso REST del navegador.
 
-Validación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0 después del ajuste. No se ejecutó SQL remoto, build ni otras pruebas automatizadas. Guía manual en **http://localhost:3001/**: permanecer en Vender (el monitor oculto no consulta); abrir Datos del comercio (consulta una vez); simular falta de red (error sin métricas inventadas); salir/volver (borrador conservado); reconectar y usar Reintentar consulta (datos válidos sin emitir comprobantes). La conectividad real, RLS y navegador siguen pendientes.
+Validación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0 después del ajuste. No se ejecutó SQL remoto, build ni otras pruebas automatizadas. Guía manual en **http://localhost:3001/**: permanecer en Vender (el monitor oculto no consulta); abrir Mi comercio → Configuración (consulta una vez); simular falta de red (error sin métricas inventadas); salir/volver (borrador conservado); reconectar y usar Reintentar consulta (datos válidos sin emitir comprobantes). La conectividad real, RLS y navegador siguen pendientes.
 
 ## Principal por porcentaje: efectos de la actualización 202610270002
 
@@ -513,3 +513,37 @@ En la app, el administrador de plataforma lo ve en **Mi comercio → Más opcion
 ## Ajuste masivo de ganancia
 
 **Pendiente de aplicar:** [202611030008_bulk_markup_adjust.sql](supabase/migrations/202611030008_bulk_markup_adjust.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030007_cost_based_pricing.sql`. Agrega `retail_bulk_update_pricing`, que cambia la ganancia sobre costo (y si se pide, el redondeo) de hasta 500 productos por vez, con el permiso de editar precios. La base recalcula cada precio. Se omiten, informándolos, los productos que cambiaron de precio en otro dispositivo, los que no tienen costo y los que ya no se venden. No cambia datos al aplicarla.
+
+## Historial de precios
+
+**Pendiente de aplicar:** [202611040001_product_price_history.sql](supabase/migrations/202611040001_product_price_history.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611030008_bulk_markup_adjust.sql`. Agrega `retail_product_price_history`, de solo lectura y de a un producto por vez, para quienes editan precios o productos. Junta los cambios de `retail_audit_log`, los costos de `retail_stock_movements` y, para el tiempo anterior al registro, el precio más cobrado por día en `retail_sales`. No cambia datos.
+
+## Evolución de precios por grupo
+
+**Pendiente de aplicar:** [202611040002_price_index_by_group.sql](supabase/migrations/202611040002_price_index_by_group.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040001_product_price_history.sql`. Agrega `retail_price_index`, de solo lectura, para quienes editan precios o productos. Calcula índices de costo y precio (base 100) y la ganancia promedio por categoría, marca o proveedor, ponderados por unidades vendidas, a partir de `retail_audit_log`, `retail_stock_movements` y `retail_sales`. No cambia datos.
+
+## Movimientos por medio en la conciliación
+
+**Pendiente de aplicar:** [202611040003_reconciliation_sales_detail.sql](supabase/migrations/202611040003_reconciliation_sales_detail.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040002_price_index_by_group.sql`. Agrega `retail_reconciliation_detail`, de solo lectura y con el mismo permiso que la conciliación. Devuelve las ventas, devoluciones y cobros de fiado de un medio en el período, con las mismas reglas que `retail_bank_reconciliation`, así la suma coincide con «Vendido». No cambia datos.
+
+## Conciliación como informe para el contador
+
+**Pendiente de aplicar:** [202611040004_reconciliation_totals.sql](supabase/migrations/202611040004_reconciliation_totals.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040003_reconciliation_sales_detail.sql`. Reemplaza `retail_reconciliation_detail` para devolver los totales separados (ventas, devoluciones y cobros de fiado, con cantidades) y aceptar un límite de hasta 20.000 movimientos al exportar. La app ya no carga liquidaciones. `retail_bank_deposits` y sus funciones quedan en la base sin cambios, y las comisiones ya cargadas siguen contando en Ganancias. No cambia datos.
+
+## Presentaciones de producto (display)
+
+**Pendiente de aplicar:** [202611040005_product_presentations.sql](supabase/migrations/202611040005_product_presentations.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040004_reconciliation_totals.sql`. Agrega `retail_products.display_size` (unidades por display, opcional), con la condición de que el bulto (`pack_size`) sea múltiplo del display. El stock y el costo siguen por unidad. Los productos existentes quedan sin display y no cambian.
+
+## Cuentas de banco y billeteras
+
+**Pendiente de aplicar:** [202611040006_money_accounts.sql](supabase/migrations/202611040006_money_accounts.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040005_product_presentations.sql`.
+
+- **Tablas:** `retail_money_accounts`, con las cuentas, y `retail_money_account_methods`, con qué medio de pago cae en qué cuenta y desde cuándo.
+- **Saldo de cada cuenta:** usa `retail_location_funds`, igual que sucursales y depósito, más lo cobrado por sus medios. Lo cobrado lo calcula `retail_private.money_account_inflow`, con las mismas reglas que la conciliación.
+- **Funciones:** reemplaza `retail_move_location_funds` para aceptar cuentas y controlar su saldo disponible. Agrega `retail_money_accounts_summary`, `retail_save_money_account` y `retail_archive_money_account`, con el permiso `manage_funds`.
+- No cambia ventas, turnos, arqueos ni saldos existentes.
+
+## Retiros con su origen en la conciliación
+
+**Pendiente de aplicar:** [202611040007_money_movements_report.sql](supabase/migrations/202611040007_money_movements_report.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040006_money_accounts.sql`. Agrega `retail_money_movements_report`, de solo lectura y con el mismo permiso que la conciliación. Devuelve las cuentas, con lo cobrado en el período y su saldo, y los retiros e ingresos de las cajas junto con los movimientos de sucursales, depósito y cuentas, con su origen y su destino. No cambia datos.
+

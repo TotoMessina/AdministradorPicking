@@ -112,3 +112,8 @@ html[data-mobile-keyboard] .invoice-modal .invoice-sheet-scroll { max-height: ca
   .invoice-modal .invoice-sheet-table .invoice-sheet-product { width: 130px; }
   .invoice-modal .invoice-sheet-scroll { scroll-padding-left: 140px; }
 }
+/* Presentaciones guardadas del producto vinculado: display o bulto a un toque. */
+.invoice-sheet-presentations { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; }
+.invoice-sheet-presentations button { min-height: 26px; padding: 0 8px; border: 1px solid var(--tone-border); border-radius: 999px; background: var(--tone-surface); color: inherit; font: inherit; font-size: 11px; cursor: pointer; white-space: nowrap; }
+.invoice-sheet-presentations button[aria-pressed="true"] { border-color: var(--tone-accent); background: var(--tone-accent-soft); font-weight: 700; }
+.invoice-sheet-presentations button:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 1px; }

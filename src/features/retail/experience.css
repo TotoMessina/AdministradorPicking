@@ -1026,3 +1026,20 @@ button, summary { user-select: none; }
 @media print {
   .workspace-context, .section-nav, .sale-options { display: none !important; }
 }
+/* Menú «+ Agregar» de Productos: mismas piezas que Más herramientas, con el resumen como acción principal. */
+.add-menu > .add-menu-summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; border-color: var(--tone-accent); background: var(--tone-accent); color: white; font-weight: 700; }
+.add-menu > .add-menu-summary::-webkit-details-marker { display: none; }
+.add-menu > .add-menu-summary[aria-disabled] { opacity: .55; cursor: not-allowed; }
+.add-menu > .add-menu-summary:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; }
+.add-menu-list { width: 300px; display: grid; gap: 2px; }
+.add-menu-list > .secondary-button { display: flex; align-items: flex-start; gap: 10px; min-height: 52px; padding: 8px 10px; }
+.add-menu-list > .secondary-button > span { display: grid; gap: 2px; }
+.add-menu-list small { font-size: 12px; font-weight: 400; color: var(--tone-muted); }
+@media (max-width: 560px) { .add-menu-list { width: min(300px, calc(100vw - 32px)); } }
+/* Reponer: presentación con la que se ingresa (unidad, display o bulto). */
+.replenish-presentation { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 4px 0 8px; font-size: 13px; }
+.replenish-presentation > span { color: var(--tone-muted); margin-right: 4px; }
+.replenish-presentation button { min-height: 36px; padding: 0 12px; border: 1px solid var(--tone-border); border-radius: 999px; background: var(--tone-surface); color: inherit; font: inherit; cursor: pointer; }
+.replenish-presentation button.is-active { border-color: var(--tone-accent); background: var(--tone-accent-soft); font-weight: 700; }
+.replenish-presentation button:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; }
+.replenish-presentation small, .replenish-unit-cost { color: var(--tone-muted); font-size: 12px; font-weight: 400; }

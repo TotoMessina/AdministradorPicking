@@ -14,6 +14,9 @@ export interface FundTransfer {
   status?: 'done' | 'in_transit' | 'received' | 'returned'; received_amount?: number | null; received_email?: string | null; received_at?: string | null; review_note?: string | null;
 }
 export interface LocationFund { location: string; balance: number }
+export type AccountMethod = 'QR' | 'Debito' | 'Credito' | 'Transferencia';
+/** Cuenta de banco o billetera: saldo = movimientos manuales + lo cobrado por sus medios (202611040006). */
+export interface MoneyAccount { id: string; name: string; kind: 'bank' | 'wallet' | 'other'; methods: AccountMethod[]; manual: number; inflow: number; balance: number }
 export interface OpenShiftCash { location: string; cash: number; shifts: number }
 async function ready(requireClean: boolean) {
   if (navigator.onLine === false) throw new Error('Necesitás conexión para operar entre ubicaciones. Los borradores se conservan.');
@@ -38,6 +41,16 @@ export const locationTransfers = {
     rpc('retail_move_location_funds', { p_store: store, p_from: from, p_to: to, p_amount: amount, p_note: note, p_request: request }, false),
   receiveFunds: (store: string, id: string, amount: number, note: string) => rpc('retail_receive_location_funds', { p_store: store, p_id: id, p_amount: amount, p_note: note || null }, false),
   returnFunds: (store: string, id: string, note: string) => rpc('retail_return_location_funds', { p_store: store, p_id: id, p_note: note }, false),
+  /** Sin la actualización 202611040006 devuelve null: la pantalla sigue con sucursales y depósito y lo avisa. */
+  async accounts(store: string): Promise<MoneyAccount[] | null> {
+    if (navigator.onLine === false) throw new Error('Conectate para consultar las cuentas.');
+    const { data, error } = await supabase.rpc('retail_money_accounts_summary', { p_store: store });
+    if (error) { if (['PGRST202', '42883'].includes(error.code)) return null; throw error; }
+    return ((data || []) as MoneyAccount[]).map(row => ({ ...row, manual: Number(row.manual), inflow: Number(row.inflow), balance: Number(row.balance) }));
+  },
+  saveAccount: (store: string, id: string, name: string, kind: MoneyAccount['kind'], methods: AccountMethod[]) =>
+    rpc('retail_save_money_account', { p_store: store, p_id: id, p_name: name, p_kind: kind, p_methods: methods }, false),
+  archiveAccount: (store: string, id: string) => rpc('retail_archive_money_account', { p_store: store, p_id: id }, false),
   async stockHistory(store: string, before?: { created_at: string; id: string }) {
     if (navigator.onLine === false) throw new Error('Conectate para consultar el historial de transferencias.');
     let query = supabase.from('retail_location_transfers').select('*').eq('store_id', store).order('created_at', { ascending: false }).order('id', { ascending: false }).limit(100);

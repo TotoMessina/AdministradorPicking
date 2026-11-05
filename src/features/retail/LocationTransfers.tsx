@@ -6,7 +6,8 @@ import { hasComposition } from '../../services/productComposition';
 import { normalizeSupplierText } from '../../services/supplierMappingService';
 import { errorMessage, retail, type Store, type Branch, type Product } from './api';
 import type { Run } from './Management';
-import { locationTransfers, type LocationTransfer, type FundTransfer, type LocationFund, type OpenShiftCash } from './locationTransferApi';
+import { locationTransfers, type LocationTransfer, type FundTransfer, type LocationFund, type OpenShiftCash, type MoneyAccount } from './locationTransferApi';
+import { MoneyAccountEditor, accountKinds, accountMethodLabels } from './MoneyAccountEditor';
 import { TransferFlowMap, type TransferMapRoute } from './TransferFlowMap';
 import { StockBadge } from './StockBadge';
 import { FundsInTransit } from './FundsInTransit';
@@ -51,6 +52,9 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const [funds, setFunds] = useState<LocationFund[]>([]);
   const [fundsLoaded, setFundsLoaded] = useState(false);
   const [openCash, setOpenCash] = useState<OpenShiftCash[]>([]);
+  const [accounts, setAccounts] = useState<MoneyAccount[]>([]);
+  const [accountEditor, setAccountEditor] = useState<MoneyAccount | 'new' | null>(null);
+  const [accountsMissing, setAccountsMissing] = useState(false);
   const [stockError, setStockError] = useState('');
   const [fundError, setFundError] = useState('');
   const [formError, setFormError] = useState('');
@@ -71,7 +75,11 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const form = useRef<HTMLFormElement>(null);
   const disabled = busy || !!saving || !active;
   const places = useMemo(() => [{ id: 'depot', name: 'Depósito' }, ...branches], [branches]);
-  const placeName = (id: string | null) => id === null ? 'Exterior' : places.find(place => place.id === id)?.name || 'Sucursal anterior';
+  // En Dinero, las cuentas de banco o billetera son una ubicación más.
+  const moneyPlaces = useMemo(() => [...places, ...accounts.map(account => ({ id: account.id, name: account.name }))], [places, accounts]);
+  const accountOf = (id: string) => accounts.find(account => account.id === id);
+  const balanceOf = (id: string) => accountOf(id)?.balance ?? (funds.find(fund => fund.location === id)?.balance || 0);
+  const placeName = (id: string | null) => id === null ? 'Exterior' : moneyPlaces.find(place => place.id === id)?.name || 'Ubicación anterior';
   const catalog = useMemo(() => products.filter(product => product.active !== false && !hasComposition(product)), [products]);
   const byId = useMemo(() => new Map(catalog.map(product => [product.id, product])), [catalog]);
   const searchText = normalizeSupplierText(query);
@@ -106,10 +114,12 @@ export function LocationTransfers({ store, branches, products, run, busy, active
       canFunds ? locationTransfers.fundHistory(store.id) : Promise.resolve([] as FundTransfer[]),
       canStock ? locationTransfers.stockSummary(store.id) : Promise.resolve([] as { location: string; quantity: number }[]),
       canFunds ? locationTransfers.openShiftCash(store.id) : Promise.resolve([] as OpenShiftCash[]),
+      canFunds ? locationTransfers.accounts(store.id) : Promise.resolve([] as MoneyAccount[] | null),
     ]);
     if (turn !== generation.current) return;
-    const [stock, legacy, balances, cash, inventory, shiftCash] = results;
+    const [stock, legacy, balances, cash, inventory, shiftCash, moneyAccounts] = results;
     setOpenCash(shiftCash.status === 'fulfilled' ? shiftCash.value : []);
+    if (moneyAccounts.status === 'fulfilled') { setAccounts(moneyAccounts.value ?? []); setAccountsMissing(moneyAccounts.value === null); }
     if (stock.status === 'fulfilled') {
       const older: HistoryStock[] = legacy.status === 'fulfilled' ? legacy.value.map(row => ({ ...row, from_location: row.from_branch_id, to_location: row.to_branch_id, legacy: true })) : [];
       setStockHistory([...stock.value, ...older].sort((a, b) => b.created_at.localeCompare(a.created_at)));
@@ -194,7 +204,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     } else {
       const from = fundKind === 'income' ? null : fundFrom, to = fundKind === 'withdrawal' ? null : fundTo;
       const numeric = Number(amount);
-      if (!canFunds || (from !== null && !places.some(place => place.id === from)) || (to !== null && !places.some(place => place.id === to)) || from === to || !Number.isFinite(numeric) || numeric <= 0 || numeric > 999999999999.99 || !fundNote.trim()) { setFormError('Elegí ubicaciones diferentes, un importe positivo y el motivo.'); return; }
+      if (!canFunds || (from !== null && !moneyPlaces.some(place => place.id === from)) || (to !== null && !moneyPlaces.some(place => place.id === to)) || from === to || !Number.isFinite(numeric) || numeric <= 0 || numeric > 999999999999.99 || !fundNote.trim()) { setFormError('Elegí ubicaciones diferentes, un importe positivo y el motivo.'); return; }
       const signature = JSON.stringify([store.id, from, to, amount, fundNote.trim()]);
       if (fundRequest.current.signature !== signature) fundRequest.current = { signature, id: randomUUID() };
       if (await execute('money', () => locationTransfers.moveFunds(store.id, from, to, numeric, fundNote, fundRequest.current.id), 'Movimiento de fondos guardado')) {
@@ -215,7 +225,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   // Entre ubicaciones, el destino recién suma cuando se confirma lo que llegó.
   const fundPreview = [fundKind === 'income' ? null : { id: fundFrom, sign: -1 }, fundKind === 'withdrawal' || fundKind === 'transfer' ? null : { id: fundTo, sign: 1 }]
     .filter((row): row is { id: string; sign: number } => !!row?.id)
-    .map(row => { const before = funds.find(fund => fund.location === row.id)?.balance || 0; return { id: row.id, before, after: before + row.sign * (Number(amount) || 0) }; });
+    .map(row => { const before = balanceOf(row.id); return { id: row.id, before, after: before + row.sign * (Number(amount) || 0) }; });
   const clearSelection = () => { setSelectedNode(''); setSelectedRoute(''); setVisible(25); };
   const routes = useMemo(() => {
     const grouped = new Map<string, TransferMapRoute>();
@@ -268,8 +278,8 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     setComposing(true); setFormError('');
     requestAnimationFrame(() => { const field = form.current?.querySelector<HTMLElement>('select, input'); if (field?.getClientRects().length) field.focus(); });
   };
-  const locationSelect = (label: string, value: string, setValue: (value: string) => void, exclude?: string) => <label>{label}<select required value={value} onChange={event => setValue(event.target.value)}>
-    <option value="">Elegir ubicación</option>{places.filter(place => place.id !== exclude).map(place => <option key={place.id} value={place.id}>{place.name}</option>)}
+  const locationSelect = (label: string, value: string, setValue: (value: string) => void, exclude?: string, list = places) => <label>{label}<select required value={value} onChange={event => setValue(event.target.value)}>
+    <option value="">Elegir ubicación</option>{list.filter(place => place.id !== exclude).map(place => <option key={place.id} value={place.id}>{place.name}{accountOf(place.id) ? ` (${accountKinds[accountOf(place.id)!.kind].toLowerCase()})` : ''}</option>)}
   </select></label>;
 
   return <section className="retail-panel location-transfers" aria-labelledby="location-transfers-title">
@@ -292,20 +302,29 @@ export function LocationTransfers({ store, branches, products, run, busy, active
       onRoute={id => { setSelectedRoute(previous => previous === id ? '' : id); setSelectedNode(''); setVisible(25); }} onClear={clearSelection} />
     </details>}
     {mode === 'money' && !composing && <FundsInTransit storeId={store.id} transfers={fundHistory} placeName={placeName} run={run} disabled={disabled} onChanged={load} />}
+    {mode === 'money' && !composing && accountEditor && <MoneyAccountEditor key={accountEditor === 'new' ? 'new' : accountEditor.id} storeId={store.id}
+      account={accountEditor === 'new' ? undefined : accountEditor} accounts={accounts} disabled={disabled} execute={execute} onClose={() => setAccountEditor(null)} />}
+    {mode === 'money' && !composing && !accountEditor && <div className="money-accounts-bar">
+      <p>Sumá tus cuentas de banco o billeteras virtuales: lo cobrado por QR, tarjetas o transferencias entra solo y desde ahí registrás retiros, pagos o envíos a una sucursal.</p>
+      {accountsMissing ? <p role="status" className="info-banner">Para usar cuentas falta aplicar la actualización 202611040006 en Supabase.</p>
+        : <button type="button" className="secondary-button" disabled={disabled} onClick={() => setAccountEditor('new')}><Plus size={15} /> Cuenta</button>}
+    </div>}
     {mode === 'money' && !composing && <div className="location-fund-sheet" role="region" aria-label="Saldos por ubicación" tabIndex={0}>
       <table>
         <caption className="sr-only">Saldo de cada ubicación y efectivo en cajas abiertas</caption>
         <thead><tr><th scope="col">Ubicación</th><th scope="col" className="is-number">Plata</th><th scope="col" className="is-number">En cajas abiertas</th><th scope="col">Acciones</th></tr></thead>
-        <tbody>{places.map(place => {
-          const balance = funds.find(fund => fund.location === place.id)?.balance || 0, open = openCash.find(row => row.location === place.id);
-          return <tr key={place.id}>
-            <th scope="row">{place.name}</th>
-            <td className={`is-number${balance < 0 ? ' is-negative' : ''}`}>{fundsLoaded ? money(balance) : '—'}</td>
+        <tbody>{moneyPlaces.map(place => {
+          const account = accountOf(place.id);
+          const balance = balanceOf(place.id), open = openCash.find(row => row.location === place.id);
+          return <tr key={place.id} className={account ? 'is-account' : undefined}>
+            <th scope="row">{place.name}{account && <small className="money-account-tag">{accountKinds[account.kind]}{account.methods.length ? ` · cobra ${account.methods.map(method => accountMethodLabels[method]).join(', ')}` : ' · sin cobros asignados'}</small>}</th>
+            <td className={`is-number${balance < 0 ? ' is-negative' : ''}`}>{fundsLoaded ? money(balance) : '—'}{account && account.inflow !== 0 && <small className="money-account-tag">{money(account.inflow)} cobrados</small>}</td>
             <td className="is-number">{open ? `${money(open.cash)} · ${open.shifts} ${open.shifts === 1 ? 'caja' : 'cajas'}` : '—'}</td>
             <td><div className="location-fund-actions">
               <button type="button" className="secondary-button" disabled={disabled} onClick={() => openFund('income', place.id)}>Ingreso</button>
               <button type="button" className="secondary-button" disabled={disabled || balance <= 0} onClick={() => openFund('transfer', place.id)}>Enviar</button>
               <button type="button" className="secondary-button" disabled={disabled || balance <= 0} onClick={() => openFund('withdrawal', place.id)}>Salida</button>
+              {account && <button type="button" className="text-button" disabled={disabled} onClick={() => setAccountEditor(account)}>Editar</button>}
             </div></td>
           </tr>;
         })}</tbody>
@@ -372,15 +391,15 @@ export function LocationTransfers({ store, branches, products, run, busy, active
         </> : <>
           <label>Movimiento<select value={fundKind} onChange={event => setFundKind(event.target.value as typeof fundKind)}><option value="transfer">Enviar a otra ubicación</option><option value="income">Ingreso externo</option><option value="withdrawal">Salida externa</option></select></label>
           <div className="location-transfer-route">
-            {fundKind !== 'income' && locationSelect('Desde', fundFrom, setFundFrom)}
+            {fundKind !== 'income' && locationSelect('Desde', fundFrom, setFundFrom, undefined, moneyPlaces)}
             {fundKind === 'transfer' && <ArrowRight size={18} aria-hidden="true" />}
-            {fundKind !== 'withdrawal' && locationSelect('Hacia', fundTo, setFundTo, fundKind === 'transfer' ? fundFrom : undefined)}
+            {fundKind !== 'withdrawal' && locationSelect('Hacia', fundTo, setFundTo, fundKind === 'transfer' ? fundFrom : undefined, moneyPlaces)}
           </div>
           <label>Importe ($)<NumberInput min={0.01} max={999999999999.99} step={0.01} required value={amount} onValueChange={setAmount} /></label>
           {fundsLoaded && Number(amount) > 0 && fundPreview.length > 0 && <ul className="location-fund-preview" aria-label="Cómo queda después">{fundPreview.map(row => <li key={row.id}><span>{placeName(row.id)}</span><span>{money(row.before)} <ArrowRight size={13} aria-hidden="true" /> <strong className={row.after < 0 ? 'is-negative' : undefined}>{money(row.after)}</strong></span></li>)}</ul>}
           <label>Motivo<textarea required value={fundNote} maxLength={1000} rows={2} onChange={event => setFundNote(event.target.value)} /></label>
           {fundKind === 'transfer' && <p>La plata sale ahora del origen y queda «en camino». Entra al destino cuando alguien confirma cuánto llegó.</p>}
-          <p>Al cerrar una caja, su sucursal suma lo que se generó: plata contada menos plata con la que abrió.</p>
+          <p>Al cerrar una caja, su sucursal suma lo que se generó: plata contada menos plata con la que abrió. Las cuentas suman solas lo cobrado por sus medios de pago.</p>
         </>}
       </fieldset>
       {formError && <p role="alert" className="error-banner">{formError}</p>}

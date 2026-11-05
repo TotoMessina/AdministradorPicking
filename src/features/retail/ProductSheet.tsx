@@ -1,0 +1,315 @@
+import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
+import { AlertTriangle, ChevronDown, ChevronUp, FileText, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { NumberInput } from '../../components/NumberInput';
+import { askConfirm } from '../../components/ConfirmHost';
+import { useToast } from '../../context/ToastContext';
+import { draftMarkupPrice, markupFromPrice } from '../../services/productSalePrice';
+import { describe, presentationLabels, sizesOf, storedSizes, unitCost, unitsIn, type Presentation, type PresentationSizes } from '../../services/productPresentation';
+import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
+import { hasComposition } from '../../services/productComposition';
+import { ProductRoundingField } from './ProductMarkupField';
+import { errorMessage, retail, type Category, type Product, type Store } from './api';
+import type { Run } from './Management';
+import './product-sheet.css';
+
+interface Row extends PresentationSizes {
+  key: string; original?: Product;
+  code: string; name: string; categoryId: string;
+  qty: string; cost: string; markup: string; manual: boolean; price: string; minStock: string;
+  brand: string; supplier: string; supplierCode: string; expiry: string; sellable: boolean; unitType: string; emoji: string; rounding: number | null;
+  open: boolean; error: string;
+}
+type Field = keyof Row;
+
+let counter = 0;
+const nextKey = () => `row-${Date.now()}-${counter++}`;
+const money = (value: number) => `$${value.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+const unitTypes: Record<string, string> = { unit: 'Unidad', kg: 'Kilo', lt: 'Litro', pack: 'Pack', box: 'Caja' };
+
+/**
+ * Planilla para dar de alta o editar productos en filas, como la revisión de facturas.
+ * La cantidad y el costo se cargan por la presentación elegida (unidad, display o bulto) y se guardan por unidad.
+ * Guarda cada fila con el mismo retail.saveProduct de la ficha, así mantiene sucursal, precio por costo y permisos.
+ */
+export function ProductSheet({ mode, store, products, categories, initial, busy, run, operationBranch, onOpenForm, onOpenProductForm, onClose }: {
+  mode: 'new' | 'edit'; store: Store; products: Product[]; categories: Category[]; initial?: Product[];
+  busy: boolean; run: Run; operationBranch?: string; onOpenForm?: () => void;
+  /** Abre la ficha completa de un producto (stock, etiquetas, combos), para lo que la planilla no tiene. */
+  onOpenProductForm?: (product: Product) => void; onClose: () => void;
+}) {
+  const { notify } = useToast();
+  const storeStep = store.price_rounding ?? 0;
+  const defaultMarkup = store.default_markup != null ? String(store.default_markup) : '';
+  const blank = (): Row => ({ key: nextKey(), code: '', name: '', categoryId: defaultProductCategory(categories), presentation: 'unit', displaysPerPack: '', unitsPerDisplay: '',
+    qty: '', cost: '', markup: defaultMarkup, manual: false, price: '', minStock: '4', brand: '', supplier: '', supplierCode: '', expiry: '', sellable: true,
+    unitType: 'unit', emoji: '📦', rounding: null, open: false, error: '' });
+  const fromProduct = (product: Product): Row => {
+    const sizes = sizesOf(product);
+    const units = unitsIn(sizes) || 1;
+    return { key: product.id, original: product, code: product.code, name: product.name, categoryId: product.categoryId, ...sizes,
+      qty: '', cost: product.cost > 0 ? String(Math.round(product.cost * units * 100) / 100) : '',
+      markup: product.sale_markup != null ? String(product.sale_markup) : product.price_pending ? defaultMarkup : '',
+      manual: product.sale_markup == null && !product.price_pending && product.sellable !== false, price: product.price_pending ? '' : String(product.price),
+      minStock: String(product.minStock), brand: product.brand || '', supplier: product.supplier || '', supplierCode: product.supplierCode || '',
+      expiry: product.expiry_date || '', sellable: product.sellable !== false || product.price_pending === true, unitType: product.unitType || 'unit',
+      emoji: product.emoji || '📦', rounding: product.price_rounding ?? null, open: false, error: '' };
+  };
+  const editable = (initial || []).filter(product => !hasComposition(product));
+  const skippedCombos = (initial || []).length - editable.length;
+  const [rows, setRows] = useState<Row[]>(() => mode === 'edit' ? editable.map(fromProduct) : [blank()]);
+  const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
+  const table = useRef<HTMLTableElement>(null);
+  const lookups = useRef(new Set<string>());
+
+  const update = (key: string, change: Partial<Row>) => setRows(previous => {
+    const next = previous.map(row => row.key === key ? { ...row, ...change, error: '' } : row);
+    // Como en una planilla: escribir en la última fila agrega otra vacía debajo.
+    const last = next.at(-1);
+    if (mode === 'new' && last && (last.code || last.name)) next.push(blank());
+    return next;
+  });
+  const remove = (key: string) => setRows(previous => { const next = previous.filter(row => row.key !== key); return next.length || mode === 'edit' ? next : [blank()]; });
+
+  const calc = (row: Row) => {
+    const units = unitsIn(row);
+    const cost = Number(row.cost);
+    const perUnit = units && row.cost.trim() && cost >= 0 ? unitCost(cost, units) : null;
+    const price = !row.sellable ? 0 : row.manual ? (Number(row.price) > 0 ? Number(row.price) : null)
+      : perUnit && perUnit > 0 ? draftMarkupPrice(perUnit, row.markup, row.rounding ?? storeStep) : null;
+    const stock = mode === 'new' && units ? Math.round(Number(row.qty || 0)) * units : null;
+    return { units, perUnit, price, stock };
+  };
+  const filled = rows.filter(row => mode === 'edit' || row.code.trim() || row.name.trim());
+
+  const changed = (row: Row) => {
+    if (!row.original) return true;
+    const fresh = fromProduct(row.original);
+    const fields: Field[] = ['code', 'name', 'categoryId', 'presentation', 'displaysPerPack', 'unitsPerDisplay', 'cost', 'markup', 'manual', 'price', 'minStock', 'brand', 'supplier', 'supplierCode', 'expiry', 'sellable', 'unitType', 'emoji', 'rounding'];
+    return fields.some(field => String(row[field]) !== String(fresh[field]));
+  };
+  const pending = mode === 'edit' ? filled.filter(changed) : filled;
+
+  const validate = (row: Row): string => {
+    const { units, perUnit, price } = calc(row);
+    const code = row.code.trim();
+    if (!row.name.trim()) return 'Falta el nombre.';
+    if (row.name.trim().length > 160) return 'El nombre admite hasta 160 caracteres.';
+    if (!code) return 'Falta el código.';
+    if (products.some(product => product.code.trim() === code && product.id !== row.original?.id)) return `El código ${code} ya es de otro producto.`;
+    if (filled.some(other => other.key !== row.key && other.code.trim() === code)) return `El código ${code} está repetido en la planilla.`;
+    if (!row.categoryId) return 'Elegí la categoría.';
+    if (!units) return row.presentation === 'display' ? 'Completá cuántas unidades trae el display.' : 'Completá displays por bulto y unidades por display.';
+    if (mode === 'new' && row.qty.trim() && !(Number.isInteger(Number(row.qty)) && Number(row.qty) >= 0)) return 'La cantidad debe ser un número entero.';
+    if (row.cost.trim() && !(Number(row.cost) >= 0)) return 'Revisá el costo.';
+    if (!Number.isInteger(Number(row.minStock)) || Number(row.minStock) < 0) return 'Revisá el mínimo.';
+    if (row.sellable && price === null) return row.manual ? 'Escribí el precio.' : !(perUnit && perUnit > 0) ? 'Cargá el costo para calcular el precio, o pedí precio manual.' : 'Revisá la ganancia.';
+    return '';
+  };
+
+  const requestManual = async (row: Row) => {
+    if (!await askConfirm('¿Poner el precio a mano? Deja de seguir al costo: si el costo cambia, el precio no se actualiza.')) return;
+    const { price } = calc(row);
+    update(row.key, { manual: true, price: price ? String(price) : row.price });
+  };
+  const useCost = (row: Row) => { const { perUnit } = calc(row); update(row.key, { manual: false, markup: perUnit && Number(row.price) > 0 ? markupFromPrice(Number(row.price), perUnit) || defaultMarkup : row.markup || defaultMarkup }); };
+
+  // Código leído o escrito: si el catálogo global lo conoce y la fila está vacía, completa nombre, marca y categoría.
+  const lookup = async (row: Row) => {
+    const code = row.code.trim();
+    if (mode !== 'new' || !/^\d{8,14}$/.test(code) || row.name.trim() || lookups.current.has(code)) return;
+    lookups.current.add(code);
+    try {
+      const found = await retail.lookupEan(code);
+      if (!found.found || !found.name) return;
+      setRows(previous => previous.map(item => item.key === row.key && !item.name.trim() ? { ...item, name: found.name!, brand: item.brand || found.brand || '',
+        emoji: found.emoji || item.emoji, categoryId: resolveProductCategory(categories, found.category_suggestion, found.name) || item.categoryId } : item));
+    } catch { /* La búsqueda es una ayuda: sin conexión se sigue cargando a mano. */ }
+  };
+
+  const moveInColumn = (event: KeyboardEvent<HTMLElement>) => {
+    if (!['Enter', 'ArrowDown', 'ArrowUp'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey) return;
+    if (event.currentTarget instanceof HTMLSelectElement && event.key !== 'Enter') return;
+    const cell = event.currentTarget.closest('td');
+    const tr = cell?.parentElement;
+    if (!cell || !tr) return;
+    event.preventDefault();
+    const column = cell.dataset.col;
+    let next = (event.key === 'ArrowUp' ? tr.previousElementSibling : tr.nextElementSibling) as HTMLElement | null;
+    while (next) {
+      const target = next.querySelector<HTMLElement>(`td[data-col="${column}"] input:not(:disabled), td[data-col="${column}"] select:not(:disabled)`);
+      if (target) { target.focus(); if (target instanceof HTMLInputElement) target.select(); return; }
+      next = (event.key === 'ArrowUp' ? next.previousElementSibling : next.nextElementSibling) as HTMLElement | null;
+    }
+  };
+  // El lector de códigos termina con Enter: pasa al nombre de la misma fila.
+  const codeKey = (event: KeyboardEvent<HTMLInputElement>, row: Row) => {
+    if (event.key !== 'Enter') { moveInColumn(event); return; }
+    event.preventDefault();
+    void lookup(row);
+    event.currentTarget.closest('tr')?.querySelector<HTMLInputElement>('td[data-col="name"] input')?.focus();
+  };
+
+  const save = async () => {
+    const checked = pending.map(row => ({ row, error: validate(row) }));
+    if (checked.some(item => item.error)) {
+      setRows(previous => previous.map(row => ({ ...row, error: checked.find(item => item.row.key === row.key)?.error || '' })));
+      const first = checked.find(item => item.error)!;
+      table.current?.querySelector<HTMLElement>(`tr[data-key="${first.row.key}"] input`)?.focus();
+      return;
+    }
+    if (!checked.length) return;
+    setSaving({ done: 0, total: checked.length });
+    const failed = new Map<string, string>();
+    let saved = 0;
+    const ran = await run(async () => {
+      for (const { row } of checked) {
+        const { perUnit, price, stock } = calc(row);
+        const sizes = storedSizes(row, row.original);
+        try {
+          await retail.saveProduct(store.id, {
+            id: row.original?.id || '', categoryId: row.categoryId, code: row.code.trim(), name: row.name.trim(),
+            price: row.sellable ? price || 0 : 0, sale_markup: row.sellable && !row.manual ? Number(row.markup) : null, sellable: row.sellable,
+            cost: perUnit ?? row.original?.cost ?? 0, stock: row.original ? row.original.stock : stock ?? 0, minStock: Number(row.minStock), emoji: row.emoji.trim() || '📦', active: true,
+            brand: row.brand.trim() || undefined, supplier: row.supplier.trim() || undefined, supplierCode: row.supplierCode.trim() || undefined,
+            tags: row.original?.tags || [], unitType: row.unitType, pack_size: sizes.pack_size, display_size: sizes.display_size,
+            expiry_date: row.expiry || null, stock_components: row.original?.stock_components,
+            ...(store.price_rounding !== undefined ? { price_rounding: row.rounding } : {}),
+            ...(row.original?.price_pending ? { price_pending: false } : {}),
+          }, Boolean(row.original), row.original?.stock, operationBranch);
+          saved += 1;
+          const code = row.code.trim();
+          if (!row.original && /^\d{8,14}$/.test(code)) {
+            const category = categories.find(item => item.id === row.categoryId);
+            void retail.contributeCatalog(code, row.name.trim(), row.brand.trim() || undefined, category?.canonicalName || category?.name || 'Varios', row.emoji, 'community');
+          }
+        } catch (e) {
+          const message = errorMessage(e);
+          failed.set(row.key, /display_size|schema cache/.test(message) ? 'Falta aplicar la actualización 202611040005 en Supabase.' : message);
+        }
+        setSaving(current => current && { ...current, done: current.done + 1 });
+      }
+    });
+    setSaving(null);
+    // Otra operación en curso: no se guardó nada y la planilla queda como estaba.
+    if (!ran && !saved && !failed.size) return;
+    if (saved) notify(failed.size ? 'warning' : 'success', `${saved} ${saved === 1 ? 'producto guardado' : 'productos guardados'}${failed.size ? `. ${failed.size} con error quedaron en la planilla.` : '.'}`);
+    if (!failed.size) { onClose(); return; }
+    setRows(previous => previous.filter(row => failed.has(row.key) || (!pending.includes(row) && mode === 'edit')).map(row => ({ ...row, error: failed.get(row.key) || '' })));
+  };
+
+  const errors = rows.filter(row => row.error);
+  const totals = useMemo(() => ({ rows: pending.length }), [pending.length]);
+  const disabled = busy || Boolean(saving);
+
+  return <section className="retail-form product-sheet" aria-labelledby="product-sheet-title">
+    <div className="product-sheet-head">
+      <div>
+        <h3 id="product-sheet-title">{mode === 'new' ? 'Agregar productos' : rows.length === 1 ? `Editar ${rows[0].original?.name || 'producto'}` : `Editar ${rows.length} productos en planilla`}</h3>
+        <p>Elegí si cargás por unidad, display o bulto: la cantidad y el costo van por esa presentación y se guardan por unidad. El precio sale del costo por unidad y la ganancia.</p>
+        {skippedCombos > 0 && <p className="product-sheet-note">{skippedCombos} {skippedCombos === 1 ? 'combo no aparece' : 'combos no aparecen'}: su costo sale de los componentes. Editalos desde su fila.</p>}
+      </div>
+      <button type="button" className="icon-button" aria-label="Cerrar planilla" disabled={Boolean(saving)} onClick={onClose}><X size={18} /></button>
+    </div>
+
+    <div className="product-sheet-scroll" role="region" aria-label="Planilla de productos" tabIndex={-1}>
+      <table ref={table}>
+        <thead><tr>
+          <th scope="col" className="col-n">#</th>
+          <th scope="col">Código</th>
+          <th scope="col" className="col-name">Nombre</th>
+          <th scope="col">Categoría</th>
+          <th scope="col">Presentación</th>
+          <th scope="col">Contenido</th>
+          {mode === 'new' && <th scope="col" className="num">Cantidad</th>}
+          <th scope="col" className="num">Costo</th>
+          <th scope="col" className="num">Costo x u.</th>
+          {mode === 'new' && <th scope="col" className="num">Stock (u.)</th>}
+          <th scope="col" className="num">Ganancia %</th>
+          <th scope="col" className="num">Precio</th>
+          <th scope="col" className="num">Mínimo</th>
+          <th scope="col"><span className="visually-hidden">Acciones</span></th>
+        </tr></thead>
+        <tbody>{rows.map((row, index) => {
+          const { units, perUnit, price, stock } = calc(row);
+          const label = row.name || row.code || `fila ${index + 1}`;
+          const presentationName = presentationLabels[row.presentation].toLowerCase();
+          return <Fragment key={row.key}>
+            <tr data-key={row.key} className={`${row.error ? 'has-error' : ''} ${row.original && changed(row) ? 'is-changed' : ''}`}>
+              <td className="col-n">{row.error ? <AlertTriangle size={14} aria-label="Con error" /> : index + 1}</td>
+              <td data-col="code"><input value={row.code} maxLength={100} inputMode="numeric" autoComplete="off" aria-label={`Código de ${label}`} disabled={disabled}
+                onChange={event => update(row.key, { code: event.target.value })} onBlur={() => void lookup(row)} onKeyDown={event => codeKey(event, row)} /></td>
+              <td data-col="name" className="col-name"><input value={row.name} maxLength={160} autoComplete="off" aria-label={`Nombre de ${label}`} disabled={disabled}
+                onChange={event => update(row.key, { name: event.target.value })} onKeyDown={moveInColumn} /></td>
+              <td data-col="category"><select value={row.categoryId} aria-label={`Categoría de ${label}`} disabled={disabled} onKeyDown={moveInColumn}
+                onChange={event => update(row.key, { categoryId: event.target.value })}>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></td>
+              <td data-col="presentation"><select value={row.presentation} aria-label={`Presentación de ${label}`} disabled={disabled} onKeyDown={moveInColumn}
+                onChange={event => update(row.key, { presentation: event.target.value as Presentation })}>
+                {(Object.keys(presentationLabels) as Presentation[]).map(option => <option key={option} value={option}>{presentationLabels[option]}</option>)}</select></td>
+              <td data-col="content" className="col-content">
+                {row.presentation === 'unit' ? <span className="product-sheet-muted">—</span> : <span className="product-sheet-content">
+                  {row.presentation === 'pack' && <><NumberInput min={1} step={1} value={row.displaysPerPack} placeholder="1" disabled={disabled} aria-label={`Displays por bulto de ${label}`}
+                    title="Displays por bulto. Si el bulto no trae displays, dejá 1." onValueChange={value => update(row.key, { displaysPerPack: value })} /><span aria-hidden="true">×</span></>}
+                  <NumberInput min={1} step={1} value={row.unitsPerDisplay} placeholder="u." disabled={disabled} aria-label={`Unidades por ${row.presentation === 'pack' && Number(row.displaysPerPack || 1) <= 1 ? 'bulto' : 'display'} de ${label}`}
+                    onValueChange={value => update(row.key, { unitsPerDisplay: value })} />
+                  <small>{row.presentation === 'pack' ? (Number(row.displaysPerPack || 1) > 1 ? `displays × u. = ${units ?? '?'} u.` : 'u. por bulto') : 'u. por display'}</small>
+                </span>}
+              </td>
+              {mode === 'new' && <td data-col="qty" className="num"><NumberInput min={0} step={1} value={row.qty} placeholder="0" disabled={disabled} aria-label={`Cantidad en ${presentationName} de ${label}`}
+                onKeyDown={moveInColumn} onValueChange={value => update(row.key, { qty: value })} /></td>}
+              <td data-col="cost" className="num"><NumberInput min={0} step={0.01} value={row.cost} placeholder={`por ${presentationName}`} disabled={disabled || (!!row.original && hasComposition(row.original))}
+                aria-label={`Costo por ${presentationName} de ${label}`} onKeyDown={moveInColumn} onValueChange={value => update(row.key, { cost: value })} /></td>
+              <td className="num calc">{perUnit === null ? '—' : money(perUnit)}</td>
+              {mode === 'new' && <td className="num calc">{stock === null ? '—' : stock.toLocaleString('es-AR')}</td>}
+              <td data-col="markup" className="num">{!row.sellable ? <span className="product-sheet-muted">Insumo</span> : row.manual
+                ? <button type="button" className="text-button" disabled={disabled} onClick={() => useCost(row)}>Calcular por costo</button>
+                : <NumberInput min={-99.99} max={10000} step={0.01} value={row.markup} disabled={disabled} aria-label={`Ganancia de ${label}`} onKeyDown={moveInColumn} onValueChange={value => update(row.key, { markup: value })} />}</td>
+              <td data-col="price" className={`num ${row.manual ? '' : 'calc'}`}>{!row.sellable ? '—' : row.manual
+                ? <NumberInput min={0.01} step={0.01} value={row.price} disabled={disabled} aria-label={`Precio manual de ${label}`} onKeyDown={moveInColumn} onValueChange={value => update(row.key, { price: value })} />
+                : price === null ? <span className="product-sheet-muted">—</span> : <strong>{money(price)}</strong>}</td>
+              <td data-col="min" className="num"><NumberInput min={0} step={1} value={row.minStock} disabled={disabled} aria-label={`Mínimo de ${label}`} onKeyDown={moveInColumn} onValueChange={value => update(row.key, { minStock: value })} /></td>
+              <td className="col-actions">
+                <button type="button" className="icon-button" aria-expanded={row.open} aria-label={`Más datos de ${label}`} title="Más datos" disabled={disabled}
+                  onClick={() => setRows(previous => previous.map(item => item.key === row.key ? { ...item, open: !item.open } : item))}>{row.open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
+                {mode === 'new' && <button type="button" className="icon-button" aria-label={`Quitar ${label}`} title="Quitar fila" disabled={disabled} onClick={() => remove(row.key)}><Trash2 size={15} /></button>}
+                {row.original && onOpenProductForm && <button type="button" className="icon-button" aria-label={`Ficha completa de ${label}`} title="Ficha completa: stock, etiquetas y más"
+                  disabled={disabled} onClick={async () => { if (!changed(row) || await askConfirm('Hay cambios sin guardar en la planilla. ¿Abrir la ficha completa y descartarlos?')) onOpenProductForm(row.original!); }}><FileText size={15} /></button>}
+              </td>
+            </tr>
+            {row.error && <tr className="product-sheet-error-row"><td /><td colSpan={mode === 'new' ? 13 : 11} role="alert">{row.error}</td></tr>}
+            {row.open && <tr className="product-sheet-more"><td /><td colSpan={mode === 'new' ? 13 : 11}>
+              <div className="product-sheet-more-grid">
+                <label>Marca<input value={row.brand} maxLength={120} disabled={disabled} onChange={event => update(row.key, { brand: event.target.value })} /></label>
+                <label>Proveedor<input value={row.supplier} maxLength={120} disabled={disabled} onChange={event => update(row.key, { supplier: event.target.value })} /></label>
+                <label>Código del proveedor<input value={row.supplierCode} maxLength={120} disabled={disabled} onChange={event => update(row.key, { supplierCode: event.target.value })} /></label>
+                <label>Vencimiento<input type="date" value={row.expiry} disabled={disabled} onChange={event => update(row.key, { expiry: event.target.value })} /></label>
+                <label>Uso<select value={row.sellable ? 'sale' : 'ingredient'} disabled={disabled} onChange={event => update(row.key, { sellable: event.target.value === 'sale' })}>
+                  <option value="sale">Para vender</option><option value="ingredient">Solo insumo</option></select></label>
+                <label>Se vende por<select value={row.unitType} disabled={disabled} onChange={event => update(row.key, { unitType: event.target.value })}>
+                  {Object.entries(unitTypes).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
+                <label>Emoji<input value={row.emoji} maxLength={8} disabled={disabled} onChange={event => update(row.key, { emoji: event.target.value })} /></label>
+                {row.sellable && !row.manual && store.price_rounding !== undefined && <ProductRoundingField value={row.rounding} storeStep={storeStep} disabled={disabled} onChange={rounding => update(row.key, { rounding })} />}
+              </div>
+              {row.sellable && <div className="price-mode-row">
+                {row.manual ? <small>Precio manual: no sigue al costo ni se redondea.</small> : <small>El precio sigue al costo{describe(row) ? ` (${describe(row)})` : ''}.</small>}
+                {!row.manual && <button type="button" className="text-button" disabled={disabled} onClick={() => void requestManual(row)}>Poner precio manual</button>}
+              </div>}
+            </td></tr>}
+          </Fragment>;
+        })}</tbody>
+      </table>
+    </div>
+
+    <div className="product-sheet-footer">
+      {mode === 'new' && <button type="button" className="text-button" disabled={disabled} onClick={() => setRows(previous => [...previous, blank()])}><Plus size={15} /> Agregar fila</button>}
+      {mode === 'new' && onOpenForm && <button type="button" className="text-button" disabled={disabled} onClick={onOpenForm}>Usar la ficha completa</button>}
+      <small>Enter o las flechas pasan a la misma columna de la fila de abajo. El lector de códigos salta solo al nombre.</small>
+      {errors.length > 0 && <p role="alert" className="product-sheet-errors">{errors.length} {errors.length === 1 ? 'fila tiene' : 'filas tienen'} errores: revisalas antes de guardar.</p>}
+      {saving && <p role="status"><Loader2 size={15} className="spin" /> Guardando {saving.done} de {saving.total}…</p>}
+      <div className="product-sheet-actions">
+        <button type="button" className="secondary-button" disabled={Boolean(saving)} onClick={onClose}>Cancelar</button>
+        <button type="button" className="primary-button" disabled={disabled || !totals.rows} onClick={() => void save()}>
+          {totals.rows ? `Guardar ${totals.rows} ${totals.rows === 1 ? 'producto' : 'productos'}` : mode === 'edit' ? 'Sin cambios' : 'Guardar'}</button>
+      </div>
+    </div>
+  </section>;
+}

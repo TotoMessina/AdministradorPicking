@@ -13,10 +13,13 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Conteo físico](#conteo-fisico)
 - [Eliminar y restaurar](#eliminar-y-restaurar)
 - [Alta desde el catálogo global](#alta-desde-catalogo-global)
+- [Historial de precios](#historial-de-precios)
+- [Evolución de precios por grupo](#evolucion-de-precios)
+- [Planilla de productos y presentaciones](#planilla-de-productos)
 
 ## Precio principal por porcentaje
 
-**Productos → Agregar producto** pide costo y **Margen sobre costo (%)**, y muestra el precio calculado, sin pedir calcularlo a mano. Costo $100 +30% = **$130** en la lista Principal global. Es aumento sobre costo; el indicador de bajo margen sigue calculándose sobre el precio de venta (en este ejemplo, 23,08%). No son el mismo porcentaje.
+La ficha completa (**Agregar → Productos → Usar la ficha completa**, o el ícono de ficha en la planilla de edición) pide costo y **Ganancia sobre costo (%)**, y muestra el precio calculado, sin pedir calcularlo a mano. Costo $100 +30% = **$130** en la lista Principal global. Es aumento sobre costo; el indicador de bajo margen sigue calculándose sobre el precio de venta (en este ejemplo, 23,08%). No son el mismo porcentaje.
 
 El porcentaje se guarda por producto en Supabase. Al cambiar el costo, el servidor recalcula el precio principal y las listas derivadas aplican sus porcentajes en cadena. Costo $200 +30% = $260; una derivada +50% resulta $390. Reposición offline preparada recalcula la caché con la misma regla; altas, edición del porcentaje y configuración de listas requieren conexión. Los precios fijos de listas derivadas prevalecen.
 
@@ -32,7 +35,7 @@ Requiere `202611030007_cost_based_pricing.sql`. Sin esa actualización, la app f
 
 - **Siempre por costo:** el producto nuevo, el combo nuevo, «Editar precio» y el alta desde el catálogo global calculan el precio con costo + **Ganancia sobre costo (%)**, que se precarga con la ganancia por defecto del comercio. Un producto «sin precio» también se completa por costo.
 - **Precio manual, a pedido:** en la ficha, en Editar precio y en el alta desde el catálogo global hay que tocar **Poner precio manual** (o **Cargar precios a mano**) y confirmar que el precio deja de seguir al costo. **Calcular por costo** vuelve al cálculo y precarga el porcentaje que corresponde al precio actual. Los productos que ya eran manuales siguen así hasta que se pida el cálculo. Editar precio abre por costo y, al guardar, el producto pasa a seguir al costo.
-- **Redondeo:** el comercio lo define en **Mi comercio → Datos del comercio → Precio por costo**. Las opciones son sin redondeo, $1, $5, $10, $50 o $100, siempre hacia arriba: costo $87 + 30% = $113,10, que con $10 queda en **$120**. Cada producto puede elegir otro redondeo en su ficha o en Editar precio; «Como el comercio» sigue al del comercio. Solo se redondean los precios calculados por costo. Los manuales y las listas derivadas mantienen sus reglas.
+- **Redondeo:** el comercio lo define en **Mi comercio → Configuración → Precios → Precio por costo**. Las opciones son sin redondeo, $1, $5, $10, $50 o $100, siempre hacia arriba: costo $87 + 30% = $113,10, que con $10 queda en **$120**. Cada producto puede elegir otro redondeo en su ficha o en Editar precio; «Como el comercio» sigue al del comercio. Solo se redondean los precios calculados por costo. Los manuales y las listas derivadas mantienen sus reglas.
 - **Cambiar el redondeo del comercio** pide confirmación y recalcula en el momento los precios por costo que usan el del comercio. No toca los manuales, los que tienen redondeo propio ni las ventas hechas. Requiere conexión y no tener operaciones sin sincronizar.
 - **Permisos:** quien puede editar precios puede cambiar la ganancia y el redondeo de un producto. El redondeo y la ganancia por defecto del comercio piden «configurar el comercio».
 - **Comercios existentes:** al aplicar la actualización quedan sin redondeo y con ganancia por defecto de 30%, así ningún precio cambia. Los comercios nuevos arrancan con redondeo a $10.
@@ -40,7 +43,7 @@ Requiere `202611030007_cost_based_pricing.sql`. Sin esa actualización, la app f
 
 #### Guía de Pruebas — precio por costo y redondeo
 
-1. **Configurar:** en Mi comercio → Datos del comercio → Precio por costo, poner ganancia 30% y redondeo a $10. Esperado: el ejemplo muestra costo $87 + 30% = $120. Al guardar, pide confirmación y avisa cuántos precios se recalcularon.
+1. **Configurar:** en Mi comercio → Configuración → Precios → Precio por costo, poner ganancia 30% y redondeo a $10. Esperado: el ejemplo muestra costo $87 + 30% = $120. Al guardar, pide confirmación y avisa cuántos precios se recalcularon.
 2. **Producto nuevo:** el porcentaje viene en 30. Con costo 87, el precio muestra $120. Cambiar el redondeo del producto a «Sin redondeo»: muestra $113,10. Guardar y recargar: se conservan porcentaje y redondeo.
 3. **Manual pedido:** tocar «Poner precio manual». Esperado: pide confirmar. Después se escribe el precio, que no se redondea. «Calcular por costo» vuelve al porcentaje.
 4. **Editar precio** (con un perfil solo de precios): abre con la ganancia y el redondeo y muestra el precio calculado. Guardar lo deja por costo. «Poner precio manual» pide confirmación y guarda un importe exacto.
@@ -66,7 +69,7 @@ En **http://localhost:3001/**, con la actualización SQL aplicada y datos de pru
 
 ## Depósito opcional
 
-**Mi comercio → Más opciones → Usar depósito** activa un depósito compartido por comercio. Para perfiles delegados con `manage_store`, el mismo control está en Datos del comercio. De inicio está apagado: no agrega tareas al alta de comercio/productos ni decisiones al vender. Activarlo conserva todo el stock existente en salón y no crea unidades ni duplica artículos. En el modo predeterminado, salón y depósito son comunes a los locales. Para independizar las existencias de cada sucursal y moverlas mediante el mapa, usar [Transferencias: activación y guía](operacion-y-mercaderia.md#transferencias). Esa activación distribuye el salón una sola vez y conserva el depósito; no permite apagarlo perdiendo saldos.
+**Mi comercio → Más opciones → Usar depósito** activa un depósito compartido por comercio. Para perfiles delegados con `manage_store`, el mismo control está en Configuración → Stock. De inicio está apagado: no agrega tareas al alta de comercio/productos ni decisiones al vender. Activarlo conserva todo el stock existente en salón y no crea unidades ni duplica artículos. En el modo predeterminado, salón y depósito son comunes a los locales. Para independizar las existencias de cada sucursal y moverlas mediante el mapa, usar [Transferencias: activación y guía](operacion-y-mercaderia.md#transferencias). Esa activación distribuye el salón una sola vez y conserva el depósito; no permite apagarlo perdiendo saldos.
 
 Con la opción encendida, Productos muestra total y desglose salón/depósito. **Reponer**, en la fila del producto, reutiliza cantidad/unidades/bultos y ofrece:
 
@@ -162,7 +165,7 @@ Cancelar no crea ningún registro. Si falla una composición, tampoco queda un p
 #### Pancho
 
 1. Crear o reutilizar **Pan de pancho** y **Salchicha**, con stock contado en unidades y costo por unidad. Si no se venden por separado, elegir **Solo insumo**; no necesitan precio de venta. No crear duplicados si ya existen.
-2. Pulsar **Crear combo o paquete**: debe abrir **Nuevo combo o paquete** con componentes visibles, sin campos para ingresar costo o stock. Completar Pancho, código, categoría y precio; agregar 1 Pan de pancho y 1 Salchicha en el mismo formulario. Esperado: costo $500 si sus costos son $150/$350 y disponibilidad limitada por ambos insumos de salón.
+2. Pulsar **Agregar → Combo o paquete**: debe abrir **Nuevo combo o paquete** con componentes visibles, sin campos para ingresar costo o stock. Completar Pancho, código, categoría y precio; agregar 1 Pan de pancho y 1 Salchicha en el mismo formulario. Esperado: costo $500 si sus costos son $150/$350 y disponibilidad limitada por ambos insumos de salón.
 3. Pulsar **Guardar combo**: debe existir un solo producto con la receta completa, stock físico propio 0 y sin descontar insumos. Cancelar otro borrador no crea registros. Fallar la red/reintentar o provocar receta inválida por RPC no debe duplicar ni dejar un producto parcial. Si ya tiene receta, entrar desde **Componentes**; si es un producto vendible sin stock propio, **Combo / sueltos → Combo o paquete** muestra directamente los campos de componentes.
 4. Con 10 panes y 8 salchichas, se muestran **8 panchos disponibles**. Vender 2 panchos consume 2 panes y 2 salchichas: quedan 8 panes, 6 salchichas y disponibilidad para 6 panchos. No se crea un segundo stock de panchos.
 
@@ -185,7 +188,7 @@ Si el atado es usado por otros productos compuestos, hay que revisar esas compos
 
 1. Usar **Cigarrillo [marca/presentación] suelto** como producto con stock propio. El stock, costo y precio de ese producto se expresan por cigarrillo. Código interno propio; cada marca/presentación mantiene sus existencias.
 2. Si la reposición se carga por paquetes de 20, configurar **Unidades por bulto/pack = 20** en ese producto. Ingresar 5 bultos suma 100 cigarrillos. Si se compra por cartón, ese campo debe indicar sus unidades individuales reales; no determina cuántos cigarrillos descuenta el paquete vendido.
-3. Usar **Crear combo o paquete** para crear **Paquete [misma marca] ×20**, con código de barras del paquete y precio del paquete (su costo se calcula por componentes). No reutilizar el mismo código del suelto. El stock propio queda en **0**.
+3. Usar **Agregar → Combo o paquete** para crear **Paquete [misma marca] ×20**, con código de barras del paquete y precio del paquete (su costo se calcula por componentes). No reutilizar el mismo código del suelto. El stock propio queda en **0**.
 4. En ese mismo formulario, elegir 20 unidades del producto suelto y pulsar **Guardar combo**. Quedan dos productos vendibles con precios independientes y una única existencia física. El grupo de margen se clasifica automáticamente según precio base, costo y límite del comercio.
 5. Con 100 cigarrillos, vender 1 paquete y 3 sueltos deja **77 cigarrillos**, disponibilidad para **3 paquetes completos** y posibilidad de vender los restantes como sueltos. No se ingresan fracciones de paquete ni se necesita registrar una apertura de paquete para vender un cigarrillo.
 
@@ -254,7 +257,7 @@ Precio/costo vacíos, inválidos o costo cero no permiten un cálculo fiable. Se
 - **Productos → Agregar/Editar:** indicador visible junto al costo, sin abrir Más opciones ni elegir un grupo. Cambia al escribir costo/precio y avisa si se vende debajo del costo. Guardar conserva las validaciones actuales.
 - **Editar precio** delegado y **Reponer** con nuevo costo muestran el mismo indicador sobre los datos cargados. El servidor calcula la clasificación definitiva con sus valores actuales.
 - **Catálogo → Ver solo bajo margen:** conserva filtro y etiquetas, ahora alimentados por el grupo automático persistido.
-- **Mi comercio → Datos del comercio → Bajo margen:** permite cambiar el límite por comercio entre 0 y 100, con dos decimales. La sección empieza plegada y el valor por defecto no exige configuración. Lo pueden guardar propietario, administrador o perfiles con **Datos, ticket y margen** (`manage_store`). Cambiar un interruptor de producto ya no existe.
+- **Mi comercio → Configuración → Precios → Bajo margen:** permite cambiar el límite por comercio entre 0 y 100, con dos decimales. La sección empieza plegada y el valor por defecto no exige configuración. Lo pueden guardar propietario, administrador o perfiles con **Datos, ticket y margen** (`manage_store`). Cambiar un interruptor de producto ya no existe.
 - Guardar el límite reclasifica todos los productos actuales del comercio, incluidos los eliminados/inactivos, sin cambiar precio, costo, stock, receta ni categoría. Otro comercio conserva su propio límite. Cancelar/navegar mantiene los demás borradores; cambiar solo el límite no reinicia el formulario de identidad del comercio.
 
 Las listas de precios mantienen sus reglas. El grupo del producto se determina por el precio base, no por cada precio alternativo de sucursal. Los informes siguen calculando la utilidad con los precios/costos por renglón y separan ambos grupos como antes; no se cambia su fórmula ni la contribución del bajo margen. Los tickets ya sincronizados que tienen grupo/costo guardados conservan esos valores. **Compatibilidad histórica:** las líneas antiguas sin grupo guardado siguen usando la aproximación al producto actual que ya existía en `marginAnalytics`; su agrupación puede variar al reclasificar productos y no debe presentarse como una clasificación histórica verificada. No se reescriben ventas para rellenarla.
@@ -275,7 +278,7 @@ En **http://localhost:3001/**, con comercio y productos de prueba después de ap
 
 1. En un producto con precio Manual, guardar precio 1000 y costo 950: esperar **Bajo margen automático · 5%**, sin selector/tilde. Guardar y usar Ver solo bajo margen: debe aparecer.
 2. En ese producto manual, cambiar costo a 900: con límite 10, esperar margen 10% sin bajo margen. Costo 800 muestra 20%; costo 1100 muestra aviso de venta debajo del costo. Verificar que el sistema no corrija precios ni stock por su cuenta. Probar costo cero: **Margen sin calcular**, nunca ganancia del 100%.
-3. Mi comercio → Datos del comercio → Bajo margen: debe mostrar 10 inicialmente. Cambiar a 20 y guardar. Un producto de precio 1000/costo 850 (15%) debe pasar a bajo margen sin cambiar sus importes; actualizar otro dispositivo confirma el límite compartido. Otro comercio permanece sin cambios.
+3. Mi comercio → Configuración → Precios → Bajo margen: debe mostrar 10 inicialmente. Cambiar a 20 y guardar. Un producto de precio 1000/costo 850 (15%) debe pasar a bajo margen sin cambiar sus importes; actualizar otro dispositivo confirma el límite compartido. Otro comercio permanece sin cambios.
 4. Cambiar a 0 y 100 en datos de prueba; probar valores negativos, mayores a 100, vacíos y más de dos decimales. Esperar validación visible y sin guardado inválido. Con 0, solo pérdidas clasificables quedan debajo del límite; sin costo no se infiere rentabilidad.
 5. Con un perfil de precio únicamente, editar precio para cruzar el límite: debe permitir guardar sin exigir editar productos completos. Los atributos avanzados se conservan. Con reposición y costo autorizado, cambiar costo cruzando el límite: actualiza grupo y stock según la reposición real. Sin autorización no se puede cambiar costo ni el límite.
 6. Probar factura/CSV/propuesta de precios y ajuste masivo existentes en datos de prueba. Tras guardar/actualizar, clasificación coherente con costo/precio finales. No se alteran cálculos de costo por bulto ni propuestas de precios. No hacer ventas ni reposiciones de prueba en producción.
@@ -357,7 +360,7 @@ La configuración continúa requiriendo conexión. Las categorías ya cargadas s
 En **http://localhost:3001/**, después de instalar la migración y actualizar datos:
 
 1. Entrar como administrador a Mi comercio → Más opciones. Esperado: las 19 categorías, sin Agregar. Cambiar nombre de Cigarrillos a Tabaco y guardar: Productos y otros dispositivos actualizados muestran Tabaco, con los mismos productos e IDs. Usar nombre original y guardar vuelve a Cigarrillos. Repetir con Varios: sigue siendo la alternativa predeterminada. Probar duplicados, Cancelar y dos dispositivos cambiando el mismo nombre: no deben sobrescribirse silenciosamente ni alterar otros borradores.
-2. Productos → Agregar producto → Más opciones. Esperado: Varios seleccionada; el selector contiene únicamente las 19 etiquetas. Elegir Alfajores, completar un producto de prueba y guardar: debe conservar Alfajores al reabrir.
+2. Productos → Agregar → Productos → Usar la ficha completa → Más opciones. Esperado: Varios seleccionada; el selector contiene únicamente las 19 etiquetas. Elegir Alfajores, completar un producto de prueba y guardar: debe conservar Alfajores al reabrir.
 3. Crear un producto sin cambiar la categoría. Esperado: Varios, sin configurar previamente ninguna categoría ni abrir IA.
 4. En un comercio anterior, comprobar productos con Golosinas y con una variante como Lácteos. Esperado: Golosinas intacta y Lacteos canónica; mismos precios, stock, presentación y atributos. Un nombre de categoría no reconocido debe quedar en Varios y su asociación anterior debe poder consultarse por SQL en el respaldo privado. Comprobar también productos eliminados/restaurados.
 5. Crear un comercio de prueba mediante el flujo real. Esperado: 19 categorías provistas automáticamente, sin duplicados y sin una tarea de crear categorías en el inicio guiado; propietario, local y caja inicial conservados.
@@ -439,7 +442,9 @@ En **http://localhost:3001/**, usando un comercio de prueba y después de instal
 
 ## Alta desde el catálogo global
 
-En **Productos → Agregar desde catálogo global**, quien puede crear productos da de alta en su comercio productos que ya están en el catálogo global. Requiere `202611030006_add_products_from_global_catalog.sql` y conexión.
+Todas las formas de alta están en un solo botón, **+ Agregar**, de Productos: **Productos** (planilla), **Desde el catálogo global**, **Combo o paquete** y **Desde una factura**. Cada opción tiene una línea que explica cuándo usarla. En el inicio guiado sigue el botón directo «+ Agregar producto».
+
+En **Productos → Agregar → Desde el catálogo global**, quien puede crear productos da de alta en su comercio productos que ya están en el catálogo global. Requiere `202611030006_add_products_from_global_catalog.sql` y conexión.
 
 - **Elegir:** por marca, por categoría o por las dos. Al elegir una, la otra lista muestra solo lo que existe dentro de ella, con cuántos productos hay. Se muestran hasta 1.000; si hay más, la app avisa que conviene combinar marca y categoría.
 - **Revisar antes:** los productos se ven en una planilla con columnas Código, Producto, Marca, Categoría, Precio y Costo. El encabezado queda fijo al desplazarse. La casilla del encabezado elige o quita todos. Escribir un precio o un costo, o cambiar la categoría, elige la fila. Enter y las flechas arriba/abajo pasan a la misma columna de la fila de abajo o de arriba, como en Excel. Los productos que el comercio ya tiene figuran «Ya está en tu catálogo» y no se pueden elegir. Cada producto toma la categoría equivalente del comercio, o «Varios» si no hay una igual. Se puede cambiar uno por uno o con «Todos en…».
@@ -451,7 +456,7 @@ En **Productos → Agregar desde catálogo global**, quien puede crear productos
 
 En http://localhost:3001/, con la migración aplicada, en un comercio de pruebas.
 
-1. **Por marca:** en Productos, abrir **Agregar desde catálogo global**, elegir una marca y **Ver productos**. Esperado: la lista de esa marca, con los que ya tenés marcados «Ya está en tu catálogo».
+1. **Por marca:** en Productos, abrir **Agregar → Desde el catálogo global**, elegir una marca y **Ver productos**. Esperado: la lista de esa marca, con los que ya tenés marcados «Ya está en tu catálogo».
 2. **Marca y categoría:** elegir una categoría, y después una marca dentro de ella. Esperado: la lista de marcas se acota a esa categoría y la búsqueda muestra solo los que cumplen las dos.
 3. **Planilla:** destildar todos con la casilla del encabezado y escribir el precio de un producto. Esperado: esa fila queda elegida. Con Enter o flecha abajo, el foco pasa al precio de la fila siguiente. Cambiar la categoría de otra fila también la elige. El resumen del pie dice cuántos entran a la venta y cuántos sin precio.
 4. **Alta:** confirmar. Esperado: aviso con el resultado. Los productos aparecen en la lista con stock 0. Los que tenían precio muestran el precio; los demás, «Sin precio».
@@ -460,3 +465,93 @@ En http://localhost:3001/, con la migración aplicada, en un comercio de pruebas
 7. **Repetir:** volver a buscar la misma marca. Esperado: los recién dados de alta aparecen como «Ya está en tu catálogo».
 8. **Permisos:** con un perfil sin «Crear, editar e importar productos». Esperado: el botón no aparece.
 9. **Celular:** los filtros se apilan. La planilla se desplaza hacia el costado dentro de su recuadro, sin mover la página. Cancelar y Dar de alta quedan visibles al pie.
+
+<a id="historial-de-precios"></a>
+
+## Historial de precios
+
+Con el ícono de gráfico junto al precio de cada producto, al tocar su nombre en Productos o con **Ver historial de precios** en su ficha, se abre el historial de costo y precio de venta de la lista Principal. Lo ven quienes pueden editar precios o productos. Requiere `202611040001_product_price_history.sql` y conexión. Es de solo lectura.
+
+- **Datos de arriba:** costo y precio actuales, cuánto variaron en el período y la ganancia sobre costo actual, indicando si sigue al costo o es manual.
+- **Gráfico:** precio de venta (azul) y costo (naranja) en escalones, porque cada valor rige hasta el cambio siguiente, con el valor actual al final de cada línea. Al pasar el mouse o tocar, se ven la fecha, el precio, el costo y la ganancia de ese momento. Debajo hay un gráfico aparte con la ganancia sobre costo; no se mezclan escalas en un mismo eje.
+- **Períodos:** 3 meses, 6 meses, 1 año o todo.
+- **Cambios:** una tabla con fecha, qué cambió, el valor anterior y el nuevo, el motivo y quién lo hizo. Los motivos son: reposición, edición del costo, recálculo por costo, cambio de ganancia, precio manual o edición del precio.
+- **Fuentes:** los cambios de precio, costo y ganancia se registran desde la Actividad (`202611020009`). El costo de cada reposición se guardó siempre. Para el tiempo anterior a la Actividad, el precio sale del precio más cobrado de cada día en las ventas no anuladas, y se muestra como puntos («Precio cobrado»). En esos días puede reflejar listas por sucursal.
+
+### Guía de Pruebas — historial de precios
+
+En http://localhost:3001/, con la migración aplicada y en un comercio de pruebas.
+
+1. **Abrir:** tocar el nombre de un producto. Esperado: se abre el panel con su nombre, los datos de arriba y el gráfico. Cerrar devuelve el foco al nombre.
+2. **Cambio de costo:** reponer con otro costo un producto por costo y volver a abrirlo. Esperado: el costo y el precio suben en escalón el mismo día. La tabla muestra «Reposición de N u.» para el costo y «Recálculo por costo» para el precio.
+3. **Ganancia y manual:** cambiar la ganancia desde Editar precio, y después poner un precio manual. Esperado: filas «Cambio de ganancia» y «Precio manual» con quién lo hizo. El gráfico de ganancia acompaña los cambios.
+4. **Hover:** pasar el mouse por el gráfico o tocarlo en el celular. Esperado: línea vertical con precio, costo y ganancia de esa fecha.
+5. **Períodos:** cambiar entre 3 meses, 6 meses, 1 año y Todo. Esperado: el eje y la tabla se ajustan.
+6. **Antes de la Actividad:** en un producto con ventas viejas, elegir «Todo». Esperado: puntos de «Precio cobrado» y el aviso de desde cuándo se registran los cambios.
+7. **Permisos:** con un perfil sin editar precios ni productos. Esperado: el nombre no es un botón.
+8. **Celular:** el gráfico ocupa el ancho, los períodos entran en una fila y la tabla se desplaza dentro de su recuadro.
+
+<a id="evolucion-de-precios"></a>
+
+## Evolución de precios por grupo
+
+En **Productos → Más herramientas → Evolución de precios** se ve cómo se movieron costo y precio de una categoría, marca o proveedor, o de todo el comercio. Lo ven quienes pueden editar precios o productos. Requiere `202611040002_price_index_by_group.sql` y conexión. Es de solo lectura.
+
+- **Variación desde el inicio:** el gráfico muestra cuánto subió o bajó cada grupo desde el primer día del período, por ejemplo «+12%». Internamente es un índice: no se promedian precios, porque mezclar productos baratos y caros no dice nada.
+- **Ponderado por ventas:** cada producto pesa según las unidades vendidas en el período, más 1, así lo que no se vendió también cuenta.
+- **Un grupo:** líneas de índice de precio (azul) y de costo (naranja). Si el costo sube más que el precio, se achica la ganancia.
+- **Varios grupos (hasta 4):** una línea por grupo, con selector Precio o Costo. Cada grupo mantiene su color aunque se agreguen o quiten otros.
+- **Ganancia promedio:** gráfico aparte con la ganancia sobre costo ponderada de cada grupo, y en el resumen, la de ahora contra la del inicio.
+- **Períodos:** 3 meses y 6 meses con puntos semanales, 1 año con puntos mensuales.
+- **Ver datos del gráfico:** tabla con los valores de cada punto.
+- **Productos que más cambiaron:** los 20 con mayor variación de costo o precio. Al tocar uno se abre su historial.
+- **Cómo se calcula:** el valor de cada producto en cada fecha sale del registro de actividad. Antes de la Actividad, el precio queda en su primer valor conocido y el costo sale de las reposiciones, así que en ese tramo el índice es aproximado. El panel lo avisa. Entran los productos activos que se venden; los insumos y los «sin precio» no.
+
+### Guía de Pruebas — evolución de precios
+
+En http://localhost:3001/, con la migración aplicada y en un comercio de pruebas con cambios de precio registrados.
+
+1. **Abrir:** Productos → Más herramientas → Evolución de precios. Esperado: pide elegir categorías.
+2. **Una categoría:** elegir una. Esperado: dos líneas que arrancan en 100, el resumen con la variación de precio y costo y la ganancia de ahora contra la de antes.
+3. **Comparar:** agregar tres categorías más. Esperado: una línea por categoría, con su color y su etiqueta al final. Con Costo/Precio cambia lo que se compara. Al quitar una, las demás conservan su color.
+4. **Marca y proveedor:** cambiar «Agrupar por». Esperado: se vacía la selección y se ofrecen las marcas o los proveedores cargados.
+5. **Verificar un número:** subir 10% el precio de todos los productos de una categoría con Ajustar ganancia o a mano. Esperado: su variación de precio llega a alrededor de +10% en el último punto.
+6. **Productos que más cambiaron:** tocar uno. Esperado: se abre su historial de precios.
+7. **Datos:** abrir «Ver datos del gráfico». Esperado: la tabla coincide con lo que muestra el cursor sobre el gráfico.
+8. **Permisos y celular:** sin permiso de precios ni productos, la herramienta no aparece. En el celular, los filtros se apilan y los gráficos ocupan el ancho.
+
+<a id="planilla-de-productos"></a>
+
+## Planilla de productos y presentaciones
+
+**Agregar → Productos** abre una planilla para cargar uno o varios productos en filas, como la revisión de facturas. **Editar en planilla**, en la barra de la lista, abre como planilla los productos que se ven con la búsqueda y los filtros actuales, hasta 300. **Editar** (lápiz) en cada fila de la lista también abre ese producto en la planilla. Los combos siguen abriendo su ficha. La ficha completa, para stock, etiquetas y lo que la planilla no tiene, sigue disponible con **Usar la ficha completa** en el alta o con el ícono de ficha de cada fila en edición. Si hay cambios sin guardar, pide confirmación antes de descartarlos. La ficha completa también tiene **Unidades por display**, junto a las unidades por bulto, y avisa si el bulto no es múltiplo del display. Requiere `202611040005_product_presentations.sql`.
+
+- **Presentación:** en cada fila se elige si lo que se carga es **Unidad**, **Display** o **Bulto**.
+  - **Display:** pide cuántas unidades trae.
+  - **Bulto:** pide cuántos displays trae y cuántas unidades tiene cada display. Si el bulto no trae displays, se deja 1 display y se ponen las unidades del bulto.
+- **Cantidad y costo por presentación:** la cantidad y el costo se escriben por la presentación elegida. La planilla muestra el **costo por unidad** (costo ÷ unidades) y el **stock en unidades**. Ejemplo: 2 bultos de 4 displays × 12 a $9.600 el bulto dan 96 unidades a $200 cada una. El producto se guarda siempre por unidad, así sirve como componente de combos y se vende de a uno.
+- **Se guarda la presentación:** `pack_size` (unidades por bulto) y `display_size` (unidades por display) quedan en el producto. Si el display nuevo no entra exacto en el bulto guardado, el bulto se descarta. Con esos datos:
+  - **Reponer:** «Ingresar por» ofrece **Unidad**, **Display** (N u.) y **Bulto** (M u., con displays × unidades si los tiene). La cantidad y el costo se escriben por la presentación elegida, y se ve el costo por unidad que se guarda. Al cambiar de presentación, el costo escrito se reexpresa sin perder el valor por unidad.
+  - **Facturas:** en la columna «U. / bulto» de un producto vinculado aparecen **Display ×N** y **Bulto ×M** para elegir con un toque cómo viene la línea.
+  - **Carga masiva (CSV/Excel):** cada fila de un producto con display o bulto permite interpretar la cantidad como unidades, **displays** o bultos.
+- **Precio:** sale del costo por unidad, la **Ganancia %** (precargada con la del comercio) y el redondeo. **Poner precio manual**, en «Más datos», lo pide con confirmación. En edición, los productos que ya eran manuales siguen así hasta tocar **Calcular por costo**.
+- **Más datos** (flecha de cada fila): marca, proveedor y su código, vencimiento, uso (para vender o solo insumo), unidad de venta, emoji y redondeo propio.
+- **Como en Excel:** Enter y las flechas ↑/↓ pasan a la misma columna de la fila de abajo o de arriba. El lector de códigos salta solo al nombre. Escribir en la última fila agrega otra vacía. Un código que está en el catálogo global completa nombre, marca y categoría si la fila está vacía.
+- **Guardar:** valida cada fila (nombre, código único, categoría, contenido de la presentación y precio) y marca en rojo las que tienen errores. Cada fila se guarda con la misma lógica de la ficha (sucursal de stock, precio por costo y permisos). Si alguna falla, quedan en la planilla solo las que hay que corregir. En edición se guardan solo las filas que cambiaron, resaltadas. El stock no se edita acá: se usan Reponer o el conteo. Los combos no aparecen, porque su costo sale de los componentes.
+
+### Guía de Pruebas — planilla de productos
+
+En http://localhost:3001/, con la migración aplicada y en un comercio de pruebas.
+
+1. **Alta por bulto:** Agregar → Productos. Escribir código y nombre, elegir **Bulto**, 4 displays × 12 u., cantidad 2 y costo 9.600. Esperado: costo por unidad $200, stock 96 u. y precio con la ganancia y el redondeo del comercio. Guardar: el producto aparece con 96 unidades, costo $200 y «Pack ×48».
+2. **Display:** otra fila con **Display** de 20 u., cantidad 3 y costo 2.000. Esperado: $100 por unidad y 60 unidades.
+3. **Lector:** leer un código del catálogo global en una fila vacía. Esperado: el foco pasa al nombre, que se completa con nombre, marca y categoría.
+4. **Errores:** dejar una fila sin nombre y otra con un código repetido. Esperado: las dos en rojo, con su mensaje, y no se guarda nada hasta corregirlas.
+5. **Precio manual:** en «Más datos», tocar **Poner precio manual** y confirmar. Esperado: la columna Precio pasa a editable y la ganancia muestra «Calcular por costo».
+6. **Editar en planilla:** filtrar una categoría y tocar **Editar en planilla**. Cambiar la ganancia de dos productos y la presentación de uno. Esperado: esas filas resaltadas, «Guardar 3 productos», y al guardar el resto no cambia. El stock no cambia.
+7. **Combo como componente:** crear un combo con el producto del paso 1. Esperado: usa el costo por unidad ($200).
+8. **Reponer por display:** en el producto del paso 1, tocar Reponer → **Display** (12 u.), cantidad 3 y costo 2.640. Esperado: +36 unidades y «= $220 por unidad». Cambiar a **Bulto**: el costo pasa a 10.560 (48 × 220). Confirmar: el costo del producto queda en $220.
+9. **Factura y CSV:** en una factura con ese producto vinculado, tocar **Display ×12**: «Ingresan» = cantidad × 12. En la carga masiva, una fila con cantidad 2 interpretada como **Displays ×12** suma 24 unidades.
+10. **Editar desde la fila:** tocar el lápiz de un producto. Esperado: se abre en la planilla con su presentación y su costo por esa presentación. El ícono de ficha abre la ficha completa, con «Unidades por display», y si había cambios pide confirmar. En un combo, el lápiz abre su ficha como antes.
+11. **Teclado y celular:** Enter y las flechas bajan y suben por la misma columna. En el celular, la planilla se desplaza dentro de su recuadro y Guardar queda visible al pie.
+

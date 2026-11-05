@@ -29,3 +29,58 @@
 }
 .bank-void { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; flex-basis: 100%; }
 .bank-void label { display: grid; gap: 4px; flex: 1 1 220px; }
+/* Movimientos de un medio: lo que forma «Vendido». */
+.bank-method.is-selected { border-color: var(--tone-accent); box-shadow: 0 0 0 1px var(--tone-accent); }
+.bank-method-detail { justify-self: start; }
+.bank-detail { display: grid; gap: 10px; padding: 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); min-width: 0; }
+.bank-detail-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
+.bank-detail-head h3 { margin: 0 0 4px; font-size: 15px; }
+.bank-detail-head h3:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: 2px; }
+.bank-detail-head p, .bank-detail-empty, .bank-detail-note { margin: 0; font-size: 12px; color: var(--tone-muted); }
+.bank-detail-note { display: block; overflow-wrap: anywhere; white-space: normal; }
+.bank-detail-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
+.bank-detail-toggle { display: inline-flex; border: 1px solid var(--tone-border); border-radius: 8px; overflow: hidden; }
+.bank-detail-toggle button { min-height: 38px; padding: 0 12px; border: 0; border-right: 1px solid var(--tone-border); background: var(--tone-surface); color: inherit; font: inherit; font-size: 13px; cursor: pointer; }
+.bank-detail-toggle button:last-child { border-right: 0; }
+.bank-detail-toggle button.is-active { background: var(--tone-accent-soft); font-weight: 700; }
+.bank-detail-toggle button:focus-visible { outline: 2px solid var(--tone-accent); outline-offset: -2px; }
+.bank-detail-search { display: grid; gap: 6px; flex: 1 1 200px; min-width: 0; }
+.bank-detail-search input { min-height: 38px; min-width: 0; }
+.bank-detail-total { margin: 0; font-size: 13px; font-weight: 600; }
+.bank-detail-table { max-height: 60vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; }
+.bank-detail-table table { width: 100%; min-width: 640px; border-collapse: collapse; font-size: 13px; }
+.bank-detail-table th, .bank-detail-table td { padding: 6px 10px; border-top: 1px solid var(--tone-border); text-align: left; vertical-align: top; white-space: nowrap; }
+.bank-detail-table thead th { position: sticky; top: 0; z-index: 1; border-top: 0; background: var(--tone-soft); font-size: 12px; color: var(--tone-muted); }
+.bank-detail-table .num { text-align: right; font-variant-numeric: tabular-nums; }
+.bank-detail-table tr.is-negative td { color: var(--tone-danger); }
+.bank-detail-table tr.is-voided td { color: var(--tone-muted); }
+@media (max-width: 560px) {
+  .bank-method-detail { justify-self: stretch; min-height: 44px; }
+  .bank-detail-tools > * { flex-basis: 100%; }
+  .bank-detail-toggle button { flex: 1; }
+}
+/* Informe para el contador: totales por medio y exportación. */
+.bank-heading-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.bank-method .bank-method-total { padding-top: 6px; border-top: 1px solid var(--tone-border); font-size: 14px; }
+.bank-method .bank-method-total dt { color: inherit; font-weight: 600; }
+@media (max-width: 560px) { .bank-heading-actions > button { flex: 1 1 100%; min-height: 44px; } }
+/* Cuentas y retiros con su origen. */
+.money-report { display: grid; gap: 10px; margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--tone-border); }
+.money-report > h3 { display: flex; align-items: center; gap: 8px; margin: 0; font-size: 15px; }
+.money-report-accounts { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 10px; }
+.money-report-accounts article { display: grid; gap: 6px; padding: 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.money-report-accounts article.is-archived { opacity: .7; }
+.money-report-accounts h4 { margin: 0; font-size: 14px; }
+.money-report-accounts small { color: var(--tone-muted); font-size: 12px; }
+.money-report-accounts dl { display: grid; gap: 4px; margin: 0; }
+.money-report-accounts dl > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.money-report-accounts dt { color: var(--tone-muted); }
+.money-report-accounts dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
+.money-report-accounts dd.is-negative { color: var(--tone-danger); }
+.money-report-sources { margin: 0; font-size: 13px; font-weight: 600; }
+.money-report-filters { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 12px; }
+.money-report-filters label { display: grid; gap: 6px; flex: 0 1 240px; min-width: 0; }
+.money-report-filters select { min-height: 38px; min-width: 0; }
+.money-report-filters small { color: var(--tone-muted); font-size: 12px; }
+.money-report-note { white-space: normal !important; min-width: 200px; overflow-wrap: anywhere; }
+@media (max-width: 560px) { .money-report-filters label { flex-basis: 100%; } }

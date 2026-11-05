@@ -2387,3 +2387,11 @@
 .permission-profile-empty { margin: 0 0 4px; color: var(--tone-muted); font-size: 13px; }
 .team-profiles-body .team-refresh-profiles-btn { align-self: flex-start; }
 .team-profiles-intro { margin: 0; color: var(--tone-muted); font-size: 13px; }
+
+/* Mi comercio → Configuración: ajustes que se definen una vez, agrupados. */
+.store-configuration { display: grid; gap: 16px; }
+.store-config-intro { margin: 0; font-size: 13px; color: var(--tone-muted); }
+.store-config-group { overflow: visible; }
+.store-config-body { display: grid; gap: 12px; padding: 0 16px 16px; min-width: 0; }
+.store-config-body > .margin-threshold-settings { margin-block: 0; }
+@media (max-width: 560px) { .store-config-body { padding: 0 12px 12px; } }

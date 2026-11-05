@@ -5,10 +5,13 @@ import { errorMessage, retail } from './api';
 import type { Run } from './Management';
 import { movementDetails, voucherExtension, voucherMimeType } from './vouchers';
 import { randomUUID } from '../../utils/uuid';
+import { locationTransfers, type MoneyAccount } from './locationTransferApi';
 
-export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowIncome = true, allowWithdrawal = true, active = true }: {
+export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowIncome = true, allowWithdrawal = true, active = true, canUseAccounts = false }: {
   store: string; shift: string; busy: boolean; run: Run; onBusyChange: (busy: boolean) => void;
   allowIncome?: boolean; allowWithdrawal?: boolean;
+  /** Con «Ver y mover la plata», el retiro puede salir de una cuenta de banco o billetera en vez del efectivo de la caja. */
+  canUseAccounts?: boolean;
   active?: boolean;
 }) {
   const [requestedType, setType] = useState('INGRESO');
@@ -24,7 +27,17 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
   const request = useRef({ signature: '', id: '' });
   const uploaded = useRef<{ file: File; url: string } | null>(null);
   const saving = useRef(false);
+  const [accounts, setAccounts] = useState<MoneyAccount[]>([]);
+  const [source, setSource] = useState('cash');
+  const fromAccount = type === 'RETIRO' && source !== 'cash' ? accounts.find(account => account.id === source) : undefined;
   const supplierPayment = type === 'RETIRO' && category === 'supplier_payment';
+  useEffect(() => {
+    if (!canUseAccounts || !active) return;
+    let current = true;
+    // Sin conexión o sin la actualización de cuentas, el retiro sigue siendo de efectivo.
+    void locationTransfers.accounts(store).then(rows => { if (current) setAccounts(rows ?? []); }).catch(() => { if (current) setAccounts([]); });
+    return () => { current = false; };
+  }, [canUseAccounts, active, store]);
 
   useEffect(() => {
     setPreviewUnavailable(false);
@@ -42,7 +55,7 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
 
   const changeType = (next: string) => {
     if (next === type) { setType(next); return; }
-    setType(next); setCategory('general'); setSupplier(''); clearVoucher(); setError('');
+    setType(next); setCategory('general'); setSupplier(''); setSource('cash'); clearVoucher(); setError('');
   };
   return <form className="retail-form" onSubmit={async event => {
     event.preventDefault();
@@ -52,7 +65,8 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
     const fields = new FormData(form);
     const amount = Number(fields.get('amount'));
     const reason = String(fields.get('reason') || '').trim();
-    if (supplierPayment && !file) { setError('Adjuntá el comprobante para pagos a proveedores'); return; }
+    if (supplierPayment && !file && !fromAccount) { setError('Adjuntá el comprobante para pagos a proveedores'); return; }
+    if (fromAccount && amount > fromAccount.balance) { setError(`${fromAccount.name} tiene ${fromAccount.balance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}. Elegí otro origen o un importe menor.`); return; }
     if (!Number.isFinite(amount) || amount <= 0 || !reason) { setError('Completá el importe y el motivo del movimiento.'); return; }
     if (supplierPayment && !supplier.trim()) { setError('Ingresá el nombre del proveedor.'); return; }
     saving.current = true;
@@ -63,6 +77,15 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
       let writeError: unknown;
       const saved = await run(async () => {
         try {
+          if (fromAccount) {
+            // Sale de la cuenta, no de la caja: el efectivo esperado del turno no cambia y queda en Plata y en Conciliación.
+            const note = [supplierPayment ? `Pago a ${supplier.trim()}` : category === 'other' ? 'Otro retiro' : 'Retiro', reason].join(' · ');
+            const signature = JSON.stringify(['account', fromAccount.id, amount, note]);
+            if (request.current.signature !== signature) request.current = { signature, id: randomUUID() };
+            setStage('saving');
+            await locationTransfers.moveFunds(store, fromAccount.id, null, amount, note, request.current.id);
+            return;
+          }
           let voucherUrl: string | null = null;
           if (supplierPayment && file) {
             voucherExtension(file);
@@ -79,10 +102,11 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
           await retail.addMovement(shift, type, amount, reason, request.current.id, details.category, details.voucherUrl, details.supplierName);
         }
         catch (err) { writeError = err; throw err; }
-      }, 'Movimiento registrado');
+      }, fromAccount ? `Retiro registrado desde ${fromAccount.name}` : 'Movimiento registrado');
       if (saved) {
         form.reset();
-        setType('INGRESO'); setCategory('general'); setSupplier(''); clearVoucher();
+        setType('INGRESO'); setCategory('general'); setSupplier(''); setSource('cash'); clearVoucher();
+        if (fromAccount) void locationTransfers.accounts(store).then(rows => setAccounts(rows ?? [])).catch(() => {});
         request.current = { signature: '', id: '' };
       } else setError(writeError ? errorMessage(writeError) : 'No se pudo guardar el movimiento. Reintentá cuando termine la operación en curso.');
     } catch (err) { setError(errorMessage(err)); }
@@ -95,12 +119,21 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
       </div>
       <label>Importe ($)<NumberInput name="amount" type="number" min="0.01" max="999999999999.99" step="0.01" required /></label>
       <label>Motivo<input name="reason" required maxLength={300} placeholder="Ej. Pago a proveedor" /></label>
+      {type === 'RETIRO' && accounts.length > 0 && <label>Sale de
+        <select value={source} onChange={event => { setSource(event.target.value); setError(''); }}>
+          <option value="cash">Efectivo de esta caja</option>
+          {accounts.map(account => <option key={account.id} value={account.id}>{account.name} · saldo {account.balance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</option>)}
+        </select>
+        <small>{fromAccount ? 'Sale de la cuenta: no cambia el efectivo de la caja. Queda en Plata y en Conciliación.' : 'Sale del efectivo de la caja y descuenta del esperado del turno.'}</small>
+      </label>}
       {type === 'RETIRO' && <label>Categoría
         <select name="category" value={category} onChange={event => { setCategory(event.target.value); setSupplier(''); clearVoucher(); setError(''); }}>
           <option value="general">General</option><option value="supplier_payment">Pago a proveedor</option><option value="other">Otro</option>
         </select>
       </label>}
-      {supplierPayment && <>
+      {supplierPayment && fromAccount && <label>Nombre del proveedor<input name="supplier" value={supplier} onChange={event => setSupplier(event.target.value)} required maxLength={160} placeholder="Ej. Distribuidora del Centro" />
+        <small>Desde una cuenta no se adjunta el comprobante: anotá el número de operación en el motivo.</small></label>}
+      {supplierPayment && !fromAccount && <>
         <label>Nombre del proveedor<input name="supplier" value={supplier} onChange={event => setSupplier(event.target.value)} required maxLength={160} placeholder="Ej. Distribuidora del Centro" /></label>
         <label>Foto o PDF del comprobante
           <input ref={fileInput} type="file" accept="image/*,application/pdf" aria-required="true" onChange={event => {

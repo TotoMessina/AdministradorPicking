@@ -107,6 +107,8 @@ export interface Product extends KioscoProduct {
   tags?: string[];
   unitType?: string;
   pack_size?: number | null;
+  /** Unidades por display (202611040005). Un bulto con displays trae pack_size = displays × display_size. */
+  display_size?: number | null;
   margin_group?: 'standard' | 'low_margin' | null;
   expiry_date?: string | null;
   last_restocked_at?: string | null;
@@ -663,6 +665,7 @@ const remoteRetail = {
       sellable?: boolean;
       price_pending?: boolean;
       price_rounding?: number | null;
+      display_size?: number | null;
     }>((from, to) =>
       supabase
         .from("retail_products")
@@ -713,6 +716,7 @@ const remoteRetail = {
       tags: Array.isArray(p.tags) ? p.tags : [],
       unitType: p.unit_type || "unit",
       pack_size: p.pack_size ?? null,
+      ...(p.display_size !== undefined ? { display_size: p.display_size } : {}),
       sale_markup: p.sale_markup == null ? null : Number(p.sale_markup),
       margin_group: p.margin_group ?? 'standard',
       expiry_date: p.expiry_date ?? null,
@@ -809,6 +813,7 @@ const remoteRetail = {
       tags: p.tags || [],
       unit_type: p.unitType || "unit",
       pack_size: p.pack_size ?? null,
+      ...(p.display_size !== undefined ? { display_size: p.display_size } : {}),
       // Older callers that only edit prices must not clear optional metadata.
       ...(p.expiry_date !== undefined ? { expiry_date: p.expiry_date || null } : {}),
       ...(p.last_restocked_at !== undefined ? { last_restocked_at: p.last_restocked_at || null } : {}),
