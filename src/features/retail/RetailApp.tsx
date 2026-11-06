@@ -83,13 +83,26 @@ import { BranchComparison } from './BranchComparison';
 import { BankReconciliation } from './BankReconciliation';
 import type { Customer } from './api';
 import { reportTechnicalFailure, setErrorContext } from '../../lib/errorReporting';
+import { setAiUsageContext } from '../../lib/aiUsage';
+import { SubscriptionNotice } from './SubscriptionNotice';
+import { PlatformAnnouncements } from './PlatformAnnouncements';
+import { ServicePushToggle } from './ServicePushToggle';
+import { SponsoredCard } from './SponsoredCard';
 import { installDropdownMenus } from '../../components/dropdownMenus';
 type Tab = "home" | "pos" | "cash" | "catalog" | "suppliers" | "finance" | "customers" | "settings" | "ai" | "remito";
+type SuspendedStore = { id: string; name: string; reason: string; suspended_at: string };
+// null = no se pudo consultar (sin conexión o base sin actualizar): no cambia lo que se muestra.
+async function suspendedStores(): Promise<SuspendedStore[] | null> {
+  if (navigator.onLine === false) return null;
+  const { data, error } = await supabase.rpc('retail_my_suspended_stores');
+  return error ? null : (data || []) as SuspendedStore[];
+}
 export function RetailApp({ session }: { session: Session }) {
   useEffect(() => { if (session.access_token) void backgroundAuth(session).catch(() => {}); }, [session.access_token]);
   // Desplegables: uno por vez, por encima de las barras fijas y dentro de la pantalla.
   useEffect(() => installDropdownMenus(), []);
   const [stores, setStores] = useState<Store[]>([]);
+  const [suspended, setSuspended] = useState<SuspendedStore[]>([]);
   const [selected, setSelected] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -105,6 +118,8 @@ export function RetailApp({ session }: { session: Session }) {
     try {
       await retail.acceptInvitations();
       const rows = await retail.stores();
+      const blocked = await suspendedStores();
+      if (blocked) setSuspended(blocked);
       setStores(rows);
       setSelected((prev) =>
         rows.some((s) => s.id === prev) ? prev : rows.find(s => s.id === initialPushIntent()?.storeId)?.id || rows[0]?.id || "",
@@ -118,6 +133,21 @@ export function RetailApp({ session }: { session: Session }) {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    // Una suspensión hecha con la app abierta se aplica en el próximo control, sin esperar a recargar.
+    const timer = window.setInterval(() => void suspendedStores().then(blocked => {
+      if (!blocked) return;
+      setSuspended(blocked);
+      if (!blocked.length) return;
+      setStores(previous => {
+        const remaining = previous.filter(item => !blocked.some(entry => entry.id === item.id));
+        if (remaining.length === previous.length) return previous;
+        setSelected(current => remaining.some(item => item.id === current) ? current : remaining[0]?.id || '');
+        return remaining;
+      });
+    }), 5 * 60 * 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const signOut = async () => {
     // Logging out also disconnects notifications on shared shop devices.
     try { await disconnectPushOnLogout(); } catch { /* Logout must remain available. */ }
@@ -161,8 +191,9 @@ export function RetailApp({ session }: { session: Session }) {
         <span className="brand-mark">
           <StoreIcon />
         </span>
-        <h1>{creating ? "Sumá otro comercio" : "Tu negocio empieza acá"}</h1>
+        <h1>{creating ? "Sumá otro comercio" : suspended.length && !loading ? "Acceso suspendido" : "Tu negocio empieza acá"}</h1>
         <p>{session.user.email}</p>
+        {!loading && <PlatformAnnouncements selling={false} />}
         {loading ? (
           <p role="status">Buscando tus comercios…</p>
         ) : error ? (
@@ -174,6 +205,15 @@ export function RetailApp({ session }: { session: Session }) {
               Reintentar conexión
             </button>
           </>
+        ) : suspended.length && !creating ? (
+          <div className="suspended-stores" role="alert">
+            <h2>{suspended.length === 1 ? 'Comercio suspendido' : 'Comercios suspendidos'}</h2>
+            <ul>{suspended.map(item => <li key={item.id}>
+              <strong>{item.name}</strong>
+              <span>Desde el {new Date(item.suspended_at).toLocaleDateString('es-AR')}. Motivo: {item.reason}</span>
+            </li>)}</ul>
+            <p>El proveedor del servicio suspendió el acceso. Los datos se conservan y vuelven a estar disponibles al reactivarlo. Las operaciones guardadas sin conexión en este dispositivo quedan pendientes y se envían solas al reactivarse.</p>
+          </div>
         ) : (
           <>
             <p>
@@ -317,6 +357,11 @@ function Workspace({
   const [branchDrawerOpen, setBranchDrawerOpen] = useState(false);
   const [ticket, setTicket] = useState<KioscoSale | null>(null);
   const [isAiOpen, setIsAiOpen] = useState(false);
+  useEffect(() => {
+    // Atribuye el uso de IA al comercio y a la pantalla; el asistente flotante cuenta como asistente.
+    setAiUsageContext({ storeId: store.id, screen: isAiOpen ? 'ai' : tab });
+    return () => setAiUsageContext(null);
+  }, [store.id, tab, isAiOpen]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -1077,6 +1122,8 @@ function Workspace({
             </strong>
             <small>{session.user.email}</small>
           </div>
+          {/* Quien no tiene Mi comercio activa acá los avisos del servicio en su dispositivo. */}
+          {!manager && !canOpenSettings && <ServicePushToggle storeId={store.id} userId={session.user.id} />}
           <button
             className="text-button"
             disabled={busy}
@@ -1115,6 +1162,9 @@ function Workspace({
           onRegisterChange={id => { const next = registers.find(r => r.id === id); if (next) { branchSelection.current = next.branch_id; setBranchId(next.branch_id); setRegisterId(id); } }}
           onSell={() => setTab('pos')} onSettings={() => { setSettingsView('locations'); setTab('settings'); }} onRefresh={refreshAll} />}
         <div hidden={guiding}>
+        {/* Fuera de Vender: el aviso no compite con el cobro. */}
+        <PlatformAnnouncements selling={tab === 'pos'} />
+        {manager && <div hidden={tab === 'pos'}><SubscriptionNotice storeId={store.id} /></div>}
         {lastSale && tab === 'pos' && <div className="last-sale"><span>Última venta: ${lastSale.total.toLocaleString('es-AR')}</span><button type="button" className="text-button" onClick={() => showTicket(sales.find(s => s.id === lastSale.id) || lastSale)}>Ver último ticket</button>
           <SaleLedgerControl key={lastSale.id} storeId={store.id} sale={sales.find(s => s.id === lastSale.id) || lastSale} ledgers={ledgers} disabled={busy} canMove={can('move_sale_ledger')}
             onMoved={handleSaleLedgerChange} />
@@ -1176,7 +1226,8 @@ function Workspace({
               <HomeTab place={[branches.find(branch => branch.id === branchId)?.name, register?.name].filter(Boolean).join(' · ') || store.name} cashOpen={!!shift} sold={soldToday} week={soldWeek} lowStock={lowStock}
                 remitos={can('review_remitos') ? pendingRemitos.records.length : 0} actions={homeActions} disabled={busy || guiding}
                 onLowStock={canOpenCatalog ? goToProducts : undefined} onRemitos={canOpenCatalog ? goToProducts : undefined}
-                debtors={canUseCustomers ? debtors : []} onCustomers={canUseCustomers ? () => setTab('customers') : undefined} />
+                debtors={canUseCustomers ? debtors : []} onCustomers={canUseCustomers ? () => setTab('customers') : undefined}
+                sponsored={manager ? <SponsoredCard storeId={store.id} enabled={tab === 'home' && !guiding} /> : undefined} />
             </div>
             <div hidden={tab !== 'pos'}>
               {!canOperate ? (
@@ -1266,6 +1317,7 @@ function Workspace({
                     onSell={() => setTab('pos')}
                     key={registerId + shift?.id}
                     storeId={store.id}
+                    storeInfo={store}
                     register={register}
                     shift={shift}
                     shifts={shifts}

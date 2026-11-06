@@ -37,7 +37,7 @@ TEXTO:\n${extracted.text}` }], { maxTokens: 6000, temperature: 0.1 });
   const items: PendingReplenishmentItem[] = lines.map((line, index) => {
     const link = links[index];
     const product = products.find(product => product.id === link.matched_product_id && product.active !== false);
-    const size = line.quantity_unit === 'unit' ? 1 : line.extracted_pack_size ?? link.pack_size_detected ?? unitsPerPack(product?.pack_size);
+    const size = link.code_units ?? (line.quantity_unit === 'unit' ? 1 : line.extracted_pack_size ?? link.pack_size_detected ?? unitsPerPack(product?.pack_size));
     return { invoice_line: line.invoice_line, product_id: product?.id || null, product_name: product?.name || line.invoice_line,
       quantity: line.quantity * size, pack_size: size, confidence: link.confidence };
   });

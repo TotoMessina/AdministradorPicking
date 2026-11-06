@@ -487,7 +487,7 @@ delete from retail_private.platform_admins
 where user_id = (select id from auth.users where email = 'tu-email@ejemplo.com');
 ```
 
-En la app, el administrador de plataforma lo ve en **Mi comercio → Más opciones → Catálogo global** ([guía](docs/administracion.md#catalogo-global)). El Table Editor y el SQL Editor siguen sirviendo y no pasan por estas reglas. Una carga en bloque por CSV desde el Table Editor entra tal como viene: revisar `source` y `confidence_score` antes de importar.
+En la app, el administrador de plataforma lo ve en **Mi comercio → Más opciones → Panel de plataforma → Catálogo global** ([guía](docs/administracion.md#catalogo-global)). El Table Editor y el SQL Editor siguen sirviendo y no pasan por estas reglas. Una carga en bloque por CSV desde el Table Editor entra tal como viene: revisar `source` y `confidence_score` antes de importar.
 
 ## Catálogo global desde Excel
 
@@ -547,3 +547,101 @@ En la app, el administrador de plataforma lo ve en **Mi comercio → Más opcion
 
 **Pendiente de aplicar:** [202611040007_money_movements_report.sql](supabase/migrations/202611040007_money_movements_report.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040006_money_accounts.sql`. Agrega `retail_money_movements_report`, de solo lectura y con el mismo permiso que la conciliación. Devuelve las cuentas, con lo cobrado en el período y su saldo, y los retiros e ingresos de las cajas junto con los movimientos de sucursales, depósito y cuentas, con su origen y su destino. No cambia datos.
 
+## Panel de plataforma y uso de IA
+
+**Pendiente de aplicar:** [202611060001_platform_admin_panel.sql](supabase/migrations/202611060001_platform_admin_panel.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611040007_money_movements_report.sql`.
+
+- **Tablas privadas, sin acceso desde la API:** `retail_private.ai_usage`, con el uso de IA que informa cada dispositivo (comercio, usuario, pantalla, modelo, tokens y error), y `retail_private.platform_store_notes`, con el estado y la nota interna de cada comercio.
+- **Registro de IA:** `retail_log_ai_usage` lo llama la app después de cada consulta a Groq. Solo atribuye el uso a un comercio del que la persona es miembro y descarta más de 60 registros por minuto y usuario. Es orientativo: Groq se llama desde el navegador.
+- **Lectura del panel:** `retail_admin_overview`, `retail_admin_stores`, `retail_admin_store_detail`, `retail_admin_users`, `retail_admin_ai_usage` y `retail_admin_platform_admins`, de solo lectura. `retail_admin_save_store_note` guarda el seguimiento. Todas exigen estar en `retail_private.platform_admins`; ninguna agrega ni quita administradores.
+- No cambia ventas, productos, permisos ni datos existentes.
+
+## Suspensión de comercios
+
+**Pendiente de aplicar:** [202611060002_store_suspension.sql](supabase/migrations/202611060002_store_suspension.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060001_platform_admin_panel.sql`.
+
+- **Tablas privadas:** `retail_private.store_suspensions` (comercios suspendidos, con motivo) y `retail_private.store_suspension_log` (historial).
+- **Bloqueo efectivo:** reemplaza `retail_private.role_for`, `retail_private.has_permission` y `retail_private.require_permission` con la condición `retail_private.store_suspended`. Con ellas dejan de valer las políticas RLS y las funciones que dependen de esos permisos. También reemplaza `retail_private.can_read_voucher` y agrega una política restrictiva en `retail_branches`, que miraban la membresía directo. Los administradores de plataforma quedan exceptuados.
+- **Sin conexión:** `retail_sync_operation` (mismo cuerpo de `202610280003`) responde primero con el código `RS001`. La app deja esas operaciones pendientes, sin error, y las reenvía al reactivar.
+- **Funciones nuevas:** `retail_my_suspended_stores` (la app explica el bloqueo), `retail_admin_suspend_store` y `retail_admin_reactivate_store`, solo para administradores de plataforma. Reemplaza `retail_admin_overview`, `retail_admin_stores` y `retail_admin_store_detail` para mostrar la suspensión.
+- No cambia datos al aplicarla: ningún comercio queda suspendido. Los avisos push programados no consultan la suspensión.
+
+## IA desde el servidor
+
+**Pendiente de aplicar:** [202611060003_ai_server_limits.sql](supabase/migrations/202611060003_ai_server_limits.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060002_store_suspension.sql`. Después desplegar [supabase/functions/ai-proxy](supabase/functions/ai-proxy/index.ts).
+
+- **Por qué:** con `VITE_GROQ_API_KEY` la clave viaja dentro de la app y cualquiera puede copiarla. Con `ai-proxy`, la clave queda como secreto de Supabase y la base decide cada consulta.
+- **Autorización:** `retail_ai_authorize` (con la sesión de la persona) revisa acceso al comercio y suspensión, el corte general, la configuración del comercio, el cupo diario de tokens y un freno de 30 consultas por minuto y persona. El cupo se controla antes de cada consulta, así que una consulta en curso puede pasarlo por poco.
+- **Registro:** `retail_ai_record`, solo con la clave de servicio, guarda en `retail_private.ai_usage` los tokens que informa Groq, también en las respuestas por eventos.
+- **Panel:** `retail_admin_ai_settings`, `retail_admin_save_ai_settings`, `retail_admin_store_ai_limit` y `retail_admin_save_store_ai_limit`. Al aplicarla la IA queda activa y sin límite, igual que antes.
+
+Pasos, en este orden (no se ejecutaron desde este repositorio):
+
+1. Aplicar la migración en el proyecto correcto.
+2. Guardar el secreto: `supabase secrets set GROQ_API_KEY=...`. Opcional: `AI_ALLOWED_MODELS` (por defecto `llama-3.1-8b-instant,qwen/qwen3.8-27b`). Si `VITE_GROQ_MODEL` usa otro modelo, agregarlo ahí.
+3. Desplegar: `supabase functions deploy ai-proxy`.
+4. Quitar `VITE_GROQ_API_KEY` del entorno de la app publicada y volver a publicar. Sin esa variable, la app manda la IA al servidor; con ella, sigue llamando a Groq directo.
+5. Cambiar la clave de Groq en su consola: la anterior estuvo visible en la app publicada.
+
+## Planes y abonos
+
+**Pendiente de aplicar:** [202611060004_plans_and_subscriptions.sql](supabase/migrations/202611060004_plans_and_subscriptions.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060003_ai_server_limits.sql`.
+
+- **Tablas privadas:** `retail_private.plans`, `retail_private.billing_settings` (plan y prueba para comercios nuevos, gracia), `retail_private.store_subscriptions` y `retail_private.subscription_payments` (ID de pedido como clave: un reintento no duplica).
+- **Bloqueo automático sin tareas programadas:** reemplaza `retail_private.store_suspended` para que también bloquee un abono vencido pasada la gracia. Rige igual que la suspensión manual, incluida la cola sin conexión (`RS001`). `retail_my_suspended_stores` explica el vencimiento.
+- **Límites:** triggers en `retail_branches`, `retail_registers` (cajas activas), `retail_members` y `retail_invitations`. Solo frenan altas nuevas; no cambian lo existente.
+- **IA:** reemplaza `retail_ai_authorize`: manda la configuración propia del comercio, después el plan y por último la general. Corrige que una configuración propia sin cupo signifique sin límite.
+- **Funciones:** `retail_my_subscription` (aviso al dueño) y, para administradores de plataforma, `retail_admin_plans`, `retail_admin_save_plan`, `retail_admin_billing_settings`, `retail_admin_save_billing_settings`, `retail_admin_store_subscription`, `retail_admin_set_store_plan`, `retail_admin_record_payment` y `retail_admin_billing_summary`. Reemplaza `retail_admin_stores` para mostrar plan y estado.
+- **Al aplicarla no cambia nada para los comercios:** ninguno tiene abono y los comercios nuevos tampoco reciben uno hasta elegir un plan en la configuración.
+- **Cobro automático:** todavía no. Los pagos se registran desde el panel; conectar Mercado Pago es un paso aparte.
+
+## Avisos de la plataforma
+
+**Pendiente de aplicar:** [202611060005_platform_announcements.sql](supabase/migrations/202611060005_platform_announcements.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060004_plans_and_subscriptions.sql`.
+
+- **Tablas privadas:** `retail_private.platform_announcements` (ID de pedido como clave: reintentar no duplica) y `retail_private.announcement_reads`.
+- **Usuarios:** `retail_my_announcements` devuelve hasta 5 avisos vigentes y no leídos, según la membresía directa (también con el comercio suspendido). `retail_dismiss_announcement` lo marca como leído.
+- **Push:** agrega el tipo `platform` y la columna `announcement_id` a `retail_push_deliveries`. Reemplaza `retail_claim_push` (misma lógica de `202610140001`) para entregar lotes de 100 y el título y texto del aviso; un aviso cancelado o vencido se omite.
+- **Panel:** `retail_admin_announcement_reach`, `retail_admin_send_announcement`, `retail_admin_announcements` y `retail_admin_cancel_announcement`, solo para administradores de plataforma.
+- **Despliegue aparte:** volver a desplegar `push-dispatch` (`supabase functions deploy push-dispatch`): ahora repite lotes durante hasta 40 segundos por minuto. El service worker acepta abrir Inicio desde un aviso; llega a los dispositivos al publicar la app.
+
+## Push para todas las personas del comercio
+
+**Pendiente de aplicar:** [202611060006_push_for_all_members.sql](supabase/migrations/202611060006_push_for_all_members.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060005_platform_announcements.sql`.
+
+- Reemplaza `retail_save_push` (misma definición de `202610140001`): cualquier miembro registra su dispositivo; para cajeros y supervisores se guardan desactivados stock bajo y cierres de caja.
+- La política `own_device` deja ver la suscripción propia a cualquier miembro. `retail_request_push_test` admite la prueba para cualquier miembro.
+- Reemplaza `retail_claim_push` (definición de `202611060005`): la prueba vale para cualquier miembro; stock bajo y cierres de caja siguen exigiendo dueño o administrador. `enqueue_push` no cambia.
+
+## Publicidad
+
+**Pendiente de aplicar:** [202611060007_advertising.sql](supabase/migrations/202611060007_advertising.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060006_push_for_all_members.sql`.
+
+- **Tablas privadas:** `retail_private.ad_advertisers`, `ad_campaigns` (lugar, textos, contacto, imagen, fechas, segmentación, topes y precio acordado), `ad_items` (códigos de barras), `ad_daily` (vistas y contactos por campaña, comercio y día) y `ad_leads` (un contacto por campaña, comercio, producto y día).
+- **Imágenes:** bucket público `retail-ads` (1 MB; JPG, PNG o WEBP). Solo administradores de plataforma suben o borran.
+- **App:** `retail_ads` (solo lectura) devuelve la publicidad de un lugar para un comercio; Inicio solo a dueños y administradores. `retail_ad_track` registra vistas (hasta 1.000 por campaña, comercio y día) y contactos.
+- **Planes:** agrega `ads_free` y reemplaza `retail_admin_plans` y `retail_admin_save_plan` (nuevo parámetro `p_ads_free`).
+- **Panel:** `retail_admin_advertisers`, `retail_admin_save_advertiser`, `retail_admin_campaigns`, `retail_admin_campaign`, `retail_admin_save_campaign` y `retail_admin_set_campaign_paused`.
+- No muestra nada hasta crear una campaña.
+
+## Eliminar campañas y avisos
+
+**Pendiente de aplicar:** [202611060008_delete_campaigns_and_notices.sql](supabase/migrations/202611060008_delete_campaigns_and_notices.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060007_advertising.sql`.
+
+- `retail_admin_delete_campaign` y `retail_admin_delete_announcement` borran uno; `retail_admin_purge_ended` cuenta (`p_preview`) o borra las campañas terminadas o los avisos vencidos o cancelados hace más de N días. Solo administradores de plataforma.
+- Lo asociado se borra por cascada: productos, vistas y contactos de la campaña; lecturas y entregas push del aviso. Devuelven las imágenes sin uso y el panel las quita del bucket `retail-ads`.
+- No borra nada al aplicarla.
+
+## Códigos por presentación
+
+**Pendiente de aplicar:** [202611060009_product_presentation_codes.sql](supabase/migrations/202611060009_product_presentation_codes.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611060008_delete_campaigns_and_notices.sql`.
+
+- Agrega a `retail_products` `display_code` (EAN-13 del display), `pack_code` (DUN-14 del bulto) y `pallet_packs`, con permiso de edición. Un trigger impide repetir un código de display o bulto entre productos activos o entre presentaciones; los códigos de unidad ya cargados no se revisan.
+- Reemplaza `retail_save_product_at_branch_before_audit` para admitir también `display_size`, los códigos, `pallet_packs`, `price_rounding` y `price_pending` con inventario por sucursal.
+
+## Recibos de movimientos
+
+**Pendiente de aplicar:** [202611060010_movement_receipts.sql](supabase/migrations/202611060010_movement_receipts.sql), después de `202611060009_product_presentation_codes.sql`.
+
+- Tabla privada `retail_receipt_counters` (por comercio y serie `income`/`payment`/`transfer`) y columna `receipt_number` en `retail_movements` y `retail_fund_transfers`, asignada por triggers al insertar. Los cierres automáticos de caja (`shift_id`) y las filas anteriores quedan sin número.
+- Reemplaza `retail_movement_details` (DROP + CREATE) para devolver además `receipt_number` y `actor_email`.

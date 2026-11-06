@@ -11,6 +11,7 @@ import { MoneyAccountEditor, accountKinds, accountMethodLabels } from './MoneyAc
 import { TransferFlowMap, type TransferMapRoute } from './TransferFlowMap';
 import { StockBadge } from './StockBadge';
 import { FundsInTransit } from './FundsInTransit';
+import { MovementReceipt, receiptNumber, type MovementReceiptData } from './MovementReceipt';
 
 type HistoryStock = LocationTransfer & { legacy?: boolean };
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
@@ -49,6 +50,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   const [stockHistory, setStockHistory] = useState<HistoryStock[]>([]);
   const [stockSummary, setStockSummary] = useState<{ location: string; quantity: number }[] | null>(null);
   const [fundHistory, setFundHistory] = useState<FundTransfer[]>([]);
+  const [receipt, setReceipt] = useState<MovementReceiptData | null>(null);
   const [funds, setFunds] = useState<LocationFund[]>([]);
   const [fundsLoaded, setFundsLoaded] = useState(false);
   const [openCash, setOpenCash] = useState<OpenShiftCash[]>([]);
@@ -427,12 +429,17 @@ export function LocationTransfers({ store, branches, products, run, busy, active
         <div className="location-transfer-record-heading"><time dateTime={row.created_at}>{new Date(row.created_at).toLocaleString('es-AR')}</time><span className={`stock-transfer-status ${row.status === 'in_transit' ? 'pending' : row.status === 'returned' ? 'cancelled' : 'confirmed'}`}>{row.shift_id ? 'Cierre de caja' : row.status === 'in_transit' ? 'En camino' : row.status === 'received' ? 'Recibida' : row.status === 'returned' ? 'Volvió al origen' : 'Guardado'}</span><strong>{money(row.amount)}</strong></div>
         <strong className="location-transfer-record-route">{row.from_location === null ? row.shift_id ? 'Ventas de la caja' : 'Ingreso externo' : placeName(row.from_location)} <ArrowRight size={15} aria-hidden="true" /> {row.to_location === null ? row.shift_id ? 'Faltante de la caja' : 'Salida externa' : placeName(row.to_location)}</strong>
         <p>{row.note}</p>{row.actor_email && <small>{row.actor_email}</small>}
+        {!row.shift_id && row.status !== 'returned' && <button type="button" className="text-button" onClick={() => setReceipt({ series: row.from_location === null ? 'income' : row.to_location === null ? 'payment' : 'transfer',
+          number: row.receipt_number, amount: row.amount, at: row.created_at, concept: row.note,
+          source: row.from_location === null ? null : placeName(row.from_location), destination: row.to_location === null ? null : placeName(row.to_location), actor: row.actor_email })}>
+          {row.receipt_number ? `${row.from_location && row.to_location ? 'Constancia' : 'Recibo'} N° ${receiptNumber(row.receipt_number)}` : 'Recibo'}</button>}
         {row.status === 'received' && row.received_amount !== null && row.received_amount !== undefined && row.received_amount < row.amount && <small className="funds-in-transit-late">Llegaron {money(row.received_amount)}: faltante de {money(row.amount - row.received_amount)}.</small>}
         {row.received_at && <small>{row.status === 'returned' ? 'Devuelta' : 'Recibida'} {new Date(row.received_at).toLocaleString('es-AR')}{row.received_email ? ` · ${row.received_email}` : ''}{row.review_note ? ` · ${row.review_note}` : ''}</small>}
       </article></li>)}
     </ol>
     {!(mode === 'stock' ? shownStock.length : shownFunds.length) && !loading && <p className="transfer-flow-empty">Sin movimientos para esta selección.</p>}
     {(mode === 'stock' ? shownStock.length : shownFunds.length) > visible && <button type="button" className="secondary-button" onClick={() => setVisible(previous => previous + 25)}>Mostrar más movimientos</button>}
+    {receipt && <MovementReceipt store={store} receipt={receipt} onClose={() => setReceipt(null)} />}
     {(mode === 'stock' ? stockMore : fundMore) && <button type="button" className="secondary-button" disabled={disabled || loading} onClick={() => void more()}>Cargar historial anterior</button>}
     </div>
   </section>;

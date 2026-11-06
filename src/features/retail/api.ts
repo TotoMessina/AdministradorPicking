@@ -109,6 +109,10 @@ export interface Product extends KioscoProduct {
   pack_size?: number | null;
   /** Unidades por display (202611040005). Un bulto con displays trae pack_size = displays × display_size. */
   display_size?: number | null;
+  /** Códigos del display (EAN-13) y del bulto (DUN-14) y bultos por pallet (202611060009). La unidad usa `code`. */
+  display_code?: string | null;
+  pack_code?: string | null;
+  pallet_packs?: number | null;
   margin_group?: 'standard' | 'low_margin' | null;
   expiry_date?: string | null;
   last_restocked_at?: string | null;
@@ -138,6 +142,9 @@ export interface Movement {
   category?: string;
   voucher_url?: string | null;
   supplier_name?: string | null;
+  /** Número del recibo de ingreso o de pago (202611060010). Los anteriores no tienen. */
+  receipt_number?: number | null;
+  actor_email?: string | null;
 }
 export interface Supplier {
   id: string;
@@ -666,6 +673,9 @@ const remoteRetail = {
       price_pending?: boolean;
       price_rounding?: number | null;
       display_size?: number | null;
+      display_code?: string | null;
+      pack_code?: string | null;
+      pallet_packs?: number | null;
     }>((from, to) =>
       supabase
         .from("retail_products")
@@ -717,6 +727,7 @@ const remoteRetail = {
       unitType: p.unit_type || "unit",
       pack_size: p.pack_size ?? null,
       ...(p.display_size !== undefined ? { display_size: p.display_size } : {}),
+      ...(p.display_code !== undefined ? { display_code: p.display_code, pack_code: p.pack_code ?? null, pallet_packs: p.pallet_packs ?? null } : {}),
       sale_markup: p.sale_markup == null ? null : Number(p.sale_markup),
       margin_group: p.margin_group ?? 'standard',
       expiry_date: p.expiry_date ?? null,
@@ -814,6 +825,10 @@ const remoteRetail = {
       unit_type: p.unitType || "unit",
       pack_size: p.pack_size ?? null,
       ...(p.display_size !== undefined ? { display_size: p.display_size } : {}),
+      // Solo con la actualización 202611060009; quien no los manda no los borra.
+      ...(p.display_code !== undefined ? { display_code: p.display_code?.trim() || null } : {}),
+      ...(p.pack_code !== undefined ? { pack_code: p.pack_code?.trim() || null } : {}),
+      ...(p.pallet_packs !== undefined ? { pallet_packs: p.pallet_packs ?? null } : {}),
       // Older callers that only edit prices must not clear optional metadata.
       ...(p.expiry_date !== undefined ? { expiry_date: p.expiry_date || null } : {}),
       ...(p.last_restocked_at !== undefined ? { last_restocked_at: p.last_restocked_at || null } : {}),

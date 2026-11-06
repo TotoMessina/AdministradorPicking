@@ -4,8 +4,8 @@ import { supabase } from '../../lib/supabase';
 import { errorMessage } from './api';
 import type { Run } from './Management';
 import { ReconciliationDetail } from './ReconciliationDetail';
-import { MoneyMovementsReport } from './MoneyMovementsReport';
-import { downloadAccountantReport, methodLabels, methods, type Method, type MethodTotals } from './reconciliationExport';
+import { MoneyMovementsReport, isOwnAccountMove } from './MoneyMovementsReport';
+import { downloadAccountantReport, methodLabels, methods, type Method, type MethodTotals, type MoneyReport } from './reconciliationExport';
 import './bank-reconciliation.css';
 
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
@@ -27,6 +27,8 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState('');
   const [detail, setDetail] = useState<Method | null>(null);
+  const [moneyReport, setMoneyReport] = useState<MoneyReport | null>(null);
+  const [ownFocus, setOwnFocus] = useState(0);
 
   const load = useCallback(async () => {
     if (to < from) { setError('«Hasta» no puede ser anterior a «Desde».'); return; }
@@ -53,6 +55,9 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
     finally { setExporting(false); }
   };
   const grand = totals?.reduce((sum, row) => sum + row.total, 0) ?? 0;
+  // Movimientos entre cuentas propias: no son cobros, se muestran junto a los medios para ver todo en una pantalla.
+  const ownMoves = moneyReport?.rows.filter(isOwnAccountMove) ?? [];
+  const ownTotal = ownMoves.reduce((sum, row) => sum + row.amount, 0);
 
   return <section className="retail-panel bank-reconciliation" aria-labelledby="bank-title">
     <div className="section-heading"><div><h2 id="bank-title">Conciliación</h2>
@@ -79,9 +84,20 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
       </dl>
       <button type="button" className="secondary-button bank-method-detail" aria-expanded={detail === row.method} disabled={!row.salesCount && !row.refundsCount && !row.collectionsCount}
         onClick={() => setDetail(detail === row.method ? null : row.method)}>{detail === row.method ? 'Ocultar movimientos' : 'Ver movimientos'}</button>
-    </article>)}</div>}
-    {totals && <p className="bank-note">Total cobrado por estos medios en el período: <strong>{money(grand)}</strong>. En una venta mixta se cuenta en cada medio solo su parte.</p>}
+    </article>)}
+      {moneyReport && <article className="bank-method bank-method-own">
+        <h3>Entre cuentas propias</h3>
+        <dl>
+          <div><dt>Movimientos</dt><dd>{ownMoves.length}</dd></div>
+          {ownMoves.some(row => row.status === 'in_transit') && <div><dt>En camino</dt><dd>{money(ownMoves.filter(row => row.status === 'in_transit').reduce((sum, row) => sum + row.amount, 0))}</dd></div>}
+          <div className="bank-method-total"><dt>Total movido</dt><dd>{money(ownTotal)}</dd></div>
+        </dl>
+        <small>Depósitos, pases entre banco y billetera y retiros a efectivo propio. No suman como cobro.</small>
+        <button type="button" className="secondary-button bank-method-detail" disabled={!ownMoves.length} onClick={() => setOwnFocus(value => value + 1)}>Ver movimientos</button>
+      </article>}
+    </div>}
+    {totals && <p className="bank-note">Total cobrado por QR, tarjetas y transferencias en el período: <strong>{money(grand)}</strong>. En una venta mixta se cuenta en cada medio solo su parte. Los movimientos entre cuentas propias no se suman al cobrado.</p>}
     {totals && detail && <ReconciliationDetail key={detail} storeId={storeId} method={detail} label={methodLabels[detail]} from={from} to={to} onClose={() => setDetail(null)} />}
-    <MoneyMovementsReport storeId={storeId} from={from} to={to} active={active} />
+    <MoneyMovementsReport storeId={storeId} from={from} to={to} active={active} onLoaded={setMoneyReport} focus={ownFocus} />
   </section>;
 }

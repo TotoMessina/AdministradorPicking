@@ -1,6 +1,7 @@
 import type { Product } from "../features/retail/api";
 import { unitsPerPack } from './inventoryUnits';
 import { hasComposition } from './productComposition';
+import { presentationForCode } from './productPresentation';
 
 export interface StockReplenishmentItem {
   productId: string;
@@ -241,10 +242,11 @@ export const replenishmentService = {
       const cleanedQty = /^\+?\d+$/.test(rawQty.trim()) ? Number(rawQty) : NaN;
       const cleanedCost = rawCost ? parseFloat(rawCost.replace(/[^0-9.]/g, "")) : undefined;
 
-      // Buscar producto por código o por nombre
-      let matchedProduct = rawCode
+      // Buscar producto por código (de la unidad, del display o DUN del bulto) o por nombre
+      const coded = rawCode ? presentationForCode(catalog, rawCode) : null;
+      let matchedProduct = coded?.product ?? (rawCode
         ? productByCode.get(rawCode.trim().toLowerCase())
-        : undefined;
+        : undefined);
 
       if (!matchedProduct && rawName) {
         matchedProduct = productByName.get(rawName.trim().toLowerCase());
@@ -280,8 +282,11 @@ export const replenishmentService = {
         continue;
       }
       const packSize = unitsPerPack(matchedProduct.pack_size);
-      const interpretedAsPacks = packSize > 1 && cleanedQty < packSize * 0.8;
-      const quantityAdded = cleanedQty * (interpretedAsPacks ? packSize : 1);
+      // El código de la presentación manda: el DUN o el EAN del display dicen en qué viene la cantidad.
+      const byPresentation = coded && coded.product.id === matchedProduct.id && coded.presentation !== 'unit' ? coded : null;
+      const interpretedAsDisplays = byPresentation?.presentation === 'display';
+      const interpretedAsPacks = byPresentation ? byPresentation.presentation === 'pack' : packSize > 1 && cleanedQty < packSize * 0.8;
+      const quantityAdded = cleanedQty * (byPresentation ? byPresentation.units : interpretedAsPacks ? packSize : 1);
       if (!Number.isSafeInteger(quantityAdded) || quantityAdded > 1000000) {
         invalidRows.push({ rawCode, rawName, quantityAdded, product: matchedProduct, status: 'invalid_qty', errorMessage: 'La reposición supera el máximo de 1.000.000 de unidades por producto' });
         continue;
@@ -293,7 +298,9 @@ export const replenishmentService = {
         quantityAdded,
         rawQuantity: cleanedQty,
         interpretedAsPacks,
-        warning: interpretedAsPacks ? `Se interpretó como bultos y se multiplicó por pack_size (${packSize}): ${cleanedQty} × ${packSize} = ${quantityAdded} unidades.` : undefined,
+        ...(interpretedAsDisplays ? { interpretedAsDisplays } : {}),
+        warning: byPresentation ? `El código ${rawCode.trim()} es el ${byPresentation.presentation === 'display' ? 'del display' : 'DUN del bulto'}: ${cleanedQty} × ${byPresentation.units} = ${quantityAdded} unidades.`
+          : interpretedAsPacks ? `Se interpretó como bultos y se multiplicó por pack_size (${packSize}): ${cleanedQty} × ${packSize} = ${quantityAdded} unidades.` : undefined,
         newCost: cleanedCost && cleanedCost > 0 ? cleanedCost : undefined,
         product: matchedProduct,
         status: "matched",

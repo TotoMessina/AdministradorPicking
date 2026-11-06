@@ -63,6 +63,6 @@ export function DelegatedSettings({ store, branches, categories, registers, ledg
         </SettingsEditor>)}
       </>}
     </div>}
-    <div hidden={selected !== 'app'}><PushSettings storeId={store.id} userId={userId} /></div>
+    <div hidden={selected !== 'app'}><PushSettings storeId={store.id} userId={userId} storeAlerts={false} /></div>
   </section></SettingsEditorGroup>;
 }

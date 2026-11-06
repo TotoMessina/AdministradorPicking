@@ -137,7 +137,8 @@ export async function syncOffline() {
       const { data, error } = await supabase.rpc('retail_sync_operation', { p_operation: entry.operation }).setHeader('Authorization', `Bearer ${session.session.access_token}`);
       if (error) {
         // Transport failures stay retryable. Business/authorization failures are explicit conflicts.
-        if (error.code && !['PGRST000', 'PGRST001', 'PGRST002', 'PGRST003'].includes(error.code)) {
+        // RS001: comercio suspendido. La operación queda pendiente, sin error, y se envía al reactivarlo.
+        if (error.code && !['PGRST000', 'PGRST001', 'PGRST002', 'PGRST003', 'RS001'].includes(error.code)) {
           reportSyncConflict(entry.operation.kind, error.code);
           await transaction(user, s => { const current = s.queue.find(q => q.operation.id === entry.operation.id); if (current) current.error = entry.operation.kind === 'close_details' && error.message === 'Operación no admitida'
             ? 'Falta actualizar el cierre con billetes en Supabase. Aplicá schema.sql con 202610240001_shift_closing_details.sql y reintentá. El cierre y su detalle siguen guardados en este dispositivo.' : error.message; }, true);

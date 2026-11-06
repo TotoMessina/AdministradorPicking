@@ -1,5 +1,6 @@
 import type { Product } from '../features/retail/api';
 import { groqChat } from './groqService';
+import { presentationForCode } from './productPresentation';
 import { getMappings, normalizeSupplierText, saveMapping, type SupplierMapping } from './supplierMappingService';
 
 export interface InvoiceLinkInput {
@@ -18,6 +19,8 @@ export interface InvoiceLinkResult {
   matched_product_name: string;
   confidence: number;
   pack_size_detected: number | null;
+  /** El código del renglón es el del display o el DUN del bulto: unidades de esa presentación, por encima de la IA. */
+  code_units?: number;
   unit_cost: number | null;
   reason: string;
   autoLinked: boolean;
@@ -169,5 +172,14 @@ Respondé SOLO JSON: {"items":[{"line_index":0,"invoice_line":"descripción orig
       });
     }
   }
-  return result;
+  // El código del display o el DUN del bulto identifica producto y presentación sin depender de la IA.
+  return result.map((link, index) => {
+    const coded = presentationForCode(catalog, lines[index].code);
+    if (!coded || coded.presentation === 'unit') return link;
+    const same = link.matched_product_id === coded.product.id;
+    return { ...link, matched_product_id: coded.product.id, matched_product_name: coded.product.name, confidence: Math.max(same ? link.confidence : 0, 0.95),
+      pack_size_detected: coded.units, code_units: coded.units, autoLinked: same && link.autoLinked,
+      mapping: same ? link.mapping : undefined, mapping_invoice_text: same ? link.mapping_invoice_text : undefined,
+      reason: `El código ${lines[index].code?.trim()} es ${coded.presentation === 'display' ? 'el del display' : 'el DUN del bulto'} de «${coded.product.name}» (${coded.units} u.).` };
+  });
 }

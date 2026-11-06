@@ -14,6 +14,7 @@ Cada pantalla muestra una tarea: al crear una transferencia se ocultan mapa, sal
 | --- | --- | --- |
 | Empezar el día | Inicio | Primera pantalla: estado de la caja, botones grandes según permisos (Vender, Caja, Recibir mercadería, Pasar mercadería, Pagar a proveedores) y avisos de poco stock y remitos. «Vendido hoy» solo para administración. Vender abre la caja en el mismo lugar. |
 | Vender | Vender | Búsqueda/lector y productos; carrito; total y cobro. Cobrar tiene prioridad con venta válida. |
+| Publicidad | Inicio (al final), Proveedores → pedidos y alta desde el catálogo global | Siempre marcada «Publicidad», en línea y debajo de lo que hay que resolver. Nunca en Vender, caja ni arqueo. Inicio solo para dueños y administradores. Los planes «sin publicidad» no la ven. Se administra desde el panel de plataforma. |
 | Comenzar sin turno | Vender → Abrir turno | Llegada directa a la caja correspondiente con contexto; confirmar efectivo, sin apertura automática. |
 | Operar caja | Caja → Mi turno | Resumen visible; formulario directo con pestañas de movimiento/cierre. Actividad en un único panel de Movimientos, Ventas y Cierres, adaptable al ancho disponible. |
 | Consultar ventas | Caja → Ver ventas / resumen permitido | Solo datos autorizados; cajero/supervisor conserva privacidad y arqueo a ciegas. |

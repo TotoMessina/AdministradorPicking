@@ -7,7 +7,9 @@ import { askConfirm } from '../../components/ConfirmHost';
 import { draftMarkupPrice, roundingLabel } from '../../services/productSalePrice';
 import { errorMessage, type Category, type Product, type Store } from './api';
 import type { Run } from './Management';
+import { adImageUrl, adLabels, trackAd, useAdViews, useAds, type FeaturedAd } from './ads';
 import './catalog-product-adder.css';
+import './ads.css';
 
 interface Facet { name: string; count: number }
 interface Match { ean_code: string; name: string; brand: string | null; category_suggestion: string | null; emoji: string | null }
@@ -56,6 +58,20 @@ export function CatalogProductAdder({ storeId, store, products, categories, busy
   };
 
   useEffect(() => { requestAnimationFrame(() => title.current?.focus()); }, []);
+  // Destacados patrocinados: tarjetas arriba y una etiqueta en sus filas.
+  const featured = useAds<FeaturedAd>(storeId, 'catalog_featured', active);
+  useAdViews(storeId, featured.map(ad => ad.id));
+  const featuredCodes = useMemo(() => {
+    const map = new Map<string, { label: string; campaign: string }>();
+    for (const ad of featured) for (const item of ad.items) if (!map.has(item.ean_code)) map.set(item.ean_code, { label: adLabels[item.label || 'destacado'] || 'Destacado', campaign: ad.id });
+    return map;
+  }, [featured]);
+  const showBrand = (ad: FeaturedAd) => {
+    if (!ad.brand) return;
+    trackAd(storeId, ad.id, 'click');
+    setBrand(ad.brand); setCategory(''); setMatches(null);
+    requestAnimationFrame(() => document.getElementById('catalog-adder-search')?.focus());
+  };
   useEffect(() => {
     if (!active) return;
     let current = true;
@@ -171,6 +187,19 @@ export function CatalogProductAdder({ storeId, store, products, categories, busy
       <button type="button" className="icon-button" aria-label="Cerrar" disabled={Boolean(progress)} onClick={onClose}><X size={18} /></button>
     </div>
 
+    {featured.length > 0 && !matches && <div className="featured-ads" aria-label="Productos destacados">
+      {featured.map(ad => <aside key={ad.id} className="featured-ad" aria-label={`Publicidad de ${ad.advertiser}`}>
+        {ad.image_path && <img src={adImageUrl(ad.image_path)} alt="" loading="lazy" decoding="async" />}
+        <div>
+          <small className="ad-tag">Publicidad · {ad.advertiser}</small>
+          <strong>{ad.title}</strong>
+          {ad.body && <p>{ad.body}</p>}
+          {ad.items.length > 0 && <small>{ad.items.slice(0, 4).map(item => item.name || item.ean_code).join(' · ')}{ad.items.length > 4 ? ` y ${ad.items.length - 4} más` : ''}</small>}
+        </div>
+        {ad.brand && <button type="button" className="secondary-button" disabled={loading || Boolean(progress)} onClick={() => showBrand(ad)}>Ver productos de {ad.brand}</button>}
+      </aside>)}
+    </div>}
+
     <form className="catalog-adder-filters" onSubmit={event => { event.preventDefault(); void search(); }}>
       <label>Marca<select value={brand} disabled={loading || Boolean(progress)} onChange={event => { setBrand(event.target.value); setMatches(null); }}>
         <option value="">Todas las marcas</option>
@@ -182,7 +211,7 @@ export function CatalogProductAdder({ storeId, store, products, categories, busy
         {facets.categories.map(item => <option key={item.name} value={item.name}>{item.name} ({count(item.count)})</option>)}
         {category && !facets.categories.some(item => item.name === category) && <option value={category}>{category}</option>}
       </select></label>
-      <button className="secondary-button" disabled={loading || Boolean(progress) || (!brand && !category)}>{loading ? <><Loader2 size={15} className="spin" /> Buscando…</> : 'Ver productos'}</button>
+      <button id="catalog-adder-search" className="secondary-button" disabled={loading || Boolean(progress) || (!brand && !category)}>{loading ? <><Loader2 size={15} className="spin" /> Buscando…</> : 'Ver productos'}</button>
     </form>
     {error && <p role="alert" className="error-banner">{error}</p>}
 
@@ -211,7 +240,7 @@ export function CatalogProductAdder({ storeId, store, products, categories, busy
             {!manual && <th scope="col" className="col-markup">Ganancia %</th>}
             <th scope="col" className="col-money">Precio</th>
           </tr></thead>
-          <tbody>{matches.map(item => {
+          <tbody>{[...matches].sort((a, b) => Number(featuredCodes.has(b.ean_code)) - Number(featuredCodes.has(a.ean_code))).map(item => {
             const line = lines[item.ean_code];
             const inStore = existing.has(item.ean_code);
             const selected = !inStore && Boolean(line?.selected);
@@ -219,7 +248,7 @@ export function CatalogProductAdder({ storeId, store, products, categories, busy
               <td className="col-pick"><input type="checkbox" checked={selected} disabled={inStore || Boolean(progress)} aria-label={`Elegir ${item.name}`}
                 onChange={event => update(item.ean_code, { selected: event.target.checked })} /></td>
               <td className="col-code">{item.ean_code}</td>
-              <th scope="row"><span aria-hidden="true">{item.emoji || '📦'}</span> {item.name}</th>
+              <th scope="row"><span aria-hidden="true">{item.emoji || '📦'}</span> {item.name}{featuredCodes.has(item.ean_code) && <span className="featured-badge" title="Publicidad">{featuredCodes.get(item.ean_code)!.label}</span>}</th>
               <td className="col-brand">{item.brand || '—'}</td>
               {inStore ? <td colSpan={manual ? 3 : 4} className="catalog-adder-existing">Ya está en tu catálogo</td> : <>
                 <td className="col-category"><select value={line.categoryId} disabled={Boolean(progress)} aria-label={`Categoría de ${item.name}`} onKeyDown={moveInColumn}

@@ -8,6 +8,8 @@
 .bank-method h3 { margin: 0; font-size: 15px; }
 .bank-method dl { display: grid; gap: 4px; margin: 0; }
 .bank-method dl > div { display: flex; justify-content: space-between; gap: 8px; font-size: 13px; }
+.bank-method-own { border-style: dashed; }
+.bank-method-own > small { color: var(--tone-muted); font-size: 12px; }
 .bank-method dt { color: var(--tone-muted); }
 .bank-method dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
 .bank-difference { display: flex; align-items: center; gap: 6px; margin: 0; font-weight: 600; font-size: 13px; }

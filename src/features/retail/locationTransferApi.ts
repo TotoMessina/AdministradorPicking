@@ -10,6 +10,8 @@ export interface LocationTransfer {
 export interface FundTransfer {
   id: string; from_location: string | null; to_location: string | null; amount: number;
   note: string; created_at: string; actor_email: string | null; shift_id?: string | null;
+  /** Número de recibo o constancia (202611060010); los cierres de caja y los anteriores no tienen. */
+  receipt_number?: number | null;
   /** Entre ubicaciones: en camino hasta que se confirma cuánto llegó, o vuelve al origen. */
   status?: 'done' | 'in_transit' | 'received' | 'returned'; received_amount?: number | null; received_email?: string | null; received_at?: string | null; review_note?: string | null;
 }

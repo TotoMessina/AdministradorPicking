@@ -4,7 +4,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { askConfirm } from '../../components/ConfirmHost';
 import { useToast } from '../../context/ToastContext';
 import { draftMarkupPrice, markupFromPrice } from '../../services/productSalePrice';
-import { describe, presentationLabels, sizesOf, storedSizes, unitCost, unitsIn, type Presentation, type PresentationSizes } from '../../services/productPresentation';
+import { describe, presentationCodeConflict, presentationCodeWarning, presentationLabels, sizesOf, storedSizes, unitCost, unitsIn, type Presentation, type PresentationSizes } from '../../services/productPresentation';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { hasComposition } from '../../services/productComposition';
 import { ProductRoundingField } from './ProductMarkupField';
@@ -17,6 +17,8 @@ interface Row extends PresentationSizes {
   code: string; name: string; categoryId: string;
   qty: string; cost: string; markup: string; manual: boolean; price: string; minStock: string;
   brand: string; supplier: string; supplierCode: string; expiry: string; sellable: boolean; unitType: string; emoji: string; rounding: number | null;
+  /** EAN-13 del display, DUN-14 del bulto y bultos por pallet (202611060009). */
+  displayCode: string; packCode: string; palletPacks: string;
   open: boolean; error: string;
 }
 type Field = keyof Row;
@@ -42,7 +44,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
   const defaultMarkup = store.default_markup != null ? String(store.default_markup) : '';
   const blank = (): Row => ({ key: nextKey(), code: '', name: '', categoryId: defaultProductCategory(categories), presentation: 'unit', displaysPerPack: '', unitsPerDisplay: '',
     qty: '', cost: '', markup: defaultMarkup, manual: false, price: '', minStock: '4', brand: '', supplier: '', supplierCode: '', expiry: '', sellable: true,
-    unitType: 'unit', emoji: '📦', rounding: null, open: false, error: '' });
+    unitType: 'unit', emoji: '📦', rounding: null, displayCode: '', packCode: '', palletPacks: '', open: false, error: '' });
   const fromProduct = (product: Product): Row => {
     const sizes = sizesOf(product);
     const units = unitsIn(sizes) || 1;
@@ -52,7 +54,8 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
       manual: product.sale_markup == null && !product.price_pending && product.sellable !== false, price: product.price_pending ? '' : String(product.price),
       minStock: String(product.minStock), brand: product.brand || '', supplier: product.supplier || '', supplierCode: product.supplierCode || '',
       expiry: product.expiry_date || '', sellable: product.sellable !== false || product.price_pending === true, unitType: product.unitType || 'unit',
-      emoji: product.emoji || '📦', rounding: product.price_rounding ?? null, open: false, error: '' };
+      emoji: product.emoji || '📦', rounding: product.price_rounding ?? null,
+      displayCode: product.display_code || '', packCode: product.pack_code || '', palletPacks: product.pallet_packs == null ? '' : String(product.pallet_packs), open: false, error: '' };
   };
   const editable = (initial || []).filter(product => !hasComposition(product));
   const skippedCombos = (initial || []).length - editable.length;
@@ -81,10 +84,12 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
   };
   const filled = rows.filter(row => mode === 'edit' || row.code.trim() || row.name.trim());
 
+  // Códigos por presentación: solo con la actualización 202611060009.
+  const codesReady = products.some(product => product.display_code !== undefined);
   const changed = (row: Row) => {
     if (!row.original) return true;
     const fresh = fromProduct(row.original);
-    const fields: Field[] = ['code', 'name', 'categoryId', 'presentation', 'displaysPerPack', 'unitsPerDisplay', 'cost', 'markup', 'manual', 'price', 'minStock', 'brand', 'supplier', 'supplierCode', 'expiry', 'sellable', 'unitType', 'emoji', 'rounding'];
+    const fields: Field[] = ['code', 'name', 'categoryId', 'presentation', 'displaysPerPack', 'unitsPerDisplay', 'cost', 'markup', 'manual', 'price', 'minStock', 'brand', 'supplier', 'supplierCode', 'expiry', 'sellable', 'unitType', 'emoji', 'rounding', 'displayCode', 'packCode', 'palletPacks'];
     return fields.some(field => String(row[field]) !== String(fresh[field]));
   };
   const pending = mode === 'edit' ? filled.filter(changed) : filled;
@@ -97,6 +102,14 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
     if (!code) return 'Falta el código.';
     if (products.some(product => product.code.trim() === code && product.id !== row.original?.id)) return `El código ${code} ya es de otro producto.`;
     if (filled.some(other => other.key !== row.key && other.code.trim() === code)) return `El código ${code} está repetido en la planilla.`;
+    if (codesReady) {
+      const current = { id: row.original?.id, code, display_code: row.displayCode, pack_code: row.packCode };
+      // Contra el catálogo y contra las otras filas de la planilla, como si ya estuvieran guardadas.
+      const others = filled.filter(other => other.key !== row.key).map(other => ({ id: other.key, code: other.code, display_code: other.displayCode, pack_code: other.packCode, name: other.name.trim() || 'otra fila' }));
+      const conflict = presentationCodeConflict([...products.filter(product => !filled.some(other => other.original?.id === product.id)), ...others], current);
+      if (conflict) return conflict.message;
+      if (row.palletPacks.trim() && !(Number.isInteger(Number(row.palletPacks)) && Number(row.palletPacks) >= 1 && Number(row.palletPacks) <= 100000)) return 'Los bultos por pallet deben ser un número entero entre 1 y 100.000.';
+    }
     if (!row.categoryId) return 'Elegí la categoría.';
     if (!units) return row.presentation === 'display' ? 'Completá cuántas unidades trae el display.' : 'Completá displays por bulto y unidades por display.';
     if (mode === 'new' && row.qty.trim() && !(Number.isInteger(Number(row.qty)) && Number(row.qty) >= 0)) return 'La cantidad debe ser un número entero.';
@@ -175,6 +188,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
             expiry_date: row.expiry || null, stock_components: row.original?.stock_components,
             ...(store.price_rounding !== undefined ? { price_rounding: row.rounding } : {}),
             ...(row.original?.price_pending ? { price_pending: false } : {}),
+            ...(codesReady ? { display_code: row.displayCode.trim() || null, pack_code: row.packCode.trim() || null, pallet_packs: row.palletPacks.trim() ? Number(row.palletPacks) : null } : {}),
           }, Boolean(row.original), row.original?.stock, operationBranch);
           saved += 1;
           const code = row.code.trim();
@@ -184,7 +198,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
           }
         } catch (e) {
           const message = errorMessage(e);
-          failed.set(row.key, /display_size|schema cache/.test(message) ? 'Falta aplicar la actualización 202611040005 en Supabase.' : message);
+          failed.set(row.key, /display_code|pack_code|pallet_packs/.test(message) ? 'Falta aplicar la actualización 202611060009 en Supabase.' : /display_size|schema cache/.test(message) ? 'Falta aplicar la actualización 202611040005 en Supabase.' : message);
         }
         setSaving(current => current && { ...current, done: current.done + 1 });
       }
@@ -287,6 +301,16 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                 <label>Se vende por<select value={row.unitType} disabled={disabled} onChange={event => update(row.key, { unitType: event.target.value })}>
                   {Object.entries(unitTypes).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
                 <label>Emoji<input value={row.emoji} maxLength={8} disabled={disabled} onChange={event => update(row.key, { emoji: event.target.value })} /></label>
+                {codesReady && <>
+                  <label>Código del display (EAN-13)<input value={row.displayCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
+                    onChange={event => update(row.key, { displayCode: event.target.value.replace(/\s/g, '') })} />
+                    {presentationCodeWarning(row.displayCode, 'display') && <small role="status">{presentationCodeWarning(row.displayCode, 'display')}</small>}</label>
+                  <label>Código del bulto (DUN-14)<input value={row.packCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
+                    onChange={event => update(row.key, { packCode: event.target.value.replace(/\s/g, '') })} />
+                    {presentationCodeWarning(row.packCode, 'pack') && <small role="status">{presentationCodeWarning(row.packCode, 'pack')}</small>}</label>
+                  <label>Bultos por pallet<NumberInput value={row.palletPacks} min="1" max="100000" step="1" placeholder="Opcional" disabled={disabled}
+                    onValueChange={value => update(row.key, { palletPacks: value })} /></label>
+                </>}
                 {row.sellable && !row.manual && store.price_rounding !== undefined && <ProductRoundingField value={row.rounding} storeStep={storeStep} disabled={disabled} onChange={rounding => update(row.key, { rounding })} />}
               </div>
               {row.sellable && <div className="price-mode-row">

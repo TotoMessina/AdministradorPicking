@@ -1,0 +1,6 @@
+# Excluidos de búsquedas con rg/Grep (siguen en git). Generados o muy grandes.
+supabase/schema.sql
+supabase/updates/
+package-lock.json
+supabase/functions/deno.lock
+supabase/.temp/

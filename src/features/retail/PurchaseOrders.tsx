@@ -8,7 +8,9 @@ import type { Run } from './Management';
 import { normalizeSupplierText } from '../../services/supplierMappingService';
 import { hasComposition } from '../../services/productComposition';
 import { compareReceipt, orderMessage, purchaseOrders, suggestOrders, suggestionFor, supplierGroup, whatsappLink, type PurchaseOrder, type SupplierGroup, type Velocity } from './purchaseOrderApi';
+import { adContact, adLabels, trackAd, useAdViews, useAds, type SupplierOffer } from './ads';
 import './purchase-orders.css';
+import './ads.css';
 
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 const statuses = { draft: 'Guardado', sent: 'Enviado', received: 'Recibido', cancelled: 'Cancelado' };
@@ -61,6 +63,16 @@ export function PurchaseOrders({ store, branches, products, run, busy, active }:
     });
   }, [products, suppliers, velocity, branchId, days, cover, manualSuppliers, extras, orderable]);
   const productById = useMemo(() => new Map(products.map(product => [product.id, product])), [products]);
+  // Ofertas patrocinadas para los productos que se están pidiendo (el código del producto es su código de barras).
+  const offerCodes = useMemo(() => [...new Set(groups.flatMap(group => group.items.map(item => item.product.code.trim())))]
+    .filter(code => /^[0-9A-Za-z-]{4,20}$/.test(code)).slice(0, 500), [groups]);
+  const offers = useAds<SupplierOffer>(store.id, 'supplier_offer', active, offerCodes);
+  const offersByCode = useMemo(() => {
+    const map = new Map<string, SupplierOffer[]>();
+    for (const offer of offers) map.set(offer.ean_code, [...(map.get(offer.ean_code) || []), offer].slice(0, 2));
+    return map;
+  }, [offers]);
+  useAdViews(store.id, offers.filter(offer => offersByCode.get(offer.ean_code)?.includes(offer)).map(offer => `${offer.id}|${offer.ean_code}`));
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -156,7 +168,14 @@ export function PurchaseOrders({ store, branches, products, run, busy, active }:
             <th scope="col" className="is-number"><span className="purchase-orders-head">Aviso</span></th><th scope="col" className="is-number"><span className="purchase-orders-head">Vende/día</span></th>
             <th scope="col" className="is-number"><span className="purchase-orders-head">Sugerido</span></th><th scope="col" className="is-number"><span className="purchase-orders-head">Pedir</span></th></tr></thead>
             <tbody>{group.items.map(item => <tr key={item.product.id} className={item.stock <= item.min ? 'is-over' : undefined}>
-              <th scope="row">{item.product.name}{item.pack > 1 && <small className="purchase-orders-meta">Bulto x {item.pack}</small>}{extras[group.key]?.includes(item.product.id) && !item.suggested && <button type="button" className="text-button purchase-orders-remove" onClick={() => removeExtra(group, item.product.id)}>Quitar</button>}</th>
+              <th scope="row">{item.product.name}{item.pack > 1 && <small className="purchase-orders-meta">Bulto x {item.pack}</small>}
+                {(offersByCode.get(item.product.code.trim()) || []).map(offer => {
+                  const href = adContact(offer, `Hola, vi en la app del kiosco que tienen ${item.product.name} (${offer.ean_code})${offer.price ? ` a ${money(offer.price)}` : ''}. ¿Me pasan disponibilidad?`);
+                  return <span key={offer.id} className="supplier-offer"><span className="ad-tag">Publicidad</span>
+                    <span>{offer.label ? `${adLabels[offer.label] || offer.label}: ` : ''}{offer.advertiser} lo tiene{offer.price ? ` a ${money(offer.price)}` : ''}{offer.note ? ` (${offer.note})` : ''}</span>
+                    {href && <a href={href} target="_blank" rel="noopener noreferrer sponsored" onClick={() => trackAd(store.id, offer.id, 'click', offer.ean_code)}
+                      aria-label={`Contactar a ${offer.advertiser} por ${item.product.name}`}>{offer.cta_label || 'Contactar'}</a>}</span>;
+                })}{extras[group.key]?.includes(item.product.id) && !item.suggested && <button type="button" className="text-button purchase-orders-remove" onClick={() => removeExtra(group, item.product.id)}>Quitar</button>}</th>
               <td className="is-number">{item.stock.toLocaleString('es-AR')}</td>
               <td className="is-number">{item.min.toLocaleString('es-AR')}</td>
               <td className="is-number">{perDay(item.dailySales)}</td>

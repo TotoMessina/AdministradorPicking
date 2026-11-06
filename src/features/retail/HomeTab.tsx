@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import { AlertTriangle, CheckCircle2, ChevronRight, ClipboardList, UserRound } from 'lucide-react';
 
@@ -23,10 +24,12 @@ function WeekSales({ days }: { days: { label: string; day: string; total: number
 }
 
 /** Primera pantalla: cómo está el comercio y un botón grande por cada tarea diaria. */
-export function HomeTab({ place, cashOpen, sold, week, lowStock, remitos, actions, disabled, onLowStock, onRemitos, debtors = [], onCustomers }: {
+export function HomeTab({ place, cashOpen, sold, week, lowStock, remitos, actions, disabled, onLowStock, onRemitos, debtors = [], onCustomers, sponsored }: {
   place: string; cashOpen: boolean; sold: { total: number; tickets: number } | null; week: { label: string; day: string; total: number }[]; lowStock: string[]; remitos: number;
   actions: HomeAction[]; disabled: boolean; onLowStock?: () => void; onRemitos?: () => void;
   debtors?: { id: string; name: string; balance: number }[]; onCustomers?: () => void;
+  /** Publicidad al final, después de lo que hay que resolver. */
+  sponsored?: ReactNode;
 }) {
   const owed = debtors.reduce((sum, debtor) => sum + debtor.balance, 0);
   const allGood = !lowStock.length && !remitos;
@@ -63,5 +66,6 @@ export function HomeTab({ place, cashOpen, sold, week, lowStock, remitos, action
         {onCustomers && <ChevronRight size={18} aria-hidden="true" />}
       </button>}
     </section>
+    {sponsored}
   </div>;
 }

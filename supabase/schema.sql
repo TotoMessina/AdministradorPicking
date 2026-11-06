@@ -434,6 +434,56 @@ declare
   "ordinal": 84,
   "filename": "202611040007_money_movements_report.sql",
   "sha256": "df024af737bef5fb33bed1a53b63b816a644b8e96e0305f10845e4bd2cf0e57b"
+ },
+ {
+  "ordinal": 85,
+  "filename": "202611060001_platform_admin_panel.sql",
+  "sha256": "659abf945a67cc83a4775247e87f9c4c22a614b9331c59823c6bcff9b2f09dd4"
+ },
+ {
+  "ordinal": 86,
+  "filename": "202611060002_store_suspension.sql",
+  "sha256": "c32216a04601682cf998ae591d7a771ee58d45a148c3fa980f6b9783c9f98ef9"
+ },
+ {
+  "ordinal": 87,
+  "filename": "202611060003_ai_server_limits.sql",
+  "sha256": "83b162f1eb544e8de1acc0df7ca4414be9316e74370ac3887cbeae9c7c79e30e"
+ },
+ {
+  "ordinal": 88,
+  "filename": "202611060004_plans_and_subscriptions.sql",
+  "sha256": "222d45b7d13c2e2e00185911908e716995048bfcd5533cc03f1d9456efc1dab6"
+ },
+ {
+  "ordinal": 89,
+  "filename": "202611060005_platform_announcements.sql",
+  "sha256": "d5435338ad558c1a17f89b8154695b05d556b31231329b8e2f1725c0b3c89533"
+ },
+ {
+  "ordinal": 90,
+  "filename": "202611060006_push_for_all_members.sql",
+  "sha256": "cbb1e3a8f7aeb3bd470418ab87ab02a4ba856ccfdc13d8d4f9294ccb6f0b463d"
+ },
+ {
+  "ordinal": 91,
+  "filename": "202611060007_advertising.sql",
+  "sha256": "46353e26393c7e759b85930d27fd7d00ddbd14b76c7b8d7d31b19f1eca47f0ec"
+ },
+ {
+  "ordinal": 92,
+  "filename": "202611060008_delete_campaigns_and_notices.sql",
+  "sha256": "4f1a2e35d7accaa392c4e227b04f27bbae8d6c0bd05e2061244faae486dddb72"
+ },
+ {
+  "ordinal": 93,
+  "filename": "202611060009_product_presentation_codes.sql",
+  "sha256": "c0ee5421317c76645713f2d36b801f8a2e86058819903e88a6a1ba0a0ad099c0"
+ },
+ {
+  "ordinal": 94,
+  "filename": "202611060010_movement_receipts.sql",
+  "sha256": "a65a158ee915c4929f5f36efcb260ec1433dab1ce10a82f2c92724c2e69db2bb"
  }
 ]
 $retail_schema_manifest_json$::jsonb;
@@ -489,7 +539,7 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
--- 1/84: 202610010001_retail_multistore.sql
+-- 1/94: 202610010001_retail_multistore.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
   raise notice 'Aplicando 202610010001_retail_multistore.sql';
@@ -726,7 +776,7 @@ $retail_source_f24b734005cc1623$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 2/84: 202610020001_catalog_global_and_segmentation.sql
+-- 2/94: 202610020001_catalog_global_and_segmentation.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
   raise notice 'Aplicando 202610020001_catalog_global_and_segmentation.sql';
@@ -1016,7 +1066,7 @@ $retail_source_bca9c54fa75c2a89$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 3/84: 202610070001_harden_global_catalog_immutability.sql
+-- 3/94: 202610070001_harden_global_catalog_immutability.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
   raise notice 'Aplicando 202610070001_harden_global_catalog_immutability.sql';
@@ -1113,7 +1163,7 @@ $retail_source_f3ff59ec39b6e574$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 4/84: 202610130001_branches_prices_ledgers.sql
+-- 4/94: 202610130001_branches_prices_ledgers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
   raise notice 'Aplicando 202610130001_branches_prices_ledgers.sql';
@@ -1308,7 +1358,7 @@ $retail_source_e86fe143f886cd85$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 5/84: 202610140001_web_push.sql
+-- 5/94: 202610140001_web_push.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
   raise notice 'Aplicando 202610140001_web_push.sql';
@@ -1454,7 +1504,7 @@ $retail_source_918efe9a5d3313e3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 6/84: 202610150001_cashier_access.sql
+-- 6/94: 202610150001_cashier_access.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
   raise notice 'Aplicando 202610150001_cashier_access.sql';
@@ -1620,7 +1670,7 @@ $retail_source_a30006ceabfa2ca5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 7/84: 202610160001_offline_pos.sql
+-- 7/94: 202610160001_offline_pos.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
   raise notice 'Aplicando 202610160001_offline_pos.sql';
@@ -1734,7 +1784,7 @@ $retail_source_770c916876fcdabf$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 8/84: 202610160002_offline_queue.sql
+-- 8/94: 202610160002_offline_queue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
   raise notice 'Aplicando 202610160002_offline_queue.sql';
@@ -1860,7 +1910,7 @@ $retail_source_ffb2f924480094f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 9/84: 202610160003_pack_size.sql
+-- 9/94: 202610160003_pack_size.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
   raise notice 'Aplicando 202610160003_pack_size.sql';
@@ -1876,7 +1926,7 @@ $retail_source_e8f486a53e369954$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 10/84: 202610160004_margin_groups.sql
+-- 10/94: 202610160004_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
   raise notice 'Aplicando 202610160004_margin_groups.sql';
@@ -1931,7 +1981,7 @@ $retail_source_8a5790ed3a1371e6$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 11/84: 202610160005_branch_price_rules.sql
+-- 11/94: 202610160005_branch_price_rules.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
   raise notice 'Aplicando 202610160005_branch_price_rules.sql';
@@ -1985,7 +2035,7 @@ $retail_source_7899d29739b25999$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 12/84: 202610190001_justified_withdrawal.sql
+-- 12/94: 202610190001_justified_withdrawal.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
   raise notice 'Aplicando 202610190001_justified_withdrawal.sql';
@@ -2165,7 +2215,7 @@ $retail_source_029b5843eacab94f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 13/84: 202610190001_store_onboarding.sql
+-- 13/94: 202610190001_store_onboarding.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
   raise notice 'Aplicando 202610190001_store_onboarding.sql';
@@ -2282,7 +2332,7 @@ $retail_source_e5b8362448949bce$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 14/84: 202610190002_pending_replenishments.sql
+-- 14/94: 202610190002_pending_replenishments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
   raise notice 'Aplicando 202610190002_pending_replenishments.sql';
@@ -2451,7 +2501,7 @@ $retail_source_3ddd179e5609126a$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 15/84: 202610190003_stock_transfers.sql
+-- 15/94: 202610190003_stock_transfers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
   raise notice 'Aplicando 202610190003_stock_transfers.sql';
@@ -2558,7 +2608,7 @@ $retail_source_cab05c3785465fba$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 16/84: 202610200001_supplier_mappings.sql
+-- 16/94: 202610200001_supplier_mappings.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
   raise notice 'Aplicando 202610200001_supplier_mappings.sql';
@@ -2649,7 +2699,7 @@ $retail_source_d4841853f82adbd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 17/84: 202610200002_supplier_alias_usage.sql
+-- 17/94: 202610200002_supplier_alias_usage.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
   raise notice 'Aplicando 202610200002_supplier_alias_usage.sql';
@@ -2716,7 +2766,7 @@ $retail_source_1adc3ce4519abbb2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 18/84: 202610200003_product_expiry.sql
+-- 18/94: 202610200003_product_expiry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
   raise notice 'Aplicando 202610200003_product_expiry.sql';
@@ -2731,7 +2781,7 @@ $retail_source_77d1f8c0f62da284$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 19/84: 202610210001_ledger_routing.sql
+-- 19/94: 202610210001_ledger_routing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
   raise notice 'Aplicando 202610210001_ledger_routing.sql';
@@ -2862,7 +2912,7 @@ $retail_source_f19dc026535013c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 20/84: 202610210002_staff_profiles.sql
+-- 20/94: 202610210002_staff_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
   raise notice 'Aplicando 202610210002_staff_profiles.sql';
@@ -3028,7 +3078,7 @@ $retail_source_ca6e73c2c8993bc2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 21/84: 202610210003_ledger_lock_order.sql
+-- 21/94: 202610210003_ledger_lock_order.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
   raise notice 'Aplicando 202610210003_ledger_lock_order.sql';
@@ -3076,7 +3126,7 @@ $retail_source_b9f318a08145ad1e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 22/84: 202610210004_delegated_catalog_actions.sql
+-- 22/94: 202610210004_delegated_catalog_actions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
   raise notice 'Aplicando 202610210004_delegated_catalog_actions.sql';
@@ -3194,7 +3244,7 @@ $retail_source_bcfa6664c406dd00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 23/84: 202610220001_product_compositions.sql
+-- 23/94: 202610220001_product_compositions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
   raise notice 'Aplicando 202610220001_product_compositions.sql';
@@ -3352,7 +3402,7 @@ $retail_source_ef088735e7a84900$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 24/84: 202610220002_loose_cigarettes.sql
+-- 24/94: 202610220002_loose_cigarettes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
   raise notice 'Aplicando 202610220002_loose_cigarettes.sql';
@@ -3460,7 +3510,7 @@ $retail_source_e943d579b3d7ed4e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 25/84: 202610220003_product_deletion_history.sql
+-- 25/94: 202610220003_product_deletion_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
   raise notice 'Aplicando 202610220003_product_deletion_history.sql';
@@ -3565,7 +3615,7 @@ $retail_source_458a93d670539dd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 26/84: 202610220004_standard_categories.sql
+-- 26/94: 202610220004_standard_categories.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
   raise notice 'Aplicando 202610220004_standard_categories.sql';
@@ -3667,7 +3717,7 @@ $retail_source_85e889e22c9dcc55$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 27/84: 202610220005_category_labels.sql
+-- 27/94: 202610220005_category_labels.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
   raise notice 'Aplicando 202610220005_category_labels.sql';
@@ -3698,7 +3748,7 @@ $retail_source_e975aa6c462d6ee5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 28/84: 202610220006_complete_permission_profiles.sql
+-- 28/94: 202610220006_complete_permission_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
   raise notice 'Aplicando 202610220006_complete_permission_profiles.sql';
@@ -4336,7 +4386,7 @@ $retail_source_913347ffd59472a5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 29/84: 202610230001_automatic_margin_groups.sql
+-- 29/94: 202610230001_automatic_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
   raise notice 'Aplicando 202610230001_automatic_margin_groups.sql';
@@ -4402,7 +4452,7 @@ $retail_source_6cd429e7679685c4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 30/84: 202610230002_ingredients_and_composition_costs.sql
+-- 30/94: 202610230002_ingredients_and_composition_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
   raise notice 'Aplicando 202610230002_ingredients_and_composition_costs.sql';
@@ -4505,7 +4555,7 @@ $retail_source_86fd19952b8e6534$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 31/84: 202610240001_shift_closing_details.sql
+-- 31/94: 202610240001_shift_closing_details.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
   raise notice 'Aplicando 202610240001_shift_closing_details.sql';
@@ -4669,7 +4719,7 @@ $retail_source_d3204ba0e41d2977$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 32/84: 202610260001_optional_depot.sql
+-- 32/94: 202610260001_optional_depot.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
   raise notice 'Aplicando 202610260001_optional_depot.sql';
@@ -4809,7 +4859,7 @@ $retail_source_f221d19fcff7ac88$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 33/84: 202610260002_create_composite_product.sql
+-- 33/94: 202610260002_create_composite_product.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
   raise notice 'Aplicando 202610260002_create_composite_product.sql';
@@ -4855,7 +4905,7 @@ $retail_source_2e23fbafc73e0b69$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 34/84: 202610260003_billing_fields.sql
+-- 34/94: 202610260003_billing_fields.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260003_billing_fields.sql') then
   raise notice 'Aplicando 202610260003_billing_fields.sql';
@@ -5039,7 +5089,7 @@ $retail_source_2a42b0a16de67076$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 35/84: 202610260004_price_list_tree.sql
+-- 35/94: 202610260004_price_list_tree.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260004_price_list_tree.sql') then
   raise notice 'Aplicando 202610260004_price_list_tree.sql';
@@ -5199,7 +5249,7 @@ exception when raise_exception then
   hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
 end;
 
--- 36/84: 202610260005_delete_price_lists.sql
+-- 36/94: 202610260005_delete_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260005_delete_price_lists.sql') then
   raise notice 'Aplicando 202610260005_delete_price_lists.sql';
@@ -5329,7 +5379,7 @@ $retail_source_540fb2b7146a1f68$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 37/84: 202610260006_billing_update_robustness.sql
+-- 37/94: 202610260006_billing_update_robustness.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260006_billing_update_robustness.sql') then
   raise notice 'Aplicando 202610260006_billing_update_robustness.sql';
@@ -5415,7 +5465,7 @@ $retail_source_97469041ab94b975$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 38/84: 202610270001_store_billing_credentials.sql
+-- 38/94: 202610270001_store_billing_credentials.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270001_store_billing_credentials.sql') then
   raise notice 'Aplicando 202610270001_store_billing_credentials.sql';
@@ -5511,7 +5561,7 @@ $retail_source_5c5d202e9b944644$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 39/84: 202610270002_primary_product_markup.sql
+-- 39/94: 202610270002_primary_product_markup.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270002_primary_product_markup.sql') then
   raise notice 'Aplicando 202610270002_primary_product_markup.sql';
@@ -5694,7 +5744,7 @@ $retail_source_d9e8f398d415af14$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 40/84: 202610270003_suppliers.sql
+-- 40/94: 202610270003_suppliers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270003_suppliers.sql') then
   raise notice 'Aplicando 202610270003_suppliers.sql';
@@ -5776,7 +5826,7 @@ $retail_source_9f007483d72681a7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 41/84: 202610270004_cost_price_lists.sql
+-- 41/94: 202610270004_cost_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270004_cost_price_lists.sql') then
   raise notice 'Aplicando 202610270004_cost_price_lists.sql';
@@ -5813,7 +5863,7 @@ $retail_source_abe5683734a54251$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 42/84: 202610270005_supplier_invoice_formats.sql
+-- 42/94: 202610270005_supplier_invoice_formats.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270005_supplier_invoice_formats.sql') then
   raise notice 'Aplicando 202610270005_supplier_invoice_formats.sql';
@@ -5894,7 +5944,7 @@ $retail_source_62535c0e844930c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 43/84: 202610280001_supplier_alias_usage_repair.sql
+-- 43/94: 202610280001_supplier_alias_usage_repair.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280001_supplier_alias_usage_repair.sql') then
   raise notice 'Aplicando 202610280001_supplier_alias_usage_repair.sql';
@@ -5972,7 +6022,7 @@ $retail_source_e6eee2d43a1a62cc$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 44/84: 202610280002_location_funds.sql
+-- 44/94: 202610280002_location_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280002_location_funds.sql') then
   raise notice 'Aplicando 202610280002_location_funds.sql';
@@ -6064,7 +6114,7 @@ $retail_source_f22cae1d60cb383c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 45/84: 202610280003_location_inventory.sql
+-- 45/94: 202610280003_location_inventory.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280003_location_inventory.sql') then
   raise notice 'Aplicando 202610280003_location_inventory.sql';
@@ -6456,7 +6506,7 @@ $retail_source_baa181aa8cc76f1b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 46/84: 202610280004_permanent_product_deletion.sql
+-- 46/94: 202610280004_permanent_product_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280004_permanent_product_deletion.sql') then
   raise notice 'Aplicando 202610280004_permanent_product_deletion.sql';
@@ -6588,7 +6638,7 @@ $retail_source_c066941e7a7c08d3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 47/84: 202610290001_branch_location_and_deletion.sql
+-- 47/94: 202610290001_branch_location_and_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290001_branch_location_and_deletion.sql') then
   raise notice 'Aplicando 202610290001_branch_location_and_deletion.sql';
@@ -6663,7 +6713,7 @@ $retail_source_bd6a4e4c41f96463$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 48/84: 202610290002_supplier_fiscal_profile.sql
+-- 48/94: 202610290002_supplier_fiscal_profile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290002_supplier_fiscal_profile.sql') then
   raise notice 'Aplicando 202610290002_supplier_fiscal_profile.sql';
@@ -6762,7 +6812,7 @@ $retail_source_51d60abcf980e182$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 49/84: 202610290003_purchase_invoices.sql
+-- 49/94: 202610290003_purchase_invoices.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290003_purchase_invoices.sql') then
   raise notice 'Aplicando 202610290003_purchase_invoices.sql';
@@ -6887,7 +6937,7 @@ $retail_source_8a5afba23235cad7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 50/84: 202610290004_landed_costs.sql
+-- 50/94: 202610290004_landed_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290004_landed_costs.sql') then
   raise notice 'Aplicando 202610290004_landed_costs.sql';
@@ -6958,7 +7008,7 @@ $retail_source_12d7490f65c8eac5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 51/84: 202610290005_conflict_errors_without_retry.sql
+-- 51/94: 202610290005_conflict_errors_without_retry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290005_conflict_errors_without_retry.sql') then
   raise notice 'Aplicando 202610290005_conflict_errors_without_retry.sql';
@@ -7069,7 +7119,7 @@ $retail_source_ed34b128cffadb21$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 52/84: 202610290006_supplier_contact_profile.sql
+-- 52/94: 202610290006_supplier_contact_profile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290006_supplier_contact_profile.sql') then
   raise notice 'Aplicando 202610290006_supplier_contact_profile.sql';
@@ -7216,7 +7266,7 @@ $retail_source_7c244212c97c982d$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 53/84: 202610290007_purchase_invoice_tracking.sql
+-- 53/94: 202610290007_purchase_invoice_tracking.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290007_purchase_invoice_tracking.sql') then
   raise notice 'Aplicando 202610290007_purchase_invoice_tracking.sql';
@@ -7325,7 +7375,7 @@ $retail_source_551f2d827fa2913e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 54/84: 202610300001_supplier_payments.sql
+-- 54/94: 202610300001_supplier_payments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300001_supplier_payments.sql') then
   raise notice 'Aplicando 202610300001_supplier_payments.sql';
@@ -7584,7 +7634,7 @@ $retail_source_1d44ea08176b5b5b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 55/84: 202610300002_payment_apply_same_invoice.sql
+-- 55/94: 202610300002_payment_apply_same_invoice.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300002_payment_apply_same_invoice.sql') then
   raise notice 'Aplicando 202610300002_payment_apply_same_invoice.sql';
@@ -7637,7 +7687,7 @@ $retail_source_e0eb93640914e083$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 56/84: 202610300003_branch_inventory_by_default.sql
+-- 56/94: 202610300003_branch_inventory_by_default.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300003_branch_inventory_by_default.sql') then
   raise notice 'Aplicando 202610300003_branch_inventory_by_default.sql';
@@ -7699,7 +7749,7 @@ $retail_source_85ae0991e1effe24$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 57/84: 202610300004_branch_inventory_always.sql
+-- 57/94: 202610300004_branch_inventory_always.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300004_branch_inventory_always.sql') then
   raise notice 'Aplicando 202610300004_branch_inventory_always.sql';
@@ -7739,7 +7789,7 @@ $retail_source_6aa129a6af964b60$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 58/84: 202610300005_shift_cash_into_branch_funds.sql
+-- 58/94: 202610300005_shift_cash_into_branch_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300005_shift_cash_into_branch_funds.sql') then
   raise notice 'Aplicando 202610300005_shift_cash_into_branch_funds.sql';
@@ -7795,7 +7845,7 @@ $retail_source_8b55ed736684a540$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 59/84: 202610300006_editable_role_permissions.sql
+-- 59/94: 202610300006_editable_role_permissions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300006_editable_role_permissions.sql') then
   raise notice 'Aplicando 202610300006_editable_role_permissions.sql';
@@ -7854,7 +7904,7 @@ $retail_source_f9353e99737cb1fa$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 60/84: 202610300007_expenses_and_month_result.sql
+-- 60/94: 202610300007_expenses_and_month_result.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300007_expenses_and_month_result.sql') then
   raise notice 'Aplicando 202610300007_expenses_and_month_result.sql';
@@ -7950,7 +8000,7 @@ $retail_source_1cc8488904046c20$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 61/84: 202611020001_sale_returns.sql
+-- 61/94: 202611020001_sale_returns.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020001_sale_returns.sql') then
   raise notice 'Aplicando 202611020001_sale_returns.sql';
@@ -8232,7 +8282,7 @@ $retail_source_160c3ea5ca68498f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 62/84: 202611020002_stock_counts.sql
+-- 62/94: 202611020002_stock_counts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020002_stock_counts.sql') then
   raise notice 'Aplicando 202611020002_stock_counts.sql';
@@ -8452,7 +8502,7 @@ $retail_source_9daed2281b904f3b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 63/84: 202611020003_stock_count_sections.sql
+-- 63/94: 202611020003_stock_count_sections.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020003_stock_count_sections.sql') then
   raise notice 'Aplicando 202611020003_stock_count_sections.sql';
@@ -8547,7 +8597,7 @@ $retail_source_9f3258490d566b00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 64/84: 202611020004_customer_accounts.sql
+-- 64/94: 202611020004_customer_accounts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020004_customer_accounts.sql') then
   raise notice 'Aplicando 202611020004_customer_accounts.sql';
@@ -8775,7 +8825,7 @@ $retail_source_d1eade0c0e42edbd$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 65/84: 202611020005_customer_billing_and_credit.sql
+-- 65/94: 202611020005_customer_billing_and_credit.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020005_customer_billing_and_credit.sql') then
   raise notice 'Aplicando 202611020005_customer_billing_and_credit.sql';
@@ -8881,7 +8931,7 @@ $retail_source_d88f8756a740b886$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 66/84: 202611020006_partial_credit.sql
+-- 66/94: 202611020006_partial_credit.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020006_partial_credit.sql') then
   raise notice 'Aplicando 202611020006_partial_credit.sql';
@@ -8981,7 +9031,7 @@ $retail_source_c4cbb30b0390a791$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 67/84: 202611020007_purchase_orders.sql
+-- 67/94: 202611020007_purchase_orders.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020007_purchase_orders.sql') then
   raise notice 'Aplicando 202611020007_purchase_orders.sql';
@@ -9132,7 +9182,7 @@ $retail_source_9ee57671d2b9262c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 68/84: 202611020008_branch_comparison.sql
+-- 68/94: 202611020008_branch_comparison.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020008_branch_comparison.sql') then
   raise notice 'Aplicando 202611020008_branch_comparison.sql';
@@ -9269,7 +9319,7 @@ $retail_source_9cbc6cfea5ad26ab$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 69/84: 202611020009_activity_log.sql
+-- 69/94: 202611020009_activity_log.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020009_activity_log.sql') then
   raise notice 'Aplicando 202611020009_activity_log.sql';
@@ -9487,7 +9537,7 @@ $retail_source_fef5de758a29f033$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 70/84: 202611030001_funds_in_transit_and_bank.sql
+-- 70/94: 202611030001_funds_in_transit_and_bank.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030001_funds_in_transit_and_bank.sql') then
   raise notice 'Aplicando 202611030001_funds_in_transit_and_bank.sql';
@@ -9713,7 +9763,7 @@ $retail_source_fb72479c1dfb3f5f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 71/84: 202611030002_billing_safe_issue.sql
+-- 71/94: 202611030002_billing_safe_issue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030002_billing_safe_issue.sql') then
   raise notice 'Aplicando 202611030002_billing_safe_issue.sql';
@@ -9973,7 +10023,7 @@ $retail_source_be0145bb9fed6674$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 72/84: 202611030003_billing_receptor_credit_notes.sql
+-- 72/94: 202611030003_billing_receptor_credit_notes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030003_billing_receptor_credit_notes.sql') then
   raise notice 'Aplicando 202611030003_billing_receptor_credit_notes.sql';
@@ -10245,7 +10295,7 @@ $retail_source_11f4d758d7e2d014$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 73/84: 202611030004_platform_admin_catalog.sql
+-- 73/94: 202611030004_platform_admin_catalog.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030004_platform_admin_catalog.sql') then
   raise notice 'Aplicando 202611030004_platform_admin_catalog.sql';
@@ -10423,7 +10473,7 @@ $retail_source_df0715207f6ad9f3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 74/84: 202611030005_global_catalog_import.sql
+-- 74/94: 202611030005_global_catalog_import.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030005_global_catalog_import.sql') then
   raise notice 'Aplicando 202611030005_global_catalog_import.sql';
@@ -10493,7 +10543,7 @@ $retail_source_0cdd60b36af298de$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 75/84: 202611030006_add_products_from_global_catalog.sql
+-- 75/94: 202611030006_add_products_from_global_catalog.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030006_add_products_from_global_catalog.sql') then
   raise notice 'Aplicando 202611030006_add_products_from_global_catalog.sql';
@@ -10606,7 +10656,7 @@ $retail_source_9ec08a8532c21cfb$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 76/84: 202611030007_cost_based_pricing.sql
+-- 76/94: 202611030007_cost_based_pricing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030007_cost_based_pricing.sql') then
   raise notice 'Aplicando 202611030007_cost_based_pricing.sql';
@@ -10801,7 +10851,7 @@ $retail_source_104ebd8f16a2fcde$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 77/84: 202611030008_bulk_markup_adjust.sql
+-- 77/94: 202611030008_bulk_markup_adjust.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030008_bulk_markup_adjust.sql') then
   raise notice 'Aplicando 202611030008_bulk_markup_adjust.sql';
@@ -10846,7 +10896,7 @@ $retail_source_68a2967522d593e1$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 78/84: 202611040001_product_price_history.sql
+-- 78/94: 202611040001_product_price_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040001_product_price_history.sql') then
   raise notice 'Aplicando 202611040001_product_price_history.sql';
@@ -10895,7 +10945,7 @@ $retail_source_6e782e7b1aa273f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 79/84: 202611040002_price_index_by_group.sql
+-- 79/94: 202611040002_price_index_by_group.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040002_price_index_by_group.sql') then
   raise notice 'Aplicando 202611040002_price_index_by_group.sql';
@@ -11011,7 +11061,7 @@ $retail_source_b22129d025e8d2a9$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 80/84: 202611040003_reconciliation_sales_detail.sql
+-- 80/94: 202611040003_reconciliation_sales_detail.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040003_reconciliation_sales_detail.sql') then
   raise notice 'Aplicando 202611040003_reconciliation_sales_detail.sql';
@@ -11055,7 +11105,7 @@ $retail_source_dbc90b884f7104bc$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 81/84: 202611040004_reconciliation_totals.sql
+-- 81/94: 202611040004_reconciliation_totals.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040004_reconciliation_totals.sql') then
   raise notice 'Aplicando 202611040004_reconciliation_totals.sql';
@@ -11104,7 +11154,7 @@ $retail_source_6a335da16cd91637$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 82/84: 202611040005_product_presentations.sql
+-- 82/94: 202611040005_product_presentations.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040005_product_presentations.sql') then
   raise notice 'Aplicando 202611040005_product_presentations.sql';
@@ -11121,7 +11171,7 @@ $retail_source_93ba9b0485f9a37b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 83/84: 202611040006_money_accounts.sql
+-- 83/94: 202611040006_money_accounts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040006_money_accounts.sql') then
   raise notice 'Aplicando 202611040006_money_accounts.sql';
@@ -11285,7 +11335,7 @@ $retail_source_f45ef0bac37eccb8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 84/84: 202611040007_money_movements_report.sql
+-- 84/94: 202611040007_money_movements_report.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040007_money_movements_report.sql') then
   raise notice 'Aplicando 202611040007_money_movements_report.sql';
@@ -11360,6 +11410,2028 @@ notify pgrst,'reload schema';
 $retail_source_df024af737bef5fb$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202611040007_money_movements_report.sql','df024af737bef5fb33bed1a53b63b816a644b8e96e0305f10845e4bd2cf0e57b','schema');
+ end if;
+end;
+
+-- 85/94: 202611060001_platform_admin_panel.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060001_platform_admin_panel.sql') then
+  raise notice 'Aplicando 202611060001_platform_admin_panel.sql';
+  execute replace($retail_source_659abf945a67cc83$
+-- 1. Uso de IA. Groq se llama desde el navegador, así que cada dispositivo informa su propio uso.
+-- Es un registro orientativo para seguimiento, no una medición de facturación ni un límite efectivo.
+create table retail_private.ai_usage (
+ id bigint generated always as identity primary key,
+ created_at timestamptz not null default now(),
+ store_id uuid references public.retail_stores(id) on delete cascade,
+ user_id uuid references auth.users(id) on delete set null,
+ feature text not null check (feature ~ '^[a-z][a-z0-9_-]{0,39}$'),
+ model text not null check (length(model) between 1 and 80),
+ prompt_tokens integer not null default 0 check (prompt_tokens between 0 and 200000),
+ completion_tokens integer not null default 0 check (completion_tokens between 0 and 200000),
+ ok boolean not null,
+ error_code text check (error_code is null or length(error_code) <= 60)
+);
+create index retail_ai_usage_created on retail_private.ai_usage(created_at);
+create index retail_ai_usage_store on retail_private.ai_usage(store_id, created_at);
+create index retail_ai_usage_user on retail_private.ai_usage(user_id, created_at);
+revoke all on retail_private.ai_usage from public, anon, authenticated;
+
+create function public.retail_log_ai_usage(
+ p_store uuid, p_feature text, p_model text, p_prompt_tokens integer, p_completion_tokens integer, p_ok boolean, p_error_code text
+) returns void
+language plpgsql security definer set search_path = '' as $$
+declare
+ uid uuid := auth.uid();
+ store uuid := p_store;
+ feat text := lower(coalesce(trim(p_feature), ''));
+begin
+ if uid is null or p_ok is null then return; end if;
+ -- Un comercio ajeno no se atribuye: queda sin comercio.
+ if store is not null and retail_private.role_for(store) is null then store := null; end if;
+ if feat !~ '^[a-z][a-z0-9_-]{0,39}$' then feat := 'otro'; end if;
+ -- Un dispositivo en bucle no debe inflar el registro.
+ if (select count(*) from retail_private.ai_usage where user_id = uid and created_at > now() - interval '1 minute') >= 60 then return; end if;
+ insert into retail_private.ai_usage(store_id, user_id, feature, model, prompt_tokens, completion_tokens, ok, error_code)
+ values (store, uid, feat, left(coalesce(nullif(trim(p_model), ''), 'desconocido'), 80),
+  least(greatest(coalesce(p_prompt_tokens, 0), 0), 200000), least(greatest(coalesce(p_completion_tokens, 0), 0), 200000),
+  p_ok, case when p_ok then null else left(nullif(trim(p_error_code), ''), 60) end);
+end;
+$$;
+revoke all on function public.retail_log_ai_usage(uuid, text, text, integer, integer, boolean, text) from public, anon;
+grant execute on function public.retail_log_ai_usage(uuid, text, text, integer, integer, boolean, text) to authenticated;
+
+-- 2. Seguimiento interno por comercio. Informativo: no bloquea ni habilita nada en el comercio.
+create table retail_private.platform_store_notes (
+ store_id uuid primary key references public.retail_stores(id) on delete cascade,
+ status text not null default 'activo' check (status in ('prueba', 'activo', 'atencion', 'baja')),
+ note text not null default '' check (length(note) <= 1000),
+ updated_at timestamptz not null default now(),
+ updated_by uuid references auth.users(id) on delete set null
+);
+revoke all on retail_private.platform_store_notes from public, anon, authenticated;
+
+create function retail_private.require_platform_admin() returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ if not retail_private.is_platform_admin() then
+  raise exception 'Solo un administrador de plataforma puede ver este panel' using errcode = '42501';
+ end if;
+end;
+$$;
+revoke all on function retail_private.require_platform_admin() from public, anon, authenticated;
+
+-- 3. Resumen general del período.
+create function public.retail_admin_overview(p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ days integer := least(greatest(coalesce(p_days, 30), 1), 365);
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ result jsonb;
+begin
+ perform retail_private.require_platform_admin();
+ select jsonb_build_object(
+  'days', days,
+  'stores', (select count(*) from public.retail_stores),
+  'new_stores', (select count(*) from public.retail_stores where created_at >= since),
+  'stores_with_sales', (select count(distinct store_id) from public.retail_sales where created_at >= since),
+  'users', (select count(*) from auth.users),
+  'new_users', (select count(*) from auth.users where created_at >= since),
+  'active_users', (select count(*) from auth.users where last_sign_in_at >= since),
+  'members', (select count(*) from public.retail_members),
+  'sales_count', (select count(*) from public.retail_sales where created_at >= since),
+  'sales_total', (select coalesce(sum(total), 0) from public.retail_sales where created_at >= since),
+  'products', (select count(*) from public.retail_products where active),
+  'billing_stores', (select count(*) from public.retail_stores where billing_enabled),
+  'ai_requests', (select count(*) from retail_private.ai_usage where created_at >= since),
+  'ai_errors', (select count(*) from retail_private.ai_usage where created_at >= since and not ok),
+  'ai_tokens', (select coalesce(sum(prompt_tokens + completion_tokens), 0) from retail_private.ai_usage where created_at >= since),
+  'catalog_total', (select count(*) from public.retail_global_catalog),
+  'catalog_pending', (select count(*) from public.retail_global_catalog where source <> 'verified' and coalesce(confidence_score, 0) < 0.9),
+  'platform_admins', (select count(*) from retail_private.platform_admins)
+ ) into result;
+ return result;
+end;
+$$;
+
+-- 4. Lista de comercios con su actividad del período.
+create function public.retail_admin_stores(p_search text default null, p_days integer default 30)
+returns table (
+ id uuid, name text, created_at timestamptz, owner_email text, members integer, branches integer, products integer,
+ sales_count bigint, sales_total numeric, last_sale_at timestamptz, ai_requests bigint, ai_tokens bigint,
+ billing_enabled boolean, status text, note text
+)
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ term text := nullif(trim(coalesce(p_search, '')), '');
+begin
+ perform retail_private.require_platform_admin();
+ return query
+ select s.id, s.name, s.created_at, o.email::text,
+  (select count(*)::integer from public.retail_members m where m.store_id = s.id),
+  (select count(*)::integer from public.retail_branches b where b.store_id = s.id),
+  (select count(*)::integer from public.retail_products p where p.store_id = s.id and p.active),
+  coalesce(sa.sales_count, 0), coalesce(sa.sales_total, 0),
+  (select max(x.created_at) from public.retail_sales x where x.store_id = s.id),
+  coalesce(ai.requests, 0), coalesce(ai.tokens, 0),
+  s.billing_enabled, coalesce(n.status, 'activo'), coalesce(n.note, '')
+ from public.retail_stores s
+ left join auth.users o on o.id = s.owner_id
+ left join retail_private.platform_store_notes n on n.store_id = s.id
+ left join lateral (select count(*) as sales_count, sum(x.total) as sales_total from public.retail_sales x
+  where x.store_id = s.id and x.created_at >= since) sa on true
+ left join lateral (select count(*) as requests, sum(a.prompt_tokens + a.completion_tokens)::bigint as tokens from retail_private.ai_usage a
+  where a.store_id = s.id and a.created_at >= since) ai on true
+ where term is null or s.name ilike '%' || term || '%' or o.email ilike '%' || term || '%' or s.id::text = term
+ order by s.created_at desc
+ limit 500;
+end;
+$$;
+
+-- 5. Detalle de un comercio: personas, locales y uso de IA. Sin ventas individuales.
+create function public.retail_admin_store_detail(p_store uuid, p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ store public.retail_stores;
+begin
+ perform retail_private.require_platform_admin();
+ select * into store from public.retail_stores where id = p_store;
+ if not found then raise exception 'El comercio no existe'; end if;
+ return jsonb_build_object(
+  'id', store.id, 'name', store.name, 'address', store.address, 'phone', store.phone, 'created_at', store.created_at,
+  'billing_enabled', store.billing_enabled, 'branch_inventory_enabled', store.branch_inventory_enabled, 'depot_enabled', store.depot_enabled,
+  'owner_email', (select email from auth.users where id = store.owner_id),
+  'status', coalesce((select status from retail_private.platform_store_notes where store_id = store.id), 'activo'),
+  'note', coalesce((select note from retail_private.platform_store_notes where store_id = store.id), ''),
+  'note_updated_at', (select updated_at from retail_private.platform_store_notes where store_id = store.id),
+  'members', coalesce((select jsonb_agg(jsonb_build_object('email', u.email, 'role', m.role, 'last_sign_in_at', u.last_sign_in_at) order by m.role, lower(u.email))
+   from public.retail_members m join auth.users u on u.id = m.user_id where m.store_id = store.id), '[]'::jsonb),
+  'invitations', (select count(*) from public.retail_invitations where store_id = store.id),
+  'branches', coalesce((select jsonb_agg(jsonb_build_object('name', b.name, 'is_default', b.is_default) order by b.is_default desc, b.name)
+   from public.retail_branches b where b.store_id = store.id), '[]'::jsonb),
+  'registers', (select count(*) from public.retail_registers where store_id = store.id and active),
+  'products', (select count(*) from public.retail_products where store_id = store.id and active),
+  'open_shifts', (select count(*) from public.retail_shifts where store_id = store.id and closed_at is null),
+  'sales_count', (select count(*) from public.retail_sales where store_id = store.id and created_at >= since),
+  'sales_total', (select coalesce(sum(total), 0) from public.retail_sales where store_id = store.id and created_at >= since),
+  'last_sale_at', (select max(created_at) from public.retail_sales where store_id = store.id),
+  'ai_by_feature', coalesce((select jsonb_agg(jsonb_build_object('feature', feature, 'requests', requests, 'tokens', tokens, 'errors', errors) order by requests desc)
+   from (select feature, count(*) as requests, sum(prompt_tokens + completion_tokens) as tokens, count(*) filter (where not ok) as errors
+    from retail_private.ai_usage where store_id = store.id and created_at >= since group by feature) f), '[]'::jsonb)
+ );
+end;
+$$;
+
+-- 6. Usuarios de la plataforma, para soporte. Máximo 200 por búsqueda.
+create function public.retail_admin_users(p_search text default null)
+returns table (user_id uuid, email text, created_at timestamptz, last_sign_in_at timestamptz, confirmed boolean, stores jsonb, is_platform_admin boolean)
+language plpgsql stable security definer set search_path = '' as $$
+declare term text := nullif(trim(coalesce(p_search, '')), '');
+begin
+ perform retail_private.require_platform_admin();
+ return query
+ select u.id, u.email::text, u.created_at, u.last_sign_in_at, u.email_confirmed_at is not null,
+  coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'name', s.name, 'role', m.role) order by s.name)
+   from public.retail_members m join public.retail_stores s on s.id = m.store_id where m.user_id = u.id), '[]'::jsonb),
+  exists (select 1 from retail_private.platform_admins a where a.user_id = u.id)
+ from auth.users u
+ where term is null or u.email ilike '%' || term || '%' or u.id::text = term
+ order by u.created_at desc
+ limit 200;
+end;
+$$;
+
+-- 7. Uso de IA del período: por día, función, modelo y comercio, más los últimos errores.
+create function public.retail_admin_ai_usage(p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ days integer := least(greatest(coalesce(p_days, 30), 1), 365);
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+begin
+ perform retail_private.require_platform_admin();
+ return jsonb_build_object(
+  'days', days,
+  'requests', (select count(*) from retail_private.ai_usage where created_at >= since),
+  'errors', (select count(*) from retail_private.ai_usage where created_at >= since and not ok),
+  'prompt_tokens', (select coalesce(sum(prompt_tokens), 0) from retail_private.ai_usage where created_at >= since),
+  'completion_tokens', (select coalesce(sum(completion_tokens), 0) from retail_private.ai_usage where created_at >= since),
+  'users', (select count(distinct user_id) from retail_private.ai_usage where created_at >= since),
+  'by_day', coalesce((select jsonb_agg(jsonb_build_object('day', day, 'requests', requests, 'tokens', tokens, 'errors', errors) order by day)
+   from (select (created_at at time zone 'America/Argentina/Buenos_Aires')::date as day, count(*) as requests,
+    sum(prompt_tokens + completion_tokens) as tokens, count(*) filter (where not ok) as errors
+    from retail_private.ai_usage where created_at >= since group by 1) d), '[]'::jsonb),
+  'by_feature', coalesce((select jsonb_agg(jsonb_build_object('feature', feature, 'requests', requests, 'tokens', tokens, 'errors', errors) order by requests desc)
+   from (select feature, count(*) as requests, sum(prompt_tokens + completion_tokens) as tokens, count(*) filter (where not ok) as errors
+    from retail_private.ai_usage where created_at >= since group by feature) f), '[]'::jsonb),
+  'by_model', coalesce((select jsonb_agg(jsonb_build_object('model', model, 'requests', requests, 'tokens', tokens, 'errors', errors) order by requests desc)
+   from (select model, count(*) as requests, sum(prompt_tokens + completion_tokens) as tokens, count(*) filter (where not ok) as errors
+    from retail_private.ai_usage where created_at >= since group by model) m), '[]'::jsonb),
+  'by_store', coalesce((select jsonb_agg(jsonb_build_object('store_id', store_id, 'name', name, 'requests', requests, 'tokens', tokens, 'errors', errors) order by tokens desc)
+   from (select a.store_id, coalesce(s.name, 'Sin comercio') as name, count(*) as requests, sum(a.prompt_tokens + a.completion_tokens) as tokens,
+    count(*) filter (where not a.ok) as errors
+    from retail_private.ai_usage a left join public.retail_stores s on s.id = a.store_id
+    where a.created_at >= since group by a.store_id, s.name order by tokens desc limit 20) t), '[]'::jsonb),
+  'recent_errors', coalesce((select jsonb_agg(jsonb_build_object('created_at', created_at, 'store', name, 'feature', feature, 'model', model, 'error_code', error_code) order by created_at desc)
+   from (select a.created_at, s.name, a.feature, a.model, a.error_code from retail_private.ai_usage a
+    left join public.retail_stores s on s.id = a.store_id
+    where a.created_at >= since and not a.ok order by a.created_at desc limit 20) e), '[]'::jsonb)
+ );
+end;
+$$;
+
+-- 8. Guardar el seguimiento interno de un comercio.
+create function public.retail_admin_save_store_note(p_store uuid, p_status text, p_note text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ if not exists (select 1 from public.retail_stores where id = p_store) then raise exception 'El comercio no existe'; end if;
+ if p_status is null or p_status not in ('prueba', 'activo', 'atencion', 'baja') then raise exception 'Elegí un estado válido'; end if;
+ if length(coalesce(p_note, '')) > 1000 then raise exception 'La nota admite hasta 1000 caracteres'; end if;
+ insert into retail_private.platform_store_notes(store_id, status, note, updated_at, updated_by)
+ values (p_store, p_status, coalesce(trim(p_note), ''), now(), auth.uid())
+ on conflict (store_id) do update set status = excluded.status, note = excluded.note, updated_at = now(), updated_by = auth.uid();
+end;
+$$;
+
+-- 9. Quiénes administran la plataforma (solo lectura; se cambia desde el SQL Editor).
+create function public.retail_admin_platform_admins()
+returns table (email text, note text, created_at timestamptz)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return query select u.email::text, a.note, a.created_at from retail_private.platform_admins a
+  left join auth.users u on u.id = a.user_id order by a.created_at;
+end;
+$$;
+
+revoke all on function public.retail_admin_overview(integer), public.retail_admin_stores(text, integer),
+ public.retail_admin_store_detail(uuid, integer), public.retail_admin_users(text), public.retail_admin_ai_usage(integer),
+ public.retail_admin_save_store_note(uuid, text, text), public.retail_admin_platform_admins() from public, anon;
+grant execute on function public.retail_admin_overview(integer), public.retail_admin_stores(text, integer),
+ public.retail_admin_store_detail(uuid, integer), public.retail_admin_users(text), public.retail_admin_ai_usage(integer),
+ public.retail_admin_save_store_note(uuid, text, text), public.retail_admin_platform_admins() to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_659abf945a67cc83$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060001_platform_admin_panel.sql','659abf945a67cc83a4775247e87f9c4c22a614b9331c59823c6bcff9b2f09dd4','schema');
+ end if;
+end;
+
+-- 86/94: 202611060002_store_suspension.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060002_store_suspension.sql') then
+  raise notice 'Aplicando 202611060002_store_suspension.sql';
+  execute replace($retail_source_c32216a04601682c$
+create table retail_private.store_suspensions (
+ store_id uuid primary key references public.retail_stores(id) on delete cascade,
+ reason text not null check (length(trim(reason)) between 1 and 300),
+ suspended_at timestamptz not null default now(),
+ suspended_by uuid references auth.users(id) on delete set null
+);
+create table retail_private.store_suspension_log (
+ id bigint generated always as identity primary key,
+ store_id uuid not null references public.retail_stores(id) on delete cascade,
+ action text not null check (action in ('suspend', 'reactivate')),
+ reason text,
+ created_at timestamptz not null default now(),
+ created_by uuid references auth.users(id) on delete set null
+);
+create index retail_store_suspension_log_store on retail_private.store_suspension_log(store_id, created_at desc);
+revoke all on retail_private.store_suspensions, retail_private.store_suspension_log from public, anon, authenticated;
+
+create function retail_private.store_suspended(p_store uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+ select exists (select 1 from retail_private.store_suspensions where store_id = p_store) and not retail_private.is_platform_admin();
+$$;
+revoke all on function retail_private.store_suspended(uuid) from public, anon;
+grant execute on function retail_private.store_suspended(uuid) to authenticated;
+
+-- 1. Permisos centrales. Mismas definiciones vigentes (202610210002 y 202610300006) con la condición de suspensión.
+create or replace function retail_private.role_for(p_store uuid) returns text
+language sql stable security definer set search_path = '' as $$
+ select case when role = 'supervisor' then 'cashier' else role end from public.retail_members
+ where store_id = p_store and user_id = (select auth.uid()) and not retail_private.store_suspended(p_store);
+$$;
+
+create or replace function retail_private.has_permission(p_store uuid, p_action text) returns boolean
+language sql stable security definer set search_path = '' as $$
+ select coalesce((select case when m.role in ('owner','admin') then true
+ when m.profile_id is not null then p_action = any(p.permissions)
+ else p_action = any(coalesce(r.permissions, case when m.role = 'supervisor'
+ then array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito','view_sales']
+ else array['sell','cash_income','cash_withdrawal','move_sale_ledger','submit_remito'] end)) end
+ from public.retail_members m left join public.retail_permission_profiles p on p.id = m.profile_id and p.store_id = m.store_id
+ left join public.retail_role_permissions r on r.store_id = m.store_id and r.role = m.role
+ where m.store_id = p_store and m.user_id = auth.uid() and not retail_private.store_suspended(p_store)), false);
+$$;
+
+-- RS001: aviso propio de suspensión. La cola sin conexión lo trata como "reintentar después", sin marcar error.
+create or replace function retail_private.require_permission(p_store uuid, p_action text) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform 1 from public.retail_members where store_id = p_store and user_id = auth.uid() for share;
+ perform 1 from public.retail_permission_profiles p join public.retail_members m on m.profile_id = p.id and m.store_id = p.store_id
+  where m.store_id = p_store and m.user_id = auth.uid() for share of p;
+ if retail_private.store_suspended(p_store) then
+  raise exception 'El comercio está suspendido. Los datos se conservan; contactá al proveedor del servicio' using errcode = 'RS001';
+ end if;
+ if not retail_private.has_permission(p_store, p_action) then
+  raise exception 'Tu perfil no permite esta acción. Pedile a administración que revise tus permisos' using errcode = '42501';
+ end if;
+end $$;
+
+-- Comprobantes de retiros: esta lectura miraba el rol directo en la membresía.
+create or replace function retail_private.can_read_voucher(p_name text) returns boolean
+language sql stable security definer set search_path = '' as $$
+ select exists(select 1 from public.retail_members m where m.store_id::text = split_part(p_name, '/', 1)
+  and m.user_id = auth.uid() and m.role in ('owner','admin') and not retail_private.store_suspended(m.store_id));
+$$;
+
+-- Sucursales: su lectura para cajeros mira la membresía propia, que sigue visible.
+create policy store_not_suspended on public.retail_branches as restrictive for select to authenticated
+ using (not retail_private.store_suspended(store_id));
+
+-- 2. Sincronización sin conexión: mismo cuerpo vigente (202610280003) con el aviso de suspensión primero,
+-- para que las operaciones guardadas en el dispositivo queden pendientes y se envíen al reactivar.
+create or replace function public.retail_sync_operation(p_operation jsonb) returns jsonb language plpgsql security definer set search_path='' as $$
+declare saved jsonb; branch uuid; previous text:=current_setting('retail.inventory_location',true);
+begin
+ if retail_private.store_suspended((p_operation->>'store')::uuid)
+  and exists(select 1 from public.retail_members where store_id=(p_operation->>'store')::uuid and user_id=auth.uid()) then
+  raise exception 'El comercio está suspendido. Las operaciones de este dispositivo quedan guardadas y se envían al reactivarlo' using errcode='RS001';
+ end if;
+ if retail_private.role_for((p_operation->>'store')::uuid) is null then raise exception 'Sin acceso al comercio' using errcode='42501'; end if;
+ perform 1 from public.retail_stores where id=(p_operation->>'store')::uuid for share;
+ if p_operation->>'kind'='stock' then perform set_config('retail.inventory_location',coalesce(p_operation->>'branch',''),true); end if;
+ if p_operation->>'kind'='sale' then
+  select r.branch_id into branch from public.retail_shifts s join public.retail_registers r on r.id=s.register_id and r.store_id=s.store_id
+   where s.id=(p_operation->>'shift')::uuid and s.store_id=(p_operation->>'store')::uuid;
+  perform set_config('retail.inventory_location',coalesce(branch::text,''),true);
+ end if;
+ saved:=public.retail_sync_before_locations(p_operation);
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return saved;
+end $$;
+
+-- 3. Para que la app explique por qué no ve un comercio, en lugar de ofrecer crear otro.
+create function public.retail_my_suspended_stores()
+returns table (id uuid, name text, reason text, suspended_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+ select s.id, s.name, x.reason, x.suspended_at from public.retail_members m
+ join public.retail_stores s on s.id = m.store_id
+ join retail_private.store_suspensions x on x.store_id = m.store_id
+ where m.user_id = auth.uid() and not retail_private.is_platform_admin()
+ order by s.name;
+$$;
+revoke all on function public.retail_my_suspended_stores() from public, anon;
+grant execute on function public.retail_my_suspended_stores() to authenticated;
+
+-- 4. Suspender y reactivar, con historial.
+create function public.retail_admin_suspend_store(p_store uuid, p_reason text) returns void
+language plpgsql security definer set search_path = '' as $$
+declare why text := trim(coalesce(p_reason, ''));
+begin
+ perform retail_private.require_platform_admin();
+ if length(why) not between 1 and 300 then raise exception 'Escribí el motivo de la suspensión (hasta 300 caracteres)'; end if;
+ perform 1 from public.retail_stores where id = p_store for update;
+ if not found then raise exception 'El comercio no existe'; end if;
+ if exists (select 1 from retail_private.store_suspensions where store_id = p_store) then
+  raise exception 'El comercio ya está suspendido. Actualizá la vista';
+ end if;
+ insert into retail_private.store_suspensions(store_id, reason, suspended_by) values (p_store, why, auth.uid());
+ insert into retail_private.store_suspension_log(store_id, action, reason, created_by) values (p_store, 'suspend', why, auth.uid());
+end;
+$$;
+
+create function public.retail_admin_reactivate_store(p_store uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ perform 1 from public.retail_stores where id = p_store for update;
+ if not found then raise exception 'El comercio no existe'; end if;
+ delete from retail_private.store_suspensions where store_id = p_store;
+ if not found then raise exception 'El comercio no estaba suspendido. Actualizá la vista'; end if;
+ insert into retail_private.store_suspension_log(store_id, action, created_by) values (p_store, 'reactivate', auth.uid());
+end;
+$$;
+
+-- 5. El panel muestra la suspensión. Mismas funciones de 202611060001 con los datos de suspensión agregados.
+create or replace function public.retail_admin_overview(p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ days integer := least(greatest(coalesce(p_days, 30), 1), 365);
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ result jsonb;
+begin
+ perform retail_private.require_platform_admin();
+ select jsonb_build_object(
+  'days', days,
+  'stores', (select count(*) from public.retail_stores),
+  'new_stores', (select count(*) from public.retail_stores where created_at >= since),
+  'suspended_stores', (select count(*) from retail_private.store_suspensions),
+  'stores_with_sales', (select count(distinct store_id) from public.retail_sales where created_at >= since),
+  'users', (select count(*) from auth.users),
+  'new_users', (select count(*) from auth.users where created_at >= since),
+  'active_users', (select count(*) from auth.users where last_sign_in_at >= since),
+  'members', (select count(*) from public.retail_members),
+  'sales_count', (select count(*) from public.retail_sales where created_at >= since),
+  'sales_total', (select coalesce(sum(total), 0) from public.retail_sales where created_at >= since),
+  'products', (select count(*) from public.retail_products where active),
+  'billing_stores', (select count(*) from public.retail_stores where billing_enabled),
+  'ai_requests', (select count(*) from retail_private.ai_usage where created_at >= since),
+  'ai_errors', (select count(*) from retail_private.ai_usage where created_at >= since and not ok),
+  'ai_tokens', (select coalesce(sum(prompt_tokens + completion_tokens), 0) from retail_private.ai_usage where created_at >= since),
+  'catalog_total', (select count(*) from public.retail_global_catalog),
+  'catalog_pending', (select count(*) from public.retail_global_catalog where source <> 'verified' and coalesce(confidence_score, 0) < 0.9),
+  'platform_admins', (select count(*) from retail_private.platform_admins)
+ ) into result;
+ return result;
+end;
+$$;
+
+-- Cambia el tipo de resultado: se reemplaza la función con los mismos permisos.
+drop function public.retail_admin_stores(text, integer);
+create function public.retail_admin_stores(p_search text default null, p_days integer default 30)
+returns table (
+ id uuid, name text, created_at timestamptz, owner_email text, members integer, branches integer, products integer,
+ sales_count bigint, sales_total numeric, last_sale_at timestamptz, ai_requests bigint, ai_tokens bigint,
+ billing_enabled boolean, status text, note text, suspended_at timestamptz
+)
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ term text := nullif(trim(coalesce(p_search, '')), '');
+begin
+ perform retail_private.require_platform_admin();
+ return query
+ select s.id, s.name, s.created_at, o.email::text,
+  (select count(*)::integer from public.retail_members m where m.store_id = s.id),
+  (select count(*)::integer from public.retail_branches b where b.store_id = s.id),
+  (select count(*)::integer from public.retail_products p where p.store_id = s.id and p.active),
+  coalesce(sa.sales_count, 0), coalesce(sa.sales_total, 0),
+  (select max(x.created_at) from public.retail_sales x where x.store_id = s.id),
+  coalesce(ai.requests, 0), coalesce(ai.tokens, 0),
+  s.billing_enabled, coalesce(n.status, 'activo'), coalesce(n.note, ''), su.suspended_at
+ from public.retail_stores s
+ left join auth.users o on o.id = s.owner_id
+ left join retail_private.platform_store_notes n on n.store_id = s.id
+ left join retail_private.store_suspensions su on su.store_id = s.id
+ left join lateral (select count(*) as sales_count, sum(x.total) as sales_total from public.retail_sales x
+  where x.store_id = s.id and x.created_at >= since) sa on true
+ left join lateral (select count(*) as requests, sum(a.prompt_tokens + a.completion_tokens)::bigint as tokens from retail_private.ai_usage a
+  where a.store_id = s.id and a.created_at >= since) ai on true
+ where term is null or s.name ilike '%' || term || '%' or o.email ilike '%' || term || '%' or s.id::text = term
+ order by s.created_at desc
+ limit 500;
+end;
+$$;
+revoke all on function public.retail_admin_stores(text, integer) from public, anon;
+grant execute on function public.retail_admin_stores(text, integer) to authenticated;
+
+create or replace function public.retail_admin_store_detail(p_store uuid, p_days integer default 30) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ store public.retail_stores;
+begin
+ perform retail_private.require_platform_admin();
+ select * into store from public.retail_stores where id = p_store;
+ if not found then raise exception 'El comercio no existe'; end if;
+ return jsonb_build_object(
+  'id', store.id, 'name', store.name, 'address', store.address, 'phone', store.phone, 'created_at', store.created_at,
+  'billing_enabled', store.billing_enabled, 'branch_inventory_enabled', store.branch_inventory_enabled, 'depot_enabled', store.depot_enabled,
+  'owner_email', (select email from auth.users where id = store.owner_id),
+  'status', coalesce((select status from retail_private.platform_store_notes where store_id = store.id), 'activo'),
+  'note', coalesce((select note from retail_private.platform_store_notes where store_id = store.id), ''),
+  'note_updated_at', (select updated_at from retail_private.platform_store_notes where store_id = store.id),
+  'suspension', (select jsonb_build_object('reason', x.reason, 'suspended_at', x.suspended_at, 'by', u.email)
+   from retail_private.store_suspensions x left join auth.users u on u.id = x.suspended_by where x.store_id = store.id),
+  'suspension_log', coalesce((select jsonb_agg(jsonb_build_object('action', action, 'reason', reason, 'created_at', created_at, 'by', email) order by created_at desc)
+   from (select l.action, l.reason, l.created_at, u.email from retail_private.store_suspension_log l left join auth.users u on u.id = l.created_by
+    where l.store_id = store.id order by l.created_at desc limit 10) h), '[]'::jsonb),
+  'members', coalesce((select jsonb_agg(jsonb_build_object('email', u.email, 'role', m.role, 'last_sign_in_at', u.last_sign_in_at) order by m.role, lower(u.email))
+   from public.retail_members m join auth.users u on u.id = m.user_id where m.store_id = store.id), '[]'::jsonb),
+  'invitations', (select count(*) from public.retail_invitations where store_id = store.id),
+  'branches', coalesce((select jsonb_agg(jsonb_build_object('name', b.name, 'is_default', b.is_default) order by b.is_default desc, b.name)
+   from public.retail_branches b where b.store_id = store.id), '[]'::jsonb),
+  'registers', (select count(*) from public.retail_registers where store_id = store.id and active),
+  'products', (select count(*) from public.retail_products where store_id = store.id and active),
+  'open_shifts', (select count(*) from public.retail_shifts where store_id = store.id and closed_at is null),
+  'sales_count', (select count(*) from public.retail_sales where store_id = store.id and created_at >= since),
+  'sales_total', (select coalesce(sum(total), 0) from public.retail_sales where store_id = store.id and created_at >= since),
+  'last_sale_at', (select max(created_at) from public.retail_sales where store_id = store.id),
+  'ai_by_feature', coalesce((select jsonb_agg(jsonb_build_object('feature', feature, 'requests', requests, 'tokens', tokens, 'errors', errors) order by requests desc)
+   from (select feature, count(*) as requests, sum(prompt_tokens + completion_tokens) as tokens, count(*) filter (where not ok) as errors
+    from retail_private.ai_usage where store_id = store.id and created_at >= since group by feature) f), '[]'::jsonb)
+ );
+end;
+$$;
+
+revoke all on function public.retail_admin_suspend_store(uuid, text), public.retail_admin_reactivate_store(uuid) from public, anon;
+grant execute on function public.retail_admin_suspend_store(uuid, text), public.retail_admin_reactivate_store(uuid) to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_c32216a04601682c$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060002_store_suspension.sql','c32216a04601682cf998ae591d7a771ee58d45a148c3fa980f6b9783c9f98ef9','schema');
+ end if;
+end;
+
+-- 87/94: 202611060003_ai_server_limits.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060003_ai_server_limits.sql') then
+  raise notice 'Aplicando 202611060003_ai_server_limits.sql';
+  execute replace($retail_source_83b162f1eb544e8d$
+-- 1. Configuración general (una sola fila) y límites por comercio.
+create table retail_private.ai_settings (
+ id boolean primary key default true check (id),
+ enabled boolean not null default true,
+ default_daily_tokens integer check (default_daily_tokens is null or default_daily_tokens between 0 and 100000000),
+ updated_at timestamptz not null default now(),
+ updated_by uuid references auth.users(id) on delete set null
+);
+insert into retail_private.ai_settings(id) values (true);
+
+create table retail_private.ai_store_limits (
+ store_id uuid primary key references public.retail_stores(id) on delete cascade,
+ enabled boolean not null default true,
+ daily_tokens integer check (daily_tokens is null or daily_tokens between 0 and 100000000),
+ updated_at timestamptz not null default now(),
+ updated_by uuid references auth.users(id) on delete set null
+);
+revoke all on retail_private.ai_settings, retail_private.ai_store_limits from public, anon, authenticated;
+
+-- Tokens usados hoy (día de Argentina) por el comercio.
+create function retail_private.ai_tokens_today(p_store uuid) returns bigint
+language sql stable security definer set search_path = '' as $$
+ select coalesce(sum(prompt_tokens + completion_tokens), 0)::bigint from retail_private.ai_usage
+ where store_id = p_store
+  and created_at >= (date_trunc('day', now() at time zone 'America/Argentina/Buenos_Aires') at time zone 'America/Argentina/Buenos_Aires');
+$$;
+revoke all on function retail_private.ai_tokens_today(uuid) from public, anon, authenticated;
+
+-- 2. Autorización: la llama ai-proxy con la sesión de la persona, antes de cada consulta.
+-- role_for ya devuelve null para un comercio suspendido o sin acceso.
+create function public.retail_ai_authorize(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ settings retail_private.ai_settings;
+ limits retail_private.ai_store_limits;
+ cap integer;
+ used bigint;
+begin
+ if auth.uid() is null then return jsonb_build_object('allowed', false, 'code', 'ai_unauthenticated', 'message', 'Iniciá sesión para usar la IA'); end if;
+ if p_store is null or retail_private.role_for(p_store) is null then
+  return jsonb_build_object('allowed', false, 'code', 'ai_no_access', 'message', 'No tenés acceso a este comercio');
+ end if;
+ select * into settings from retail_private.ai_settings where id;
+ if not coalesce(settings.enabled, true) then
+  return jsonb_build_object('allowed', false, 'code', 'ai_disabled', 'message', 'La IA está pausada por el proveedor del servicio. Lo demás de la app funciona igual');
+ end if;
+ -- Un dispositivo en bucle o un uso abusivo no agota el cupo del comercio en minutos.
+ if (select count(*) from retail_private.ai_usage where user_id = auth.uid() and created_at > now() - interval '1 minute') >= 30 then
+  return jsonb_build_object('allowed', false, 'code', 'ai_rate_limited', 'message', 'Demasiadas consultas seguidas. Probá de nuevo en un minuto', 'retry_after', 30);
+ end if;
+ select * into limits from retail_private.ai_store_limits where store_id = p_store;
+ if found and not limits.enabled then
+  return jsonb_build_object('allowed', false, 'code', 'ai_disabled', 'message', 'La IA no está habilitada para este comercio. Lo demás de la app funciona igual');
+ end if;
+ cap := case when found and limits.daily_tokens is not null then limits.daily_tokens else settings.default_daily_tokens end;
+ if cap is not null then
+  used := retail_private.ai_tokens_today(p_store);
+  if used >= cap then
+   return jsonb_build_object('allowed', false, 'code', 'ai_quota_exceeded', 'message', 'Se alcanzó el uso de IA de hoy para este comercio. Mañana vuelve a estar disponible', 'used', used, 'cap', cap);
+  end if;
+  return jsonb_build_object('allowed', true, 'remaining', cap - used);
+ end if;
+ return jsonb_build_object('allowed', true, 'remaining', null);
+end;
+$$;
+revoke all on function public.retail_ai_authorize(uuid) from public, anon;
+grant execute on function public.retail_ai_authorize(uuid) to authenticated;
+
+-- 3. Registro del servidor: solo con la clave de servicio (ai-proxy), nunca desde la app.
+create function public.retail_ai_record(
+ p_store uuid, p_user uuid, p_feature text, p_model text, p_prompt_tokens integer, p_completion_tokens integer, p_ok boolean, p_error_code text
+) returns void
+language plpgsql security definer set search_path = '' as $$
+declare feat text := lower(coalesce(trim(p_feature), ''));
+begin
+ if p_ok is null then return; end if;
+ if feat !~ '^[a-z][a-z0-9_-]{0,39}$' then feat := 'otro'; end if;
+ insert into retail_private.ai_usage(store_id, user_id, feature, model, prompt_tokens, completion_tokens, ok, error_code)
+ values (
+  case when exists (select 1 from public.retail_stores where id = p_store) then p_store end,
+  case when exists (select 1 from auth.users where id = p_user) then p_user end,
+  feat, left(coalesce(nullif(trim(p_model), ''), 'desconocido'), 80),
+  least(greatest(coalesce(p_prompt_tokens, 0), 0), 200000), least(greatest(coalesce(p_completion_tokens, 0), 0), 200000),
+  p_ok, case when p_ok then null else left(nullif(trim(p_error_code), ''), 60) end);
+end;
+$$;
+revoke all on function public.retail_ai_record(uuid, uuid, text, text, integer, integer, boolean, text) from public, anon, authenticated;
+grant execute on function public.retail_ai_record(uuid, uuid, text, text, integer, integer, boolean, text) to service_role;
+
+-- 4. Panel de plataforma.
+create function public.retail_admin_ai_settings() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return (select jsonb_build_object('enabled', s.enabled, 'default_daily_tokens', s.default_daily_tokens, 'updated_at', s.updated_at,
+  'overrides', coalesce((select jsonb_agg(jsonb_build_object('store_id', l.store_id, 'name', st.name, 'enabled', l.enabled, 'daily_tokens', l.daily_tokens,
+    'used_today', retail_private.ai_tokens_today(l.store_id)) order by st.name)
+   from retail_private.ai_store_limits l join public.retail_stores st on st.id = l.store_id), '[]'::jsonb))
+  from retail_private.ai_settings s where s.id);
+end;
+$$;
+
+create function public.retail_admin_save_ai_settings(p_enabled boolean, p_default_daily_tokens integer) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ if p_enabled is null then raise exception 'Indicá si la IA queda activa'; end if;
+ if p_default_daily_tokens is not null and p_default_daily_tokens not between 0 and 100000000 then raise exception 'El cupo diario debe estar entre 0 y 100.000.000 tokens'; end if;
+ update retail_private.ai_settings set enabled = p_enabled, default_daily_tokens = p_default_daily_tokens, updated_at = now(), updated_by = auth.uid() where id;
+end;
+$$;
+
+create function public.retail_admin_store_ai_limit(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return jsonb_build_object(
+  'custom', exists (select 1 from retail_private.ai_store_limits where store_id = p_store),
+  'enabled', coalesce((select enabled from retail_private.ai_store_limits where store_id = p_store), true),
+  'daily_tokens', (select daily_tokens from retail_private.ai_store_limits where store_id = p_store),
+  'default_daily_tokens', (select default_daily_tokens from retail_private.ai_settings where id),
+  'global_enabled', (select enabled from retail_private.ai_settings where id),
+  'used_today', retail_private.ai_tokens_today(p_store));
+end;
+$$;
+
+-- p_custom false vuelve el comercio a la configuración general.
+create function public.retail_admin_save_store_ai_limit(p_store uuid, p_custom boolean, p_enabled boolean, p_daily_tokens integer) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ if not exists (select 1 from public.retail_stores where id = p_store) then raise exception 'El comercio no existe'; end if;
+ if not coalesce(p_custom, false) then delete from retail_private.ai_store_limits where store_id = p_store; return; end if;
+ if p_enabled is null then raise exception 'Indicá si la IA queda habilitada para el comercio'; end if;
+ if p_daily_tokens is not null and p_daily_tokens not between 0 and 100000000 then raise exception 'El cupo diario debe estar entre 0 y 100.000.000 tokens'; end if;
+ insert into retail_private.ai_store_limits(store_id, enabled, daily_tokens, updated_at, updated_by)
+ values (p_store, p_enabled, p_daily_tokens, now(), auth.uid())
+ on conflict (store_id) do update set enabled = excluded.enabled, daily_tokens = excluded.daily_tokens, updated_at = now(), updated_by = auth.uid();
+end;
+$$;
+
+revoke all on function public.retail_admin_ai_settings(), public.retail_admin_save_ai_settings(boolean, integer),
+ public.retail_admin_store_ai_limit(uuid), public.retail_admin_save_store_ai_limit(uuid, boolean, boolean, integer) from public, anon;
+grant execute on function public.retail_admin_ai_settings(), public.retail_admin_save_ai_settings(boolean, integer),
+ public.retail_admin_store_ai_limit(uuid), public.retail_admin_save_store_ai_limit(uuid, boolean, boolean, integer) to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_83b162f1eb544e8d$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060003_ai_server_limits.sql','83b162f1eb544e8de1acc0df7ca4414be9316e74370ac3887cbeae9c7c79e30e','schema');
+ end if;
+end;
+
+-- 88/94: 202611060004_plans_and_subscriptions.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060004_plans_and_subscriptions.sql') then
+  raise notice 'Aplicando 202611060004_plans_and_subscriptions.sql';
+  execute replace($retail_source_222d45b7d13c2e2e$
+create table retail_private.plans (
+ id uuid primary key default gen_random_uuid(),
+ name text not null unique check (length(trim(name)) between 1 and 60),
+ price numeric(14,2) not null default 0 check (price >= 0),
+ max_branches integer check (max_branches is null or max_branches between 1 and 10000),
+ max_registers integer check (max_registers is null or max_registers between 1 and 10000),
+ max_users integer check (max_users is null or max_users between 1 and 10000),
+ ai_enabled boolean not null default true,
+ ai_daily_tokens integer check (ai_daily_tokens is null or ai_daily_tokens between 0 and 100000000),
+ active boolean not null default true,
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
+);
+
+create table retail_private.billing_settings (
+ id boolean primary key default true check (id),
+ new_store_plan_id uuid references retail_private.plans(id) on delete set null,
+ trial_days integer not null default 14 check (trial_days between 0 and 365),
+ grace_days integer not null default 5 check (grace_days between 0 and 60),
+ updated_at timestamptz not null default now(),
+ updated_by uuid references auth.users(id) on delete set null
+);
+insert into retail_private.billing_settings(id) values (true);
+
+create table retail_private.store_subscriptions (
+ store_id uuid primary key references public.retail_stores(id) on delete cascade,
+ plan_id uuid not null references retail_private.plans(id),
+ exempt boolean not null default false,
+ trial_until timestamptz,
+ paid_until timestamptz,
+ grace_days integer not null default 5 check (grace_days between 0 and 60),
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now(),
+ updated_by uuid references auth.users(id) on delete set null
+);
+create index retail_store_subscriptions_plan on retail_private.store_subscriptions(plan_id);
+
+create table retail_private.subscription_payments (
+ id uuid primary key,
+ store_id uuid not null references public.retail_stores(id) on delete cascade,
+ paid_at timestamptz not null default now(),
+ amount numeric(14,2) not null check (amount >= 0),
+ months integer not null check (months between 1 and 36),
+ method text not null check (method in ('transferencia', 'efectivo', 'mercado_pago', 'tarjeta', 'otro')),
+ reference text check (reference is null or length(reference) <= 120),
+ period_from timestamptz not null,
+ period_to timestamptz not null,
+ created_by uuid references auth.users(id) on delete set null
+);
+create index retail_subscription_payments_store on retail_private.subscription_payments(store_id, paid_at desc);
+revoke all on retail_private.plans, retail_private.billing_settings, retail_private.store_subscriptions, retail_private.subscription_payments
+ from public, anon, authenticated;
+
+-- Hasta cuándo tiene acceso (prueba o pago) y en qué estado está.
+create function retail_private.subscription_access_until(p_trial timestamptz, p_paid timestamptz) returns timestamptz
+language sql immutable set search_path = '' as $$
+ select nullif(greatest(coalesce(p_trial, '-infinity'::timestamptz), coalesce(p_paid, '-infinity'::timestamptz)), '-infinity'::timestamptz);
+$$;
+create function retail_private.subscription_status(p_exempt boolean, p_trial timestamptz, p_paid timestamptz, p_grace integer) returns text
+language sql stable set search_path = '' as $$
+ select case
+  when p_exempt then 'bonificado'
+  when coalesce(p_paid, '-infinity'::timestamptz) >= now() then 'al_dia'
+  when coalesce(p_trial, '-infinity'::timestamptz) >= now() then 'prueba'
+  when retail_private.subscription_access_until(p_trial, p_paid) is not null
+   and retail_private.subscription_access_until(p_trial, p_paid) + make_interval(days => p_grace) >= now() then 'vencido'
+  else 'bloqueado' end;
+$$;
+revoke all on function retail_private.subscription_access_until(timestamptz, timestamptz),
+ retail_private.subscription_status(boolean, timestamptz, timestamptz, integer) from public, anon;
+grant execute on function retail_private.subscription_access_until(timestamptz, timestamptz),
+ retail_private.subscription_status(boolean, timestamptz, timestamptz, integer) to authenticated;
+
+-- 1. Bloqueo: suspensión manual o abono bloqueado. Misma excepción para administradores de plataforma.
+create or replace function retail_private.store_suspended(p_store uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+ select (exists (select 1 from retail_private.store_suspensions where store_id = p_store)
+  or exists (select 1 from retail_private.store_subscriptions s where s.store_id = p_store
+   and retail_private.subscription_status(s.exempt, s.trial_until, s.paid_until, s.grace_days) = 'bloqueado'))
+  and not retail_private.is_platform_admin();
+$$;
+
+-- La pantalla de acceso suspendido explica también el abono vencido.
+create or replace function public.retail_my_suspended_stores()
+returns table (id uuid, name text, reason text, suspended_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+ select s.id, s.name, x.reason, x.suspended_at from public.retail_members m
+ join public.retail_stores s on s.id = m.store_id
+ join retail_private.store_suspensions x on x.store_id = m.store_id
+ where m.user_id = auth.uid() and not retail_private.is_platform_admin()
+ union all
+ select s.id, s.name,
+  'El abono venció el ' || to_char(retail_private.subscription_access_until(b.trial_until, b.paid_until) at time zone 'America/Argentina/Buenos_Aires', 'DD/MM/YYYY')
+   || '. Al registrarse el pago, el acceso vuelve en el acto',
+  retail_private.subscription_access_until(b.trial_until, b.paid_until) + make_interval(days => b.grace_days)
+ from public.retail_members m
+ join public.retail_stores s on s.id = m.store_id
+ join retail_private.store_subscriptions b on b.store_id = m.store_id
+ where m.user_id = auth.uid() and not retail_private.is_platform_admin()
+  and retail_private.subscription_status(b.exempt, b.trial_until, b.paid_until, b.grace_days) = 'bloqueado'
+  and not exists (select 1 from retail_private.store_suspensions x where x.store_id = m.store_id)
+ order by 2;
+$$;
+
+-- 2. Comercios nuevos: prueba gratis con el plan elegido en la configuración (si hay uno).
+create function retail_private.start_store_subscription() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare settings retail_private.billing_settings;
+begin
+ select * into settings from retail_private.billing_settings where id;
+ if settings.new_store_plan_id is not null then
+  insert into retail_private.store_subscriptions(store_id, plan_id, trial_until, grace_days)
+  values (new.id, settings.new_store_plan_id, now() + make_interval(days => settings.trial_days), settings.grace_days)
+  on conflict (store_id) do nothing;
+ end if;
+ return new;
+end;
+$$;
+create trigger retail_start_subscription after insert on public.retail_stores
+ for each row execute function retail_private.start_store_subscription();
+
+-- 3. Límites del plan al agregar sucursales, cajas activas y personas. Lo ya existente no se toca.
+create function retail_private.plan_limit(p_store uuid, p_kind text) returns integer
+language sql stable security definer set search_path = '' as $$
+ select case p_kind when 'branches' then p.max_branches when 'registers' then p.max_registers when 'users' then p.max_users end
+ from retail_private.store_subscriptions s join retail_private.plans p on p.id = s.plan_id
+ where s.store_id = p_store and not s.exempt;
+$$;
+revoke all on function retail_private.plan_limit(uuid, text) from public, anon, authenticated;
+
+create function retail_private.enforce_plan_limits() returns trigger
+language plpgsql security definer set search_path = '' as $$
+declare cap integer; used integer; label text;
+begin
+ if tg_table_name = 'retail_registers' and (not new.active or (tg_op = 'UPDATE' and old.active)) then return new; end if;
+ cap := retail_private.plan_limit(new.store_id, case tg_table_name when 'retail_branches' then 'branches' when 'retail_registers' then 'registers' else 'users' end);
+ if cap is null then return new; end if;
+ -- Dos altas simultáneas no pasan juntas el límite.
+ perform pg_advisory_xact_lock(hashtextextended('plan-limit:' || new.store_id::text || tg_table_name, 0));
+ if tg_table_name = 'retail_branches' then
+  select count(*) into used from public.retail_branches where store_id = new.store_id; label := 'sucursales';
+ elsif tg_table_name = 'retail_registers' then
+  select count(*) into used from public.retail_registers where store_id = new.store_id and active and id <> new.id; label := 'cajas activas';
+ elsif tg_table_name = 'retail_members' then
+  select count(*) into used from public.retail_members where store_id = new.store_id; label := 'personas con acceso';
+ else
+  select (select count(*) from public.retail_members where store_id = new.store_id)
+   + (select count(*) from public.retail_invitations where store_id = new.store_id) into used;
+  label := 'personas con acceso (contando invitaciones pendientes)';
+ end if;
+ if used >= cap then
+  raise exception 'Tu plan permite hasta % %. Para agregar más, pedí un cambio de plan', cap, label using errcode = 'P0001';
+ end if;
+ return new;
+end;
+$$;
+create trigger retail_plan_limit_branches before insert on public.retail_branches for each row execute function retail_private.enforce_plan_limits();
+create trigger retail_plan_limit_registers before insert or update of active on public.retail_registers for each row execute function retail_private.enforce_plan_limits();
+create trigger retail_plan_limit_members before insert on public.retail_members for each row execute function retail_private.enforce_plan_limits();
+create trigger retail_plan_limit_invitations before insert on public.retail_invitations for each row execute function retail_private.enforce_plan_limits();
+
+-- 4. IA: la configuración propia del comercio manda; si no tiene, el plan; si no, la configuración general.
+-- Corrige además que "configuración propia sin cupo" significa sin límite, como indica el panel.
+create or replace function public.retail_ai_authorize(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ settings retail_private.ai_settings;
+ limits retail_private.ai_store_limits;
+ has_limits boolean;
+ has_plan boolean;
+ plan_ai boolean;
+ plan_cap integer;
+ cap integer;
+ used bigint;
+begin
+ if auth.uid() is null then return jsonb_build_object('allowed', false, 'code', 'ai_unauthenticated', 'message', 'Iniciá sesión para usar la IA'); end if;
+ if p_store is null or retail_private.role_for(p_store) is null then
+  return jsonb_build_object('allowed', false, 'code', 'ai_no_access', 'message', 'No tenés acceso a este comercio');
+ end if;
+ select * into settings from retail_private.ai_settings where id;
+ if not coalesce(settings.enabled, true) then
+  return jsonb_build_object('allowed', false, 'code', 'ai_disabled', 'message', 'La IA está pausada por el proveedor del servicio. Lo demás de la app funciona igual');
+ end if;
+ if (select count(*) from retail_private.ai_usage where user_id = auth.uid() and created_at > now() - interval '1 minute') >= 30 then
+  return jsonb_build_object('allowed', false, 'code', 'ai_rate_limited', 'message', 'Demasiadas consultas seguidas. Probá de nuevo en un minuto', 'retry_after', 30);
+ end if;
+ select * into limits from retail_private.ai_store_limits where store_id = p_store;
+ has_limits := found;
+ if has_limits and not limits.enabled then
+  return jsonb_build_object('allowed', false, 'code', 'ai_disabled', 'message', 'La IA no está habilitada para este comercio. Lo demás de la app funciona igual');
+ end if;
+ select p.ai_enabled, p.ai_daily_tokens into plan_ai, plan_cap from retail_private.store_subscriptions s join retail_private.plans p on p.id = s.plan_id
+  where s.store_id = p_store and not s.exempt;
+ has_plan := found;
+ if not has_limits and has_plan and not plan_ai then
+  return jsonb_build_object('allowed', false, 'code', 'ai_disabled', 'message', 'El plan del comercio no incluye IA. Lo demás de la app funciona igual');
+ end if;
+ cap := case when has_limits then limits.daily_tokens when has_plan then plan_cap else settings.default_daily_tokens end;
+ if cap is not null then
+  used := retail_private.ai_tokens_today(p_store);
+  if used >= cap then
+   return jsonb_build_object('allowed', false, 'code', 'ai_quota_exceeded', 'message', 'Se alcanzó el uso de IA de hoy para este comercio. Mañana vuelve a estar disponible', 'used', used, 'cap', cap);
+  end if;
+  return jsonb_build_object('allowed', true, 'remaining', cap - used);
+ end if;
+ return jsonb_build_object('allowed', true, 'remaining', null);
+end;
+$$;
+
+-- 5. Para el dueño o administrador del comercio: su plan, vencimiento y uso de los límites.
+create function public.retail_my_subscription(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare sub retail_private.store_subscriptions; pl retail_private.plans;
+begin
+ if coalesce(retail_private.role_for(p_store), '') not in ('owner', 'admin') then return null; end if;
+ select * into sub from retail_private.store_subscriptions where store_id = p_store;
+ if not found then return null; end if;
+ select * into pl from retail_private.plans where id = sub.plan_id;
+ return jsonb_build_object(
+  'plan', pl.name, 'price', pl.price,
+  'status', retail_private.subscription_status(sub.exempt, sub.trial_until, sub.paid_until, sub.grace_days),
+  'access_until', retail_private.subscription_access_until(sub.trial_until, sub.paid_until),
+  'blocks_at', retail_private.subscription_access_until(sub.trial_until, sub.paid_until) + make_interval(days => sub.grace_days),
+  'limits', jsonb_build_object('branches', pl.max_branches, 'registers', pl.max_registers, 'users', pl.max_users),
+  'used', jsonb_build_object(
+   'branches', (select count(*) from public.retail_branches where store_id = p_store),
+   'registers', (select count(*) from public.retail_registers where store_id = p_store and active),
+   'users', (select count(*) from public.retail_members where store_id = p_store)));
+end;
+$$;
+revoke all on function public.retail_my_subscription(uuid) from public, anon;
+grant execute on function public.retail_my_subscription(uuid) to authenticated;
+
+-- 6. Panel de plataforma: planes y configuración.
+create function public.retail_admin_plans()
+returns table (id uuid, name text, price numeric, max_branches integer, max_registers integer, max_users integer,
+ ai_enabled boolean, ai_daily_tokens integer, active boolean, stores bigint)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return query select p.id, p.name, p.price, p.max_branches, p.max_registers, p.max_users, p.ai_enabled, p.ai_daily_tokens, p.active,
+  (select count(*) from retail_private.store_subscriptions s where s.plan_id = p.id)
+ from retail_private.plans p order by p.active desc, p.price, p.name;
+end;
+$$;
+
+create function public.retail_admin_save_plan(
+ p_id uuid, p_name text, p_price numeric, p_max_branches integer, p_max_registers integer, p_max_users integer,
+ p_ai_enabled boolean, p_ai_daily_tokens integer, p_active boolean
+) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare saved uuid;
+begin
+ perform retail_private.require_platform_admin();
+ if length(trim(coalesce(p_name, ''))) not between 1 and 60 then raise exception 'Escribí el nombre del plan (hasta 60 caracteres)'; end if;
+ if p_price is null or p_price < 0 or round(p_price, 2) <> p_price then raise exception 'Revisá el precio: un importe positivo con hasta dos decimales'; end if;
+ if p_ai_enabled is null or p_active is null then raise exception 'Faltan datos del plan'; end if;
+ if p_id is null then
+  insert into retail_private.plans(name, price, max_branches, max_registers, max_users, ai_enabled, ai_daily_tokens, active)
+  values (trim(p_name), p_price, p_max_branches, p_max_registers, p_max_users, p_ai_enabled, p_ai_daily_tokens, p_active) returning id into saved;
+ else
+  update retail_private.plans set name = trim(p_name), price = p_price, max_branches = p_max_branches, max_registers = p_max_registers,
+   max_users = p_max_users, ai_enabled = p_ai_enabled, ai_daily_tokens = p_ai_daily_tokens, active = p_active, updated_at = now()
+  where id = p_id returning id into saved;
+  if saved is null then raise exception 'El plan ya no existe. Actualizá la lista'; end if;
+ end if;
+ return saved;
+exception when unique_violation then raise exception 'Ya hay un plan con ese nombre';
+end;
+$$;
+
+create function public.retail_admin_billing_settings() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return (select jsonb_build_object('new_store_plan_id', new_store_plan_id, 'trial_days', trial_days, 'grace_days', grace_days)
+  from retail_private.billing_settings where id);
+end;
+$$;
+
+create function public.retail_admin_save_billing_settings(p_new_store_plan uuid, p_trial_days integer, p_grace_days integer) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ if p_trial_days is null or p_trial_days not between 0 and 365 then raise exception 'La prueba gratis va de 0 a 365 días'; end if;
+ if p_grace_days is null or p_grace_days not between 0 and 60 then raise exception 'Los días de gracia van de 0 a 60'; end if;
+ if p_new_store_plan is not null and not exists (select 1 from retail_private.plans where id = p_new_store_plan and active) then
+  raise exception 'Elegí un plan activo para los comercios nuevos';
+ end if;
+ update retail_private.billing_settings set new_store_plan_id = p_new_store_plan, trial_days = p_trial_days, grace_days = p_grace_days,
+  updated_at = now(), updated_by = auth.uid() where id;
+end;
+$$;
+
+-- 7. Abono de un comercio: estado, uso, pagos; asignar plan y registrar pagos.
+create function public.retail_admin_store_subscription(p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare sub retail_private.store_subscriptions;
+begin
+ perform retail_private.require_platform_admin();
+ select * into sub from retail_private.store_subscriptions where store_id = p_store;
+ return jsonb_build_object(
+  'subscription', case when sub.store_id is null then null else jsonb_build_object(
+   'plan_id', sub.plan_id, 'plan', (select name from retail_private.plans where id = sub.plan_id),
+   'price', (select price from retail_private.plans where id = sub.plan_id),
+   'exempt', sub.exempt, 'trial_until', sub.trial_until, 'paid_until', sub.paid_until, 'grace_days', sub.grace_days,
+   'status', retail_private.subscription_status(sub.exempt, sub.trial_until, sub.paid_until, sub.grace_days),
+   'access_until', retail_private.subscription_access_until(sub.trial_until, sub.paid_until)) end,
+  'used', jsonb_build_object(
+   'branches', (select count(*) from public.retail_branches where store_id = p_store),
+   'registers', (select count(*) from public.retail_registers where store_id = p_store and active),
+   'users', (select count(*) from public.retail_members where store_id = p_store),
+   'invitations', (select count(*) from public.retail_invitations where store_id = p_store)),
+  'payments', coalesce((select jsonb_agg(jsonb_build_object('paid_at', paid_at, 'amount', amount, 'months', months, 'method', method,
+    'reference', reference, 'period_to', period_to, 'by', email) order by paid_at desc)
+   from (select p.paid_at, p.amount, p.months, p.method, p.reference, p.period_to, u.email from retail_private.subscription_payments p
+    left join auth.users u on u.id = p.created_by where p.store_id = p_store order by p.paid_at desc limit 24) h), '[]'::jsonb));
+end;
+$$;
+
+-- p_plan null quita el abono: el comercio deja de controlarse (sin límites ni vencimiento).
+create function public.retail_admin_set_store_plan(p_store uuid, p_plan uuid, p_exempt boolean, p_trial_days integer, p_grace_days integer) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ if not exists (select 1 from public.retail_stores where id = p_store) then raise exception 'El comercio no existe'; end if;
+ if p_plan is null then delete from retail_private.store_subscriptions where store_id = p_store; return; end if;
+ if not exists (select 1 from retail_private.plans where id = p_plan) then raise exception 'El plan ya no existe. Actualizá la lista'; end if;
+ if p_exempt is null then raise exception 'Indicá si el comercio queda bonificado'; end if;
+ if p_trial_days is not null and p_trial_days not between 0 and 365 then raise exception 'La prueba gratis va de 0 a 365 días'; end if;
+ if p_grace_days is null or p_grace_days not between 0 and 60 then raise exception 'Los días de gracia van de 0 a 60'; end if;
+ insert into retail_private.store_subscriptions(store_id, plan_id, exempt, trial_until, grace_days, updated_by)
+ values (p_store, p_plan, p_exempt, case when p_trial_days is not null then now() + make_interval(days => p_trial_days) end, p_grace_days, auth.uid())
+ on conflict (store_id) do update set plan_id = excluded.plan_id, exempt = excluded.exempt, grace_days = excluded.grace_days,
+  trial_until = case when p_trial_days is not null then excluded.trial_until else retail_private.store_subscriptions.trial_until end,
+  updated_at = now(), updated_by = auth.uid();
+end;
+$$;
+
+-- Extiende el acceso por meses desde lo que esté más adelante: hoy, lo ya pagado o el fin de la prueba.
+create function public.retail_admin_record_payment(p_request uuid, p_store uuid, p_amount numeric, p_months integer, p_method text, p_reference text)
+returns timestamptz
+language plpgsql security definer set search_path = '' as $$
+declare sub retail_private.store_subscriptions; prior retail_private.subscription_payments; base timestamptz; paid_to timestamptz;
+begin
+ perform retail_private.require_platform_admin();
+ if p_request is null then raise exception 'Falta el identificador del pago'; end if;
+ select * into prior from retail_private.subscription_payments where id = p_request;
+ if found then
+  if prior.store_id <> p_store then raise exception 'El identificador del pago ya se usó en otro comercio'; end if;
+  return prior.period_to;
+ end if;
+ if p_amount is null or p_amount < 0 or round(p_amount, 2) <> p_amount then raise exception 'Revisá el importe: positivo y con hasta dos decimales'; end if;
+ if p_months is null or p_months not between 1 and 36 then raise exception 'Elegí entre 1 y 36 meses'; end if;
+ if p_method is null or p_method not in ('transferencia', 'efectivo', 'mercado_pago', 'tarjeta', 'otro') then raise exception 'Elegí cómo se pagó'; end if;
+ if length(coalesce(p_reference, '')) > 120 then raise exception 'La referencia admite hasta 120 caracteres'; end if;
+ select * into sub from retail_private.store_subscriptions where store_id = p_store for update;
+ if not found then raise exception 'Asigná un plan al comercio antes de registrar pagos'; end if;
+ base := greatest(now(), coalesce(sub.paid_until, now()), coalesce(sub.trial_until, now()));
+ paid_to := base + make_interval(months => p_months);
+ insert into retail_private.subscription_payments(id, store_id, amount, months, method, reference, period_from, period_to, created_by)
+ values (p_request, p_store, p_amount, p_months, p_method, nullif(trim(p_reference), ''), base, paid_to, auth.uid());
+ update retail_private.store_subscriptions set paid_until = paid_to, updated_at = now(), updated_by = auth.uid() where store_id = p_store;
+ return paid_to;
+end;
+$$;
+
+-- 8. Resumen de cobranza: estados, ingreso mensual estimado y próximos vencimientos.
+create function public.retail_admin_billing_summary() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return (with subs as (
+  select s.store_id, st.name, p.name as plan, p.price,
+   retail_private.subscription_status(s.exempt, s.trial_until, s.paid_until, s.grace_days) as status,
+   retail_private.subscription_access_until(s.trial_until, s.paid_until) as access_until, s.grace_days
+  from retail_private.store_subscriptions s join retail_private.plans p on p.id = s.plan_id join public.retail_stores st on st.id = s.store_id)
+ select jsonb_build_object(
+  'without_plan', (select count(*) from public.retail_stores st where not exists (select 1 from retail_private.store_subscriptions s where s.store_id = st.id)),
+  'by_status', coalesce((select jsonb_object_agg(status, total) from (select status, count(*) as total from subs group by status) c), '{}'::jsonb),
+  'monthly_revenue', (select coalesce(sum(price), 0) from subs where status in ('al_dia', 'vencido')),
+  'collected_30d', (select coalesce(sum(amount), 0) from retail_private.subscription_payments where paid_at >= now() - interval '30 days'),
+  'attention', coalesce((select jsonb_agg(jsonb_build_object('store_id', store_id, 'name', name, 'plan', plan, 'status', status, 'access_until', access_until,
+    'blocks_at', access_until + make_interval(days => grace_days)) order by access_until nulls first)
+   from (select * from subs where status in ('vencido', 'bloqueado') or (status in ('al_dia', 'prueba') and access_until < now() + interval '7 days')
+    order by access_until nulls first limit 100) a), '[]'::jsonb)));
+end;
+$$;
+
+-- 9. La lista de comercios muestra plan y estado del abono. Cambia el tipo de resultado.
+drop function public.retail_admin_stores(text, integer);
+create function public.retail_admin_stores(p_search text default null, p_days integer default 30)
+returns table (
+ id uuid, name text, created_at timestamptz, owner_email text, members integer, branches integer, products integer,
+ sales_count bigint, sales_total numeric, last_sale_at timestamptz, ai_requests bigint, ai_tokens bigint,
+ billing_enabled boolean, status text, note text, suspended_at timestamptz, plan_name text, subscription_status text
+)
+language plpgsql stable security definer set search_path = '' as $$
+declare
+ since timestamptz := now() - make_interval(days => least(greatest(coalesce(p_days, 30), 1), 365));
+ term text := nullif(trim(coalesce(p_search, '')), '');
+begin
+ perform retail_private.require_platform_admin();
+ return query
+ select s.id, s.name, s.created_at, o.email::text,
+  (select count(*)::integer from public.retail_members m where m.store_id = s.id),
+  (select count(*)::integer from public.retail_branches b where b.store_id = s.id),
+  (select count(*)::integer from public.retail_products p where p.store_id = s.id and p.active),
+  coalesce(sa.sales_count, 0), coalesce(sa.sales_total, 0),
+  (select max(x.created_at) from public.retail_sales x where x.store_id = s.id),
+  coalesce(ai.requests, 0), coalesce(ai.tokens, 0),
+  s.billing_enabled, coalesce(n.status, 'activo'), coalesce(n.note, ''), su.suspended_at,
+  pl.name, case when sub.store_id is null then null
+   else retail_private.subscription_status(sub.exempt, sub.trial_until, sub.paid_until, sub.grace_days) end
+ from public.retail_stores s
+ left join auth.users o on o.id = s.owner_id
+ left join retail_private.platform_store_notes n on n.store_id = s.id
+ left join retail_private.store_suspensions su on su.store_id = s.id
+ left join retail_private.store_subscriptions sub on sub.store_id = s.id
+ left join retail_private.plans pl on pl.id = sub.plan_id
+ left join lateral (select count(*) as sales_count, sum(x.total) as sales_total from public.retail_sales x
+  where x.store_id = s.id and x.created_at >= since) sa on true
+ left join lateral (select count(*) as requests, sum(a.prompt_tokens + a.completion_tokens)::bigint as tokens from retail_private.ai_usage a
+  where a.store_id = s.id and a.created_at >= since) ai on true
+ where term is null or s.name ilike '%' || term || '%' or o.email ilike '%' || term || '%' or s.id::text = term
+ order by s.created_at desc
+ limit 500;
+end;
+$$;
+
+revoke all on function public.retail_admin_stores(text, integer), public.retail_admin_plans(),
+ public.retail_admin_save_plan(uuid, text, numeric, integer, integer, integer, boolean, integer, boolean),
+ public.retail_admin_billing_settings(), public.retail_admin_save_billing_settings(uuid, integer, integer),
+ public.retail_admin_store_subscription(uuid), public.retail_admin_set_store_plan(uuid, uuid, boolean, integer, integer),
+ public.retail_admin_record_payment(uuid, uuid, numeric, integer, text, text), public.retail_admin_billing_summary() from public, anon;
+grant execute on function public.retail_admin_stores(text, integer), public.retail_admin_plans(),
+ public.retail_admin_save_plan(uuid, text, numeric, integer, integer, integer, boolean, integer, boolean),
+ public.retail_admin_billing_settings(), public.retail_admin_save_billing_settings(uuid, integer, integer),
+ public.retail_admin_store_subscription(uuid), public.retail_admin_set_store_plan(uuid, uuid, boolean, integer, integer),
+ public.retail_admin_record_payment(uuid, uuid, numeric, integer, text, text), public.retail_admin_billing_summary() to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_222d45b7d13c2e2e$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060004_plans_and_subscriptions.sql','222d45b7d13c2e2e00185911908e716995048bfcd5533cc03f1d9456efc1dab6','schema');
+ end if;
+end;
+
+-- 89/94: 202611060005_platform_announcements.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060005_platform_announcements.sql') then
+  raise notice 'Aplicando 202611060005_platform_announcements.sql';
+  execute replace($retail_source_d5435338ad558c1a$
+create table retail_private.platform_announcements (
+ id uuid primary key,
+ title text not null check (length(trim(title)) between 1 and 80),
+ body text not null check (length(trim(body)) between 1 and 500),
+ level text not null default 'info' check (level in ('info', 'importante', 'urgente')),
+ audience text not null check (audience in ('all', 'managers', 'plan', 'store')),
+ plan_id uuid references retail_private.plans(id) on delete set null,
+ store_id uuid references public.retail_stores(id) on delete cascade,
+ push boolean not null default false,
+ starts_at timestamptz not null default now(),
+ ends_at timestamptz not null,
+ canceled_at timestamptz,
+ created_at timestamptz not null default now(),
+ created_by uuid references auth.users(id) on delete set null,
+ check (ends_at > starts_at),
+ check (audience <> 'plan' or plan_id is not null),
+ check (audience <> 'store' or store_id is not null)
+);
+create index retail_platform_announcements_active on retail_private.platform_announcements(ends_at) where canceled_at is null;
+
+create table retail_private.announcement_reads (
+ announcement_id uuid not null references retail_private.platform_announcements(id) on delete cascade,
+ user_id uuid not null references auth.users(id) on delete cascade,
+ read_at timestamptz not null default now(),
+ primary key (announcement_id, user_id)
+);
+revoke all on retail_private.platform_announcements, retail_private.announcement_reads from public, anon, authenticated;
+
+-- ¿El usuario está alcanzado por el aviso? Mira la membresía directa: un comercio suspendido igual recibe avisos.
+create function retail_private.announcement_reaches(p_announcement retail_private.platform_announcements, p_user uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+ select case p_announcement.audience
+  when 'all' then true
+  when 'managers' then exists (select 1 from public.retail_members m where m.user_id = p_user and m.role in ('owner', 'admin'))
+  when 'plan' then exists (select 1 from public.retail_members m join retail_private.store_subscriptions s on s.store_id = m.store_id
+   where m.user_id = p_user and s.plan_id = p_announcement.plan_id)
+  when 'store' then exists (select 1 from public.retail_members m where m.user_id = p_user and m.store_id = p_announcement.store_id)
+  else false end;
+$$;
+revoke all on function retail_private.announcement_reaches(retail_private.platform_announcements, uuid) from public, anon, authenticated;
+
+-- 1. Para cada usuario: avisos vigentes, no leídos.
+create function public.retail_my_announcements()
+returns table (id uuid, title text, body text, level text, starts_at timestamptz)
+language sql stable security definer set search_path = '' as $$
+ select a.id, a.title, a.body, a.level, a.starts_at from retail_private.platform_announcements a
+ where auth.uid() is not null and a.canceled_at is null and a.starts_at <= now() and a.ends_at > now()
+  and not exists (select 1 from retail_private.announcement_reads r where r.announcement_id = a.id and r.user_id = auth.uid())
+  and retail_private.announcement_reaches(a, auth.uid())
+ order by case a.level when 'urgente' then 0 when 'importante' then 1 else 2 end, a.starts_at desc
+ limit 5;
+$$;
+
+create function public.retail_dismiss_announcement(p_announcement uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ if auth.uid() is null then return; end if;
+ insert into retail_private.announcement_reads(announcement_id, user_id)
+ select a.id, auth.uid() from retail_private.platform_announcements a where a.id = p_announcement
+ on conflict do nothing;
+end;
+$$;
+revoke all on function public.retail_my_announcements(), public.retail_dismiss_announcement(uuid) from public, anon;
+grant execute on function public.retail_my_announcements(), public.retail_dismiss_announcement(uuid) to authenticated;
+
+-- 2. Cola push: nuevo tipo y vínculo con el aviso.
+alter table public.retail_push_deliveries drop constraint retail_push_deliveries_kind_check;
+alter table public.retail_push_deliveries add constraint retail_push_deliveries_kind_check check (kind in ('low_stock', 'shift_closed', 'test', 'platform'));
+alter table public.retail_push_deliveries add column announcement_id uuid references retail_private.platform_announcements(id) on delete cascade;
+
+-- Dispositivos alcanzados (las suscripciones push son por dispositivo y comercio).
+create function retail_private.announcement_devices(p_announcement retail_private.platform_announcements)
+returns setof public.retail_push_subscriptions
+language sql stable security definer set search_path = '' as $$
+ select s.* from public.retail_push_subscriptions s
+ where case p_announcement.audience
+  when 'all' then true
+  when 'managers' then exists (select 1 from public.retail_members m where m.user_id = s.user_id and m.store_id = s.store_id and m.role in ('owner', 'admin'))
+  when 'plan' then exists (select 1 from retail_private.store_subscriptions b where b.store_id = s.store_id and b.plan_id = p_announcement.plan_id)
+  when 'store' then s.store_id = p_announcement.store_id
+  else false end;
+$$;
+revoke all on function retail_private.announcement_devices(retail_private.platform_announcements) from public, anon, authenticated;
+
+-- Misma lógica de 202610140001, con lotes de 100 y el tipo 'platform' (título y texto del aviso; se omite si se canceló).
+create or replace function public.retail_claim_push(p_only uuid default null) returns jsonb
+ language plpgsql security definer set search_path='' as $$
+declare result jsonb;
+begin
+ delete from public.retail_push_deliveries where created_at<now()-interval '7 days';
+ with candidates as (
+  select d.id from public.retail_push_deliveries d where d.sent_at is null and d.attempts<5
+  and d.available_at<=now() and d.created_at>now()-interval '24 hours'
+  and (d.locked_at is null or d.locked_at<now()-interval '2 minutes')
+  and (p_only is null or d.id=p_only) order by d.created_at for update skip locked limit 100
+ ), claimed as (
+  update public.retail_push_deliveries d set attempts=d.attempts+1,locked_at=now(),lease=gen_random_uuid()
+  from candidates c where d.id=c.id returning d.*
+ ) select coalesce(jsonb_agg(to_jsonb(c)||jsonb_build_object(
+  'endpoint',s.endpoint,'p256dh',s.p256dh,'auth',s.auth,
+  'title',a.title,'body',a.body,
+  'authorized',s.user_id=c.user_id and s.store_id=c.store_id and (
+   (c.kind='platform' and a.id is not null and a.canceled_at is null and a.ends_at>now())
+   or (c.kind<>'platform' and exists(select 1 from public.retail_members m where m.store_id=c.store_id and m.user_id=c.user_id and m.role in ('owner','admin'))
+    and (c.kind='test' or (c.kind='low_stock' and s.low_stock) or (c.kind='shift_closed' and s.shift_closed))))
+  )), '[]'::jsonb) into result from claimed c join public.retail_push_subscriptions s on s.id=c.subscription_id
+  left join retail_private.platform_announcements a on a.id=c.announcement_id;
+ return result;
+end $$;
+
+-- 3. Panel de plataforma.
+create function retail_private.check_announcement_target(p_audience text, p_plan uuid, p_store uuid) returns void
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ if p_audience is null or p_audience not in ('all', 'managers', 'plan', 'store') then raise exception 'Elegí a quién va el aviso'; end if;
+ if p_audience = 'plan' and not exists (select 1 from retail_private.plans where id = p_plan) then raise exception 'Elegí el plan'; end if;
+ if p_audience = 'store' and not exists (select 1 from public.retail_stores where id = p_store) then raise exception 'El comercio no existe. Revisá el ID'; end if;
+end;
+$$;
+revoke all on function retail_private.check_announcement_target(text, uuid, uuid) from public, anon, authenticated;
+
+create function public.retail_admin_announcement_reach(p_audience text, p_plan uuid, p_store uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare probe retail_private.platform_announcements;
+begin
+ perform retail_private.require_platform_admin();
+ perform retail_private.check_announcement_target(p_audience, p_plan, p_store);
+ probe.audience := p_audience; probe.plan_id := case when p_audience = 'plan' then p_plan end; probe.store_id := case when p_audience = 'store' then p_store end;
+ return jsonb_build_object(
+  'users', (select count(*) from auth.users u where retail_private.announcement_reaches(probe, u.id)),
+  'devices', (select count(*) from retail_private.announcement_devices(probe)));
+end;
+$$;
+
+create function public.retail_admin_send_announcement(
+ p_request uuid, p_title text, p_body text, p_level text, p_audience text, p_plan uuid, p_store uuid, p_days integer, p_push boolean
+) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare saved retail_private.platform_announcements; queued integer := 0;
+begin
+ perform retail_private.require_platform_admin();
+ if p_request is null then raise exception 'Falta el identificador del aviso'; end if;
+ select * into saved from retail_private.platform_announcements where id = p_request;
+ if found then
+  return jsonb_build_object('id', saved.id, 'push_queued', (select count(*) from public.retail_push_deliveries where announcement_id = saved.id), 'repeated', true);
+ end if;
+ if length(trim(coalesce(p_title, ''))) not between 1 and 80 then raise exception 'Escribí un título de hasta 80 caracteres'; end if;
+ if length(trim(coalesce(p_body, ''))) not between 1 and 500 then raise exception 'Escribí el mensaje (hasta 500 caracteres)'; end if;
+ if p_level is null or p_level not in ('info', 'importante', 'urgente') then raise exception 'Elegí la importancia del aviso'; end if;
+ if p_days is null or p_days not between 1 and 60 then raise exception 'El aviso puede quedar visible de 1 a 60 días'; end if;
+ perform retail_private.check_announcement_target(p_audience, p_plan, p_store);
+ insert into retail_private.platform_announcements(id, title, body, level, audience, plan_id, store_id, push, ends_at, created_by)
+ values (p_request, trim(p_title), trim(p_body), p_level, p_audience, case when p_audience = 'plan' then p_plan end,
+  case when p_audience = 'store' then p_store end, coalesce(p_push, false), now() + make_interval(days => p_days), auth.uid())
+ returning * into saved;
+ if saved.push then
+  insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key, announcement_id)
+  select d.id, d.user_id, d.store_id, 'platform', 'platform:' || saved.id::text, saved.id from retail_private.announcement_devices(saved) d
+  on conflict (subscription_id, event_key) do nothing;
+  get diagnostics queued = row_count;
+ end if;
+ return jsonb_build_object('id', saved.id, 'push_queued', queued, 'repeated', false);
+end;
+$$;
+
+create function public.retail_admin_announcements() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return coalesce((select jsonb_agg(jsonb_build_object(
+   'id', a.id, 'title', a.title, 'body', a.body, 'level', a.level, 'audience', a.audience,
+   'plan', (select name from retail_private.plans where id = a.plan_id), 'store', (select name from public.retail_stores where id = a.store_id),
+   'push', a.push, 'created_at', a.created_at, 'ends_at', a.ends_at, 'canceled_at', a.canceled_at,
+   'by', (select email from auth.users where id = a.created_by),
+   'reads', (select count(*) from retail_private.announcement_reads r where r.announcement_id = a.id),
+   'push_total', (select count(*) from public.retail_push_deliveries d where d.announcement_id = a.id),
+   'push_sent', (select count(*) from public.retail_push_deliveries d where d.announcement_id = a.id and d.sent_at is not null),
+   'push_failed', (select count(*) from public.retail_push_deliveries d where d.announcement_id = a.id and d.sent_at is null and d.attempts >= 5)
+  ) order by a.created_at desc)
+  from (select * from retail_private.platform_announcements order by created_at desc limit 50) a), '[]'::jsonb);
+end;
+$$;
+
+-- Cancelar: deja de mostrarse y no se envían los push pendientes. Los ya entregados no se pueden retirar.
+create function public.retail_admin_cancel_announcement(p_announcement uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ update retail_private.platform_announcements set canceled_at = now() where id = p_announcement and canceled_at is null;
+ if not found then raise exception 'El aviso no existe o ya estaba cancelado. Actualizá la lista'; end if;
+ delete from public.retail_push_deliveries where announcement_id = p_announcement and sent_at is null;
+end;
+$$;
+
+revoke all on function public.retail_admin_announcement_reach(text, uuid, uuid),
+ public.retail_admin_send_announcement(uuid, text, text, text, text, uuid, uuid, integer, boolean),
+ public.retail_admin_announcements(), public.retail_admin_cancel_announcement(uuid) from public, anon;
+grant execute on function public.retail_admin_announcement_reach(text, uuid, uuid),
+ public.retail_admin_send_announcement(uuid, text, text, text, text, uuid, uuid, integer, boolean),
+ public.retail_admin_announcements(), public.retail_admin_cancel_announcement(uuid) to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_d5435338ad558c1a$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060005_platform_announcements.sql','d5435338ad558c1a17f89b8154695b05d556b31231329b8e2f1725c0b3c89533','schema');
+ end if;
+end;
+
+-- 90/94: 202611060006_push_for_all_members.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060006_push_for_all_members.sql') then
+  raise notice 'Aplicando 202611060006_push_for_all_members.sql';
+  execute replace($retail_source_cbb1e3a8f7aeb3bd$
+-- Misma definición de 202610140001: cualquier miembro puede registrar su dispositivo; para quien no administra
+-- se guardan desactivados los avisos del comercio.
+create or replace function public.retail_save_push(p_store uuid,p_endpoint text,p_p256dh text,p_auth text,
+ p_low_stock boolean,p_shift_closed boolean) returns uuid
+ language plpgsql security definer set search_path='' as $$
+declare v_id uuid; v_old public.retail_push_subscriptions; v_manager boolean;
+begin
+ if auth.uid() is null or retail_private.role_for(p_store) is null then
+  raise exception 'No tenés acceso a este comercio';
+ end if;
+ v_manager := retail_private.role_for(p_store) in ('owner','admin');
+ -- Only real browser push services, never arbitrary URLs or internal hosts.
+ if p_endpoint !~ '^https://(fcm\.googleapis\.com|([a-z0-9-]+\.)?push\.services\.mozilla\.com|([a-z0-9-]+\.)?push\.apple\.com|[a-z0-9-]+\.notify\.windows\.com)/[^[:space:]]+$'
+  or length(p_endpoint)>2048 or p_p256dh !~ '^[A-Za-z0-9_-]{87}$' or p_auth !~ '^[A-Za-z0-9_-]{22}$'
+  or p_endpoint is null or p_p256dh is null or p_auth is null then raise exception 'Suscripción push inválida'; end if;
+ -- Serialize enrollment per endpoint and user (also bounds device count).
+ perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text,0));
+ perform pg_advisory_xact_lock(hashtextextended(p_endpoint,1));
+ select * into v_old from public.retail_push_subscriptions where endpoint=p_endpoint for update;
+ if (v_old.id is null or v_old.user_id<>auth.uid()) and (select count(*) from public.retail_push_subscriptions where user_id=auth.uid())>=20 then
+  raise exception 'Alcanzaste el máximo de 20 dispositivos';
+ end if;
+ if v_old.id is not null and (v_old.user_id<>auth.uid() or v_old.store_id<>p_store) then
+  -- Account/store changes invalidate queued messages from the previous recipient.
+  delete from public.retail_push_subscriptions where id=v_old.id;
+ end if;
+ insert into public.retail_push_subscriptions(user_id,store_id,endpoint,p256dh,auth,low_stock,shift_closed)
+ values(auth.uid(),p_store,p_endpoint,p_p256dh,p_auth,v_manager and coalesce(p_low_stock,false),v_manager and coalesce(p_shift_closed,false))
+ on conflict(endpoint) do update set p256dh=excluded.p256dh,auth=excluded.auth,
+ low_stock=excluded.low_stock,shift_closed=excluded.shift_closed,updated_at=now()
+ returning id into v_id;
+ return v_id;
+end $$;
+
+-- Cada persona ve la suscripción de su propio dispositivo.
+drop policy own_device on public.retail_push_subscriptions;
+create policy own_device on public.retail_push_subscriptions for select to authenticated
+ using(user_id=auth.uid() and retail_private.role_for(store_id) is not null);
+
+create or replace function public.retail_request_push_test(p_store uuid,p_endpoint text) returns uuid
+ language plpgsql security definer set search_path='' as $$
+declare s public.retail_push_subscriptions; v_id uuid;
+begin
+ select * into s from public.retail_push_subscriptions where endpoint=p_endpoint and store_id=p_store
+ and user_id=auth.uid() for update;
+ if s.id is null or retail_private.role_for(p_store) is null then
+  raise exception 'Activá los avisos de este comercio primero'; end if;
+ if s.last_test_at>now()-interval '1 minute' then raise exception 'Esperá un minuto antes de repetir la prueba'; end if;
+ update public.retail_push_subscriptions set last_test_at=now() where id=s.id;
+ insert into public.retail_push_deliveries(subscription_id,user_id,store_id,kind,event_key)
+ values(s.id,s.user_id,s.store_id,'test',gen_random_uuid()::text) returning id into v_id;
+ return v_id;
+end $$;
+
+-- Misma definición de 202611060005: la prueba vale para cualquier miembro; stock y cierres, solo para quien administra.
+create or replace function public.retail_claim_push(p_only uuid default null) returns jsonb
+ language plpgsql security definer set search_path='' as $$
+declare result jsonb;
+begin
+ delete from public.retail_push_deliveries where created_at<now()-interval '7 days';
+ with candidates as (
+  select d.id from public.retail_push_deliveries d where d.sent_at is null and d.attempts<5
+  and d.available_at<=now() and d.created_at>now()-interval '24 hours'
+  and (d.locked_at is null or d.locked_at<now()-interval '2 minutes')
+  and (p_only is null or d.id=p_only) order by d.created_at for update skip locked limit 100
+ ), claimed as (
+  update public.retail_push_deliveries d set attempts=d.attempts+1,locked_at=now(),lease=gen_random_uuid()
+  from candidates c where d.id=c.id returning d.*
+ ) select coalesce(jsonb_agg(to_jsonb(c)||jsonb_build_object(
+  'endpoint',s.endpoint,'p256dh',s.p256dh,'auth',s.auth,
+  'title',a.title,'body',a.body,
+  'authorized',s.user_id=c.user_id and s.store_id=c.store_id and (
+   (c.kind='platform' and a.id is not null and a.canceled_at is null and a.ends_at>now())
+   or (c.kind='test' and exists(select 1 from public.retail_members m where m.store_id=c.store_id and m.user_id=c.user_id))
+   or (c.kind in ('low_stock','shift_closed') and exists(select 1 from public.retail_members m where m.store_id=c.store_id and m.user_id=c.user_id and m.role in ('owner','admin'))
+    and ((c.kind='low_stock' and s.low_stock) or (c.kind='shift_closed' and s.shift_closed))))
+  )), '[]'::jsonb) into result from claimed c join public.retail_push_subscriptions s on s.id=c.subscription_id
+  left join retail_private.platform_announcements a on a.id=c.announcement_id;
+ return result;
+end $$;
+
+notify pgrst, 'reload schema';
+$retail_source_cbb1e3a8f7aeb3bd$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060006_push_for_all_members.sql','cbb1e3a8f7aeb3bd470418ab87ab02a4ba856ccfdc13d8d4f9294ccb6f0b463d','schema');
+ end if;
+end;
+
+-- 91/94: 202611060007_advertising.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060007_advertising.sql') then
+  raise notice 'Aplicando 202611060007_advertising.sql';
+  execute replace($retail_source_46353e26393c7e75$
+alter table retail_private.plans add column ads_free boolean not null default false;
+
+create table retail_private.ad_advertisers (
+ id uuid primary key default gen_random_uuid(),
+ name text not null unique check (length(trim(name)) between 1 and 80),
+ contact_name text check (contact_name is null or length(contact_name) <= 80),
+ phone text check (phone is null or length(phone) <= 40),
+ email text check (email is null or length(email) <= 120),
+ notes text not null default '' check (length(notes) <= 1000),
+ active boolean not null default true,
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now()
+);
+
+create table retail_private.ad_campaigns (
+ id uuid primary key default gen_random_uuid(),
+ advertiser_id uuid not null references retail_private.ad_advertisers(id),
+ placement text not null check (placement in ('home_card', 'catalog_featured', 'supplier_offer')),
+ title text not null check (length(trim(title)) between 1 and 80),
+ body text not null default '' check (length(body) <= 300),
+ cta_label text check (cta_label is null or length(cta_label) between 1 and 30),
+ cta_url text check (cta_url is null or (length(cta_url) <= 500 and cta_url ~ '^(https://|tel:|mailto:)')),
+ whatsapp text check (whatsapp is null or whatsapp ~ '^[0-9]{8,15}$'),
+ brand text check (brand is null or length(brand) <= 80),
+ image_path text check (image_path is null or image_path ~ '^[0-9a-f-]{36}/[0-9a-f-]{36}\.(jpg|png|webp)$'),
+ starts_at timestamptz not null default now(),
+ ends_at timestamptz not null,
+ paused boolean not null default false,
+ plan_ids uuid[],
+ store_ids uuid[],
+ zones text[],
+ daily_views_cap integer check (daily_views_cap is null or daily_views_cap between 1 and 1000),
+ max_leads integer check (max_leads is null or max_leads between 1 and 1000000),
+ price_model text not null default 'fijo' check (price_model in ('fijo', 'por_contacto', 'por_mil_vistas')),
+ price numeric(14,2) not null default 0 check (price >= 0),
+ created_at timestamptz not null default now(),
+ updated_at timestamptz not null default now(),
+ created_by uuid references auth.users(id) on delete set null,
+ check (ends_at > starts_at)
+);
+create index retail_ad_campaigns_live on retail_private.ad_campaigns(placement, ends_at) where not paused;
+
+create table retail_private.ad_items (
+ campaign_id uuid not null references retail_private.ad_campaigns(id) on delete cascade,
+ ean_code text not null check (length(ean_code) between 4 and 20),
+ price numeric(14,2) check (price is null or price > 0),
+ label text check (label is null or label in ('destacado', 'nuevo', 'oferta')),
+ note text check (note is null or length(note) <= 80),
+ primary key (campaign_id, ean_code)
+);
+create index retail_ad_items_code on retail_private.ad_items(ean_code);
+
+create table retail_private.ad_daily (
+ campaign_id uuid not null references retail_private.ad_campaigns(id) on delete cascade,
+ store_id uuid not null references public.retail_stores(id) on delete cascade,
+ day date not null,
+ views integer not null default 0,
+ clicks integer not null default 0,
+ primary key (campaign_id, store_id, day)
+);
+create index retail_ad_daily_day on retail_private.ad_daily(campaign_id, day);
+
+create table retail_private.ad_leads (
+ id bigint generated always as identity primary key,
+ campaign_id uuid not null references retail_private.ad_campaigns(id) on delete cascade,
+ store_id uuid not null references public.retail_stores(id) on delete cascade,
+ user_id uuid references auth.users(id) on delete set null,
+ ean_code text not null default '',
+ day date not null,
+ created_at timestamptz not null default now(),
+ unique (campaign_id, store_id, ean_code, day)
+);
+revoke all on retail_private.ad_advertisers, retail_private.ad_campaigns, retail_private.ad_items, retail_private.ad_daily, retail_private.ad_leads
+ from public, anon, authenticated;
+
+-- Imágenes públicas (las ven los comercios); solo los administradores de plataforma las suben o borran.
+insert into storage.buckets(id, name, public, file_size_limit, allowed_mime_types)
+values ('retail-ads', 'retail-ads', true, 1048576, array['image/jpeg', 'image/png', 'image/webp'])
+on conflict (id) do update set public = true, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+create policy retail_ads_admin_insert on storage.objects for insert to authenticated
+ with check (bucket_id = 'retail-ads' and retail_private.is_platform_admin());
+create policy retail_ads_admin_delete on storage.objects for delete to authenticated
+ using (bucket_id = 'retail-ads' and retail_private.is_platform_admin());
+
+create function retail_private.ad_today() returns date
+language sql stable set search_path = '' as $$ select (now() at time zone 'America/Argentina/Buenos_Aires')::date; $$;
+
+-- ¿La campaña puede mostrarse a este comercio ahora?
+create function retail_private.ad_eligible(p_campaign retail_private.ad_campaigns, p_store uuid) returns boolean
+language sql stable security definer set search_path = '' as $$
+ select not p_campaign.paused and p_campaign.starts_at <= now() and p_campaign.ends_at > now()
+  and exists (select 1 from retail_private.ad_advertisers a where a.id = p_campaign.advertiser_id and a.active)
+  and not exists (select 1 from retail_private.store_subscriptions s join retail_private.plans p on p.id = s.plan_id where s.store_id = p_store and p.ads_free)
+  and (p_campaign.plan_ids is null or exists (select 1 from retail_private.store_subscriptions s where s.store_id = p_store and s.plan_id = any(p_campaign.plan_ids)))
+  and (p_campaign.store_ids is null or p_store = any(p_campaign.store_ids))
+  and (p_campaign.zones is null or exists (select 1 from public.retail_stores st, unnest(p_campaign.zones) z
+   where st.id = p_store and st.address ilike '%' || z || '%'))
+  and (p_campaign.max_leads is null or (select count(*) from retail_private.ad_leads l where l.campaign_id = p_campaign.id) < p_campaign.max_leads)
+  and (p_campaign.daily_views_cap is null or coalesce((select d.views from retail_private.ad_daily d
+   where d.campaign_id = p_campaign.id and d.store_id = p_store and d.day = retail_private.ad_today()), 0) < p_campaign.daily_views_cap);
+$$;
+revoke all on function retail_private.ad_eligible(retail_private.ad_campaigns, uuid), retail_private.ad_today() from public, anon, authenticated;
+
+-- 1. Publicidad para un lugar de la app. Solo lectura: las vistas se informan con retail_ad_track.
+create function public.retail_ads(p_store uuid, p_placement text, p_codes text[] default null) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare v_role text := retail_private.role_for(p_store);
+begin
+ if auth.uid() is null or v_role is null then return '[]'::jsonb; end if;
+ if p_placement = 'home_card' then
+  if v_role not in ('owner', 'admin') then return '[]'::jsonb; end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'advertiser', a.name, 'title', c.title, 'body', c.body, 'cta_label', c.cta_label,
+    'cta_url', c.cta_url, 'whatsapp', c.whatsapp, 'image_path', c.image_path))
+   from (select * from retail_private.ad_campaigns c where c.placement = 'home_card' and retail_private.ad_eligible(c, p_store) order by random() limit 1) c
+   join retail_private.ad_advertisers a on a.id = c.advertiser_id), '[]'::jsonb);
+ elsif p_placement = 'catalog_featured' then
+  return coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'advertiser', a.name, 'title', c.title, 'body', c.body, 'brand', c.brand,
+    'image_path', c.image_path, 'items', coalesce((select jsonb_agg(jsonb_build_object('ean_code', i.ean_code, 'label', i.label, 'note', i.note,
+      'name', g.name)) from retail_private.ad_items i left join public.retail_global_catalog g on g.ean_code = i.ean_code where i.campaign_id = c.id), '[]'::jsonb)))
+   from (select * from retail_private.ad_campaigns c where c.placement = 'catalog_featured' and retail_private.ad_eligible(c, p_store) order by c.created_at desc limit 5) c
+   join retail_private.ad_advertisers a on a.id = c.advertiser_id), '[]'::jsonb);
+ elsif p_placement = 'supplier_offer' then
+  if p_codes is null or coalesce(array_length(p_codes, 1), 0) = 0 then return '[]'::jsonb; end if;
+  return coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'advertiser', a.name, 'ean_code', i.ean_code, 'price', i.price, 'note', i.note,
+    'label', i.label, 'cta_label', c.cta_label, 'cta_url', c.cta_url, 'whatsapp', c.whatsapp))
+   from retail_private.ad_items i
+   join retail_private.ad_campaigns c on c.id = i.campaign_id and c.placement = 'supplier_offer'
+   join retail_private.ad_advertisers a on a.id = c.advertiser_id
+   where i.ean_code = any(p_codes[1:500]) and retail_private.ad_eligible(c, p_store)), '[]'::jsonb);
+ end if;
+ return '[]'::jsonb;
+end;
+$$;
+
+-- 2. Medición. Vistas: hasta 1.000 por campaña, comercio y día. Contactos: uno por campaña, comercio, producto y día.
+create function public.retail_ad_track(p_store uuid, p_events jsonb) returns void
+language plpgsql security definer set search_path = '' as $$
+declare item jsonb; campaign uuid; code text; today date := retail_private.ad_today(); inserted integer;
+begin
+ if auth.uid() is null or retail_private.role_for(p_store) is null then return; end if;
+ if jsonb_typeof(p_events) <> 'array' or jsonb_array_length(p_events) > 50 then return; end if;
+ for item in select value from jsonb_array_elements(p_events) loop
+  begin campaign := (item->>'campaign')::uuid; exception when others then continue; end;
+  if campaign is null or not exists (select 1 from retail_private.ad_campaigns where id = campaign) then continue; end if;
+  if item->>'kind' = 'view' then
+   insert into retail_private.ad_daily(campaign_id, store_id, day, views) values (campaign, p_store, today, 1)
+   on conflict (campaign_id, store_id, day) do update set views = least(retail_private.ad_daily.views + 1, 1000);
+  elsif item->>'kind' = 'click' then
+   code := left(coalesce(item->>'ean', ''), 20);
+   insert into retail_private.ad_leads(campaign_id, store_id, user_id, ean_code, day) values (campaign, p_store, auth.uid(), code, today)
+   on conflict (campaign_id, store_id, ean_code, day) do nothing;
+   get diagnostics inserted = row_count;
+   if inserted > 0 then
+    insert into retail_private.ad_daily(campaign_id, store_id, day, clicks) values (campaign, p_store, today, 1)
+    on conflict (campaign_id, store_id, day) do update set clicks = retail_private.ad_daily.clicks + 1;
+   end if;
+  end if;
+ end loop;
+end;
+$$;
+revoke all on function public.retail_ads(uuid, text, text[]), public.retail_ad_track(uuid, jsonb) from public, anon;
+grant execute on function public.retail_ads(uuid, text, text[]), public.retail_ad_track(uuid, jsonb) to authenticated;
+
+-- 3. Panel de plataforma: anunciantes.
+create function public.retail_admin_advertisers() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return coalesce((select jsonb_agg(jsonb_build_object('id', a.id, 'name', a.name, 'contact_name', a.contact_name, 'phone', a.phone, 'email', a.email,
+   'notes', a.notes, 'active', a.active, 'campaigns', (select count(*) from retail_private.ad_campaigns c where c.advertiser_id = a.id)) order by a.active desc, a.name)
+  from retail_private.ad_advertisers a), '[]'::jsonb);
+end;
+$$;
+
+create function public.retail_admin_save_advertiser(p_id uuid, p_name text, p_contact text, p_phone text, p_email text, p_notes text, p_active boolean) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare saved uuid;
+begin
+ perform retail_private.require_platform_admin();
+ if length(trim(coalesce(p_name, ''))) not between 1 and 80 then raise exception 'Escribí el nombre del anunciante (hasta 80 caracteres)'; end if;
+ if p_active is null then raise exception 'Indicá si el anunciante está activo'; end if;
+ if p_id is null then
+  insert into retail_private.ad_advertisers(name, contact_name, phone, email, notes, active)
+  values (trim(p_name), nullif(trim(p_contact), ''), nullif(trim(p_phone), ''), nullif(trim(p_email), ''), coalesce(trim(p_notes), ''), p_active) returning id into saved;
+ else
+  update retail_private.ad_advertisers set name = trim(p_name), contact_name = nullif(trim(p_contact), ''), phone = nullif(trim(p_phone), ''),
+   email = nullif(trim(p_email), ''), notes = coalesce(trim(p_notes), ''), active = p_active, updated_at = now() where id = p_id returning id into saved;
+  if saved is null then raise exception 'El anunciante ya no existe. Actualizá la lista'; end if;
+ end if;
+ return saved;
+exception when unique_violation then raise exception 'Ya hay un anunciante con ese nombre';
+end;
+$$;
+
+-- 4. Campañas con sus totales.
+create function public.retail_admin_campaigns() returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'advertiser', a.name, 'placement', c.placement, 'title', c.title,
+   'starts_at', c.starts_at, 'ends_at', c.ends_at, 'paused', c.paused, 'price_model', c.price_model, 'price', c.price, 'max_leads', c.max_leads,
+   'items', (select count(*) from retail_private.ad_items i where i.campaign_id = c.id),
+   'views', coalesce((select sum(views) from retail_private.ad_daily d where d.campaign_id = c.id), 0),
+   'stores', (select count(distinct store_id) from retail_private.ad_daily d where d.campaign_id = c.id and d.views > 0),
+   'leads', (select count(*) from retail_private.ad_leads l where l.campaign_id = c.id)) order by c.created_at desc)
+  from (select * from retail_private.ad_campaigns order by created_at desc limit 200) c join retail_private.ad_advertisers a on a.id = c.advertiser_id), '[]'::jsonb);
+end;
+$$;
+
+create function public.retail_admin_campaign(p_id uuid) returns jsonb
+language plpgsql stable security definer set search_path = '' as $$
+declare c retail_private.ad_campaigns;
+begin
+ perform retail_private.require_platform_admin();
+ select * into c from retail_private.ad_campaigns where id = p_id;
+ if not found then raise exception 'La campaña ya no existe. Actualizá la lista'; end if;
+ return to_jsonb(c) || jsonb_build_object(
+  'items', coalesce((select jsonb_agg(jsonb_build_object('ean_code', i.ean_code, 'price', i.price, 'label', i.label, 'note', i.note,
+    'name', (select name from public.retail_global_catalog g where g.ean_code = i.ean_code)) order by i.ean_code)
+   from retail_private.ad_items i where i.campaign_id = c.id), '[]'::jsonb),
+  'daily', coalesce((select jsonb_agg(jsonb_build_object('day', day, 'views', views, 'stores', stores, 'clicks', clicks) order by day)
+   from (select day, sum(views) as views, count(*) filter (where views > 0) as stores, sum(clicks) as clicks from retail_private.ad_daily
+    where campaign_id = c.id and day >= retail_private.ad_today() - 90 group by day) d), '[]'::jsonb),
+  'leads', coalesce((select jsonb_agg(jsonb_build_object('created_at', created_at, 'store', name, 'ean_code', ean_code) order by created_at desc)
+   from (select l.created_at, s.name, l.ean_code from retail_private.ad_leads l join public.retail_stores s on s.id = l.store_id
+    where l.campaign_id = c.id order by l.created_at desc limit 500) x), '[]'::jsonb),
+  'totals', jsonb_build_object(
+   'views', coalesce((select sum(views) from retail_private.ad_daily where campaign_id = c.id), 0),
+   'stores', (select count(distinct store_id) from retail_private.ad_daily where campaign_id = c.id and views > 0),
+   'leads', (select count(*) from retail_private.ad_leads where campaign_id = c.id)));
+end;
+$$;
+
+-- Guarda la campaña y reemplaza sus productos. p_values: campos de la campaña; p_items: [{ean_code, price, label, note}].
+create function public.retail_admin_save_campaign(p_id uuid, p_values jsonb, p_items jsonb) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare v jsonb := coalesce(p_values, '{}'::jsonb); saved uuid; v_placement text := v->>'placement'; item jsonb; total integer;
+begin
+ perform retail_private.require_platform_admin();
+ if v_placement is null or v_placement not in ('home_card', 'catalog_featured', 'supplier_offer') then raise exception 'Elegí dónde se muestra'; end if;
+ if nullif(v->>'ends_at', '') is null then raise exception 'Elegí hasta cuándo se muestra'; end if;
+ if not exists (select 1 from retail_private.ad_advertisers where id = (v->>'advertiser_id')::uuid) then raise exception 'Elegí el anunciante'; end if;
+ if length(trim(coalesce(v->>'title', ''))) not between 1 and 80 then raise exception 'Escribí el título (hasta 80 caracteres)'; end if;
+ if nullif(v->>'cta_url', '') is not null and v->>'cta_url' !~ '^(https://|tel:|mailto:)' then raise exception 'El enlace debe empezar con https://, tel: o mailto:'; end if;
+ if nullif(v->>'whatsapp', '') is not null and v->>'whatsapp' !~ '^[0-9]{8,15}$' then raise exception 'El WhatsApp va solo con números, con código de país (ej.: 5493415551234)'; end if;
+ if v_placement = 'supplier_offer' and nullif(v->>'whatsapp', '') is null and nullif(v->>'cta_url', '') is null then
+  raise exception 'Una oferta para pedidos necesita un WhatsApp o un enlace para que el comercio contacte al anunciante';
+ end if;
+ if jsonb_typeof(coalesce(p_items, '[]'::jsonb)) <> 'array' or jsonb_array_length(coalesce(p_items, '[]'::jsonb)) > 500 then raise exception 'Hasta 500 productos por campaña'; end if;
+ total := jsonb_array_length(coalesce(p_items, '[]'::jsonb));
+ if v_placement in ('catalog_featured', 'supplier_offer') and total = 0 then raise exception 'Agregá al menos un código de barras'; end if;
+ if p_id is null then
+  insert into retail_private.ad_campaigns(advertiser_id, placement, ends_at, title, created_by) values ((v->>'advertiser_id')::uuid, v_placement, now() + interval '30 days', trim(v->>'title'), auth.uid())
+  returning id into saved;
+ else
+  saved := p_id;
+  if not exists (select 1 from retail_private.ad_campaigns where id = saved) then raise exception 'La campaña ya no existe. Actualizá la lista'; end if;
+ end if;
+ update retail_private.ad_campaigns set
+  advertiser_id = (v->>'advertiser_id')::uuid, placement = v->>'placement', title = trim(v->>'title'), body = coalesce(trim(v->>'body'), ''),
+  cta_label = nullif(trim(v->>'cta_label'), ''), cta_url = nullif(trim(v->>'cta_url'), ''), whatsapp = nullif(trim(v->>'whatsapp'), ''),
+  brand = nullif(trim(v->>'brand'), ''), image_path = nullif(v->>'image_path', ''),
+  starts_at = coalesce((v->>'starts_at')::timestamptz, now()), ends_at = (v->>'ends_at')::timestamptz, paused = coalesce((v->>'paused')::boolean, false),
+  plan_ids = case when jsonb_typeof(v->'plan_ids') = 'array' and jsonb_array_length(v->'plan_ids') > 0 then array(select jsonb_array_elements_text(v->'plan_ids')::uuid) end,
+  store_ids = case when jsonb_typeof(v->'store_ids') = 'array' and jsonb_array_length(v->'store_ids') > 0 then array(select jsonb_array_elements_text(v->'store_ids')::uuid) end,
+  zones = case when jsonb_typeof(v->'zones') = 'array' and jsonb_array_length(v->'zones') > 0 then array(select left(trim(z), 60) from jsonb_array_elements_text(v->'zones') z where trim(z) <> '') end,
+  daily_views_cap = (v->>'daily_views_cap')::integer, max_leads = (v->>'max_leads')::integer,
+  price_model = coalesce(v->>'price_model', 'fijo'), price = coalesce((v->>'price')::numeric, 0), updated_at = now()
+ where id = saved;
+ delete from retail_private.ad_items where campaign_id = saved;
+ for item in select value from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) loop
+  if length(trim(coalesce(item->>'ean_code', ''))) not between 4 and 20 then raise exception 'Revisá los códigos de barras: entre 4 y 20 caracteres'; end if;
+  insert into retail_private.ad_items(campaign_id, ean_code, price, label, note)
+  values (saved, trim(item->>'ean_code'), nullif(item->>'price', '')::numeric, nullif(item->>'label', ''), nullif(trim(item->>'note'), ''))
+  on conflict (campaign_id, ean_code) do update set price = excluded.price, label = excluded.label, note = excluded.note;
+ end loop;
+ return saved;
+exception
+ when invalid_text_representation or invalid_datetime_format or datetime_field_overflow or numeric_value_out_of_range then
+  raise exception 'Revisá fechas, números e identificadores de la campaña';
+ when check_violation then raise exception 'Revisá los datos de la campaña: alguno está fuera de rango (%).', sqlerrm;
+end;
+$$;
+
+create function public.retail_admin_set_campaign_paused(p_id uuid, p_paused boolean) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ update retail_private.ad_campaigns set paused = coalesce(p_paused, true), updated_at = now() where id = p_id;
+ if not found then raise exception 'La campaña ya no existe. Actualizá la lista'; end if;
+end;
+$$;
+
+-- 5. Planes: «sin publicidad». Cambia el tipo de resultado y la firma: se reemplazan con los mismos permisos.
+drop function public.retail_admin_plans();
+create function public.retail_admin_plans()
+returns table (id uuid, name text, price numeric, max_branches integer, max_registers integer, max_users integer,
+ ai_enabled boolean, ai_daily_tokens integer, active boolean, stores bigint, ads_free boolean)
+language plpgsql stable security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ return query select p.id, p.name, p.price, p.max_branches, p.max_registers, p.max_users, p.ai_enabled, p.ai_daily_tokens, p.active,
+  (select count(*) from retail_private.store_subscriptions s where s.plan_id = p.id), p.ads_free
+ from retail_private.plans p order by p.active desc, p.price, p.name;
+end;
+$$;
+
+drop function public.retail_admin_save_plan(uuid, text, numeric, integer, integer, integer, boolean, integer, boolean);
+create function public.retail_admin_save_plan(
+ p_id uuid, p_name text, p_price numeric, p_max_branches integer, p_max_registers integer, p_max_users integer,
+ p_ai_enabled boolean, p_ai_daily_tokens integer, p_active boolean, p_ads_free boolean default false
+) returns uuid
+language plpgsql security definer set search_path = '' as $$
+declare saved uuid;
+begin
+ perform retail_private.require_platform_admin();
+ if length(trim(coalesce(p_name, ''))) not between 1 and 60 then raise exception 'Escribí el nombre del plan (hasta 60 caracteres)'; end if;
+ if p_price is null or p_price < 0 or round(p_price, 2) <> p_price then raise exception 'Revisá el precio: un importe positivo con hasta dos decimales'; end if;
+ if p_ai_enabled is null or p_active is null then raise exception 'Faltan datos del plan'; end if;
+ if p_id is null then
+  insert into retail_private.plans(name, price, max_branches, max_registers, max_users, ai_enabled, ai_daily_tokens, active, ads_free)
+  values (trim(p_name), p_price, p_max_branches, p_max_registers, p_max_users, p_ai_enabled, p_ai_daily_tokens, p_active, coalesce(p_ads_free, false)) returning id into saved;
+ else
+  update retail_private.plans set name = trim(p_name), price = p_price, max_branches = p_max_branches, max_registers = p_max_registers,
+   max_users = p_max_users, ai_enabled = p_ai_enabled, ai_daily_tokens = p_ai_daily_tokens, active = p_active, ads_free = coalesce(p_ads_free, false), updated_at = now()
+  where id = p_id returning id into saved;
+  if saved is null then raise exception 'El plan ya no existe. Actualizá la lista'; end if;
+ end if;
+ return saved;
+exception when unique_violation then raise exception 'Ya hay un plan con ese nombre';
+end;
+$$;
+
+revoke all on function public.retail_admin_advertisers(), public.retail_admin_save_advertiser(uuid, text, text, text, text, text, boolean),
+ public.retail_admin_campaigns(), public.retail_admin_campaign(uuid), public.retail_admin_save_campaign(uuid, jsonb, jsonb),
+ public.retail_admin_set_campaign_paused(uuid, boolean), public.retail_admin_plans(),
+ public.retail_admin_save_plan(uuid, text, numeric, integer, integer, integer, boolean, integer, boolean, boolean) from public, anon;
+grant execute on function public.retail_admin_advertisers(), public.retail_admin_save_advertiser(uuid, text, text, text, text, text, boolean),
+ public.retail_admin_campaigns(), public.retail_admin_campaign(uuid), public.retail_admin_save_campaign(uuid, jsonb, jsonb),
+ public.retail_admin_set_campaign_paused(uuid, boolean), public.retail_admin_plans(),
+ public.retail_admin_save_plan(uuid, text, numeric, integer, integer, integer, boolean, integer, boolean, boolean) to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_46353e26393c7e75$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060007_advertising.sql','46353e26393c7e759b85930d27fd7d00ddbd14b76c7b8d7d31b19f1eca47f0ec','schema');
+ end if;
+end;
+
+-- 92/94: 202611060008_delete_campaigns_and_notices.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060008_delete_campaigns_and_notices.sql') then
+  raise notice 'Aplicando 202611060008_delete_campaigns_and_notices.sql';
+  execute replace($retail_source_4f1a2e35d7accaa3$
+-- Imágenes de las campañas indicadas que ninguna otra campaña usa.
+create function retail_private.orphan_ad_images(p_ids uuid[]) returns text[]
+language sql stable security definer set search_path = '' as $$
+ select coalesce(array_agg(distinct c.image_path), '{}'::text[]) from retail_private.ad_campaigns c
+ where c.id = any(p_ids) and c.image_path is not null
+  and not exists (select 1 from retail_private.ad_campaigns o where o.image_path = c.image_path and not (o.id = any(p_ids)));
+$$;
+revoke all on function retail_private.orphan_ad_images(uuid[]) from public, anon, authenticated;
+
+create function public.retail_admin_delete_campaign(p_id uuid) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare images text[];
+begin
+ perform retail_private.require_platform_admin();
+ perform 1 from retail_private.ad_campaigns where id = p_id for update;
+ if not found then raise exception 'La campaña ya no existe. Actualizá la lista'; end if;
+ images := retail_private.orphan_ad_images(array[p_id]);
+ delete from retail_private.ad_campaigns where id = p_id;
+ return jsonb_build_object('deleted', 1, 'images', to_jsonb(images));
+end;
+$$;
+
+create function public.retail_admin_delete_announcement(p_id uuid) returns void
+language plpgsql security definer set search_path = '' as $$
+begin
+ perform retail_private.require_platform_admin();
+ delete from retail_private.platform_announcements where id = p_id;
+ if not found then raise exception 'El aviso ya no existe. Actualizá la lista'; end if;
+end;
+$$;
+
+-- Limpieza: campañas terminadas hace al menos p_days días; avisos vencidos o cancelados hace al menos p_days días.
+-- p_preview true solo cuenta, sin borrar.
+create function public.retail_admin_purge_ended(p_kind text, p_days integer, p_preview boolean) returns jsonb
+language plpgsql security definer set search_path = '' as $$
+declare cutoff timestamptz; ids uuid[]; images text[] := '{}';
+begin
+ perform retail_private.require_platform_admin();
+ if p_days is null or p_days not between 0 and 3650 then raise exception 'Indicá desde hace cuántos días (0 a 3.650)'; end if;
+ cutoff := now() - make_interval(days => p_days);
+ if p_kind = 'campaigns' then
+  select coalesce(array_agg(id), '{}') into ids from retail_private.ad_campaigns where ends_at < cutoff;
+  if not coalesce(p_preview, true) and cardinality(ids) > 0 then
+   images := retail_private.orphan_ad_images(ids);
+   delete from retail_private.ad_campaigns where id = any(ids);
+  end if;
+ elsif p_kind = 'announcements' then
+  select coalesce(array_agg(id), '{}') into ids from retail_private.platform_announcements where coalesce(canceled_at, ends_at) < cutoff;
+  if not coalesce(p_preview, true) and cardinality(ids) > 0 then
+   delete from retail_private.platform_announcements where id = any(ids);
+  end if;
+ else
+  raise exception 'Elegí qué limpiar';
+ end if;
+ return jsonb_build_object('count', cardinality(ids), 'deleted', case when coalesce(p_preview, true) then 0 else cardinality(ids) end, 'images', to_jsonb(images));
+end;
+$$;
+
+revoke all on function public.retail_admin_delete_campaign(uuid), public.retail_admin_delete_announcement(uuid),
+ public.retail_admin_purge_ended(text, integer, boolean) from public, anon;
+grant execute on function public.retail_admin_delete_campaign(uuid), public.retail_admin_delete_announcement(uuid),
+ public.retail_admin_purge_ended(text, integer, boolean) to authenticated;
+
+notify pgrst, 'reload schema';
+$retail_source_4f1a2e35d7accaa3$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060008_delete_campaigns_and_notices.sql','4f1a2e35d7accaa392c4e227b04f27bbae8d6c0bd05e2061244faae486dddb72','schema');
+ end if;
+end;
+
+-- 93/94: 202611060009_product_presentation_codes.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060009_product_presentation_codes.sql') then
+  raise notice 'Aplicando 202611060009_product_presentation_codes.sql';
+  execute replace($retail_source_c0ee5421317c7664$
+alter table public.retail_products
+ add column display_code text check (display_code is null or display_code ~ '^[0-9A-Za-z-]{1,40}$'),
+ add column pack_code text check (pack_code is null or pack_code ~ '^[0-9A-Za-z-]{1,40}$'),
+ add column pallet_packs integer check (pallet_packs is null or pallet_packs between 1 and 100000);
+grant update(display_code,pack_code,pallet_packs) on public.retail_products to authenticated;
+create index retail_products_display_code on public.retail_products(store_id,display_code) where display_code is not null;
+create index retail_products_pack_code on public.retail_products(store_id,pack_code) where pack_code is not null;
+
+-- Un código identifica una sola presentación de un solo producto activo del comercio: no puede repetirse entre
+-- unidades, displays y bultos. Los productos ya cargados no se revisan; el control corre al cambiar un código.
+create function retail_private.check_presentation_codes() returns trigger
+language plpgsql security definer set search_path='' as $$
+declare v_code text; v_codes text[];
+begin
+ if not new.active then return new; end if;
+ v_codes:=array_remove(array[case when tg_op='INSERT' or new.code is distinct from old.code or not old.active then nullif(btrim(new.code),'') end,
+  new.display_code,new.pack_code],null);
+ if new.display_code is not null and (new.display_code=new.pack_code or new.display_code=btrim(new.code)) then raise exception 'El código del display tiene que ser distinto del de la unidad y del bulto'; end if;
+ if new.pack_code is not null and new.pack_code=btrim(new.code) then raise exception 'El código del bulto tiene que ser distinto del de la unidad'; end if;
+ if tg_op='UPDATE' and old.active and new.code is not distinct from old.code and new.display_code is not distinct from old.display_code
+  and new.pack_code is not distinct from old.pack_code then return new; end if;
+ perform pg_advisory_xact_lock(hashtextextended('presentation-codes:'||new.store_id::text,0));
+ foreach v_code in array v_codes loop
+  -- El código de la unidad puede repetirse entre productos como antes; solo choca con displays y bultos.
+  if exists(select 1 from public.retail_products p where p.store_id=new.store_id and p.active and p.id<>new.id
+   and (p.display_code=v_code or p.pack_code=v_code or (v_code<>btrim(new.code) and btrim(p.code)=v_code))) then
+   raise exception 'El código % ya está en otro producto', v_code;
+  end if;
+ end loop;
+ return new;
+end $$;
+revoke all on function retail_private.check_presentation_codes() from public,anon,authenticated;
+create trigger retail_products_presentation_codes before insert or update of code,display_code,pack_code,active on public.retail_products
+ for each row execute function retail_private.check_presentation_codes();
+
+-- Igual que 202610280003, con los campos agregados después: con inventario por sucursal la ficha también guarda
+-- display, códigos de presentación, pallet, redondeo y «sin precio».
+create or replace function public.retail_save_product_at_branch_before_audit(p_store uuid,p_values jsonb,p_edit boolean,p_expected integer,p_branch uuid)
+returns jsonb language plpgsql security invoker set search_path='' as $$
+declare columns_sql text; expressions_sql text; assignment_sql text; saved uuid; previous text:=current_setting('retail.inventory_location',true); product_id uuid;
+ allowed text[]:=array['category_id','code','name','price','sale_markup','cost','stock','min_stock','emoji','active','sellable','brand','supplier','supplier_code','tags','unit_type','pack_size','expiry_date','last_restocked_at',
+  'display_size','display_code','pack_code','pallet_packs','price_rounding','price_pending'];
+begin
+ if p_values is null or jsonb_typeof(p_values)<>'object' or p_edit is null then raise exception 'Datos del producto incompletos'; end if;
+ product_id:=(p_values->>'id')::uuid;
+ if exists(select 1 from jsonb_object_keys(p_values) k where k<>all(allowed||array['id'])) then raise exception 'Campos de producto no admitidos'; end if;
+ if not exists(select 1 from public.retail_branches where store_id=p_store and id=p_branch) then raise exception 'Elegí la sucursal del stock'; end if;
+ perform set_config('retail.inventory_location',p_branch::text,true);
+ select string_agg(format('%I',k),','),string_agg(format('(jsonb_populate_record(null::public.retail_products,$1)).%I',k),','),
+  string_agg(format('%I=(jsonb_populate_record(null::public.retail_products,$1)).%I',k,k),',')
+ into columns_sql,expressions_sql,assignment_sql from jsonb_object_keys(p_values) k where k=any(allowed);
+ if p_edit then
+  execute 'update public.retail_products set '||assignment_sql||' where store_id=$2 and id=$3 and active and stock=$4 returning id' into saved using p_values,p_store,product_id,p_expected;
+ else
+  execute 'insert into public.retail_products(store_id,'||columns_sql||') select $2,'||expressions_sql||' returning id' into saved using p_values,p_store;
+ end if;
+ if saved is null then raise exception 'El producto cambió o no tenés permiso. Actualizá y revisá el borrador'; end if;
+ perform set_config('retail.inventory_location',coalesce(previous,''),true);
+ return jsonb_build_object('id',saved);
+end $$;
+
+notify pgrst,'reload schema';
+$retail_source_c0ee5421317c7664$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060009_product_presentation_codes.sql','c0ee5421317c76645713f2d36b801f8a2e86058819903e88a6a1ba0a0ad099c0','schema');
+ end if;
+end;
+
+-- 94/94: 202611060010_movement_receipts.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611060010_movement_receipts.sql') then
+  raise notice 'Aplicando 202611060010_movement_receipts.sql';
+  execute replace($retail_source_a65a158ee915c492$
+create table public.retail_receipt_counters (
+ store_id uuid not null references public.retail_stores(id),
+ series text not null check(series in ('income','payment','transfer')),
+ last_number bigint not null default 0 check(last_number>=0),
+ primary key(store_id,series)
+);
+alter table public.retail_receipt_counters enable row level security;
+revoke all on public.retail_receipt_counters from public,anon,authenticated;
+
+alter table public.retail_movements add column receipt_number bigint check(receipt_number is null or receipt_number>0);
+alter table public.retail_fund_transfers add column receipt_number bigint check(receipt_number is null or receipt_number>0);
+create unique index retail_movements_receipt on public.retail_movements(store_id,type,receipt_number) where receipt_number is not null;
+create unique index retail_fund_transfers_receipt on public.retail_fund_transfers(store_id,(case when from_location is null then 'income' when to_location is null then 'payment' else 'transfer' end),receipt_number) where receipt_number is not null;
+
+-- Siguiente número de la serie. La fila del contador queda bloqueada hasta el fin de la transacción: dos movimientos
+-- simultáneos no repiten número, y si la operación falla el número no se consume.
+create function retail_private.next_receipt_number(p_store uuid,p_series text) returns bigint
+language sql security definer set search_path='' as $$
+ insert into public.retail_receipt_counters(store_id,series,last_number) values(p_store,p_series,1)
+ on conflict(store_id,series) do update set last_number=public.retail_receipt_counters.last_number+1
+ returning last_number;
+$$;
+revoke all on function retail_private.next_receipt_number(uuid,text) from public,anon,authenticated;
+
+create function retail_private.number_movement_receipt() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ new.receipt_number:=retail_private.next_receipt_number(new.store_id,case when new.type='INGRESO' then 'income' else 'payment' end);
+ return new;
+end $$;
+revoke all on function retail_private.number_movement_receipt() from public,anon,authenticated;
+create trigger retail_movements_receipt before insert on public.retail_movements
+ for each row execute function retail_private.number_movement_receipt();
+
+create function retail_private.number_fund_receipt() returns trigger
+language plpgsql security definer set search_path='' as $$
+begin
+ if new.shift_id is not null then new.receipt_number:=null; return new; end if;
+ new.receipt_number:=retail_private.next_receipt_number(new.store_id,
+  case when new.from_location is null then 'income' when new.to_location is null then 'payment' else 'transfer' end);
+ return new;
+end $$;
+revoke all on function retail_private.number_fund_receipt() from public,anon,authenticated;
+create trigger retail_fund_transfers_receipt before insert on public.retail_fund_transfers
+ for each row execute function retail_private.number_fund_receipt();
+
+-- Igual que 202610190001, con el número de recibo para imprimirlo desde la caja.
+drop function public.retail_movement_details(uuid,uuid);
+create function public.retail_movement_details(p_store uuid,p_shift uuid)
+returns table(id uuid,type text,amount numeric,reason text,created_at timestamptz,category text,voucher_url text,supplier_name text,receipt_number bigint,actor_email text)
+language plpgsql stable security definer set search_path='' as $$
+declare v_role text:=retail_private.role_for(p_store);
+begin
+ if v_role is null or not exists(select 1 from public.retail_shifts s where s.id=p_shift and s.store_id=p_store
+  and (v_role in ('owner','admin') or s.opened_by=auth.uid())) then raise exception 'Sin acceso a este turno'; end if;
+ return query select m.id,m.type,m.amount,m.reason,m.created_at,m.category,
+  case when v_role in ('owner','admin') then m.voucher_url else null::text end,m.supplier_name,m.receipt_number,u.email::text
+ from public.retail_movements m left join auth.users u on u.id=m.created_by
+ where m.store_id=p_store and m.shift_id=p_shift
+ and (v_role in ('owner','admin') or m.created_by=auth.uid());
+end $$;
+revoke all on function public.retail_movement_details(uuid,uuid) from public,anon;
+grant execute on function public.retail_movement_details(uuid,uuid) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_a65a158ee915c492$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611060010_movement_receipts.sql','a65a158ee915c4929f5f36efcb260ec1433dab1ce10a82f2c92724c2e69db2bb','schema');
  end if;
 end;
 

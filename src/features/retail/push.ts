@@ -67,12 +67,12 @@ export async function disconnectPushOnLogout() {
   finally { await subscription.unsubscribe(); }
 }
 
-export type PushIntent = { storeId: string; view: 'catalog' | 'cash' | 'settings' };
+export type PushIntent = { storeId: string; view: 'home' | 'catalog' | 'cash' | 'settings' };
 export function readPushIntent(value: unknown): PushIntent | null {
   if (!value || typeof value !== 'object') return null;
   const intent = value as Record<string, unknown>;
   if (typeof intent.storeId !== 'string' || !/^[0-9a-f-]{36}$/i.test(intent.storeId) ||
-    !['catalog', 'cash', 'settings'].includes(String(intent.view))) return null;
+    !['home', 'catalog', 'cash', 'settings'].includes(String(intent.view))) return null;
   return { storeId: intent.storeId, view: intent.view as PushIntent['view'] };
 }
 export function initialPushIntent() {

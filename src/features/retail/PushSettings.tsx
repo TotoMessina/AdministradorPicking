@@ -5,7 +5,8 @@ import { PwaStatus } from '../../components/PwaStatus';
 import { errorMessage } from './api';
 import { activatePush, isInstalled, isIosDevice, pushRegistration, pushSupported, removePush, savePush, vapidPublicKey } from './push';
 
-export function PushSettings({ storeId, userId }: { storeId: string; userId: string }) {
+/** storeAlerts false: quien no administra recibe solo los avisos del proveedor del servicio (sin stock ni cierres). */
+export function PushSettings({ storeId, userId, storeAlerts = true }: { storeId: string; userId: string; storeAlerts?: boolean }) {
   const [subscription, setSubscription] = useState<PushSubscription | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [lowStock, setLowStock] = useState(true);
@@ -60,7 +61,7 @@ export function PushSettings({ storeId, userId }: { storeId: string; userId: str
     // Request directly from the button gesture, before any network call (iOS).
     if (running.current) return;
     void perform(async () => {
-      const current = await activatePush(storeId, lowStock, shiftClosed);
+      const current = await activatePush(storeId, storeAlerts && lowStock, storeAlerts && shiftClosed);
       setPermission(Notification.permission);
       if (!current) { setMessage('Los avisos siguen desactivados. Podés habilitarlos desde los permisos del navegador.'); return; }
       setSubscription(current); setEnabled(true); setMessage('Avisos activados para este comercio y este dispositivo.');
@@ -75,7 +76,7 @@ export function PushSettings({ storeId, userId }: { storeId: string; userId: str
     </section>
     <section className="retail-panel">
       <div className="section-heading"><div><h2><Bell size={20} aria-hidden="true" /> Notificaciones</h2>
-        <p>Avisos de stock bajo y cierres de caja, aunque no tengas la app abierta.</p></div>
+        <p>{storeAlerts ? 'Avisos de stock bajo, cierres de caja y novedades del servicio, aunque no tengas la app abierta.' : 'Novedades importantes del servicio, aunque no tengas la app abierta.'}</p></div>
         <span className={`status-pill ${enabled ? 'status-open' : 'status-closed'}`}><span />{loading ? 'Consultando…' : enabled ? 'Activadas' : 'Desactivadas'}</span>
       </div>
       <p>Este dispositivo recibe avisos de un comercio a la vez. Activarlos acá reemplaza los del comercio anterior. Al cerrar sesión se desactivan.</p>
@@ -84,17 +85,17 @@ export function PushSettings({ storeId, userId }: { storeId: string; userId: str
         : !pwaEnabled ? <div className="info-banner">Los avisos se activan en la versión publicada o en la vista previa de producción.</div>
         : !vapidPublicKey ? <div className="info-banner">Las notificaciones todavía no están habilitadas en este sistema.</div> : null}
       {permission === 'denied' && <div className="info-banner">Bloqueaste las notificaciones. Permitilas desde la configuración del navegador o del dispositivo y volvé a abrir la app.</div>}
-      <fieldset className="push-preferences" disabled={!available || !ready || busy || loading}>
+      {storeAlerts && <fieldset className="push-preferences" disabled={!available || !ready || busy || loading}>
         <legend>Qué querés recibir</legend>
         <label><input type="checkbox" checked={lowStock} onChange={e => setLowStock(e.target.checked)} /><span><strong>Stock bajo</strong><small>Cuando un producto llega al mínimo configurado. No se repite con cada venta.</small></span></label>
         <label><input type="checkbox" checked={shiftClosed} onChange={e => setShiftClosed(e.target.checked)} /><span><strong>Cierres de caja</strong><small>Cuando se cierra una caja de cualquier sucursal del comercio.</small></span></label>
-      </fieldset>
+      </fieldset>}
       <div className="push-actions">
         {enabled ? <>
-          <button className="primary-button" disabled={busy || loading || (!lowStock && !shiftClosed)} onClick={() => void perform(async () => {
+          {storeAlerts && <button className="primary-button" disabled={busy || loading || (!lowStock && !shiftClosed)} onClick={() => void perform(async () => {
             if (!subscription) return;
             await savePush(storeId, subscription, lowStock, shiftClosed); setMessage('Preferencias guardadas.');
-          })}>Guardar preferencias</button>
+          })}>Guardar preferencias</button>}
           <button className="secondary-button" disabled={busy || loading} onClick={() => void perform(async () => {
             if (!subscription) return;
             const { data: deliveryId, error } = await supabase.rpc('retail_request_push_test', { p_store: storeId, p_endpoint: subscription.endpoint });
@@ -112,7 +113,7 @@ export function PushSettings({ storeId, userId }: { storeId: string; userId: str
             if (!subscription) return;
             await removePush(subscription); setSubscription(null); setEnabled(false); setMessage('Avisos desactivados en este dispositivo.');
           })}><BellOff size={16} /> Desactivar</button>
-        </> : <button className="primary-button" disabled={!available || !ready || busy || loading || permission === 'denied' || (!lowStock && !shiftClosed)} onClick={enable}>
+        </> : <button className="primary-button" disabled={!available || !ready || busy || loading || permission === 'denied' || (storeAlerts && !lowStock && !shiftClosed)} onClick={enable}>
           <Bell size={16} /> {busy ? 'Activando…' : 'Activar notificaciones'}
         </button>}
       </div>

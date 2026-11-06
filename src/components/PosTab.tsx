@@ -359,6 +359,11 @@ export function PosTab({
       (p) => p.sellable !== false && (p.code.includes(qTrim) || normalize(p.name).includes(qNorm))
     );
   }, [products, query]);
+  // El código del display o el DUN del bulto no se venden: se avisa qué producto es para escanear la unidad.
+  const presentationHint = (code: string) => {
+    const product = products.find(p => p.display_code === code || p.pack_code === code);
+    return product ? `${code} es el código del ${product.display_code === code ? 'display' : 'bulto'} de ${product.name}. Para vender, escaneá la unidad.` : '';
+  };
   const search = (e: React.FormEvent) => {
     e.preventDefault();
     const qTrim = query.trim();
@@ -372,7 +377,7 @@ export function PosTab({
       notify("info", "Elegí un producto de los resultados para agregarlo.");
     } else {
       const pending = products.find((p) => p.price_pending && p.code === qTrim);
-      notify("warning", pending ? `${pending.name} todavía no tiene precio. Cargalo en Productos para venderlo.` : `Código o producto no encontrado: ${qTrim}`);
+      notify("warning", pending ? `${pending.name} todavía no tiene precio. Cargalo en Productos para venderlo.` : presentationHint(qTrim) || `Código o producto no encontrado: ${qTrim}`);
     }
   };
   const checkout = async (chosen: PaymentMethod = method, shortcut = false) => {
@@ -485,7 +490,7 @@ export function PosTab({
   };
   const scanner = useRef({ text: '', at: 0 });
   const scanHandler = useRef<(code: string) => void>(() => {});
-  scanHandler.current = code => { const product = products.find(p => p.code === code); if (product) { add(product); setQuery(''); searchRef.current?.focus(); } else notify('warning', `Código no encontrado: ${code}`); };
+  scanHandler.current = code => { const product = products.find(p => p.code === code); if (product) { add(product); setQuery(''); searchRef.current?.focus(); } else notify('warning', presentationHint(code) || `Código no encontrado: ${code}`); };
   useEffect(() => {
     scanner.current.text = '';
     if (!active) return;

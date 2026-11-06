@@ -67,6 +67,36 @@ function apiError(payload: unknown, status: number, headers?: Headers): GroqErro
   );
 }
 
+/** Uso informado por cada llamada. Lo registra src/lib/aiUsage.ts; este módulo no depende de la base. */
+export interface GroqUsageEvent {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  ok: boolean;
+  errorCode?: string;
+}
+let usageListener: ((event: GroqUsageEvent) => void) | null = null;
+export function setGroqUsageListener(listener: ((event: GroqUsageEvent) => void) | null): void {
+  usageListener = listener;
+}
+function readUsage(payload: unknown): { promptTokens: number; completionTokens: number } | null {
+  const usage = isRecord(payload) ? (isRecord(payload.usage) ? payload.usage : isRecord(payload.x_groq) && isRecord(payload.x_groq.usage) ? payload.x_groq.usage : null) : null;
+  if (!usage) return null;
+  const count = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+  return { promptTokens: count(usage.prompt_tokens), completionTokens: count(usage.completion_tokens) };
+}
+// Registrar uso nunca debe cambiar la respuesta ni el error de la IA.
+function reportUsage(model: string, usage: { promptTokens: number; completionTokens: number } | null, error?: unknown): void {
+  if (!usageListener) return;
+  if (error instanceof GroqError && error.code === 'ABORTED') return;
+  try {
+    usageListener({
+      model, promptTokens: usage?.promptTokens ?? 0, completionTokens: usage?.completionTokens ?? 0, ok: !error,
+      ...(error ? { errorCode: error instanceof GroqError ? error.code : 'UNKNOWN' } : {}),
+    });
+  } catch { /* El registro de uso es secundario. */ }
+}
+
 export const FALLBACK_FAST_MODEL = DEFAULT_MODEL === 'qwen/qwen3.8-27b' ? 'llama-3.1-8b-instant' : 'qwen/qwen3.8-27b';
 
 export function isRateLimitError(err: unknown): boolean {
@@ -128,15 +158,31 @@ function parseJSON(text: string, status: number): unknown {
   }
 }
 
+/**
+ * Servidor de IA (función ai-proxy de Supabase). Lo configura src/lib/aiUsage.ts; este módulo no depende de la base.
+ * Se usa cuando la app no tiene VITE_GROQ_API_KEY: así la clave de Groq queda solo en el servidor.
+ */
+export interface GroqProxy {
+  url: string;
+  headers: () => Promise<Record<string, string>>;
+  /** Datos que el servidor necesita para autorizar y registrar: comercio y pantalla. */
+  extra: () => Record<string, unknown>;
+}
+let proxy: GroqProxy | null = null;
+export function setGroqProxy(next: GroqProxy | null): void {
+  proxy = next;
+}
+
 async function request(
   messages: readonly GroqMessage[],
   options: GroqOptions,
   stream: boolean,
 ): Promise<Response> {
   checkAbort(options.signal);
-  // VITE_* is public in the browser bundle. Use a server-side proxy in production.
+  // VITE_* es público en el navegador: sin esa clave se usa el servidor de IA, que guarda la suya como secreto.
   const apiKey = import.meta.env.VITE_GROQ_API_KEY?.trim();
-  if (!apiKey) throw new GroqError('Configurá VITE_GROQ_API_KEY para usar el asistente.', 0, 'MISSING_API_KEY');
+  const server = apiKey ? null : proxy;
+  if (!apiKey && !server) throw new GroqError('Configurá VITE_GROQ_API_KEY para usar el asistente.', 0, 'MISSING_API_KEY');
   if (!Array.isArray(messages) || messages.length === 0 || messages.some(message =>
     !message || !['system', 'user', 'assistant'].includes(message.role) || typeof message.content !== 'string',
   )) throw new GroqError('Enviá al menos un mensaje con rol y contenido válidos.', 0, 'INVALID_MESSAGES');
@@ -147,15 +193,23 @@ async function request(
     throw new GroqError('Revisá el modelo, la temperatura (0 a 2) y el máximo de tokens (entero positivo).', 0, 'INVALID_OPTIONS');
   }
 
-  const response = await fetch(ENDPOINT, {
+  let serverHeaders: Record<string, string> = {};
+  if (server) {
+    try { serverHeaders = await server.headers(); } catch {
+      throw new GroqError('No se pudo preparar la sesión para la IA. Volvé a ingresar.', 0, 'NETWORK_ERROR');
+    }
+    checkAbort(options.signal);
+  }
+  const response = await fetch(server ? server.url : ENDPOINT, {
     method: 'POST',
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      ...(server ? serverHeaders : { Authorization: `Bearer ${apiKey}` }),
       'Content-Type': 'application/json',
       Accept: stream ? 'text/event-stream' : 'application/json',
     },
     signal: options.signal,
     body: JSON.stringify({
+      ...(server ? server.extra() : {}),
       model: options.model ?? DEFAULT_MODEL,
       messages: [{ role: 'system', content: BASE_SYSTEM_PROMPT }, ...messages],
       temperature: options.temperature,
@@ -189,10 +243,15 @@ export async function groqChat(
     if (!isRecord(first) || !isRecord(first.message) || typeof first.message.content !== 'string') {
       throw new GroqError('Groq no devolvió una respuesta de texto.', response.status, 'INVALID_RESPONSE');
     }
-    if (options.responseFormat && first.finish_reason === 'length')
-      throw new GroqError('La respuesta JSON alcanzó su límite de salida y quedó incompleta.', response.status, 'OUTPUT_TRUNCATED');
+    if (options.responseFormat && first.finish_reason === 'length') {
+      const truncated = new GroqError('La respuesta JSON alcanzó su límite de salida y quedó incompleta.', response.status, 'OUTPUT_TRUNCATED');
+      reportUsage(currentModel, readUsage(payload), truncated);
+      throw truncated;
+    }
+    reportUsage(currentModel, readUsage(payload));
     return first.message.content;
   } catch (error) {
+    if (error instanceof GroqError && error.code === 'OUTPUT_TRUNCATED') throw error;
     const isModelNotFound = error instanceof GroqError && (error.code === 'model_not_found' || error.status === 404);
     const isDailyExhausted = error instanceof GroqError && error.status === 429 && /per day|\(TPD\)|\(RPD\)/i.test(error.message);
     if ((isModelNotFound || isDailyExhausted) && FALLBACK_FAST_MODEL && currentModel !== FALLBACK_FAST_MODEL && !options.signal?.aborted) {
@@ -203,13 +262,16 @@ export async function groqChat(
         if (isRecord(payload) && payload.error) throw apiError(payload, fallbackResponse.status);
         const first = isRecord(payload) && Array.isArray(payload.choices) ? payload.choices[0] : undefined;
         if (isRecord(first) && isRecord(first.message) && typeof first.message.content === 'string') {
+          reportUsage(FALLBACK_FAST_MODEL, readUsage(payload));
           return first.message.content;
         }
       } catch {
         // Ignorar fallo del fallback y arrojar el error original normalizado
       }
     }
-    throw normalizeError(error, options.signal);
+    const normalized = normalizeError(error, options.signal);
+    reportUsage(currentModel, null, normalized);
+    throw normalized;
   }
 }
 
@@ -221,6 +283,8 @@ export async function groqStream(
 ): Promise<void> {
   let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
   const currentModel = options.model ?? DEFAULT_MODEL;
+  let usedModel = currentModel;
+  let streamUsage: { promptTokens: number; completionTokens: number } | null = null;
   let response: Response;
   try {
     response = await request(messages, options, true);
@@ -230,11 +294,16 @@ export async function groqStream(
     if ((isModelNotFound || isDailyExhausted) && FALLBACK_FAST_MODEL && currentModel !== FALLBACK_FAST_MODEL && !options.signal?.aborted) {
       try {
         response = await request(messages, { ...options, model: FALLBACK_FAST_MODEL }, true);
+        usedModel = FALLBACK_FAST_MODEL;
       } catch {
-        throw normalizeError(error, options.signal);
+        const normalized = normalizeError(error, options.signal);
+        reportUsage(currentModel, null, normalized);
+        throw normalized;
       }
     } else {
-      throw normalizeError(error, options.signal);
+      const normalized = normalizeError(error, options.signal);
+      reportUsage(currentModel, null, normalized);
+      throw normalized;
     }
   }
 
@@ -257,6 +326,7 @@ export async function groqStream(
       if (data.trim() === '[DONE]') { done = true; return; }
       const payload = parseJSON(data, response.status);
       if (isRecord(payload) && payload.error) throw apiError(payload, response.status);
+      streamUsage = readUsage(payload) ?? streamUsage;
       if (!isRecord(payload) || !Array.isArray(payload.choices)) {
         throw new GroqError('Groq devolvió un evento inválido.', response.status, 'INVALID_RESPONSE');
       }
@@ -308,8 +378,11 @@ export async function groqStream(
     }
     checkAbort(options.signal);
     if (!done) throw new GroqError('La respuesta de Groq se interrumpió antes de finalizar.', response.status, 'INCOMPLETE_STREAM');
+    reportUsage(usedModel, streamUsage);
   } catch (error) {
-    throw normalizeError(error, options.signal);
+    const normalized = normalizeError(error, options.signal);
+    reportUsage(usedModel, streamUsage, normalized);
+    throw normalized;
   } finally {
     if (reader) {
       try { await reader.cancel(); } catch { /* The connection may already be closed. */ }

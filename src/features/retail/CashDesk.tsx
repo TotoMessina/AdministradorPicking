@@ -10,11 +10,13 @@ import {
   type Movement,
   type Register,
   type Shift,
+  type Store,
 } from "./api";
 import type { Run } from "./Management";
 import { cashInSale } from './payments';
 import { CashMovementForm } from './CashMovementForm';
 import { MovementVoucherLink } from './MovementVoucherLink';
+import { MovementReceipt, receiptNumber, type MovementReceiptData } from './MovementReceipt';
 import { SectionNav } from './SectionNav';
 import { CashDenominationFields } from './CashDenominationFields';
 import { CASH_DENOMINATIONS, cashDenominationsFromDraft, cashDenominationsTotal, closingCashDenominations, type CashDenominationDraft } from '../../services/cashDenominations';
@@ -49,8 +51,11 @@ export function CashDesk({
   allowWithdrawal = true,
   canUseAccounts = false,
   canRefund = false,
+  storeInfo,
 }: {
   storeId: string;
+  /** Datos del comercio para el encabezado de los recibos de ingresos y retiros. */
+  storeInfo?: Pick<Store, 'name' | 'address' | 'razon_social' | 'cuit'>;
   register: Register | undefined;
   shift: Shift | undefined;
   shifts: Shift[];
@@ -123,6 +128,7 @@ export function CashDesk({
   const [aiError, setAiError] = useState<string | null>(null);
   const aiController = useRef<AbortController | null>(null);
   const [movementBusy, setMovementBusy] = useState(false);
+  const [receipt, setReceipt] = useState<MovementReceiptData | null>(null);
   const [serverBalance, setServerBalance] = useState<number | null>(null);
   const [balanceError, setBalanceError] = useState('');
   useEffect(() => {
@@ -609,6 +615,10 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   {m.category === 'supplier_payment' && <small>Pago a proveedor · {m.supplier_name}</small>}
                   {m.category === 'other' && <small>Otro retiro</small>}
                   {!cashierMode && m.voucher_url && shift && <MovementVoucherLink store={storeId} shift={shift.id} reference={m.voucher_url} />}
+                  {storeInfo && <button type="button" className="text-button" onClick={() => setReceipt({ series: m.type === 'INGRESO' ? 'income' : 'payment', number: m.receipt_number, amount: m.amount, at: m.created_at,
+                    concept: m.reason, counterpart: m.supplier_name, source: m.type === 'RETIRO' ? `Efectivo · ${register?.name || 'Caja'}` : null,
+                    destination: m.type === 'INGRESO' ? `Efectivo · ${register?.name || 'Caja'}` : null, actor: m.actor_email })}>
+                    {m.receipt_number ? `Recibo N° ${receiptNumber(m.receipt_number)}` : 'Recibo'}</button>}
                 </span>
                 <strong>
                   {m.type === "RETIRO" ? "−" : "+"}
@@ -618,6 +628,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
             ))}
             {!movements.length && <p>No se registraron ingresos ni retiros.</p>}
             </div>
+            {receipt && storeInfo && <MovementReceipt store={storeInfo} receipt={receipt} onClose={() => setReceipt(null)} />}
           </section>
         </>}
       <section className="cash-history" role={shift ? 'tabpanel' : undefined} id={`${activityName}-panel-history`} aria-labelledby={shift ? `${activityName}-tab-history` : undefined} hidden={currentActivity !== 'history'}>

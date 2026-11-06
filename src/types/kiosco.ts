@@ -23,6 +23,8 @@ export interface KioscoProduct {
   branchStocks?: Record<string, number>; // Physical allocation when location inventory is active.
   stockBranchId?: string; // Sale context only; aggregate stock is never replaced.
   pack_size?: number | null; // Unidades individuales por bulto de compra.
+  display_code?: string | null; // EAN-13 del display: se reconoce al reponer, no en Vender.
+  pack_code?: string | null; // DUN-14 del bulto: se reconoce al reponer, no en Vender.
   stock_components?: StockComponent[]; // Por venta: unidades consumidas de productos con stock propio.
   margin_group?: MarginGroup | null;
   minStock: number; // Umbral de reposición urgente (ej: 4 o 6)

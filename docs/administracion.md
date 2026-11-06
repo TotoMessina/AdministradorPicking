@@ -5,6 +5,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Inicio guiado](#inicio-guiado)
 - [Personas y perfiles](#personas-y-perfiles)
 - [Facturación electrónica ARCA (ex AFIP)](#facturacion-electronica-arca)
+- [Panel de plataforma](#panel-de-plataforma)
 - [Catálogo global](#catalogo-global)
 
 <a id="inicio-guiado"></a>
@@ -349,12 +350,57 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 9. **CSV:** tocar **Descargar CSV**. Esperado: abre en Excel con acentos y una fila por movimiento, con los cambios en una columna.
 10. **Celular:** los botones de período ocupan el ancho, los filtros se apilan y la tabla se desplaza dentro de su recuadro, sin mover la página.
 
+<a id="panel-de-plataforma"></a>
+## Panel de plataforma
+
+Herramientas del proveedor del servicio, solo para quien está en `retail_private.platform_admins` (se otorga desde el SQL Editor, [cómo](../SUPABASE_SETUP.md#administrador-de-plataforma-y-catálogo-global)). Requiere `202611060001_platform_admin_panel.sql`.
+
+- **Dónde:** **Mi comercio → Más opciones → Panel de plataforma**. La tarjeta solo aparece para administradores de plataforma; cada función vuelve a validar el permiso en la base.
+- **Resumen:** comercios, usuarios, ventas, IA y catálogo del período elegido (7, 30, 90 días o un año), y la lista de administradores de plataforma (solo lectura).
+- **Comercios:** todos los comercios con dueño, personas, sucursales, productos, ventas del período, última venta y tokens de IA. **Ver detalle** muestra personas con su último ingreso, sucursales, cajas, turnos abiertos, opciones activas y la IA por pantalla.
+- **Seguimiento interno:** estado (En prueba, Activo, Requiere atención, Dado de baja) y una nota por comercio. Es informativo: no bloquea ni habilita nada en el comercio.
+- **Suspender comercio:** en el detalle, **Acceso al comercio** pide un motivo y confirmación (requiere `202611060002_store_suspension.sql`). Desde ese momento nadie del comercio puede leer ni operar: la base deja de reconocer su membresía en todos los permisos. Al entrar ven «Acceso suspendido» con el motivo, sin la opción de crear otro comercio. Una app ya abierta lo aplica en el próximo control (hasta 5 minutos) o en la próxima acción, que falla. No borra datos ni cierra turnos; **Reactivar comercio** devuelve el acceso tal como estaba y queda historial de ambas acciones. Las operaciones guardadas sin conexión quedan pendientes, sin marcarse con error, y se envían solas al reactivar. Los administradores de plataforma no quedan bloqueados.
+- **Planes y abonos** (requiere `202611060004_plans_and_subscriptions.sql`): planes con precio mensual y límites de sucursales, cajas activas, personas e IA por día (vacío = sin límite). La pestaña muestra ingreso mensual estimado, lo cobrado en 30 días, comercios por estado y los que vencen en 7 días o ya vencieron. Ahí se elige el plan y la prueba gratis de los comercios nuevos y los días de gracia.
+- **Abono de cada comercio:** en su detalle se asigna el plan, se da una prueba, se marca bonificado o se quita el abono, y se registran pagos (meses, importe, medio y referencia). Cada pago extiende el acceso desde lo más lejano entre hoy, lo pagado y el fin de la prueba; reintentar el mismo pago no lo duplica.
+- **Estados del abono:** en prueba, al día, vencido (en gracia: sigue funcionando y el dueño ve el aviso), bloqueado (pasada la gracia, mismo bloqueo que la suspensión) y bonificado. Al registrar el pago, el acceso vuelve en el acto. **Un comercio sin abono no se controla**: así quedan todos los existentes hasta que se les asigne un plan.
+- **Límites:** rigen al agregar sucursales, activar cajas, invitar o sumar personas; el mensaje dice el límite del plan. Lo que el comercio ya tiene no se borra. La IA usa el cupo del plan, salvo que el comercio tenga configuración propia.
+- **Aviso al dueño:** dueños y administradores ven un aviso (fuera de Vender) cuando la prueba o el abono vencen en 7 días o ya vencieron.
+- **Avisos** (requiere `202611060005_platform_announcements.sql`): título, mensaje, importancia, destinatarios (todos, dueños y administradores, comercios de un plan o un comercio por su ID) y cuántos días queda visible. Antes de enviar confirma cuántos usuarios y dispositivos alcanza; reintentar el mismo envío no lo duplica. Dentro de la app aparece arriba de cada pantalla hasta que la persona toca **Entendido** o vence; en Vender solo se muestran los urgentes, sin tapar el cobro. También se ve en la pantalla de acceso, incluso con el comercio suspendido. Con **Enviar también por push** llega a los dispositivos de quienes activaron los avisos: dueños y administradores desde **Mi comercio → App y avisos**; cajeros y supervisores desde **App y avisos** si tienen acceso a ajustes, o con **Activar avisos** junto a su cuenta. Cajeros y supervisores reciben solo los avisos del servicio, no stock bajo ni cierres de caja. La lista muestra cuántos lo leyeron y cuántos push salieron; **Cancelar** lo oculta y frena los push pendientes, pero no retira los ya entregados.
+- **Publicidad** (requiere `202611060007_advertising.sql`): anunciantes y campañas en tres lugares, nunca en Vender ni en la caja:
+  - **Ofertas en pedidos:** en Proveedores → pedidos, debajo de cada producto que se está pidiendo, «Publicidad · X lo tiene a $Y» con **Contactar** (WhatsApp con un mensaje armado o enlace). Se aparea por código de barras.
+  - **Destacados del catálogo global:** tarjetas arriba de **Agregar desde el catálogo global** y la etiqueta «Destacado» o «Nuevo lanzamiento» en esas filas, que van primero. Con una marca, **Ver productos de…** elige esa marca.
+  - **Tarjeta en Inicio:** al final, solo para dueños y administradores, con tope opcional de veces por comercio y día.
+  - **Segmentación:** planes, zona (palabras de la dirección del comercio) o comercios por ID. Los planes con **Sin publicidad** no ven ninguna. Se puede terminar sola al llegar a un número de contactos.
+  - **Medición e informe:** vistas, comercios alcanzados y contactos por día; un contacto es un toque en el botón, uno por comercio, producto y día. El informe estima lo que hay que facturar según el modelo (monto fijo, por contacto o por mil vistas) y descarga los contactos en CSV. Al anunciante no se le da ningún dato de ventas.
+  - **Imágenes:** JPG, PNG o WEBP de hasta 1 MB, públicas.
+- **Eliminar y limpiar** (requiere `202611060008_delete_campaigns_and_notices.sql`): cada campaña y cada aviso tiene **Eliminar**, con confirmación. Al pie de Publicidad y de Avisos, **Limpiar** borra de una vez las campañas terminadas o los avisos vencidos o cancelados hace más de los días indicados; antes muestra cuántos son. Se borra también lo asociado: vistas, contactos e imágenes sin uso de las campañas; lecturas y push de los avisos. No se puede deshacer: si una campaña se factura, descargar antes el informe.
+  - Antes de publicar, revisar el rubro: la publicidad de tabaco está prohibida (Ley 26.687) y la de alcohol tiene restricciones (Ley 24.788).
+- **Usuarios:** búsqueda por correo para soporte: alta, último ingreso, correo confirmado y comercios con su rol.
+- **Uso de IA:** consultas, tokens, errores, por día, comercio, pantalla y modelo, y los últimos errores. Con el servidor de IA (sin `VITE_GROQ_API_KEY` en la app) el uso lo registra el servidor; si la app todavía tiene esa clave, lo informa cada dispositivo y es orientativo.
+- **Control de la IA** (requiere `202611060003_ai_server_limits.sql` y la función `ai-proxy`): pausar la IA para todos y fijar un cupo diario de tokens por comercio. En el detalle de cada comercio, **IA de este comercio** permite deshabilitarla o darle otro cupo. Al llegar al cupo, las herramientas de IA avisan y vuelven al día siguiente (día de Argentina); vender, cobrar y guardar no se afectan. Además, cada persona tiene un freno de 30 consultas por minuto.
+- **Privacidad:** muestra conteos y totales por comercio; no muestra tickets, clientes, movimientos ni comprobantes.
+
+### Guía de Pruebas — panel de plataforma
+
+1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → Más opciones**. Esperado: no aparece «Panel de plataforma».
+2. **Resumen:** con tu cuenta agregada, abrir el panel. Esperado: totales de comercios, usuarios y ventas; cambiar el período actualiza los números.
+3. **Comercios:** buscar un comercio por nombre o correo del dueño y tocar **Ver detalle**. Guardar un estado y una nota. Esperado: aviso «Seguimiento guardado» y el estado aparece en la lista.
+4. **IA:** usar el asistente en un comercio y volver a **Uso de IA → Actualizar**. Esperado: suma una consulta con sus tokens, en la pantalla Asistente.
+5. **Suspender:** con un comercio de pruebas, suspenderlo con un motivo y entrar con una persona de ese comercio. Esperado: «Acceso suspendido» con el motivo y sin formulario para crear comercio. Reactivarlo y tocar **Actualizar accesos**: vuelve a entrar con sus datos.
+6. **Planes:** crear un plan con 1 sucursal y asignarlo a un comercio de pruebas con 3 días de prueba. Intentar agregar una sucursal: aviso «Tu plan permite hasta 1 sucursales…». El dueño ve «Tu prueba gratis termina…».
+7. **Pago:** registrar 1 mes. Esperado: acceso hasta un mes después del fin de la prueba y el pago en el historial. Con 0 días de prueba y 0 de gracia en otro comercio sin pagos, quien entra ve «Acceso suspendido» con «El abono venció…»; registrar el pago y **Actualizar accesos** lo devuelve.
+8. **Avisos:** enviar un aviso informativo a «Un comercio» con el ID de un comercio de pruebas. Esperado: la confirmación indica cuántos usuarios alcanza; al entrar con una persona de ese comercio aparece arriba y desaparece con **Entendido**, también al recargar. Un aviso no urgente no aparece en Vender.
+9. **Push:** con un dispositivo de dueño con avisos activados, enviar un aviso con push. Esperado: en uno o dos minutos llega la notificación y, al tocarla, abre Inicio. En la lista, «Push» pasa a «1 de 1».
+10. **Publicidad:** crear un anunciante y una campaña «Ofertas en pedidos» con el código de un producto que esté por debajo del mínimo en un comercio de pruebas, con WhatsApp. Esperado: en Proveedores → pedidos aparece «Publicidad · … lo tiene a $…»; **Contactar** abre WhatsApp con el mensaje y el informe suma 1 vista y 1 contacto. Un segundo toque el mismo día no suma otro contacto.
+11. **Destacados e Inicio:** una campaña de catálogo con una marca y otra de Inicio. Esperado: tarjeta arriba en **Agregar desde el catálogo global**, etiqueta en las filas; tarjeta al final de Inicio para el dueño, no para el cajero. Con el comercio en un plan **Sin publicidad**, no aparece ninguna.
+12. **Celular:** las tablas se desplazan dentro de su recuadro, sin mover la página.
+
 <a id="catalogo-global"></a>
 ## Catálogo global
 
 Datos por código de barras (nombre, marca, categoría sugerida, emoji y descripción) que comparten todos los comercios y que se proponen al cargar un producto. Lo administra solo quien está en `retail_private.platform_admins`, un permiso aparte de ser dueño o administrador de un comercio que se otorga desde el SQL Editor ([cómo](../SUPABASE_SETUP.md#administrador-de-plataforma-y-catálogo-global)). Requiere la migración `202611030004_platform_admin_catalog.sql`.
 
-- **Dónde:** **Mi comercio → Más opciones → Catálogo global**. La tarjeta solo aparece para administradores de plataforma. Ocultarla no da el permiso: la base lo vuelve a validar en cada cambio.
+- **Dónde:** **Mi comercio → Más opciones → Panel de plataforma → Catálogo global**. La tarjeta solo aparece para administradores de plataforma. Ocultarla no da el permiso: la base lo vuelve a validar en cada cambio.
 - **Consultar:** por defecto muestra los productos sin verificar, primero los que más comercios aportaron. Se puede buscar por código exacto o por parte del nombre, y ver los verificados o todos.
 - **Editar o agregar:** reemplaza los datos del código. **Verificado** deja el producto con confianza 100% y los comercios ya no pueden cambiarlo. Si se desmarca, vuelve a ser comunitario.
 - **Eliminar:** borra el código del catálogo global. Los productos que los comercios ya cargaron no cambian, porque solo copiaron los datos.
@@ -385,8 +431,8 @@ Requiere además `202611030005_global_catalog_import.sql`.
 
 En http://localhost:3001/, con la migración aplicada.
 
-1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → Más opciones**. Esperado: no aparece «Catálogo global».
-2. **Con permiso:** agregar tu cuenta desde el SQL Editor, recargar la app y abrir la tarjeta. Esperado: lista de productos sin verificar.
+1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → Más opciones**. Esperado: no aparece «Panel de plataforma».
+2. **Con permiso:** agregar tu cuenta desde el SQL Editor, recargar la app y abrir **Panel de plataforma → Catálogo global**. Esperado: lista de productos sin verificar.
 3. **Buscar:** buscar un código existente y después parte de un nombre. Esperado: aparece el producto. Con «Verificados» o «Todos» cambia la lista.
 4. **Verificar:** editar un producto sin verificar, corregir el nombre, marcar **Verificado** y guardar. Esperado: aviso de guardado. El producto sale de «Sin verificar» y aparece en «Verificados».
 5. **Protección:** en otro comercio, cargar un producto con ese código y otro nombre. Esperado: el catálogo global conserva el nombre verificado.

@@ -47,9 +47,13 @@ Deno.serve(async (request) => {
       only = own.id;
     }
     const vapidDetails = { subject: env('VAPID_SUBJECT'), publicKey: env('VAPID_PUBLIC_KEY'), privateKey: env('VAPID_PRIVATE_KEY') };
+    // Lotes de hasta 100 mientras haya cola, sin pasar de 40 segundos por ejecución (los avisos masivos de la plataforma).
+    const started = Date.now();
+    const statuses: string[] = [];
+    for (;;) {
     const { data: jobs, error } = await db.rpc('retail_claim_push', { p_only: only });
     if (error) throw error;
-    const statuses = await Promise.all((jobs || []).map(async (job: any) => {
+    const batch = await Promise.all((jobs || []).map(async (job: any) => {
       const finish = async (values: Record<string, unknown>) => {
         const { error } = await db.from('retail_push_deliveries').update(values).eq('id', job.id).eq('lease', job.lease);
         if (error) throw error;
@@ -58,13 +62,14 @@ Deno.serve(async (request) => {
         await finish({ attempts: 5, locked_at: null, last_error: 'recipient_unavailable' });
         return 'skipped';
       }
-      const titles: Record<string, string> = { low_stock: 'Revisá el stock', shift_closed: 'Cierre de caja', test: 'Avisos activados' };
+      const titles: Record<string, string> = { low_stock: 'Revisá el stock', shift_closed: 'Cierre de caja', test: 'Avisos activados',
+        platform: typeof job.title === 'string' ? job.title : 'Aviso del servicio' };
       const bodies: Record<string, string> = {
         low_stock: 'Hay productos que llegaron al stock mínimo. Abrí el catálogo para revisarlos.',
         shift_closed: 'Se cerró un turno. Abrí Cajas y turnos para consultar el resumen.',
         test: 'Este dispositivo ya puede recibir avisos de tu comercio.',
       };
-      let notificationBody = bodies[job.kind] || 'Tenés novedades en tu comercio.';
+      let notificationBody = job.kind === 'platform' && typeof job.body === 'string' ? job.body : bodies[job.kind] || 'Tenés novedades en tu comercio.';
       if (job.kind === 'low_stock') {
         try {
           if (typeof db.from === 'function') {
@@ -94,8 +99,9 @@ Deno.serve(async (request) => {
       try {
         // Enviar aviso web push con detalle de productos críticos
         await webpush.sendNotification({ endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
-          JSON.stringify({ title: titles[job.kind], body: notificationBody, tag: `${job.store_id}:${job.kind}`,
-            storeId: job.store_id, view: job.kind === 'low_stock' ? 'catalog' : job.kind === 'shift_closed' ? 'cash' : 'settings' }),
+          JSON.stringify({ title: titles[job.kind], body: notificationBody,
+            tag: job.kind === 'platform' ? `platform:${job.announcement_id}` : `${job.store_id}:${job.kind}`, storeId: job.store_id,
+            view: job.kind === 'low_stock' ? 'catalog' : job.kind === 'shift_closed' ? 'cash' : job.kind === 'platform' ? 'home' : 'settings' }),
           { vapidDetails, TTL: 3600, urgency: 'normal', timeout: 8000 });
         await finish({ sent_at: new Date().toISOString(), locked_at: null, last_error: null });
         return 'accepted';
@@ -113,6 +119,9 @@ Deno.serve(async (request) => {
         return 'failed';
       }
     }));
+    statuses.push(...batch);
+    if (only || batch.length < 100 || Date.now() - started > 40_000) break;
+    }
     return json({ accepted: statuses.filter(s => s === 'accepted').length, pending: statuses.filter(s => s === 'failed').length,
       expired: statuses.filter(s => s === 'expired').length, skipped: statuses.filter(s => s === 'skipped').length });
   } catch (error) {

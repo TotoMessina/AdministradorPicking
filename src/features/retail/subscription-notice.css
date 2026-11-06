@@ -1,0 +1,2 @@
+.subscription-notice { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin: 0 0 12px; padding: 10px 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); font-size: 13px; }
+.subscription-notice.is-urgent { color: var(--tone-danger); background: var(--tone-danger-soft); border-color: transparent; }

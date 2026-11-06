@@ -13,7 +13,7 @@ Aplicación React/TypeScript con Supabase, PWA y operación offline. Ventas, caj
 
 | Tema | Guía |
 | --- | --- |
-| Reglas de trabajo y preferencias | [.agents/rules/directrices_trabajo.md](.agents/rules/directrices_trabajo.md) |
+| Reglas de trabajo (siempre) y por tema: [base de datos](.agents/rules/base-de-datos.md), [producto](.agents/rules/producto.md), [UI](.agents/rules/ui.md) | [.agents/rules/directrices_trabajo.md](.agents/rules/directrices_trabajo.md) |
 | Instalación, historial y actualización SQL | [SUPABASE_SETUP.md](SUPABASE_SETUP.md) |
 | Copias de seguridad, restauración y datos sin cubrir | [Copias de seguridad](docs/respaldos.md) |
 | Avisos cuando la app falla en un comercio | [Aviso de fallas](docs/aviso-de-fallas.md) |
@@ -33,6 +33,36 @@ Las guías reunieron documentos anteriores por funcionalidad. Los prompts ya eje
 ## Estructura y verificación
 
 La app activa está en `src/features/retail`; Vender usa `src/components/PosTab.tsx`. Los estilos se cargan desde `src/styles/app.ts`. Reutilizar componentes y tokens existentes, con la paleta actual.
+
+### Mapa de código
+
+Rutas bajo `src/`; `retail/` = `src/features/retail/`. Archivos grandes (los hooks `use*.tsx`, `PosTab.tsx`): leer por rangos tras ubicar la función con `rg`. Las vistas `Catalog*`/`Invoice*Step` reciben el estado del hook como `s` y lo desestructuran en su primera línea.
+
+| Área | Dónde mirar |
+| --- | --- |
+| Shell, navegación y pestañas | `retail/RetailApp.tsx`, `retail/SectionNav.tsx`, `retail/HomeTab.tsx` |
+| Vender (lector, carrito, cobro, ticket) | `components/PosTab.tsx`, `components/ThermalReceiptModal.tsx`, `retail/QuickProducts.tsx`, `retail/payments.ts` |
+| Offline y sincronización | `retail/offline.ts`, `pwa/sw.js`, `retail/OfflineStatus.tsx` |
+| Caja, turnos, retiros y arqueo | `retail/CashDesk.tsx`, `retail/CashMovementForm.tsx`, `retail/CashDenominationFields.tsx`; recibos numerados de movimientos en `retail/MovementReceipt.tsx` |
+| Ventas, devoluciones y registros | `retail/SalesOverview.tsx`, `retail/SaleReturn.tsx`, `retail/SaleLedgerControl.tsx`, `retail/ledgerRouting.ts` |
+| Catálogo de productos (planilla) | `retail/CatalogEditor.tsx` compone las vistas; estado y acciones en `retail/useCatalogEditor.tsx`. Vistas: `CatalogList` (búsqueda/tabla), `CatalogProductForm` (alta/edición), `CatalogReplenishDialog`, `CatalogReplenishHistory`, `CatalogCsvImport`, `CatalogBulkPrice`, `CatalogAnomalyDialog`, `CatalogStockAi`; columnas y tipos en `retail/catalogEditorShared.ts` |
+| Mi comercio: registros, datos, configuración | `retail/StoreSettings.tsx`, `retail/RegistersSettings.tsx`, `retail/StoreGeneralSettingsForm.tsx`, `retail/StoreConfiguration.tsx`, `retail/SettingsEditor.tsx`. `retail/Management.tsx` solo reexporta (y `Run` está en `retail/managementTypes.ts`) |
+| Ficha, precios y márgenes de producto | `retail/ProductSheet.tsx`, `retail/ProductPriceEditor.tsx`, `retail/ProductMarkupField.tsx`, `retail/pricing.ts`, `services/productPresentation.ts` (presentaciones y sus códigos), `services/productSalePrice.ts`, `services/productMarginService.ts` |
+| Listas de precios y redondeo | `retail/BusinessSettings.tsx` (`PriceListSettings`), `retail/useBranchPriceList.ts`, `retail/PriceRoundingSettings.tsx` |
+| Combos, insumos, sueltos | `retail/NewCompositeEditor.tsx`, `retail/ProductCompositionEditor.tsx`, `services/productComposition.ts`, `retail/LooseCigaretteEditor.tsx` |
+| Stock, depósito, conteo, transferencias | `retail/StockCount.tsx`, `retail/DepotSettings.tsx`, `retail/LocationTransfers.tsx`, `services/inventoryUnits.ts` |
+| Remitos y reposición | `retail/QuickRemito.tsx`, `retail/PendingReplenishments.tsx`, `retail/remitos.ts`, `services/replenishmentService.ts` |
+| Facturas de compra (OCR/IA) | `components/InvoiceAnalyzer.tsx` (compone), `components/useInvoiceAnalyzer.tsx` (estado y acciones), `components/InvoiceInputStep.tsx`, `components/InvoiceReviewStep.tsx`, `components/invoiceAnalyzerHelpers.ts`, `components/InvoiceReviewTable.tsx`, `services/invoice*Service.ts`, `services/supplierInvoiceRules.ts` |
+| Proveedores, cuentas y pagos | `retail/SupplierAccountSection.tsx`, `retail/SupplierLedger.tsx`, `retail/SupplierPayments.tsx`, `retail/SupplierSettings.tsx`, `services/supplierAccount.ts` |
+| Clientes y fiado | `retail/CustomersTab.tsx` |
+| Ganancias, gastos, fondos, conciliación | `retail/FinanceTab.tsx`, `retail/financeApi.ts`, `retail/FundsInTransit.tsx`, `retail/BankReconciliation.tsx` |
+| Personas, perfiles y permisos | `retail/permissions.ts`, `retail/PermissionProfiles.tsx`, `retail/StaffAccessForm.tsx`, `retail/staffAccounts.ts` |
+| Facturación ARCA | `retail/BillingSettings.tsx`, `retail/billing.ts`, `services/billingService.ts`, `supabase/functions/billing-authorize/` |
+| Asistente IA | `components/AIAssistant.tsx`, `components/AIReportPanel.tsx`, `services/groqService.ts`; registro de uso y servidor de IA en `lib/aiUsage.ts`; función `supabase/functions/ai-proxy/` |
+| Panel de plataforma (superadministrador) | `retail/PlatformAdmin.tsx` (resumen, comercios, usuarios, uso de IA), `retail/PlatformBilling.tsx` (planes, abonos y pagos), `retail/PlatformNotices.tsx` (avisos), `retail/PlatformAds.tsx` (publicidad; en la app `retail/ads.ts`, `retail/SponsoredCard.tsx`), `retail/PlatformAnnouncements.tsx` (avisos dentro de la app), `retail/platformShared.tsx`, `retail/SubscriptionNotice.tsx` (aviso al dueño), `retail/GlobalCatalog.tsx`; SQL en `202611060001`…`202611060007` |
+| Push y avisos de fallas | `retail/push.ts`, `retail/PushSettings.tsx`, `supabase/functions/push-dispatch/`, `lib/errorReporting.ts` |
+| Llamadas a Supabase (RPC) | `retail/api.ts` y `retail/*Api.ts`; SQL fuente en `supabase/migrations/` |
+| Tipos y campos numéricos | `types/kiosco.ts`, `components/NumberInput.tsx`, `utils/numberInput.ts` |
 
 Única comprobación de código autorizada: `npx tsc --noEmit -p tsconfig.app.json`. No ejecutar builds, lint ni otras pruebas automatizadas durante el trabajo habitual. Las comprobaciones de navegador, móvil y backend las realiza el usuario y no se dan por hechas.
 

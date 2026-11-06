@@ -1,0 +1,19 @@
+.ad-tag { display: inline-block; color: var(--tone-muted); font-size: 11px; font-weight: 600; letter-spacing: 0.02em; }
+.sponsored-card { display: flex; gap: 14px; align-items: center; padding: 12px 14px; border: 1px dashed var(--tone-border); border-radius: 12px; background: var(--tone-surface); }
+.sponsored-card img { width: 96px; height: 96px; object-fit: cover; border-radius: 8px; flex: none; }
+.sponsored-card > div { display: grid; gap: 4px; min-width: 0; justify-items: start; }
+.sponsored-card strong { font-size: 15px; overflow-wrap: anywhere; }
+.sponsored-card p { margin: 0; font-size: 13px; color: var(--tone-muted); overflow-wrap: anywhere; }
+.sponsored-card a { display: inline-flex; align-items: center; gap: 6px; margin-top: 4px; text-decoration: none; }
+.supplier-offer { display: flex; flex-wrap: wrap; gap: 2px 8px; align-items: center; margin-top: 4px; font-size: 12px; font-weight: 400; }
+.supplier-offer a { font-weight: 600; }
+.featured-ads { display: grid; gap: 8px; }
+.featured-ad { display: flex; gap: 12px; align-items: flex-start; padding: 10px 12px; border: 1px dashed var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.featured-ad img { width: 64px; height: 64px; object-fit: cover; border-radius: 8px; flex: none; }
+.featured-ad > div { display: grid; gap: 4px; min-width: 0; flex: 1; }
+.featured-ad p, .featured-ad small { margin: 0; font-size: 12px; color: var(--tone-muted); overflow-wrap: anywhere; }
+.featured-badge { display: inline-block; margin-left: 6px; padding: 1px 6px; border-radius: 999px; font-size: 10px; font-weight: 700; color: var(--tone-accent); background: var(--tone-accent-soft); vertical-align: middle; }
+@media (max-width: 560px) {
+  .sponsored-card { align-items: flex-start; }
+  .sponsored-card img { width: 64px; height: 64px; }
+}

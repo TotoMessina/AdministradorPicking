@@ -1,0 +1,14 @@
+.platform-announcements { display: grid; gap: 8px; margin: 0 0 12px; }
+.platform-announcement { display: flex; gap: 10px; align-items: flex-start; padding: 10px 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.platform-announcement > svg { flex: none; margin-top: 2px; color: var(--tone-accent); }
+.platform-announcement > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.platform-announcement h2 { margin: 0; font-size: 14px; }
+.platform-announcement p { margin: 0; font-size: 13px; overflow-wrap: anywhere; white-space: pre-line; }
+.platform-announcement > button { flex: none; }
+.platform-announcement.is-importante { border-color: var(--tone-accent); background: var(--tone-accent-soft); }
+.platform-announcement.is-urgente { border-color: transparent; color: var(--tone-danger); background: var(--tone-danger-soft); }
+.platform-announcement.is-urgente > svg { color: inherit; }
+@media (max-width: 560px) {
+  .platform-announcement { flex-wrap: wrap; }
+  .platform-announcement > button { flex: 1 1 100%; }
+}
