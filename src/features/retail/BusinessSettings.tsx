@@ -384,7 +384,7 @@ export function LedgerSettings({
           </div>
           <div className="store-settings-header-text">
             <h3>Registros de ventas</h3>
-            <p>Agrupaciones para clasificar tus ventas. Todas integran el total general y descuentan existencias.</p>
+            <p>Sirven para separar tus ventas en grupos, por ejemplo «Mostrador» y «Delivery», o «Kiosco» y «Librería». Antes de cobrar elegís en cuál va; todas suman al total y descuentan stock.</p>
           </div>
         </div>
 

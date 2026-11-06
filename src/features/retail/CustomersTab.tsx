@@ -1,15 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Loader2, Plus, UserRound } from 'lucide-react';
+import { ArrowLeft, Loader2, Plus, Table2, UserRound } from 'lucide-react';
 import { NumberInput } from '../../components/NumberInput';
 import { randomUUID } from '../../utils/uuid';
 import { retail, errorMessage, type Customer, type CustomerIva, type CustomerMovement } from './api';
+import { CustomerSheet } from './CustomerSheet';
 import type { Run } from './Management';
 import './customers.css';
 
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
 const methods = [['Efectivo', 'Efectivo'], ['QR', 'QR'], ['Transferencia', 'Transferencia'], ['Debito', 'Débito'], ['Credito', 'Crédito']] as const;
 const kinds = { sale: 'Fiado', payment: 'Cobro', return: 'Devolución' };
-const emptyDraft = { name: '', phone: '', credit_limit: '', active: true, business_name: '', tax_id_type: '', tax_id: '', iva_condition: '', address: '', email: '' };
 const ivaConditions: Record<CustomerIva, string> = { CF: 'Consumidor final', RI: 'Responsable inscripto', MO: 'Monotributo', EX: 'Exento' };
 const balanceText = (balance: number) => balance > 0 ? `Debe ${money(balance)}` : balance < 0 ? `A favor ${money(-balance)}` : 'Al día';
 
@@ -23,8 +23,8 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
   const [query, setQuery] = useState('');
   const [onlyDebt, setOnlyDebt] = useState(false);
   const [selectedId, setSelectedId] = useState('');
-  const [editing, setEditing] = useState<string | null>(null);
-  const [draft, setDraft] = useState(emptyDraft);
+  // Planilla para crear y editar clientes; `only` la limita al cliente que se está mirando.
+  const [sheet, setSheet] = useState<{ only?: string[]; focusNew?: boolean } | null>(null);
   const [movements, setMovements] = useState<CustomerMovement[] | null>(null);
   const [loadError, setLoadError] = useState('');
   const [amount, setAmount] = useState('');
@@ -46,19 +46,7 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
     return () => { current = false; };
   }, [storeId, selectedId, selected?.balance]);
 
-  const open = (customer: Customer) => { setSelectedId(customer.id); setMovements(null); setAmount(''); setNote(''); setError(''); setEditing(null); };
-  const startEdit = (customer?: Customer) => {
-    setEditing(customer?.id || 'new'); setError('');
-    setDraft(customer ? { name: customer.name, phone: customer.phone || '', credit_limit: customer.credit_limit === null ? '' : String(customer.credit_limit), active: customer.active,
-      business_name: customer.business_name || '', tax_id_type: customer.tax_id_type || '', tax_id: customer.tax_id || '', iva_condition: customer.iva_condition || '', address: customer.address || '', email: customer.email || '' } : emptyDraft);
-  };
-  const save = async () => {
-    if (!draft.name.trim()) { setError('Escribí el nombre del cliente.'); return; }
-    const id = editing === 'new' || !editing ? randomUUID() : editing;
-    if (await run(() => retail.saveCustomer(storeId, id, draft), 'Cliente guardado')) {
-      setEditing(null); await onChanged(); setSelectedId(id);
-    }
-  };
+  const open = (customer: Customer) => { setSelectedId(customer.id); setMovements(null); setAmount(''); setNote(''); setError(''); setSheet(null); };
   const collect = async () => {
     if (!selected) return;
     const value = Number(amount);
@@ -73,28 +61,8 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
     }
   };
 
-  const form = editing && <form className="retail-form customers-form" onSubmit={event => { event.preventDefault(); void save(); }}>
-    <h3>{editing === 'new' ? 'Nuevo cliente' : `Editar ${draft.name}`}</h3>
-    <fieldset disabled={disabled}>
-      <label>Nombre<input required maxLength={120} value={draft.name} onChange={event => setDraft(previous => ({ ...previous, name: event.target.value }))} /></label>
-      <label>Teléfono (opcional)<input type="tel" maxLength={40} value={draft.phone} onChange={event => setDraft(previous => ({ ...previous, phone: event.target.value }))} /></label>
-      <label>Límite de deuda (opcional)<NumberInput min={0} step={0.01} value={draft.credit_limit} placeholder="Sin límite" onValueChange={value => setDraft(previous => ({ ...previous, credit_limit: value }))} /></label>
-      <details className="customers-billing" open={!!(draft.tax_id || draft.business_name || draft.iva_condition)}>
-        <summary>Datos para facturar (opcional)</summary>
-        <div className="customers-billing-fields">
-          <label>Razón social<input maxLength={160} value={draft.business_name} onChange={event => setDraft(previous => ({ ...previous, business_name: event.target.value }))} placeholder="Si es distinta del nombre" /></label>
-          <label>Documento<select value={draft.tax_id_type} onChange={event => setDraft(previous => ({ ...previous, tax_id_type: event.target.value }))}><option value="">Según la cantidad de números</option><option value="CUIT">CUIT</option><option value="CUIL">CUIL</option><option value="DNI">DNI</option></select></label>
-          <label>Número<input inputMode="numeric" maxLength={14} value={draft.tax_id} onChange={event => setDraft(previous => ({ ...previous, tax_id: event.target.value }))} placeholder="Sin guiones" /></label>
-          <label>Condición frente al IVA<select value={draft.iva_condition} onChange={event => setDraft(previous => ({ ...previous, iva_condition: event.target.value }))}><option value="">Sin indicar</option>{(Object.keys(ivaConditions) as CustomerIva[]).map(key => <option key={key} value={key}>{ivaConditions[key]}</option>)}</select></label>
-          <label>Domicilio<input maxLength={200} value={draft.address} onChange={event => setDraft(previous => ({ ...previous, address: event.target.value }))} /></label>
-          <label>Email<input type="email" maxLength={254} value={draft.email} onChange={event => setDraft(previous => ({ ...previous, email: event.target.value }))} /></label>
-        </div>
-      </details>
-      {editing !== 'new' && <label className="customers-check"><input type="checkbox" checked={!draft.active} onChange={event => setDraft(previous => ({ ...previous, active: !event.target.checked }))} /> No fiarle más (queda en la lista con su saldo)</label>}
-    </fieldset>
-    {error && <p role="alert" className="error-banner">{error}</p>}
-    <div className="customers-actions"><button className="primary-button" disabled={disabled}>Guardar</button><button type="button" className="secondary-button" disabled={disabled} onClick={() => setEditing(null)}>Cancelar</button></div>
-  </form>;
+  const sheetView = sheet && <CustomerSheet key={sheet.only?.join() || 'all'} storeId={storeId} customers={customers} only={sheet.only} focusNew={sheet.focusNew} busy={disabled} run={run}
+    onSaved={async lastId => { await onChanged(); setSheet(null); if (lastId && !sheet.only) setSelectedId(lastId); }} onClose={() => setSheet(null)} />;
 
   if (selected) return <section className="retail-panel customers" aria-label={`Cuenta de ${selected.name}`}>
     <button type="button" className="text-button customers-back" onClick={() => setSelectedId('')}><ArrowLeft size={15} /> Todos los clientes</button>
@@ -104,8 +72,8 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
       <div className={`customers-balance ${selected.balance > 0 ? 'is-debt' : selected.balance < 0 ? 'is-credit' : ''}`}><small>{selected.balance < 0 ? 'Tiene a favor' : 'Debe'}</small><strong>{money(Math.abs(selected.balance))}</strong>
         <small>{selected.credit_limit === null ? 'Sin límite' : `Límite ${money(selected.credit_limit)}`}</small></div>
     </div>
-    {canManage && !editing && <button type="button" className="secondary-button" disabled={disabled} onClick={() => startEdit(selected)}>Editar datos</button>}
-    {form}
+    {canManage && !sheet && <button type="button" className="secondary-button" disabled={disabled} onClick={() => setSheet({ only: [selected.id] })}>Editar datos</button>}
+    {sheetView}
     {<form className="retail-form customers-form" onSubmit={event => { event.preventDefault(); void collect(); }}>
       <h3>{selected.balance > 0 ? 'Registrar cobro' : 'Dejar plata a cuenta'}</h3>
       <fieldset disabled={disabled}>
@@ -116,7 +84,7 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
       </fieldset>
       {Number(amount) > 0 && <small>{Number(amount) > Math.max(selected.balance, 0) ? `Queda a favor ${money(Number(amount) - Math.max(selected.balance, 0))} para próximas compras.` : `Queda debiendo ${money(selected.balance - Number(amount))}.`}</small>}
       {method === 'Efectivo' && <small>{shiftId ? 'El efectivo entra a tu caja abierta.' : 'Para cobrar en efectivo tenés que tener tu caja abierta.'}</small>}
-      {error && !editing && <p role="alert" className="error-banner">{error}</p>}
+      {error && <p role="alert" className="error-banner">{error}</p>}
       <div className="customers-actions"><button className="primary-button" disabled={disabled}>{selected.balance > 0 ? 'Registrar cobro' : 'Guardar a cuenta'}</button></div>
     </form>}
     <h3>Movimientos</h3>
@@ -132,10 +100,30 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
 
   return <section className="retail-panel customers" aria-labelledby="customers-title">
     <div className="customers-head">
-      <div><h2 id="customers-title"><UserRound size={20} aria-hidden="true" /> Clientes</h2><small>Te deben en total {money(owed)}</small></div>
-      {canManage && !editing && <button type="button" className="primary-button" disabled={disabled} onClick={() => startEdit()}><Plus size={15} /> Nuevo cliente</button>}
+      <div><h2 id="customers-title"><UserRound size={20} aria-hidden="true" /> Clientes</h2><small>Fiado y cobros de cada cliente</small></div>
+      {canManage && !sheet && <div className="customers-head-actions">
+        {!!customers.length && <button type="button" className="secondary-button" disabled={disabled} onClick={() => setSheet({})}><Table2 size={15} /> Editar en planilla</button>}
+        <button type="button" className="primary-button" disabled={disabled} onClick={() => setSheet({ focusNew: true })}><Plus size={15} /> Nuevo cliente</button>
+      </div>}
     </div>
-    {form}
+    {sheetView}
+    {!sheet && <>
+    {/* Para qué sirve: abierto mientras no hay clientes; después queda plegado como ayuda. */}
+    <details className="customers-guide" open={!customers.length}>
+      <summary>¿Para qué sirven los clientes?</summary>
+      <p>Para <strong>fiar</strong> y llevar la cuenta de cada uno sin cuaderno: qué se llevó, cuánto te pagó y cuánto debe.</p>
+      <ol className="customers-steps">
+        <li><strong>Cargalo una vez</strong><span>Nombre, teléfono y hasta cuánto le fiás. Vacío, sin límite.</span></li>
+        <li><strong>Fiale en Vender</strong><span>Al cobrar elegí <em>Fiado</em> y el cliente. También se puede fiar solo una parte con <em>Mixto</em>.</span></li>
+        <li><strong>Cobrale acá</strong><span>Entrá a su nombre y tocá <em>Registrar cobro</em>. Si paga de más, queda a favor para la próxima.</span></li>
+      </ol>
+      <p className="customers-guide-note">Con la facturación electrónica activa y su CUIT o DNI cargado, la factura sale a su nombre. Inicio te avisa quiénes te deben.</p>
+    </details>
+    {customers.length > 0 && <div className="customers-summary" role="group" aria-label="Resumen de clientes">
+      <div className={owed > 0 ? 'is-debt' : ''}><small>Te deben</small><strong>{money(owed)}</strong><span>{customers.filter(customer => customer.balance > 0).length} con deuda</span></div>
+      <div><small>Tienen a favor</small><strong>{money(customers.filter(customer => customer.balance < 0).reduce((sum, customer) => sum - customer.balance, 0))}</strong><span>pagaron de más</span></div>
+      <div><small>Clientes</small><strong>{customers.length}</strong><span>{customers.filter(customer => !customer.active).length ? `${customers.filter(customer => !customer.active).length} sin fiado` : 'todos con fiado'}</span></div>
+    </div>}
     <div className="customers-tools">
       <label>Buscar<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Nombre o teléfono" /></label>
       <label className="customers-check"><input type="checkbox" checked={onlyDebt} onChange={event => setOnlyDebt(event.target.checked)} /> Solo los que me deben</label>
@@ -149,5 +137,6 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
         </button>
       </li>)}</ul>}
     {!!customers.length && !shown.length && <p className="customers-empty">No hay clientes para esta búsqueda.</p>}
+    </>}
   </section>;
 }

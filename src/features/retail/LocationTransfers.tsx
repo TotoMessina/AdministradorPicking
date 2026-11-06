@@ -285,7 +285,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   </select></label>;
 
   return <section className="retail-panel location-transfers" aria-labelledby="location-transfers-title">
-    <div className="section-heading"><div><h2 id="location-transfers-title">Transferencias</h2><p>Sucursales y depósito · Productos y fondos</p></div>
+    <div className="section-heading"><div><h2 id="location-transfers-title">Mover entre locales</h2><p>Pasá mercadería o plata entre tus locales, el depósito y tus cuentas. Queda registrado quién lo hizo y cuándo.</p></div>
       {!composing && <button type="button" className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)} onClick={newTransfer}><Plus size={16} />{(mode === 'stock' ? items.length || notes : amount || fundNote) ? 'Retomar borrador' : 'Nueva transferencia'}</button>}
     </div>
     <div className="location-transfer-tabs" role="group" aria-label="Tipo de transferencia">
@@ -307,7 +307,7 @@ export function LocationTransfers({ store, branches, products, run, busy, active
     {mode === 'money' && !composing && accountEditor && <MoneyAccountEditor key={accountEditor === 'new' ? 'new' : accountEditor.id} storeId={store.id}
       account={accountEditor === 'new' ? undefined : accountEditor} accounts={accounts} disabled={disabled} execute={execute} onClose={() => setAccountEditor(null)} />}
     {mode === 'money' && !composing && !accountEditor && <div className="money-accounts-bar">
-      <p>Sumá tus cuentas de banco o billeteras virtuales: lo cobrado por QR, tarjetas o transferencias entra solo y desde ahí registrás retiros, pagos o envíos a una sucursal.</p>
+      <p>Cargá tu banco o billetera (Mercado Pago, por ejemplo). Lo que cobrás con QR, tarjeta o transferencia se suma solo, y desde acá anotás cuando sacás plata, pagás algo o la pasás a un local.</p>
       {accountsMissing ? <p role="status" className="info-banner">Para usar cuentas falta aplicar la actualización 202611040006 en Supabase.</p>
         : <button type="button" className="secondary-button" disabled={disabled} onClick={() => setAccountEditor('new')}><Plus size={15} /> Cuenta</button>}
     </div>}

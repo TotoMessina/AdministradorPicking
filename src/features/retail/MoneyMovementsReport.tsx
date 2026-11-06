@@ -57,7 +57,7 @@ export function MoneyMovementsReport({ storeId, from, to, active, onLoaded, focu
   const total = rows.reduce((sum, row) => sum + row.amount, 0);
 
   return <section className="money-report" aria-labelledby="money-report-title">
-    <h3 id="money-report-title"><Landmark size={17} aria-hidden="true" /> Cuentas y retiros</h3>
+    <h3 id="money-report-title" className="bank-step"><Landmark size={17} aria-hidden="true" /> 2. Tus cuentas y lo que salió de cada lugar</h3>
     {error && <p role="alert" className="error-banner">{error}</p>}
     {loading && !report && <p role="status"><Loader2 size={15} className="spin" /> Cargando cuentas y retiros…</p>}
     {report && <>
@@ -69,7 +69,7 @@ export function MoneyMovementsReport({ storeId, from, to, active, onLoaded, focu
           <div><dt>Saldo actual</dt><dd className={account.balance < 0 ? 'is-negative' : ''}>{money(account.balance)}</dd></div>
         </dl>
       </article>)}</div>
-        : <p className="bank-note">Todavía no hay cuentas. Creá tu banco o billetera en <strong>Productos y stock → Transferencias → Dinero → Cuenta</strong>: lo cobrado por sus medios suma solo y desde ahí registrás retiros.</p>}
+        : <p className="bank-note">Todavía no hay cuentas. Creá tu banco o billetera en <strong>Productos y stock → Mover entre locales → Dinero → Cuenta</strong>: lo cobrado por sus medios suma solo y desde ahí registrás retiros.</p>}
 
       {bySource.length > 0 && <p className="money-report-sources" role="status">Retiros del período: {bySource.map(([name, amount]) => `${name} ${money(amount)}`).join(' · ')}</p>}
       <div className="money-report-filters">

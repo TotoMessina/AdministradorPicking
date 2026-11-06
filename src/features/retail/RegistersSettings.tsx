@@ -42,7 +42,7 @@ export function RegistersSettings({
         </div>
         <div className="store-settings-header-text">
           <h3>Cajas de cobro</h3>
-          <p>Puestos de atención y venta. Cada caja pertenece a un local y tiene sus turnos.</p>
+          <p>Cada caja es un lugar donde se cobra (un mostrador, una PC). Pertenece a un local y se abre y se cierra contando la plata.</p>
         </div>
       </div>
       )}

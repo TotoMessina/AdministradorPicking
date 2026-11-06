@@ -4,7 +4,7 @@
 .product-sheet-head h3 { margin: 0 0 4px; }
 .product-sheet-head p, .product-sheet-note { margin: 0; font-size: 13px; color: var(--tone-muted); }
 .product-sheet .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.product-sheet-scroll { max-height: 65vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
+.product-sheet-scroll { max-height: 65vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); container-type: inline-size; }
 .product-sheet-scroll table { width: 100%; min-width: 1180px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .product-sheet-scroll th, .product-sheet-scroll td { height: 36px; padding: 0 6px; border-right: 1px solid var(--tone-border); border-bottom: 1px solid var(--tone-border); text-align: left; vertical-align: middle; white-space: nowrap; }
 .product-sheet-scroll tr > :last-child { border-right: 0; }
@@ -27,9 +27,17 @@
 .product-sheet-scroll .col-actions .icon-button { width: 30px; height: 30px; }
 .product-sheet-error-row td { height: auto; padding: 4px 8px; color: var(--tone-danger); font-size: 12px; white-space: normal; background: var(--tone-danger-soft); }
 .product-sheet-more td { height: auto; padding: 10px 12px; white-space: normal; background: var(--tone-canvas, var(--tone-soft)); }
+/* Más datos queda en la parte visible aunque la planilla esté desplazada de costado. */
+.product-sheet-more td > div { position: sticky; left: 12px; max-width: calc(100cqw - 24px); box-sizing: border-box; }
 .product-sheet-more-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 8px 12px; }
 .product-sheet-more-grid label { display: grid; gap: 4px; font-size: 12px; min-width: 0; }
 .product-sheet-more-grid input, .product-sheet-more-grid select { min-height: 36px; min-width: 0; }
+.product-sheet-presentations { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px 12px; align-items: start; margin-bottom: 10px; padding: 10px; border: 1px solid var(--tone-border); border-radius: 8px; }
+.product-sheet-presentations > strong { grid-column: 1 / -1; font-size: 12px; }
+.product-sheet-presentations label { display: grid; gap: 4px; font-size: 12px; min-width: 0; }
+.product-sheet-presentations input { min-height: 36px; min-width: 0; }
+.product-sheet-presentations small { color: var(--tone-muted); }
+.product-sheet-presentations > small[role="alert"] { grid-column: 1 / -1; color: var(--tone-danger, #b91c1c); }
 .product-sheet-more .price-mode-row { margin-top: 8px; }
 .product-sheet-footer { position: sticky; bottom: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 0 calc(4px + env(safe-area-inset-bottom)); border-top: 1px solid var(--tone-border); background: var(--tone-surface); }
 .product-sheet-footer small { flex: 1 1 260px; color: var(--tone-muted); font-size: 12px; }
@@ -40,3 +48,30 @@
   .product-sheet-actions { width: 100%; }
   .product-sheet-actions > button { flex: 1; min-height: 44px; }
 }
+
+/* Proveedores y clientes en planilla: mismas reglas que la de productos. */
+.supplier-sheet-tools { display: flex; flex-wrap: wrap; align-items: end; gap: 8px 14px; }
+.supplier-sheet-tools label { display: grid; gap: 4px; flex: 0 1 320px; font-size: 13px; }
+.supplier-sheet-tools small { flex: 1 1 260px; color: var(--tone-muted); font-size: 12px; }
+.supplier-sheet .product-sheet-scroll table, .customer-sheet .product-sheet-scroll table { min-width: 980px; }
+.supplier-sheet-badge { display: inline-flex; align-items: center; gap: 3px; border-radius: 999px; background: var(--tone-accent-soft); color: var(--tone-accent); font-size: 11px; font-weight: 600; }
+.supplier-sheet-more { display: grid; gap: 10px; }
+.supplier-sheet-more .product-sheet-presentations { margin-bottom: 0; }
+.supplier-sheet-more .checkbox-label { display: flex; align-items: center; gap: 6px; }
+.supplier-sheet-more .checkbox-label input { min-height: 0; width: auto; }
+.supplier-sheet-format { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0; font-size: 12px; color: var(--tone-muted); }
+.customer-sheet-balance { font-variant-numeric: tabular-nums; }
+.customer-sheet-balance.is-debt { color: var(--tone-danger); font-weight: 600; }
+.customer-sheet-balance.is-credit { color: var(--tone-success, #15803d); }
+.supplier-sheet-name { display: flex; align-items: center; }
+.supplier-sheet-name input { flex: 1; }
+.supplier-sheet-badge { flex: none; margin: 0 4px; padding: 3px; }
+.supplier-sheet td[data-col="cuit"], .supplier-sheet td[data-col="phone"], .customer-sheet td[data-col="phone"], .customer-sheet td[data-col="taxid"] { min-width: 130px; }
+.supplier-sheet td[data-col="vat"], .customer-sheet td[data-col="iva"] { min-width: 160px; }
+.supplier-sheet td[data-col="email"], .supplier-sheet td[data-col="notes"] { min-width: 190px; }
+.supplier-sheet td[data-col="discount"], .supplier-sheet td[data-col="days"] { min-width: 96px; }
+.customer-sheet td[data-col="limit"] { min-width: 120px; }
+/* En «Más datos» los campos son de formulario: con borde, para que se vea qué se puede escribir. */
+.product-sheet-more td input:not([type="checkbox"]), .product-sheet-more td select { height: 36px; border: 1px solid var(--tone-border); border-radius: 6px; background: var(--tone-surface); }
+.product-sheet-more td input[type="checkbox"] { width: 16px; height: 16px; min-width: 0; margin: 0; flex: none; }
+.customer-sheet .customer-sheet-balance { min-width: 120px; }

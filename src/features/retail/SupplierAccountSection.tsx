@@ -27,9 +27,9 @@ export function SupplierAccountSection({ storeId, busy, run, active, canManage, 
 }) {
   const views: { id: SupplierView; label: string }[] = [
     ...(ordersPanel ? [{ id: 'orders' as const, label: 'Pedidos' }] : []),
-    ...(canAccount ? [{ id: 'accounts' as const, label: 'Cuentas' }, { id: 'payments' as const, label: 'Pagos' }] : []),
+    ...(canAccount ? [{ id: 'accounts' as const, label: 'Lo que debo' }, { id: 'payments' as const, label: 'Pagos' }] : []),
     { id: 'documents', label: 'Facturas' },
-    ...(canManage ? [{ id: 'profiles' as const, label: 'Fichas' }] : []),
+    ...(canManage ? [{ id: 'profiles' as const, label: 'Datos' }] : []),
   ];
   const [view, setView] = useState<SupplierView>(views[0].id);
   const [version, setVersion] = useState(0);

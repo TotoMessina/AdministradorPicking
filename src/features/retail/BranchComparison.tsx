@@ -57,7 +57,7 @@ export function BranchComparison({ storeId, active }: { storeId: string; active:
 
   return <section className="retail-panel branch-comparison" aria-labelledby="branch-comparison-title">
     <div className="section-heading"><div><h2 id="branch-comparison-title">Comparar sucursales</h2>
-      <p>Ventas netas de devoluciones y ganancia bruta (ventas menos costo de lo vendido), con el mismo cálculo de Ganancias. Los gastos se ven en «Resultado del mes».</p></div>
+      <p>Ventas netas de devoluciones y ganancia bruta (ventas menos costo de lo vendido), con el mismo cálculo de Ganancias. Los gastos se ven en «Este mes».</p></div>
       <button type="button" className="secondary-button" disabled={loading || !active} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button>
     </div>
     <div className="branch-comparison-period">

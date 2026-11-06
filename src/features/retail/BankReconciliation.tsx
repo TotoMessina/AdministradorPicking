@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { FileSpreadsheet, Loader2, RefreshCw } from 'lucide-react';
+import { CircleHelp, FileSpreadsheet, Loader2, RefreshCw } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { errorMessage } from './api';
 import type { Run } from './Management';
@@ -59,21 +59,42 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
   const ownMoves = moneyReport?.rows.filter(isOwnAccountMove) ?? [];
   const ownTotal = ownMoves.reduce((sum, row) => sum + row.amount, 0);
 
+  const withdrawals = -(moneyReport?.rows.filter(row => row.kind === 'withdrawal').reduce((sum, row) => sum + row.amount, 0) ?? 0);
+  const [year, month] = today.split('-').map(Number);
+  const lastMonthEnd = new Date(Date.UTC(year, month - 1, 0)).toISOString().slice(0, 10);
+  const presets = [
+    { id: 'month', label: 'Este mes', from: `${today.slice(0, 7)}-01`, to: today },
+    { id: 'last', label: 'Mes pasado', from: `${lastMonthEnd.slice(0, 7)}-01`, to: lastMonthEnd },
+  ];
+  const preset = presets.find(item => item.from === from && item.to === to)?.id;
+
   return <section className="retail-panel bank-reconciliation" aria-labelledby="bank-title">
-    <div className="section-heading"><div><h2 id="bank-title">Conciliación</h2>
-      <p>Lo cobrado por QR, tarjetas y transferencias, tus cuentas y los retiros con su origen, para enviarle a tu contador. El efectivo de las ventas se controla en el arqueo de cada caja.</p></div>
+    <div className="section-heading"><div><h2 id="bank-title">Para el contador</h2>
+      <p>Todo lo que entró sin ser efectivo (QR, tarjetas y transferencias) y lo que se movió en tus cuentas, listo para mandarle a tu contador en Excel. El efectivo se controla al cerrar cada caja.</p></div>
       <div className="bank-heading-actions">
         <button type="button" className="secondary-button" disabled={loading || !active} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button>
         <button type="button" className="primary-button" disabled={exporting || loading || !totals || !active} onClick={() => void exportReport()}>
           {exporting ? <><Loader2 size={15} className="spin" /> Armando el Excel…</> : <><FileSpreadsheet size={15} /> Descargar Excel para el contador</>}</button>
       </div>
     </div>
-    <div className="bank-period">
-      <label>Ventas desde<input type="date" value={from} max={to} onChange={event => setFrom(event.target.value)} /></label>
+    <details className="bank-help"><summary><CircleHelp size={14} aria-hidden="true" /> ¿Qué hace el contador con esto?</summary>
+      <p>Compara estos totales con los resúmenes de tu banco y de tu billetera (Mercado Pago, por ejemplo). Si lo cobrado por QR acá coincide con lo que entró en la cuenta, está todo bien. Si no, con «Ver movimientos» encontrás qué venta falta o sobra.</p>
+      <p>Mandale el Excel una vez por mes: trae cada venta, devolución y cobro de fiado por medio de pago, tus cuentas y de dónde salió cada retiro.</p>
+    </details>
+    <div className="bank-period" role="group" aria-label="Período">
+      <div className="bank-presets">{presets.map(item => <button key={item.id} type="button" className="secondary-button" aria-pressed={preset === item.id}
+        onClick={() => { setFrom(item.from); setTo(item.to); }}>{item.label}</button>)}</div>
+      <label>Desde<input type="date" value={from} max={to} onChange={event => setFrom(event.target.value)} /></label>
       <label>Hasta<input type="date" value={to} min={from} onChange={event => setTo(event.target.value)} /></label>
     </div>
     {error && <p role="alert" className="error-banner">{error}</p>}
     {loading && <p role="status"><Loader2 size={15} className="spin" /> Calculando…</p>}
+    {totals && <div className="bank-summary" role="group" aria-label="Resumen del período">
+      <div><small>Cobraste sin efectivo</small><strong>{money(grand)}</strong><span>QR, tarjetas y transferencias</span></div>
+      {moneyReport && <div><small>Salió de cajas y cuentas</small><strong>{money(withdrawals)}</strong><span>Retiros, pagos y salidas</span></div>}
+      {moneyReport && <div><small>Pasaste entre tus cuentas</small><strong>{money(ownTotal)}</strong><span>{ownMoves.length} {ownMoves.length === 1 ? 'movimiento' : 'movimientos'} · no es cobro</span></div>}
+    </div>}
+    {totals && <h3 className="bank-step">1. Cuánto cobraste por cada medio</h3>}
     {totals && <div className="bank-methods">{totals.map(row => <article key={row.method} className={`bank-method ${detail === row.method ? 'is-selected' : ''}`}>
       <h3>{methodLabels[row.method]}</h3>
       <dl>
@@ -96,7 +117,7 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
         <button type="button" className="secondary-button bank-method-detail" disabled={!ownMoves.length} onClick={() => setOwnFocus(value => value + 1)}>Ver movimientos</button>
       </article>}
     </div>}
-    {totals && <p className="bank-note">Total cobrado por QR, tarjetas y transferencias en el período: <strong>{money(grand)}</strong>. En una venta mixta se cuenta en cada medio solo su parte. Los movimientos entre cuentas propias no se suman al cobrado.</p>}
+    {totals && <p className="bank-note">En una venta mixta (por ejemplo, parte efectivo y parte QR) cada medio suma solo su parte.</p>}
     {totals && detail && <ReconciliationDetail key={detail} storeId={storeId} method={detail} label={methodLabels[detail]} from={from} to={to} onClose={() => setDetail(null)} />}
     <MoneyMovementsReport storeId={storeId} from={from} to={to} active={active} onLoaded={setMoneyReport} focus={ownFocus} />
   </section>;

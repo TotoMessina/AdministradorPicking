@@ -137,7 +137,7 @@ Abrir **http://localhost:3001/** con un comercio de pruebas, después de aplicar
 
 ## Proveedores y descuento por comercio
 
-Cada comercio ve sus proveedores en **Proveedores**, sección principal junto a Datos del comercio, Locales y cajas y Personas con acceso (administradores; delegados con `manage_products` la ven como sección Proveedores si acceden a Mi comercio). La lista une los proveedores con descuento guardado y los que solo tienen un formato de factura aprendido (aparecen con **Sin descuento** y la acción **Agregar descuento**). Cada proveedor tiene nombre, **descuento que te hace** (0 a menos de 100%, hasta dos decimales), notas y, si existe, la insignia **Factura conocida · N leídas sin IA** con la acción **Olvidar formato** dentro de su edición. Lectura para todo miembro; alta, edición, eliminación y olvido de formato por RPC con `manage_products` y control de revisión. Requiere conexión. Eliminar un proveedor no cambia productos, costos, alias ni su formato: solo deja de proponerse su descuento.
+Cada comercio ve sus proveedores en **Proveedores**, sección principal junto a Datos del comercio, Locales y cajas y Equipo y permisos (administradores; delegados con `manage_products` la ven como sección Proveedores si acceden a Mi comercio). La lista une los proveedores con descuento guardado y los que solo tienen un formato de factura aprendido (aparecen con **Sin descuento** y la acción **Agregar descuento**). Cada proveedor tiene nombre, **descuento que te hace** (0 a menos de 100%, hasta dos decimales), notas y, si existe, la insignia **Factura conocida · N leídas sin IA** con la acción **Olvidar formato** dentro de su edición. Lectura para todo miembro; alta, edición, eliminación y olvido de formato por RPC con `manage_products` y control de revisión. Requiere conexión. Eliminar un proveedor no cambia productos, costos, alias ni su formato: solo deja de proponerse su descuento.
 
 **Al cargar una factura**, el campo **Proveedor** ofrece en la lista los proveedores guardados y los de formato conocido, y debajo explica qué va a pasar: descuento que se aplicará, si su formato es conocido (se lee sin IA) o si es nuevo (al aplicar se recuerdan vínculos y formato). Vacío, el proveedor se detecta: primero por un nombre de formato conocido en la cabecera y, si no, con la IA.
 
@@ -219,7 +219,7 @@ SQL: `202610300001_supplier_payments.sql` aplicado por el usuario el 30/10/2026;
 
 ### Vistas de Proveedores
 
-Proveedores se divide en cuatro vistas, una por tarea: **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (datos de cada proveedor, y «Ajustar costos existentes» plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
+Proveedores se divide en cuatro vistas, una por tarea: **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (los proveedores en planilla, una fila cada uno: nombre, CUIT, descuento, IVA, días de pago, teléfono, correo y notas; la flecha de la fila abre datos fiscales, contacto y pago, y cómo factura. Se escribe en la última fila para agregar uno y se guardan juntas las filas cambiadas. «Ajustar costos existentes» sigue plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
 
 Cuentas abre con lo urgente: vencido y por vencer en 7 días, con importe y cantidad; al tocarlo, Facturas muestra esas mismas filas.
 
@@ -264,7 +264,7 @@ SQL: `202610270005_supplier_invoice_formats.sql` (tabla `retail_supplier_invoice
 ### Guía de Pruebas — pendiente de ejecución manual
 
 1. Aplicar las actualizaciones pendientes en el SQL Editor del proyecto AdministradorKiosco según [Instalación](../SUPABASE_SETUP.md#actualización-individual-después-de-conciliar-34-migraciones). Esperado: 43 migraciones, última `202610280001_supplier_alias_usage_repair.sql` (repara la memoria de alias si la 202610200002 quedó registrada sin efecto).
-2. En **http://localhost:3001/**, Proveedores → Agregar proveedor: nombre igual al de una factura y 10%. Esperado: aparece con «Descuento 10%». Repetir el mismo nombre con otra grafía de mayúsculas o tildes: se rechaza como duplicado.
+2. En **http://localhost:3001/**, Proveedores → Datos: escribir en la última fila un nombre igual al de una factura, 10 en Descuento y Guardar. Esperado: queda la fila con 10%. Repetir el mismo nombre con otra grafía de mayúsculas o tildes: se rechaza como duplicado.
 3. Productos → Recibir mercadería: escribir el proveedor. Esperado: debajo «Descuento 10%.»; con un nombre nuevo, «Proveedor nuevo: …». Analizar: «Proveedor» y «Descuento» en 10 con «Descuento guardado de …», «Costo factura / u.» y «Final $… · −10%» bajo cada costo.
 4. Cambiar el descuento a 8: ayuda «Solo para esta factura», botones «Usar 10%» y «Guardar 8% para próximas facturas». Guardar: mensaje de confirmación y Proveedores muestra 8%. Ingresar 100: Aplicar reposición se bloquea y enfoca el campo. Con un proveedor sin guardar y 5%: aparece «Guardar «nombre» con 5%».
 5. Navegar con Tab hasta el nombre del proveedor en la revisión y pulsar Enter: se puede editar; **Listo** lo cierra.

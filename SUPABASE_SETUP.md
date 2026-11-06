@@ -238,7 +238,7 @@ En una base con historial al día hasta `202610280001_supplier_alias_usage_repai
 
 Si faltan pasos anteriores, completar primero los paquetes de la tabla en orden; no saltar comprobaciones de historial ni usar migrations sueltas. Schema completo es la alternativa con el mismo historial, no otro procedimiento que deba ejecutarse adicionalmente. El historial impide repetir una migración ya registrada.
 
-Actualizar el frontend y todos los dispositivos antes de activar inventario independiente. Sincronizar colas **en todos los equipos**, resolver conflictos y cerrar turnos. La activación en **Productos y stock → Transferencias** asigna el salón a una sucursal elegida, mantiene depósito y las demás sucursales empiezan en cero. Se bloquea con turnos abiertos o registros de traslado anteriores pendientes. No se puede detectar desde el servidor una cola que permanezca desconectada en otro equipo: coordinar esta preparación es necesario.
+Actualizar el frontend y todos los dispositivos antes de activar inventario independiente. Sincronizar colas **en todos los equipos**, resolver conflictos y cerrar turnos. La activación en **Productos y stock → Mover entre locales** asigna el salón a una sucursal elegida, mantiene depósito y las demás sucursales empiezan en cero. Se bloquea con turnos abiertos o registros de traslado anteriores pendientes. No se puede detectar desde el servidor una cola que permanezca desconectada en otro equipo: coordinar esta preparación es necesario.
 
 No se habilita un apagado que borre/redistribuya existencias; los clientes antiguos no pueden ajustar stock sin el contexto requerido después de activar. Los nuevos fondos no se vinculan a arqueos. [Guía de Pruebas en localhost:3001, saldos de ejemplo y permisos](docs/operacion-y-mercaderia.md#transferencias).
 
@@ -368,7 +368,7 @@ from public.retail_sale_returns;
 
 Recién aplicada debe dar 0 y 0.
 
-## Conteo físico
+## Contar stock
 
 **Pendiente de aplicar:** [202611020002_stock_counts.sql](supabase/migrations/202611020002_stock_counts.sql), incluida en `supabase/schema.sql`. Aplicarla después de `202611020001_sale_returns.sql`. Agrega conteos por sucursal o depósito con historial de quién contó y confirmó. Cada renglón guarda cuánto decía el sistema al cargarse lo contado. Al confirmar, se ajusta solo esa diferencia, así las ventas hechas durante el conteo no generan diferencias falsas. Suma `retail_month_stock_losses` para mostrar las pérdidas en Ganancias. No modifica stock ni datos existentes al aplicarla. No agrega permisos nuevos: cuentan quienes tienen `replenish_stock` o `manage_products`, y confirman los ajustes dueño, administrador o `manage_products`.
 

@@ -57,7 +57,7 @@ La migración, concurrencia, backend, navegador, PWA y dispositivos requieren es
 
 ### Ampliación vigente: perfiles editables y todas las áreas funcionales
 
-Esta sección reemplaza las restricciones históricas posteriores que reservaban toda la configuración a administración. La base de rol sigue siendo Cajero o Supervisor; un permiso no convierte a la persona en Administrador. En **Mi comercio → Personas con acceso → Perfiles de permisos**, **Crear perfil** y **Editar [nombre]** reutilizan el formulario de interruptores. Guardar conserva el ID y las asignaciones del perfil. Cancelar descarta solo ese editor. Cambiar el rol de un perfil nuevo conserva los interruptores elegidos; un perfil ya asignado no cambia de rol silenciosamente.
+Esta sección reemplaza las restricciones históricas posteriores que reservaban toda la configuración a administración. La base de rol sigue siendo Cajero o Supervisor; un permiso no convierte a la persona en Administrador. En **Mi comercio → Equipo y permisos → Perfiles de permisos**, **Crear perfil** y **Editar [nombre]** reutilizan el formulario de interruptores. Guardar conserva el ID y las asignaciones del perfil. Cancelar descarta solo ese editor. Cambiar el rol de un perfil nuevo conserva los interruptores elegidos; un perfil ya asignado no cambia de rol silenciosamente.
 
 Hay **23 permisos**, agrupados por tareas. Una acción puede abarcar varios accesos que escriben los mismos datos; por ejemplo, crear/editar productos incluye alta manual y factura. Las importaciones y reposiciones CSV usan el permiso de stock. No se presentan interruptores sin autorización efectiva.
 
@@ -87,7 +87,7 @@ Las RPC existentes conservan sus cuerpos transaccionales de stock, precios, rece
 
 En **http://localhost:3001/**, en un comercio de prueba y con las migraciones aplicadas:
 
-1. Como propietario, Personas con acceso → Crear perfil: esperar 23 interruptores en cinco grupos, foco visible y Tab/Espacio. Guardar uno con nombre único y volver a **Editar [nombre]**; cambiar nombre/permisos, guardar y reabrir: mismo ID y cambios persistentes. Cancelar no guarda ni descarta otros borradores.
+1. Como propietario, Equipo y permisos → Crear perfil: esperar 23 interruptores en cinco grupos, foco visible y Tab/Espacio. Guardar uno con nombre único y volver a **Editar [nombre]**; cambiar nombre/permisos, guardar y reabrir: mismo ID y cambios persistentes. Cancelar no guarda ni descarta otros borradores.
 2. Verificar perfiles anteriores: ninguna acción nueva activada automáticamente. Asignar uno a dos personas; editarlo y actualizar ambas sesiones: deben recibir los mismos cambios. Cambiar una asignación o rol con turno abierto sigue protegido.
 3. Habilitar Crear/editar productos sin Combos ni Eliminar: el cajero puede alta/edición/factura, pero no recetas ni bajas. Probar cada permiso de productos por separado: precio conserva atributos, reposición conserva restricciones de costo, combos consumen componentes, bajas registran/restauran, listas conservan sucursal y botonera respeta asignación. Comprobar también las RPC/REST con permiso desactivado.
 4. Habilitar Revisar remitos y Transferencias: encontrar los accesos, consultar la imagen privada autorizada, aprobar/rechazar y crear/confirmar/cancelar en datos de prueba. Sin permisos, la UI no ofrece acciones y el servidor las rechaza; no deben alterarse cálculos ni recetas.
@@ -284,7 +284,7 @@ Para que el backend procese las firmas CMS y solicitudes SOAP con AFIP:
 En **Ganancias → Comparar sucursales**, solo dueños y administradores, se elige el período: hoy, últimos 7 días, este mes, mes anterior o fechas a elección, de hasta un año. Cada sucursal tiene una tarjeta con:
 
 - **Ventas:** netas de devoluciones, con la parte del total y lo devuelto.
-- **Ganancia bruta:** ventas menos el costo guardado en cada ticket, con el margen. Los gastos siguen en «Resultado del mes».
+- **Ganancia bruta:** ventas menos el costo guardado en cada ticket, con el margen. Los gastos siguen en «Este mes».
 - **Tickets y ticket promedio.**
 - **Más vendidos:** los 5 con más unidades. Los combos cuentan por sus componentes y las ventas anuladas no cuentan.
 - **Sin rotación:** productos con stock en esa sucursal que no se vendieron en el período. Primero se muestran los que tienen más plata inmovilizada.
@@ -296,7 +296,7 @@ El cálculo es el mismo de Ganancias y se hace en el servidor. Si una parte de l
 En http://localhost:3001/, con un comercio de pruebas con dos sucursales.
 
 1. **Ventas por sucursal:** vender en cada sucursal y abrir **Ganancias → Comparar sucursales** con «Hoy». Esperado: una tarjeta por sucursal, ordenadas por ventas, con tickets y ticket promedio correctos.
-2. **Mismo cálculo que Ganancias:** con «Este mes», la suma de ventas coincide con «Vendiste» de «Resultado del mes».
+2. **Mismo cálculo que Ganancias:** con «Este mes», la suma de ventas coincide con «Vendiste» de «Este mes».
 3. **Devoluciones:** hacer una devolución parcial. Esperado: bajan las ventas de esa sucursal y se muestra lo devuelto.
 4. **Costos faltantes:** vender un producto sin costo por más del 5% del total. Esperado: aviso de ganancia no confiable y «Faltan costos» en la sucursal.
 5. **Sin rotación:** un producto con stock que no se vendió en el período aparece en «Sin rotación» con su valor.
@@ -323,7 +323,7 @@ Es de solo lectura: nadie puede editar ni borrar lo registrado.
 | Aperturas y cierres de caja (esperado, contado y diferencia) | Historial de turnos. |
 | Ingresos y retiros, movimientos de plata, gastos, pagos a proveedores y cobros a clientes | Su propio historial. |
 | Anulaciones y devoluciones; pagos anulados; cambios de registro de una venta | Su propio historial. |
-| Personas con acceso, accesos pendientes, perfiles y permisos de roles | Registro nuevo. |
+| Equipo y permisos, accesos pendientes, perfiles y permisos de roles | Registro nuevo. |
 | Datos del comercio, locales, cajas y registros de ventas | Registro nuevo. |
 | Productos eliminados y restaurados; gastos eliminados; borrados de configuración | Historial de bajas y registro nuevo. |
 

@@ -2,6 +2,7 @@
 .customers-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; }
 .customers-head h2 { display: flex; align-items: center; gap: 8px; margin: 0; }
 .customers-head small { display: block; color: var(--tone-muted); }
+.customers-head-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .customers-back { justify-self: start; display: inline-flex; align-items: center; gap: 6px; padding: 0; }
 .customers-balance { display: grid; justify-items: end; gap: 2px; }
 .customers-balance strong { font-size: 26px; font-variant-numeric: tabular-nums; }
@@ -36,3 +37,18 @@
 .customers-billing { grid-column: 1 / -1; }
 .customers-billing > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .customers-billing-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-top: 10px; }
+.customers-guide { padding: 12px 14px; border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-canvas); }
+.customers-guide summary { cursor: pointer; font-weight: 650; }
+.customers-guide p { margin: 10px 0 0; }
+.customers-guide-note { color: var(--tone-muted); font-size: 13px; }
+.customers-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin: 12px 0 0; padding: 0; list-style: none; counter-reset: step; }
+.customers-steps li { display: grid; gap: 4px; padding: 12px 12px 12px 46px; position: relative; border-radius: 10px; background: var(--tone-surface); border: 1px solid var(--tone-border); counter-increment: step; }
+.customers-steps li::before { content: counter(step); position: absolute; left: 12px; top: 12px; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--tone-accent); color: #fff; font-weight: 700; font-size: 13px; }
+.customers-steps span { color: var(--tone-muted); font-size: 13px; }
+.customers-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; }
+.customers-summary > div { display: grid; gap: 2px; padding: 12px 14px; border-radius: 12px; background: var(--tone-soft); }
+.customers-summary > div.is-debt { background: var(--tone-danger-soft); }
+.customers-summary small, .customers-summary span { color: var(--tone-muted); font-size: 12px; }
+.customers-summary small { font-weight: 600; }
+.customers-summary strong { font-size: 20px; font-variant-numeric: tabular-nums; }
+.customers-steps li, .customers-steps span { text-align: left; justify-items: start; }

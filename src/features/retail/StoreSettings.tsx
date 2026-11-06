@@ -111,7 +111,7 @@ export function StoreSettings({
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
           { id: 'config', label: 'Configuración', icon: <Settings2 size={16} /> },
           { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
-          { id: 'team', label: 'Personas con acceso', icon: <Users size={16} /> },
+          { id: 'team', label: 'Equipo y permisos', icon: <Users size={16} /> },
           { id: 'activity', label: 'Actividad', icon: <History size={16} /> },
           { id: 'more', label: 'Más opciones', icon: <SlidersHorizontal size={16} /> },
         ]} />
@@ -480,7 +480,7 @@ export function StoreSettings({
                   <Users size={22} />
                 </div>
                 <div className="store-settings-header-text">
-                  <h3>Personas con acceso</h3>
+                  <h3>Equipo y permisos</h3>
                   <p>Quién puede entrar a tu comercio y qué puede hacer.</p>
                 </div>
               </div>

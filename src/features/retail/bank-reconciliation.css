@@ -86,3 +86,17 @@
 .money-report-filters small { color: var(--tone-muted); font-size: 12px; }
 .money-report-note { white-space: normal !important; min-width: 200px; overflow-wrap: anywhere; }
 @media (max-width: 560px) { .money-report-filters label { flex-basis: 100%; } }
+
+.bank-help { padding: 8px 12px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-canvas); font-size: 13px; }
+.bank-help summary { display: inline-flex; align-items: center; gap: 6px; cursor: pointer; font-weight: 600; }
+.bank-help p { margin: 8px 0 0; color: var(--tone-muted); }
+.bank-presets { display: flex; gap: 6px; align-self: end; }
+.bank-presets button[aria-pressed="true"] { border-color: var(--tone-accent); color: var(--tone-accent); font-weight: 600; }
+.bank-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px; }
+.bank-summary > div { display: grid; gap: 2px; padding: 14px; border-radius: 12px; background: var(--tone-accent-soft); }
+.bank-summary > div:nth-child(2) { background: var(--tone-danger-soft); }
+.bank-summary > div:nth-child(3) { background: var(--tone-soft); }
+.bank-summary small { color: var(--tone-muted); font-size: 12px; font-weight: 600; }
+.bank-summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
+.bank-summary span { color: var(--tone-muted); font-size: 12px; }
+.bank-step { margin: 8px 0 0; font-size: 15px; display: flex; align-items: center; gap: 6px; }

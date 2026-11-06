@@ -40,10 +40,10 @@ export interface AIAssistantProps {
 const INITIAL_CAPABILITY_CHIPS = [
   { label: "¿Tengo mercadería clavada o por vencer?", icon: AlertTriangle },
   { label: "¿Cómo va el negocio esta semana?", icon: TrendingUp },
-  { label: "¿Detectaste algo sospechoso en los turnos?", icon: AlertTriangle },
+  { label: "¿Detectaste algo raro en los cierres de caja?", icon: AlertTriangle },
   { label: "¿Qué distribuidor me deja más margen?", icon: TrendingUp },
   { label: "Analizá mis productos sin movimiento", icon: AlertTriangle },
-  { label: "¿Cuándo fue mi mejor turno del mes?", icon: Trophy },
+  { label: "¿Cuál fue mi mejor día de caja del mes?", icon: Trophy },
   { label: "Sugerí categorías para reorganizar el catálogo", icon: LayoutGrid },
   { label: "¿Qué debería comprar esta semana?", icon: ShoppingCart },
   { label: "¿De qué me voy a quedar sin stock esta semana?", icon: ShoppingCart },
@@ -671,7 +671,7 @@ Estas reglas de separación aplican a todos los períodos del JSON. Mostrá siem
    - "Analizá mis productos sin movimiento": Usá 'productosSinMovimiento' y mencioná el capital parado.
    - "¿Tengo mercadería clavada o por vencer?" / mercadería clavada / capital parado / vencimientos: Cuando pregunten por mercadería clavada, capital parado o vencimientos, usá 'semaforoCapital'. Sugerí las promociones concretas del campo 'suggestedPromoText'. Calculá el porcentaje de capital parado respecto al stock total valorizado.
    - Usá porcentajeCapitalParado ya calculado (null = sin base para calcular). Capital parado suma rojos y amarillos de toda la muestra, no solo los listados. Sin última venta conocida no afirmes que nunca se vendió ni que pasaron 45 días. Es un indicador por recencia, no una medición de demanda o rentabilidad. Los precios promocionales son propuestas sin aplicar; revisá su costo y margen, especialmente bajo margen, y no prometas ganancias ni inventes descuentos de liquidación. Un producto vencido se revisa y retira de la venta, nunca se promociona. No interpretes falta de fecha como ausencia de vencimiento; puede haber distintos lotes.
-   - "¿Cuándo fue mi mejor turno del mes?": Usá 'mejorTurno'.
+   - "¿Cuál fue mi mejor día de caja del mes?": Usá 'mejorTurno'.
    - "¿Qué debería comprar esta semana?" / "¿De qué me voy a quedar sin stock esta semana?": Usá prediccionStock.criticos, agrupá por proveedor e indicá fecha estimada y unidades/bultos sugeridos; no recalcules ni generes pedidos.
    - "¿Qué producto tiene sobrestock?": Usá prediccionStock.sobrestock; capital es stock por costo, null si falta. Sin ventas observadas no prueba falta de demanda.
    - Predicción: resumen acotado de la muestra cargada, 14 días completos, última semana doble peso, ajuste por día y cobertura 10 días. Puede faltar historia. No es garantía; stock cero sigue en stockCritico.

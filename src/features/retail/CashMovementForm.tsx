@@ -124,7 +124,7 @@ export function CashMovementForm({ store, shift, busy, run, onBusyChange, allowI
           <option value="cash">Efectivo de esta caja</option>
           {accounts.map(account => <option key={account.id} value={account.id}>{account.name} · saldo {account.balance.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' })}</option>)}
         </select>
-        <small>{fromAccount ? 'Sale de la cuenta: no cambia el efectivo de la caja. Queda en Plata y en Conciliación.' : 'Sale del efectivo de la caja y descuenta del esperado del turno.'}</small>
+        <small>{fromAccount ? 'Sale de la cuenta: no cambia el efectivo de la caja. Queda en Plata y en Conciliación.' : 'Sale del efectivo de la caja: al cerrarla, se espera esa plata de menos.'}</small>
       </label>}
       {type === 'RETIRO' && <label>Categoría
         <select name="category" value={category} onChange={event => { setCategory(event.target.value); setSupplier(''); clearVoucher(); setError(''); }}>

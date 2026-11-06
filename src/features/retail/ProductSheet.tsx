@@ -1,10 +1,10 @@
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, FileText, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { NumberInput } from '../../components/NumberInput';
 import { askConfirm } from '../../components/ConfirmHost';
 import { useToast } from '../../context/ToastContext';
 import { draftMarkupPrice, markupFromPrice } from '../../services/productSalePrice';
-import { describe, presentationCodeConflict, presentationCodeWarning, presentationLabels, sizesOf, storedSizes, unitCost, unitsIn, type Presentation, type PresentationSizes } from '../../services/productPresentation';
+import { describe, presentationCodeConflict, presentationCodeWarning, presentationLabels, sizesError, sizesOf, storedSizes, unitCost, unitsIn, type Presentation, type PresentationSizes } from '../../services/productPresentation';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
 import { hasComposition } from '../../services/productComposition';
 import { ProductRoundingField } from './ProductMarkupField';
@@ -19,6 +19,8 @@ interface Row extends PresentationSizes {
   brand: string; supplier: string; supplierCode: string; expiry: string; sellable: boolean; unitType: string; emoji: string; rounding: number | null;
   /** EAN-13 del display, DUN-14 del bulto y bultos por pallet (202611060009). */
   displayCode: string; packCode: string; palletPacks: string;
+  /** Etiquetas separadas por coma. */
+  tags: string;
   open: boolean; error: string;
 }
 type Field = keyof Row;
@@ -26,6 +28,8 @@ type Field = keyof Row;
 let counter = 0;
 const nextKey = () => `row-${Date.now()}-${counter++}`;
 const money = (value: number) => `$${value.toLocaleString('es-AR', { maximumFractionDigits: 2 })}`;
+/** «sin TACC, importado» → ['sin TACC', 'importado'], sin repetidos ni vacíos. */
+const tagList = (text: string) => [...new Set(text.split(',').map(tag => tag.trim().replace(/^#/, '')).filter(Boolean))].slice(0, 30);
 const unitTypes: Record<string, string> = { unit: 'Unidad', kg: 'Kilo', lt: 'Litro', pack: 'Pack', box: 'Caja' };
 
 /**
@@ -33,18 +37,17 @@ const unitTypes: Record<string, string> = { unit: 'Unidad', kg: 'Kilo', lt: 'Lit
  * La cantidad y el costo se cargan por la presentación elegida (unidad, display o bulto) y se guardan por unidad.
  * Guarda cada fila con el mismo retail.saveProduct de la ficha, así mantiene sucursal, precio por costo y permisos.
  */
-export function ProductSheet({ mode, store, products, categories, initial, busy, run, operationBranch, onOpenForm, onOpenProductForm, onClose }: {
+export function ProductSheet({ mode, store, products, categories, initial, busy, run, operationBranch, onClose }: {
   mode: 'new' | 'edit'; store: Store; products: Product[]; categories: Category[]; initial?: Product[];
-  busy: boolean; run: Run; operationBranch?: string; onOpenForm?: () => void;
-  /** Abre la ficha completa de un producto (stock, etiquetas, combos), para lo que la planilla no tiene. */
-  onOpenProductForm?: (product: Product) => void; onClose: () => void;
+  busy: boolean; run: Run; operationBranch?: string;
+  onClose: () => void;
 }) {
   const { notify } = useToast();
   const storeStep = store.price_rounding ?? 0;
   const defaultMarkup = store.default_markup != null ? String(store.default_markup) : '';
-  const blank = (): Row => ({ key: nextKey(), code: '', name: '', categoryId: defaultProductCategory(categories), presentation: 'unit', displaysPerPack: '', unitsPerDisplay: '',
+  const blank = (): Row => ({ key: nextKey(), code: '', name: '', categoryId: defaultProductCategory(categories), presentation: 'unit', packUnits: '', displayUnits: '',
     qty: '', cost: '', markup: defaultMarkup, manual: false, price: '', minStock: '4', brand: '', supplier: '', supplierCode: '', expiry: '', sellable: true,
-    unitType: 'unit', emoji: '📦', rounding: null, displayCode: '', packCode: '', palletPacks: '', open: false, error: '' });
+    unitType: 'unit', emoji: '📦', rounding: null, displayCode: '', packCode: '', palletPacks: '', tags: '', open: false, error: '' });
   const fromProduct = (product: Product): Row => {
     const sizes = sizesOf(product);
     const units = unitsIn(sizes) || 1;
@@ -55,7 +58,8 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
       minStock: String(product.minStock), brand: product.brand || '', supplier: product.supplier || '', supplierCode: product.supplierCode || '',
       expiry: product.expiry_date || '', sellable: product.sellable !== false || product.price_pending === true, unitType: product.unitType || 'unit',
       emoji: product.emoji || '📦', rounding: product.price_rounding ?? null,
-      displayCode: product.display_code || '', packCode: product.pack_code || '', palletPacks: product.pallet_packs == null ? '' : String(product.pallet_packs), open: false, error: '' };
+      displayCode: product.display_code || '', packCode: product.pack_code || '', palletPacks: product.pallet_packs == null ? '' : String(product.pallet_packs),
+      tags: (product.tags || []).join(', '), open: false, error: '' };
   };
   const editable = (initial || []).filter(product => !hasComposition(product));
   const skippedCombos = (initial || []).length - editable.length;
@@ -89,7 +93,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
   const changed = (row: Row) => {
     if (!row.original) return true;
     const fresh = fromProduct(row.original);
-    const fields: Field[] = ['code', 'name', 'categoryId', 'presentation', 'displaysPerPack', 'unitsPerDisplay', 'cost', 'markup', 'manual', 'price', 'minStock', 'brand', 'supplier', 'supplierCode', 'expiry', 'sellable', 'unitType', 'emoji', 'rounding', 'displayCode', 'packCode', 'palletPacks'];
+    const fields: Field[] = ['code', 'name', 'categoryId', 'presentation', 'packUnits', 'displayUnits', 'cost', 'markup', 'manual', 'price', 'minStock', 'brand', 'supplier', 'supplierCode', 'expiry', 'sellable', 'unitType', 'emoji', 'rounding', 'displayCode', 'packCode', 'palletPacks', 'tags'];
     return fields.some(field => String(row[field]) !== String(fresh[field]));
   };
   const pending = mode === 'edit' ? filled.filter(changed) : filled;
@@ -111,7 +115,8 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
       if (row.palletPacks.trim() && !(Number.isInteger(Number(row.palletPacks)) && Number(row.palletPacks) >= 1 && Number(row.palletPacks) <= 100000)) return 'Los bultos por pallet deben ser un número entero entre 1 y 100.000.';
     }
     if (!row.categoryId) return 'Elegí la categoría.';
-    if (!units) return row.presentation === 'display' ? 'Completá cuántas unidades trae el display.' : 'Completá displays por bulto y unidades por display.';
+    if (!units) return `Completá cuántas unidades trae el ${row.presentation === 'display' ? 'display' : 'bulto'}.`;
+    if (sizesError(row)) return sizesError(row);
     if (mode === 'new' && row.qty.trim() && !(Number.isInteger(Number(row.qty)) && Number(row.qty) >= 0)) return 'La cantidad debe ser un número entero.';
     if (row.cost.trim() && !(Number(row.cost) >= 0)) return 'Revisá el costo.';
     if (!Number.isInteger(Number(row.minStock)) || Number(row.minStock) < 0) return 'Revisá el mínimo.';
@@ -177,14 +182,14 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
     const ran = await run(async () => {
       for (const { row } of checked) {
         const { perUnit, price, stock } = calc(row);
-        const sizes = storedSizes(row, row.original);
+        const sizes = storedSizes(row);
         try {
           await retail.saveProduct(store.id, {
             id: row.original?.id || '', categoryId: row.categoryId, code: row.code.trim(), name: row.name.trim(),
             price: row.sellable ? price || 0 : 0, sale_markup: row.sellable && !row.manual ? Number(row.markup) : null, sellable: row.sellable,
             cost: perUnit ?? row.original?.cost ?? 0, stock: row.original ? row.original.stock : stock ?? 0, minStock: Number(row.minStock), emoji: row.emoji.trim() || '📦', active: true,
             brand: row.brand.trim() || undefined, supplier: row.supplier.trim() || undefined, supplierCode: row.supplierCode.trim() || undefined,
-            tags: row.original?.tags || [], unitType: row.unitType, pack_size: sizes.pack_size, display_size: sizes.display_size,
+            tags: tagList(row.tags), unitType: row.unitType, pack_size: sizes.pack_size, display_size: sizes.display_size,
             expiry_date: row.expiry || null, stock_components: row.original?.stock_components,
             ...(store.price_rounding !== undefined ? { price_rounding: row.rounding } : {}),
             ...(row.original?.price_pending ? { price_pending: false } : {}),
@@ -232,8 +237,8 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
           <th scope="col">Código</th>
           <th scope="col" className="col-name">Nombre</th>
           <th scope="col">Categoría</th>
-          <th scope="col">Presentación</th>
-          <th scope="col">Contenido</th>
+          <th scope="col" title="La cantidad y el costo de la fila se escriben por esta presentación">Compro por</th>
+          <th scope="col" title="Cuántas unidades trae">Trae</th>
           {mode === 'new' && <th scope="col" className="num">Cantidad</th>}
           <th scope="col" className="num">Costo</th>
           <th scope="col" className="num">Costo x u.</th>
@@ -256,16 +261,15 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                 onChange={event => update(row.key, { name: event.target.value })} onKeyDown={moveInColumn} /></td>
               <td data-col="category"><select value={row.categoryId} aria-label={`Categoría de ${label}`} disabled={disabled} onKeyDown={moveInColumn}
                 onChange={event => update(row.key, { categoryId: event.target.value })}>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></td>
-              <td data-col="presentation"><select value={row.presentation} aria-label={`Presentación de ${label}`} disabled={disabled} onKeyDown={moveInColumn}
+              <td data-col="presentation"><select value={row.presentation} aria-label={`Cómo comprás ${label}`} disabled={disabled} onKeyDown={moveInColumn}
                 onChange={event => update(row.key, { presentation: event.target.value as Presentation })}>
-                {(Object.keys(presentationLabels) as Presentation[]).map(option => <option key={option} value={option}>{presentationLabels[option]}</option>)}</select></td>
+                {(Object.keys(presentationLabels) as Presentation[]).map(option => <option key={option} value={option}>{option === 'unit' ? 'Unidad suelta' : presentationLabels[option]}</option>)}</select></td>
               <td data-col="content" className="col-content">
-                {row.presentation === 'unit' ? <span className="product-sheet-muted">—</span> : <span className="product-sheet-content">
-                  {row.presentation === 'pack' && <><NumberInput min={1} step={1} value={row.displaysPerPack} placeholder="1" disabled={disabled} aria-label={`Displays por bulto de ${label}`}
-                    title="Displays por bulto. Si el bulto no trae displays, dejá 1." onValueChange={value => update(row.key, { displaysPerPack: value })} /><span aria-hidden="true">×</span></>}
-                  <NumberInput min={1} step={1} value={row.unitsPerDisplay} placeholder="u." disabled={disabled} aria-label={`Unidades por ${row.presentation === 'pack' && Number(row.displaysPerPack || 1) <= 1 ? 'bulto' : 'display'} de ${label}`}
-                    onValueChange={value => update(row.key, { unitsPerDisplay: value })} />
-                  <small>{row.presentation === 'pack' ? (Number(row.displaysPerPack || 1) > 1 ? `displays × u. = ${units ?? '?'} u.` : 'u. por bulto') : 'u. por display'}</small>
+                {row.presentation === 'unit' ? <span className="product-sheet-muted">1 u.</span> : <span className="product-sheet-content">
+                  <NumberInput min={1} step={1} value={row.presentation === 'pack' ? row.packUnits : row.displayUnits} placeholder="u." disabled={disabled}
+                    aria-label={`Unidades que trae cada ${presentationName} de ${label}`} onKeyDown={moveInColumn}
+                    onValueChange={value => update(row.key, row.presentation === 'pack' ? { packUnits: value } : { displayUnits: value })} />
+                  <small>u.</small>
                 </span>}
               </td>
               {mode === 'new' && <td data-col="qty" className="num"><NumberInput min={0} step={1} value={row.qty} placeholder="0" disabled={disabled} aria-label={`Cantidad en ${presentationName} de ${label}`}
@@ -285,13 +289,28 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                 <button type="button" className="icon-button" aria-expanded={row.open} aria-label={`Más datos de ${label}`} title="Más datos" disabled={disabled}
                   onClick={() => setRows(previous => previous.map(item => item.key === row.key ? { ...item, open: !item.open } : item))}>{row.open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
                 {mode === 'new' && <button type="button" className="icon-button" aria-label={`Quitar ${label}`} title="Quitar fila" disabled={disabled} onClick={() => remove(row.key)}><Trash2 size={15} /></button>}
-                {row.original && onOpenProductForm && <button type="button" className="icon-button" aria-label={`Ficha completa de ${label}`} title="Ficha completa: stock, etiquetas y más"
-                  disabled={disabled} onClick={async () => { if (!changed(row) || await askConfirm('Hay cambios sin guardar en la planilla. ¿Abrir la ficha completa y descartarlos?')) onOpenProductForm(row.original!); }}><FileText size={15} /></button>}
               </td>
             </tr>
             {row.error && <tr className="product-sheet-error-row"><td /><td colSpan={mode === 'new' ? 13 : 11} role="alert">{row.error}</td></tr>}
             {row.open && <tr className="product-sheet-more"><td /><td colSpan={mode === 'new' ? 13 : 11}>
+              <div className="product-sheet-presentations" role="group" aria-label={`Presentaciones de ${label}`}>
+                <strong>Presentaciones</strong>
+                <label>Unidades por display<NumberInput min={1} step={1} value={row.displayUnits} placeholder="No tiene" disabled={disabled} onValueChange={value => update(row.key, { displayUnits: value })} /></label>
+                {codesReady && <label>Código del display (EAN-13)<input value={row.displayCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
+                  onChange={event => update(row.key, { displayCode: event.target.value.replace(/\s/g, '') })} />
+                  {presentationCodeWarning(row.displayCode, 'display') && <small role="status">{presentationCodeWarning(row.displayCode, 'display')}</small>}</label>}
+                <label>Unidades por bulto<NumberInput min={1} step={1} value={row.packUnits} placeholder="No tiene" disabled={disabled} onValueChange={value => update(row.key, { packUnits: value })} />
+                  {describe({ ...row, presentation: 'pack' }) && <small>{describe({ ...row, presentation: 'pack' })}</small>}</label>
+                {codesReady && <label>Código del bulto (DUN-14)<input value={row.packCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
+                  onChange={event => update(row.key, { packCode: event.target.value.replace(/\s/g, '') })} />
+                  {presentationCodeWarning(row.packCode, 'pack') && <small role="status">{presentationCodeWarning(row.packCode, 'pack')}</small>}</label>}
+                {codesReady && <label>Bultos por pallet<NumberInput value={row.palletPacks} min="1" max="100000" step="1" placeholder="Opcional" disabled={disabled}
+                  onValueChange={value => update(row.key, { palletPacks: value })} />
+                  {Number(row.palletPacks) > 0 && Number(row.packUnits) > 0 && <small>Pallet = {(Number(row.palletPacks) * Number(row.packUnits)).toLocaleString('es-AR')} u.</small>}</label>}
+                {sizesError(row) && <small role="alert">{sizesError(row)}</small>}
+              </div>
               <div className="product-sheet-more-grid">
+                <label>Etiquetas<input value={row.tags} maxLength={400} placeholder="Ej. sin TACC, importado" disabled={disabled} onChange={event => update(row.key, { tags: event.target.value })} /></label>
                 <label>Marca<input value={row.brand} maxLength={120} disabled={disabled} onChange={event => update(row.key, { brand: event.target.value })} /></label>
                 <label>Proveedor<input value={row.supplier} maxLength={120} disabled={disabled} onChange={event => update(row.key, { supplier: event.target.value })} /></label>
                 <label>Código del proveedor<input value={row.supplierCode} maxLength={120} disabled={disabled} onChange={event => update(row.key, { supplierCode: event.target.value })} /></label>
@@ -301,16 +320,6 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                 <label>Se vende por<select value={row.unitType} disabled={disabled} onChange={event => update(row.key, { unitType: event.target.value })}>
                   {Object.entries(unitTypes).map(([value, text]) => <option key={value} value={value}>{text}</option>)}</select></label>
                 <label>Emoji<input value={row.emoji} maxLength={8} disabled={disabled} onChange={event => update(row.key, { emoji: event.target.value })} /></label>
-                {codesReady && <>
-                  <label>Código del display (EAN-13)<input value={row.displayCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
-                    onChange={event => update(row.key, { displayCode: event.target.value.replace(/\s/g, '') })} />
-                    {presentationCodeWarning(row.displayCode, 'display') && <small role="status">{presentationCodeWarning(row.displayCode, 'display')}</small>}</label>
-                  <label>Código del bulto (DUN-14)<input value={row.packCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
-                    onChange={event => update(row.key, { packCode: event.target.value.replace(/\s/g, '') })} />
-                    {presentationCodeWarning(row.packCode, 'pack') && <small role="status">{presentationCodeWarning(row.packCode, 'pack')}</small>}</label>
-                  <label>Bultos por pallet<NumberInput value={row.palletPacks} min="1" max="100000" step="1" placeholder="Opcional" disabled={disabled}
-                    onValueChange={value => update(row.key, { palletPacks: value })} /></label>
-                </>}
                 {row.sellable && !row.manual && store.price_rounding !== undefined && <ProductRoundingField value={row.rounding} storeStep={storeStep} disabled={disabled} onChange={rounding => update(row.key, { rounding })} />}
               </div>
               {row.sellable && <div className="price-mode-row">
@@ -325,7 +334,6 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
 
     <div className="product-sheet-footer">
       {mode === 'new' && <button type="button" className="text-button" disabled={disabled} onClick={() => setRows(previous => [...previous, blank()])}><Plus size={15} /> Agregar fila</button>}
-      {mode === 'new' && onOpenForm && <button type="button" className="text-button" disabled={disabled} onClick={onOpenForm}>Usar la ficha completa</button>}
       <small>Enter o las flechas pasan a la misma columna de la fila de abajo. El lector de códigos salta solo al nombre.</small>
       {errors.length > 0 && <p role="alert" className="product-sheet-errors">{errors.length} {errors.length === 1 ? 'fila tiene' : 'filas tienen'} errores: revisalas antes de guardar.</p>}
       {saving && <p role="status"><Loader2 size={15} className="spin" /> Guardando {saving.done} de {saving.total}…</p>}

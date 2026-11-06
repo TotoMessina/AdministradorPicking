@@ -176,7 +176,7 @@ function PaymentForm({ storeId, suppliers, invoices, payments, busy, run, close,
       </label>
       {!shifts.length && <p className="purchase-tracking-note">No hay cajas abiertas. Abrí una para pagar en efectivo, o elegí otro medio.</p>}
       <label>Comprobante del pago<input type="file" accept="image/*,application/pdf" disabled={busy} onChange={event => setFile(event.target.files?.[0] ?? null)} /></label>
-      <p className="purchase-tracking-note">Se registra como retiro «Pago a proveedor» en esa caja, igual que desde Caja, y cuenta en el arqueo.</p>
+      <p className="purchase-tracking-note">Se registra como retiro «Pago a proveedor» en esa caja, igual que desde Caja, y se descuenta al cerrar la caja.</p>
     </>}
     {method !== 'cash' && <label>Referencia (opcional)<input maxLength={120} value={reference} disabled={busy} onChange={event => setReference(event.target.value)} placeholder={method === 'check' ? 'Banco y número de cheque' : 'Número de operación'} /></label>}
     <details className="supplier-rules">

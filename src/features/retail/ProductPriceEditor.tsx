@@ -45,7 +45,7 @@ export function ProductPriceEditor({ storeId, store, product, threshold, busy, r
     if (await run(() => retail.updateProductPricing(storeId, product.id, Number(markup), rounding, product.price), 'Precio actualizado por costo')) onClose();
   }}>
     <h3>Editar precio de {product.name}</h3>
-    <p>Precio principal actual: ${product.price.toLocaleString('es-AR')}{product.sale_markup != null ? ` (costo + ${product.sale_markup.toLocaleString('es-AR')}%)` : ' (manual)'}. Las listas derivadas mantienen sus reglas.</p>
+    <p>Precio principal actual: ${product.price.toLocaleString('es-AR')}{product.sale_markup != null ? ` (costo + ${product.sale_markup.toLocaleString('es-AR')}%)` : ' (manual)'}. Las otras listas siguen calculándose desde este precio.</p>
     {manual ? <>
       <label>Precio manual ($)<NumberInput ref={input} type="number" required min="0.01" step="0.01" value={price} disabled={busy} onValueChange={event => setPrice(event)} /></label>
       {costPricing ? <div className="price-mode-row"><small role="note">No sigue al costo ni se redondea.</small>

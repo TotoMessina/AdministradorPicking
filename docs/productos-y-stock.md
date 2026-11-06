@@ -10,7 +10,7 @@ Guía vigente consolidada. Los nombres de migraciones indican dependencias, no e
 - [Bajo margen](#bajo-margen)
 - [Métricas de margen](#metricas-de-margen)
 - [Categorías](#categorias)
-- [Conteo físico](#conteo-fisico)
+- [Contar stock](#conteo-fisico)
 - [Eliminar y restaurar](#eliminar-y-restaurar)
 - [Alta desde el catálogo global](#alta-desde-catalogo-global)
 - [Historial de precios](#historial-de-precios)
@@ -158,7 +158,7 @@ Pendientes: navegador, móvil, SQL/RLS, concurrencia, otro dispositivo y sincron
 
 ### Cómo configurarlos
 
-En **Productos → Catálogo y stock**, administración dispone de **Crear combo o paquete**, junto a Agregar producto. Abre **Nuevo combo o paquete**, con componentes, costo y disponibilidad calculados desde el inicio; usa los mismos campos de receta que la edición existente. **Guardar combo** guarda datos y composición en una sola transacción. Para productos existentes, usar **Combo / sueltos** en su fila. Cada producto conserva precio, código, categoría y listas. El costo compuesto es automático; el grupo de margen se calcula con el límite del comercio. El cajero vende por búsqueda, lector o botonera sin elegir ingredientes ni abrir otro asistente.
+En **Productos → Productos**, administración dispone de **Crear combo o paquete**, junto a Agregar producto. Abre **Nuevo combo o paquete**, con componentes, costo y disponibilidad calculados desde el inicio; usa los mismos campos de receta que la edición existente. **Guardar combo** guarda datos y composición en una sola transacción. Para productos existentes, usar **Combo / sueltos** en su fila. Cada producto conserva precio, código, categoría y listas. El costo compuesto es automático; el grupo de margen se calcula con el límite del comercio. El cajero vende por búsqueda, lector o botonera sin elegir ingredientes ni abrir otro asistente.
 
 Cancelar no crea ningún registro. Si falla una composición, tampoco queda un producto sin configurar. La RPC `retail_create_composite_product` de la migración local `202610260002_create_composite_product.sql` reutiliza las validaciones/costos existentes, requiere `manage_products` y `manage_compositions`, y guarda un recibo con ID estable para reintentar sin duplicar. No cambia precios, fórmulas ni existencias de componentes al crear. Necesita conexión y cola sincronizada; navegar conserva el formulario montado. Los atributos adicionales se pueden editar después desde Editar. Un combo sin costos conocidos muestra costo pendiente, sin inventar un costo parcial.
 
@@ -372,9 +372,9 @@ Pendientes: revisión visual en navegador/móvil, instalación SQL, RLS, creaci�
 
 <a id="conteo-fisico"></a>
 
-## Conteo físico
+## Contar stock
 
-En **Productos y stock → Conteo físico** se cuenta una sucursal o el depósito. Se puede contar todo o una sección, para no tener que hacerlo todo de una vez: una categoría, una marca o una marca dentro de una categoría. Antes de empezar se ve cuántos productos entran. Puede haber varias secciones abiertas en el mismo lugar, pero no dos de la misma sección. Un producto solo puede estar en un conteo abierto por lugar, así no se ajusta dos veces. Se puede cerrar la pantalla y seguir después.
+En **Productos y stock → Contar stock** se cuenta una sucursal o el depósito. Se puede contar todo o una sección, para no tener que hacerlo todo de una vez: una categoría, una marca o una marca dentro de una categoría. Antes de empezar se ve cuántos productos entran. Puede haber varias secciones abiertas en el mismo lugar, pero no dos de la misma sección. Un producto solo puede estar en un conteo abierto por lugar, así no se ajusta dos veces. Se puede cerrar la pantalla y seguir después.
 
 - **Cargar lo contado:**
   - **Planilla:** se escribe en la misma planilla de Transferencias. Enter o flechas pasan al siguiente renglón.
@@ -406,7 +406,7 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada. 
 
 ## Eliminar y restaurar
 
-Administración puede ir a **Productos → Catálogo y stock → Eliminar** en la fila del producto. La confirmación permite un motivo opcional o marcar **Eliminar definitivamente** para borrado físico permanente.
+Administración puede ir a **Productos → Productos → Eliminar** en la fila del producto. La confirmación permite un motivo opcional o marcar **Eliminar definitivamente** para borrado físico permanente.
 - **Eliminación estándar (archivo):** El producto deja de aparecer en el catálogo activo, en la búsqueda y en la botonera de venta rápida. Se quita de retail_quick_products y de la caché local para que no quede huérfano en favoritos. Se conserva la fila original con sus atributos, stock, recetas y referencias históricas en **Productos eliminados**, desde donde puede restaurarse.
 - **Eliminación definitiva:** Borra permanentemente el producto y limpia sus registros relacionados (botonera, precios fijos por lista, stock en depósito/sucursal, conversiones de sueltos, mapeos de proveedor, movimientos de auditoría y registros de eliminación). Esta acción requiere confirmación explícita y no se puede deshacer. Puede ejecutarse directamente desde el formulario de eliminación o desde **Productos eliminados** en la fila de cualquier producto inactivo.
 
@@ -524,22 +524,21 @@ En http://localhost:3001/, con la migración aplicada y en un comercio de prueba
 
 ## Planilla de productos y presentaciones
 
-**Agregar → Productos** abre una planilla para cargar uno o varios productos en filas, como la revisión de facturas. **Editar en planilla**, en la barra de la lista, abre como planilla los productos que se ven con la búsqueda y los filtros actuales, hasta 300. **Editar** (lápiz) en cada fila de la lista también abre ese producto en la planilla. Los combos siguen abriendo su ficha. La ficha completa, para stock, etiquetas y lo que la planilla no tiene, sigue disponible con **Usar la ficha completa** en el alta o con el ícono de ficha de cada fila en edición. Si hay cambios sin guardar, pide confirmación antes de descartarlos. La ficha completa también tiene **Unidades por display**, junto a las unidades por bulto, y avisa si el bulto no es múltiplo del display. Requiere `202611040005_product_presentations.sql`.
+**Agregar → Productos** abre una planilla para cargar uno o varios productos en filas, como la revisión de facturas. **Editar en planilla**, en la barra de la lista, abre como planilla los productos que se ven con la búsqueda y los filtros actuales, hasta 300. **Editar** (lápiz) en cada fila de la lista también abre ese producto en la planilla. La planilla es el único editor de productos: la ficha de formulario queda solo para combos y para el inicio guiado. El stock se ajusta con Reponer o el conteo, no editando el producto. Requiere `202611040005_product_presentations.sql`.
 
-- **Presentación:** en cada fila se elige si lo que se carga es **Unidad**, **Display** o **Bulto**.
-  - **Display:** pide cuántas unidades trae.
-  - **Bulto:** pide cuántos displays trae y cuántas unidades tiene cada display. Si el bulto no trae displays, se deja 1 display y se ponen las unidades del bulto.
-- **Cantidad y costo por presentación:** la cantidad y el costo se escriben por la presentación elegida. La planilla muestra el **costo por unidad** (costo ÷ unidades) y el **stock en unidades**. Ejemplo: 2 bultos de 4 displays × 12 a $9.600 el bulto dan 96 unidades a $200 cada una. El producto se guarda siempre por unidad, así sirve como componente de combos y se vende de a uno.
-- **Se guarda la presentación:** `pack_size` (unidades por bulto) y `display_size` (unidades por display) quedan en el producto. Si el display nuevo no entra exacto en el bulto guardado, el bulto se descarta. Con esos datos:
+- **Compro por:** en cada fila se elige cómo se compra: **Unidad suelta**, **Display** o **Bulto**. **Trae** pide cuántas unidades trae esa presentación (por ejemplo, Bulto · Trae 48). La cantidad y el costo de la fila se escriben por esa presentación.
+- **Presentaciones** (en **Más datos**): unidades por display y por bulto por separado, con sus códigos y los bultos por pallet. Si el producto tiene las dos, el bulto tiene que traer displays enteros (48 u. = 4 displays × 12 u.); si no, la fila no se guarda.
+- **Cantidad y costo por presentación:** la cantidad y el costo se escriben por la presentación elegida. La planilla muestra el **costo por unidad** (costo ÷ unidades) y el **stock en unidades**. Ejemplo: 2 bultos que traen 48 a $9.600 el bulto dan 96 unidades a $200 cada una. El producto se guarda siempre por unidad, así sirve como componente de combos y se vende de a uno.
+- **Se guarda la presentación:** `pack_size` (unidades por bulto) y `display_size` (unidades por display) quedan en el producto. Con esos datos:
   - **Reponer:** «Ingresar por» ofrece **Unidad**, **Display** (N u.) y **Bulto** (M u., con displays × unidades si los tiene). La cantidad y el costo se escriben por la presentación elegida, y se ve el costo por unidad que se guarda. Al cambiar de presentación, el costo escrito se reexpresa sin perder el valor por unidad.
   - **Facturas:** en la columna «U. / bulto» de un producto vinculado aparecen **Display ×N** y **Bulto ×M** para elegir con un toque cómo viene la línea.
   - **Carga masiva (CSV/Excel):** cada fila de un producto con display o bulto permite interpretar la cantidad como unidades, **displays** o bultos.
-- **Código de cada presentación** (requiere `202611060009_product_presentation_codes.sql`): en la planilla, **Más datos** de cada fila tiene el código del display (EAN-13), el del bulto (DUN-14) y los bultos por pallet; la planilla también controla que no se repitan entre filas. En la ficha completa, «Presentación y avisos» agrupa **Unidad** (usa el código del producto, EAN), **Display** (unidades y código EAN-13) y **Bulto** (unidades, código DUN-14 y **bultos por pallet**). Avisa, sin bloquear, si el código no tiene 13/14 dígitos o el dígito verificador no coincide. Un código de display o bulto no puede repetirse en otro producto ni en otra presentación del mismo; el código de la unidad puede repetirse entre productos como antes.
+- **Código de cada presentación** (requiere `202611060009_product_presentation_codes.sql`): en **Más datos → Presentaciones** de cada fila van el código del display (EAN-13), el del bulto (DUN-14) y los bultos por pallet; la unidad usa el código de la fila (EAN). La planilla también controla que no se repitan entre filas. Avisa, sin bloquear, si el código no tiene 13/14 dígitos o el dígito verificador no coincide. Un código de display o bulto no puede repetirse en otro producto ni en otra presentación del mismo; el código de la unidad puede repetirse entre productos como antes.
   - Al cargar una **factura**, un **remito** o un **CSV**, si el código del renglón es el del display o el DUN del bulto, se vincula ese producto y la cantidad se pasa a unidades con el contenido de esa presentación (por encima de lo que sugiera la IA). Sin el contenido cargado, el código no convierte.
   - En **Vender** solo se escanea la unidad: el código de un display o bulto avisa de qué producto es. La búsqueda del catálogo también encuentra por esos códigos.
   - Con inventario por sucursal, la ficha ahora también guarda display, códigos, pallet, redondeo y «sin precio» (antes la sucursal rechazaba esos campos).
 - **Precio:** sale del costo por unidad, la **Ganancia %** (precargada con la del comercio) y el redondeo. **Poner precio manual**, en «Más datos», lo pide con confirmación. En edición, los productos que ya eran manuales siguen así hasta tocar **Calcular por costo**.
-- **Más datos** (flecha de cada fila): marca, proveedor y su código, vencimiento, uso (para vender o solo insumo), unidad de venta, emoji y redondeo propio.
+- **Más datos** (flecha de cada fila): presentaciones, etiquetas (separadas por coma), marca, proveedor y su código, vencimiento, uso (para vender o solo insumo), unidad de venta, emoji y redondeo propio.
 - **Como en Excel:** Enter y las flechas ↑/↓ pasan a la misma columna de la fila de abajo o de arriba. El lector de códigos salta solo al nombre. Escribir en la última fila agrega otra vacía. Un código que está en el catálogo global completa nombre, marca y categoría si la fila está vacía.
 - **Guardar:** valida cada fila (nombre, código único, categoría, contenido de la presentación y precio) y marca en rojo las que tienen errores. Cada fila se guarda con la misma lógica de la ficha (sucursal de stock, precio por costo y permisos). Si alguna falla, quedan en la planilla solo las que hay que corregir. En edición se guardan solo las filas que cambiaron, resaltadas. El stock no se edita acá: se usan Reponer o el conteo. Los combos no aparecen, porque su costo sale de los componentes.
 

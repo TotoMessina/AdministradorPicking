@@ -83,7 +83,7 @@ export function AiAssistantWidget({
         ];
       case "cash":
         return [
-          "Resumen del turno actual",
+          "Resumen de la caja abierta",
           "¿Cómo vienen los cobros en efectivo vs QR?",
           "¿Hay diferencias de caja?",
           "Análisis de movimientos del día",

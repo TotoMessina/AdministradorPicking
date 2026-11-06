@@ -207,8 +207,8 @@ export function StockCount({ store, branches, products, categories, run, busy, a
   const openCounts = counts.filter(row => row.status === 'open');
 
   return <section className="retail-panel stock-count" aria-labelledby="stock-count-title">
-    <div className="section-heading"><div><h2 id="stock-count-title"><ClipboardList size={20} aria-hidden="true" /> Conteo físico</h2>
-      <p>Contá lo que hay en una sucursal o en el depósito y ajustá las diferencias con su motivo.</p></div>
+    <div className="section-heading"><div><h2 id="stock-count-title"><ClipboardList size={20} aria-hidden="true" /> Contar stock</h2>
+      <p>Contá lo que hay de verdad en un local o en el depósito. Si no coincide con el sistema, se corrige y queda anotado el motivo.</p></div>
       {!current && <button type="button" className="secondary-button" disabled={disabled || loading} onClick={() => void load()}><RefreshCw size={15} /> Actualizar</button>}
     </div>
     {loadError && <p role="alert" className="error-banner">{loadError}</p>}

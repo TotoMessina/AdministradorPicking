@@ -243,8 +243,8 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
                     className="price-action-link price-action-add"
                     disabled={busy}
                     onClick={() => start(l.id)}
-                    aria-label={`Crear lista derivada desde ${l.name}`}
-                    title={`Crear una lista derivada con base en ${l.name}`}
+                    aria-label={`Crear una lista que salga de ${l.name}`}
+                    title={`Crear una lista que salga de ${l.name}`}
                   >
                     <Plus size={13} aria-hidden="true" />
                     <span>Derivar lista</span>
@@ -265,7 +265,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
       <button type="button" className="primary-button" disabled={busy || !primary} onClick={() => start(primary!.id)}><Plus size={16} aria-hidden="true" /> Crear lista</button>
     </div>
     <div className={`price-lists-layout${active ? ' editing' : ''}`}>
-      <div className="price-flow" aria-label="Orígenes y listas derivadas">
+      <div className="price-flow" aria-label="Listas y de cuál sale cada una">
         <div className="price-flow-tree-header">
           <span className="price-flow-tree-title">Estructura jerárquica de listas</span>
           <span className="price-flow-tree-subtitle">Elegí cualquier lista para consultar o fijar sus precios</span>
@@ -297,7 +297,7 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
               <span className="price-viewing-badge">Viendo costos</span>
             )}
             {primary && (
-              <button type="button" className="price-action-link price-action-add" disabled={busy} onClick={() => start('cost')} aria-label="Crear lista derivada desde Costo" title="Crear una lista con un porcentaje sobre el costo">
+              <button type="button" className="price-action-link price-action-add" disabled={busy} onClick={() => start('cost')} aria-label="Crear una lista que salga del costo" title="Crear una lista con un porcentaje sobre el costo">
                 <Plus size={13} aria-hidden="true" />
                 <span>Derivar lista</span>
               </button>
@@ -358,9 +358,10 @@ export function PriceListSettings({ storeId, lists, overrides, products, categor
     </section>
     </div>
     <details className="price-list-guide"><summary><CircleHelp size={14} aria-hidden="true" /> Cómo se calcula</summary>
-      <p>Los ajustes se aplican en cadena: general → categoría → marca → producto. $100 +50% −10% = $135, redondeando a centavos en cada paso.</p>
-      <p>Un precio fijo reemplaza los ajustes de esa lista. Dejalo vacío para volver al cálculo. Las derivadas parten del resultado de su origen.</p>
-      <p>Costo es solo consulta, pero podés derivar listas desde él: Costo +30% sobre $100 da $130 y se recalcula al cambiar el costo. La principal usa el costo y porcentaje del producto; los precios manuales anteriores se conservan. Las demás listas heredan el precio de su origen. Una lista activa de sucursal tiene prioridad allí; en otro caso se usa la principal. No se modifican tickets ni carritos iniciados.</p>
+      <p><strong>La Principal</strong> es tu precio de siempre: sale del costo de cada producto más su ganancia.</p>
+      <p><strong>Las otras listas salen de una anterior</strong> con un porcentaje. Ejemplo: «Mayorista» = Principal −10%. Si cambia la Principal, cambia sola. Podés ajustar por categoría, marca o producto: se aplican en ese orden ($100 +50% −10% = $135).</p>
+      <p><strong>Un precio fijo</strong> deja ese producto quieto en esa lista; borralo para que vuelva a calcularse.</p>
+      <p><strong>En cada local</strong> se vende con la lista que tenga elegida; si no tiene ninguna, con la Principal. Cambiar una lista no toca tickets ya hechos ni ventas a medio cobrar.</p>
     </details>
   </section>;
 }
@@ -437,13 +438,13 @@ function PriceListEditor({ session, active, percentageFocus, lists, overrides, p
         if (/sucursal|local|branch/i.test(message)) branchError(message); else setError(message);
         throw err;
       }
-    }, session.existing ? 'Lista actualizada; sus derivadas usan las nuevas reglas' : 'Lista creada')) onSaved(); }
+    }, session.existing ? 'Lista actualizada; las listas que salen de ella también se actualizaron' : 'Lista creada')) onSaved(); }
     finally { pending.current = false; setSaving(false); }
   }}>
     <div className="price-editor-heading"><h3 ref={title} tabIndex={-1}>{session.existing ? `Editar ${session.draft.name}` : 'Nueva lista'}</h3>{session.existing && !draft.is_primary && <button ref={deleteButton} type="button" className="text-button danger-text" disabled={busy || saving || deleting || !active || deleteOpen} onClick={() => { setDeleteError(''); setDeleteOpen(true); }}><Trash2 size={14} aria-hidden="true" /> Eliminar</button>}</div>
     <section className="price-list-delete-confirm" hidden={!deleteOpen} aria-label={`Eliminar ${session.draft.name}`}>
       <h4 ref={deleteTitle} tabIndex={-1}>¿Eliminar «{session.draft.name}»?</h4>
-      {children.length ? <><p>Cambiá primero el origen de estas listas:</p><ul>{children.map(child => <li key={child.id}><button type="button" className="text-button" disabled={busy || deleting || !active} onClick={() => onEditDerived(child)}><Pencil size={13} aria-hidden="true" /> {child.name}</button></li>)}</ul></> : <>
+      {children.length ? <><p>Estas listas salen de la que querés borrar. Primero hacé que salgan de otra:</p><ul>{children.map(child => <li key={child.id}><button type="button" className="text-button" disabled={busy || deleting || !active} onClick={() => onEditDerived(child)}><Pencil size={13} aria-hidden="true" /> {child.name}</button></li>)}</ul></> : <>
         <p>Las ventas guardadas se conservan. Se descarta esta edición.</p>
         {session.draft.active && session.draft.branch_id && <p className="price-delete-impact">En {branches.find(b => b.id === session.draft.branch_id)?.name || 'la sucursal asignada'}, las nuevas ventas usarán la lista principal.</p>}
       </>}
@@ -478,7 +479,7 @@ function PriceListEditor({ session, active, percentageFocus, lists, overrides, p
         </fieldset>
       </details>}
       {error && <p className="error-banner" role="alert">{error}</p>}
-      {unavailableParents.size > 1 && <small className="price-save-impact">También actualiza {unavailableParents.size - 1} listas derivadas.</small>}
+      {unavailableParents.size > 1 && <small className="price-save-impact">También actualiza {unavailableParents.size - 1} listas que salen de esta.</small>}
       <div className="price-list-form-actions"><button className="primary-button">{saving ? 'Guardando…' : 'Guardar lista'}</button><button type="button" className="secondary-button" onClick={onCancel}>Cancelar</button></div>
     </fieldset></div>
   </form>;

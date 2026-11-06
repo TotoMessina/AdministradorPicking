@@ -184,7 +184,7 @@ export function CashDesk({
       const sortedProducts = Array.from(productMap.values()).sort((a, b) => b.qty - a.qty);
       const topProduct = sortedProducts[0]
         ? `${sortedProducts[0].name} (${sortedProducts[0].qty} u., ${money(sortedProducts[0].subtotal)})`
-        : "Sin productos vendidos en este turno";
+        : "Sin productos vendidos desde que abriste la caja";
 
       // 2. Dominant payment method
       const methodTotals: Record<string, { count: number; total: number }> = {};
@@ -257,7 +257,7 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
       setAiError(
         err instanceof Error
           ? err.message
-          : "No se pudo completar el análisis del turno."
+          : "No se pudo completar el análisis de la caja."
       );
     } finally {
       if (!controller.signal.aborted) setIsAiLoading(false);

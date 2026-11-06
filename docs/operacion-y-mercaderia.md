@@ -177,7 +177,7 @@ Queda pendiente comprobar navegador, teclado/lector real, móvil, Supabase/RLS, 
 
 ## Clientes y cuenta corriente
 
-**Clientes** está en el menú de computadora y en Inicio. Cada cliente tiene nombre, teléfono y un límite de deuda opcional; sin límite, no se controla. En **Datos para facturar (opcional)** se cargan razón social, CUIT/CUIL/DNI, condición frente al IVA, domicilio y email. El CUIT y el CUIL llevan 11 números y el DNI 7 u 8. Las facturas todavía no usan estos datos y siguen saliendo a consumidor final. Dueño, administrador o quien tiene el permiso "Clientes y límites de fiado" carga y edita clientes. Un cliente que no debe fiarse más se marca así y conserva su saldo.
+**Clientes** está en el menú de computadora y en Inicio. Arriba, **¿Para qué sirven los clientes?** explica el uso en tres pasos (cargarlo, fiarle en Vender con Fiado o Mixto, cobrarle desde su nombre); se ve abierto mientras no hay clientes y después plegado. Un resumen muestra cuánto te deben, cuánto tienen a favor y cuántos clientes hay. Los clientes se crean y editan en planilla: **Nuevo cliente** o **Editar en planilla** (y **Editar datos** dentro de un cliente abre solo su fila). Cada fila tiene nombre, teléfono, límite de fiado opcional (vacío, sin límite), si se le fía, el saldo (solo lectura) y documento e IVA. En la flecha de la fila (**Datos para facturar**) se cargan razón social, CUIT/CUIL/DNI, condición frente al IVA, domicilio y email. El CUIT y el CUIL llevan 11 números y el DNI 7 u 8. Las facturas todavía no usan estos datos y siguen saliendo a consumidor final. Dueño, administrador o quien tiene el permiso "Clientes y límites de fiado" carga y edita clientes. Un cliente que no debe fiarse más se marca así y conserva su saldo.
 
 - **Cliente en Vender:** arriba de los medios de pago se elige el cliente y se ve si debe, tiene a favor o está al día. La venta queda en su cuenta solo si se cobra con **Fiado**.
 - **Fiar:** **Fiado** exige el cliente y muestra cómo queda su saldo con la venta. Si tiene plata a favor, la venta se descuenta de ahí.
@@ -193,7 +193,7 @@ Queda pendiente comprobar navegador, teclado/lector real, móvil, Supabase/RLS, 
 
 En http://localhost:3001/, con un comercio de pruebas y la migración aplicada. No hacer ventas de prueba en producción.
 
-1. **Cargar un cliente:** en Clientes, crear "Ana" con límite $500. Esperado: aparece "Al día".
+1. **Cargar un cliente:** en Clientes → Nuevo cliente, escribir "Ana" en la fila vacía con límite $500 y Guardar. Esperado: se abre su cuenta "Al día".
 2. **Fiar:** en Vender, cargar $300, elegir **Fiado** y elegir Ana. Esperado: muestra "queda en $300"; el botón dice "Fiar" y el efectivo esperado de la caja no cambia.
 3. **Límite:** fiar otros $300 a Ana. Esperado: aviso de límite y, como administrador, la opción "Fiar igual". Como cajero no deja.
 4. **Cobro parcial en efectivo:** en Clientes → Ana, cobrar $250 en efectivo con la caja abierta. Esperado: saldo menor y efectivo esperado +$250.
@@ -288,7 +288,7 @@ La imagen admite hasta 10 MB y formatos habituales de foto. Si el navegador no p
 
 ### Encargado
 
-En **Productos y stock → Catálogo y stock**, el panel **Remitos pendientes** muestra fecha, sucursal, notas, texto OCR, miniatura privada y artículos. Se cargan diez remitos por vez; **Mostrar más** permite continuar. El menú de Productos/Catálogo muestra la cantidad pendiente y la actualiza cada 30 segundos con la app visible, al recuperar foco/conexión y mediante **Actualizar remitos**.
+En **Productos y stock → Productos**, el panel **Remitos pendientes** muestra fecha, sucursal, notas, texto OCR, miniatura privada y artículos. Se cargan diez remitos por vez; **Mostrar más** permite continuar. El menú de Productos/Catálogo muestra la cantidad pendiente y la actualiza cada 30 segundos con la app visible, al recuperar foco/conexión y mediante **Actualizar remitos**.
 
 Antes de aprobar se pueden buscar/cambiar productos, corregir cantidades, quitar líneas y agregar artículos de una foto sin analizar. Todos los renglones deben quedar vinculados a productos activos del comercio. La cantidad siempre se expresa en unidades individuales, incluso si la foto factura displays.
 
@@ -320,7 +320,7 @@ Las fotos son referencias privadas sin tokens. Storage comprueba pertenencia al 
 
 ## Transferencias
 
-**Productos y stock → Transferencias** reúne un mapa de sucursales y depósito, las pestañas **Productos / Dinero** y su historial. Elegir un nodo o un recorrido filtra el historial; no cambia el origen de un borrador existente. Las líneas punteadas son conexiones posibles, no movimientos realizados. Las flechas y sus totales corresponden al historial cargado, no a todo el historial del comercio. Se consultan 100 registros nuevos por página y se muestran 25 por vez; **Cargar historial anterior** recupera páginas adicionales. Los aportes/retiros externos aparecen en el historial de dinero, sin inventar otra sucursal en el mapa.
+**Productos y stock → Mover entre locales** reúne un mapa de sucursales y depósito, las pestañas **Productos / Dinero** y su historial. Elegir un nodo o un recorrido filtra el historial; no cambia el origen de un borrador existente. Las líneas punteadas son conexiones posibles, no movimientos realizados. Las flechas y sus totales corresponden al historial cargado, no a todo el historial del comercio. Se consultan 100 registros nuevos por página y se muestran 25 por vez; **Cargar historial anterior** recupera páginas adicionales. Los aportes/retiros externos aparecen en el historial de dinero, sin inventar otra sucursal en el mapa.
 
 Al crear una transferencia de productos se proponen el origen con más stock y, si hay una sola opción, el destino. Los productos se muestran en una planilla con desplazamiento: cada encabezado ordena esa columna y la cantidad se escribe en la celda **A transferir**; Enter y las flechas pasan a la fila siguiente o anterior, y **Todo** lleva lo disponible. **Faltan en destino** reúne lo que está en su stock mínimo o por debajo, **Agregar lo que falta** carga esas cantidades y **Elegidos** muestra lo cargado. También se puede filtrar por categoría, buscar o escanear. **Transferir ahora** registra y confirma en un paso; **Dejar pendiente** espera una confirmación.
 
@@ -386,7 +386,7 @@ Comprobación de código ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, sal
 
 ## Plata en camino y conciliación
 
-**Plata en camino.** En **Productos y stock → Transferencias → Plata**, enviar plata entre una sucursal y el depósito, o entre sucursales, la descuenta del origen en ese momento. Queda en **Plata en camino** hasta que alguien confirma:
+**Plata en camino.** En **Productos y stock → Mover entre locales → Plata**, enviar plata entre una sucursal y el depósito, o entre sucursales, la descuenta del origen en ese momento. Queda en **Plata en camino** hasta que alguien confirma:
 
 - **Llegó todo:** entra al destino.
 - **Llegó otro importe:** entra lo que llegó. Hay que escribir qué pasó, y el faltante queda en el historial.
@@ -404,17 +404,18 @@ Un envío sin confirmar después de 24 horas se marca para revisar. Ingresos y s
 - **Retiro desde la caja con origen:** en **Caja → Movimiento → Retiro**, quien tiene «Ver y mover la plata» ve **Sale de**: «Efectivo de esta caja» (como siempre, descuenta del esperado del turno) o una cuenta con su saldo. Desde una cuenta no cambia el efectivo de la caja: se registra como salida de la cuenta, con la categoría y el proveedor en el motivo, y no se adjunta comprobante (anotar el número de operación). No deja retirar más del saldo de la cuenta. Sin la actualización 202611040006, Dinero lo avisa y el retiro sigue siendo de efectivo.
 - Lo usan quienes tienen «Ver y mover la plata» (`manage_funds`). En Actividad, los movimientos con una cuenta todavía muestran la sucursal como «Sucursal anterior».
 
-**Conciliación.** **Ganancias → Conciliación** es un informe para el contador: muestra lo cobrado por QR, débito, crédito y transferencias en el período, y el contador lo concilia con los extractos. Acá no se cargan acreditaciones ni comisiones. Requiere `202611040004_reconciliation_totals.sql`.
+**Conciliación.** **Ganancias → Para el contador** es un informe para el contador: muestra lo cobrado por QR, débito, crédito y transferencias en el período, y el contador lo concilia con los extractos. Acá no se cargan acreditaciones ni comisiones. Requiere `202611040004_reconciliation_totals.sql`.
 
 - **Por medio:** ventas (con cantidad), devoluciones y anulaciones devueltas por ese medio, cobros de fiado y el **total cobrado**. En una venta mixta, cada medio cuenta solo su parte. El efectivo no entra, porque se controla en el arqueo de cada caja.
 - **Ver movimientos:** lista lo que forma el total de un medio, y la suma coincide con la tarjeta. Muestra fecha, tipo, ticket, caja, importe, total de la venta y quién la hizo; las devoluciones van en negativo y con su motivo, y los cobros de fiado con el nombre del cliente. **Por día** suma cada día. Se puede buscar por ticket, caja o persona y descargar ese medio en CSV. En pantalla muestra hasta 2.000 movimientos.
 - **Descargar Excel para el contador:** un `.xlsx` con tres hojas. **Resumen** trae el período y los totales por medio y en general. **Por día** tiene una columna por medio. **Movimientos** incluye todos los medios, con filtros, fecha y hora de Argentina e importes con formato de moneda. Incluye hasta 20.000 movimientos por medio; si hay más, el Resumen lo avisa en rojo y conviene exportar un período más corto.
 
 - **Cuentas y retiros** (requiere `202611040007_money_movements_report.sql`): debajo de los medios de pago se ven las **cuentas**, con lo cobrado en el período y el saldo actual. Sin cuentas, indica dónde crearlas. También aparecen los **retiros y movimientos de plata** con **Sale de** y **Va a**: efectivo de cada caja (retiros, pagos a proveedor e ingresos del turno), fondos de sucursal y depósito, y cuentas. Arriba se resume cuánto se retiró de cada origen. Se filtra por tipo (retiros, ingresos, envíos) y por origen (efectivo de las cajas, cuentas o una ubicación). El Excel suma las hojas **Cuentas** y **Retiros y movimientos**. Los cierres automáticos de caja no se repiten acá, porque ya están en el arqueo.
+- **Cómo se lee:** arriba, **Este mes** / **Mes pasado** o fechas a mano y tres números: lo cobrado sin efectivo, lo que salió de cajas y cuentas, y lo pasado entre cuentas propias. Debajo, **1. Cuánto cobraste por cada medio** y **2. Tus cuentas y lo que salió de cada lugar**. «¿Qué hace el contador con esto?» explica que compara esos totales con los resúmenes del banco y la billetera.
 - **Entre cuentas propias:** junto a QR, tarjetas y transferencias, una tarjeta resume los envíos entre cuentas propias o entre una cuenta y el efectivo de sucursal o depósito (depósitos, pases entre banco y billetera, retiros a efectivo propio): cantidad, en camino y total. No se suman al cobrado. **Ver movimientos** filtra la tabla de abajo a esos envíos. No es un medio de pago: se registra en **Transferencias → Dinero**.
 - **Recibos** (requiere `202611060010_movement_receipts.sql`): cada ingreso o retiro de caja y cada ingreso, salida o envío de **Dinero** recibe al guardarse un número correlativo por comercio y serie: **Recibo de ingreso**, **Recibo de pago** y **Constancia de movimiento entre cuentas**. Lo numera la base, también para lo sincronizado sin conexión. Se abre e imprime (58/80 mm) desde la lista de ingresos y retiros de la caja y desde el historial de Dinero, con importe en letras, concepto, origen/destino, quién lo registró y firma. No es fiscal. Los movimientos anteriores y los cierres automáticos de caja no llevan número.
 
-**Liquidaciones anteriores y comisiones.** Las liquidaciones que se hayan cargado antes de este cambio se conservan en la base y sus comisiones siguen restándose en «Resultado del mes». Desde ahora no se cargan nuevas: si querés que las comisiones de cobro figuren en Ganancias, cargalas como gasto.
+**Liquidaciones anteriores y comisiones.** Las liquidaciones que se hayan cargado antes de este cambio se conservan en la base y sus comisiones siguen restándose en «Este mes». Desde ahora no se cargan nuevas: si querés que las comisiones de cobro figuren en Ganancias, cargalas como gasto.
 
 ### Guía de Pruebas — plata en camino y conciliación
 
@@ -424,10 +425,10 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 2. **Llegó otro importe:** tocar **Llegó otro importe**, poner 50 sin nota. Esperado: pide la nota. Con nota, el depósito suma 50 y el historial muestra el faltante de 0.
 3. **No llegó:** enviar 00 y tocar **No llegó** con un motivo. Esperado: los 00 vuelven a la sucursal.
 4. **Arqueo a ciegas:** como cajero, cerrar la caja. Esperado: sigue sin ver efectivo esperado, fondos ni envíos.
-5. **Conciliación:** vender por QR y débito, una venta mixta efectivo + QR y devolver una venta por QR. En **Ganancias → Conciliación**, esperado: QR con ventas (cantidad), devolución en negativo y total cobrado. La mixta suma solo su parte de QR. No hay formulario de liquidaciones ni «Falta acreditar».
+5. **Conciliación:** vender por QR y débito, una venta mixta efectivo + QR y devolver una venta por QR. En **Ganancias → Para el contador**, esperado: QR con ventas (cantidad), devolución en negativo y total cobrado. La mixta suma solo su parte de QR. No hay formulario de liquidaciones ni «Falta acreditar».
 6. **Movimientos:** tocar **Ver movimientos** en QR. Esperado: la suma es igual al total cobrado de la tarjeta. **Por día** muestra un renglón por día.
 7. **Excel para el contador:** tocar **Descargar Excel para el contador**. Esperado: tres hojas (Resumen, Por día, Movimientos). Los totales del Resumen coinciden con las tarjetas, las fechas tienen la hora de Argentina y los importes se pueden sumar en Excel.
-8. **Comisiones anteriores:** si había liquidaciones cargadas, «Resultado del mes» las sigue restando. En un mes sin liquidaciones no aparece la línea de comisiones.
+8. **Comisiones anteriores:** si había liquidaciones cargadas, «Este mes» las sigue restando. En un mes sin liquidaciones no aparece la línea de comisiones.
 9. **Celular:** las tarjetas y los botones se apilan, y la tabla de movimientos se desplaza dentro de su recuadro.
 10. **Cuenta nueva:** en Transferencias → Dinero, tocar **Cuenta**, crear «Mercado Pago» como billetera con QR y Transferencias. Esperado: aparece en la tabla con saldo $0 y «cobra QR, Transferencias».
 11. **Cobros automáticos:** vender $1.000 por QR y una mixta con $500 por transferencia. Esperado: el saldo de Mercado Pago sube $1.500, con «$1.500 cobrados». Devolver una venta por QR: el saldo baja.
@@ -435,4 +436,4 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 13. **Reasignar un medio:** crear «Banco» con QR. Esperado: pide confirmar que QR pasa desde ahora; lo cobrado antes queda en Mercado Pago y las ventas nuevas por QR suman al Banco.
 14. **Archivar:** intentar archivar una cuenta con saldo. Esperado: pide dejarla en cero antes. Con saldo cero, se archiva y desaparece de la tabla.
 15. **Retiro desde la caja por cuenta:** en Caja → Movimiento → Retiro, elegir **Sale de: Mercado Pago**, $400, motivo «Retiro del dueño». Esperado: el saldo de Mercado Pago baja $400 y el efectivo esperado del turno no cambia. Con «Efectivo de esta caja», el esperado baja como siempre.
-16. **Conciliación:** en Ganancias → Conciliación, esperado: tarjetas de cuentas con lo cobrado en el período y el saldo. En «Cuentas y retiros», el retiro del paso 15 figura «Sale de: Mercado Pago» y uno de efectivo «Sale de: Efectivo · Caja 1». El resumen muestra cuánto se retiró de cada origen. El Excel trae las hojas Cuentas y Retiros y movimientos.
+16. **Conciliación:** en Ganancias → Para el contador, esperado: tarjetas de cuentas con lo cobrado en el período y el saldo. En «Cuentas y retiros», el retiro del paso 15 figura «Sale de: Mercado Pago» y uno de efectivo «Sale de: Efectivo · Caja 1». El resumen muestra cuánto se retiró de cada origen. El Excel trae las hojas Cuentas y Retiros y movimientos.

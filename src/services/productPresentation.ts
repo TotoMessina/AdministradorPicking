@@ -1,56 +1,51 @@
 /**
  * Presentaciones de compra: unidad, display o bulto. El stock y el costo se guardan siempre por unidad;
- * la presentación solo traduce «2 bultos de 4 displays × 12» a 96 unidades y su costo a costo por unidad.
+ * la presentación solo traduce «2 bultos de 48» a 96 unidades y su costo a costo por unidad.
+ * Display y bulto se cargan por separado, cada uno con cuántas unidades trae: un bulto con displays
+ * trae un múltiplo de las unidades del display (4 displays de 12 = bulto de 48).
  */
 export type Presentation = 'unit' | 'display' | 'pack';
 export const presentationLabels: Record<Presentation, string> = { unit: 'Unidad', display: 'Display', pack: 'Bulto' };
 
-export interface PresentationSizes { presentation: Presentation; displaysPerPack: string; unitsPerDisplay: string }
+/** `presentation` es cómo se compra: la cantidad y el costo de la fila se escriben por esa presentación. */
+export interface PresentationSizes { presentation: Presentation; packUnits: string; displayUnits: string }
 
-const whole = (value: string) => { const number = Number(value); return Number.isInteger(number) && number >= 1 ? number : null; };
+const whole = (value: string) => { const number = Number(value); return value.trim() && Number.isInteger(number) && number >= 1 ? number : null; };
 
-/** Unidades que trae una presentación, o null si falta completar el contenido. Bulto sin displays: 1 display por bulto. */
+/** Unidades que trae la presentación con la que se compra, o null si falta completar cuántas trae. */
 export function unitsIn(sizes: PresentationSizes): number | null {
   if (sizes.presentation === 'unit') return 1;
-  const perDisplay = whole(sizes.unitsPerDisplay);
-  if (sizes.presentation === 'display') return perDisplay;
-  const displays = sizes.displaysPerPack.trim() ? whole(sizes.displaysPerPack) : 1;
-  return displays && perDisplay ? displays * perDisplay : null;
+  return whole(sizes.presentation === 'display' ? sizes.displayUnits : sizes.packUnits);
 }
 
 /** Lo que se guarda en el producto: unidades por bulto y por display. */
-export function storedSizes(sizes: PresentationSizes, previous?: { pack_size?: number | null; display_size?: number | null }) {
-  const perDisplay = whole(sizes.unitsPerDisplay);
-  if (sizes.presentation === 'unit') return { pack_size: previous?.pack_size ?? null, display_size: previous?.display_size ?? null };
-  if (sizes.presentation === 'display') {
-    // Si ya tenía bulto y el display nuevo no entra exacto, el bulto se descarta para no dejar datos incoherentes.
-    const pack = previous?.pack_size && perDisplay && previous.pack_size % perDisplay === 0 ? previous.pack_size : null;
-    return { pack_size: pack, display_size: perDisplay };
-  }
-  const displays = sizes.displaysPerPack.trim() ? whole(sizes.displaysPerPack) : 1;
-  return { pack_size: displays && perDisplay ? displays * perDisplay : null, display_size: displays && displays > 1 ? perDisplay : null };
+export function storedSizes(sizes: PresentationSizes) {
+  return { pack_size: whole(sizes.packUnits), display_size: whole(sizes.displayUnits) };
+}
+
+/** Error si el bulto no se arma con displays enteros (la base lo exige). */
+export function sizesError(sizes: PresentationSizes) {
+  const pack = whole(sizes.packUnits), display = whole(sizes.displayUnits);
+  return pack && display && pack % display !== 0 ? `El bulto (${pack} u.) no se arma con displays de ${display} u.: tiene que ser un múltiplo de ${display}.` : '';
 }
 
 /** Presentación con la que se muestra un producto ya guardado: la más grande que tenga. */
 export function sizesOf(product: { pack_size?: number | null; display_size?: number | null }): PresentationSizes {
-  const pack = product.pack_size && product.pack_size > 1 ? product.pack_size : null;
+  const pack = product.pack_size && product.pack_size >= 1 ? product.pack_size : null;
   const display = product.display_size && product.display_size >= 1 ? product.display_size : null;
-  if (pack && display && pack % display === 0) return { presentation: 'pack', displaysPerPack: String(pack / display), unitsPerDisplay: String(display) };
-  if (pack) return { presentation: 'pack', displaysPerPack: '1', unitsPerDisplay: String(pack) };
-  if (display && display > 1) return { presentation: 'display', displaysPerPack: '', unitsPerDisplay: String(display) };
-  return { presentation: 'unit', displaysPerPack: '', unitsPerDisplay: '' };
+  return { presentation: pack && pack > 1 ? 'pack' : display && display > 1 ? 'display' : 'unit', packUnits: pack ? String(pack) : '', displayUnits: display ? String(display) : '' };
 }
 
 /** Costo por unidad con centavos, como lo guarda la base. */
 export const unitCost = (cost: number, units: number) => Math.round((cost / units) * 100) / 100;
 
-/** Texto corto del contenido, por ejemplo «4 displays × 12 u. = 48 u.». */
+/** Texto corto del contenido, por ejemplo «48 u. por bulto (4 displays × 12 u.)». */
 export function describe(sizes: PresentationSizes) {
   const units = unitsIn(sizes);
   if (sizes.presentation === 'unit' || !units) return '';
   if (sizes.presentation === 'display') return `${units} u. por display`;
-  const displays = Number(sizes.displaysPerPack || 1);
-  return displays > 1 ? `${displays} displays × ${sizes.unitsPerDisplay} u. = ${units} u.` : `${units} u. por bulto`;
+  const display = whole(sizes.displayUnits);
+  return display && display > 1 && units % display === 0 && units > display ? `${units} u. por bulto (${units / display} displays × ${display} u.)` : `${units} u. por bulto`;
 }
 
 /** Código de barras GTIN (EAN-8/EAN-13/DUN-14) con dígito verificador correcto. */
