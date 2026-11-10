@@ -132,3 +132,5 @@
 .money-account-methods > span { flex-basis: 100%; font-size: 13px; font-weight: 600; }
 .money-account-method { display: inline-flex; align-items: center; gap: 6px; min-height: 36px; font-size: 13px; }
 .location-transfers .section-heading .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+.inventory-branch-context.is-compact { display: inline-flex; align-items: center; gap: 8px; margin: 0; font-size: 13px; color: var(--tone-muted); }
+.inventory-branch-context.is-compact select { width: auto; min-height: 36px; }

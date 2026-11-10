@@ -25,14 +25,9 @@ import { CatalogStockAi } from './CatalogStockAi';
 /** Planilla de productos: arma el estado con useCatalogEditor y compone sus vistas. */
 export function CatalogEditor(props: CatalogEditorProps) {
   const s = useCatalogEditor(props);
-  const { store, categories, products, run, busy, pendingRemitos, pendingRemitoError, branches, onRefreshRemitos, onReviewedRemito, guided, active, onInvoiceRequestClosed, notify, editing, stockBranchId, setStockBranchId, operationBranch, adding, editorTrigger, panelRef, setIsBulkPriceModalOpen, costBulk, isInvoiceModalOpen, setIsInvoiceModalOpen, invoiceFromSuppliers, canEditCatalog, can, canRestock, canCompose, canDelete, newCompositeOpen, setNewCompositeOpen, catalogAddOpen, setCatalogAddOpen, historyTarget, evolutionOpen, setEvolutionOpen, evolutionTrigger, closeEvolution, canSeeHistory, openHistory, closeHistory, sheet, setSheet, productEditing, closeCatalogAdd, closeNewComposite, deletionTarget, deletionHistoryOpen, deletionEditing, catalogSearch, closeDeletion, priceTarget, compositionTarget, newCompositionProduct, compositionEditing, closeCompositionEditor, priceEditing, closePriceEditor, startAdd, replenishTarget, isCsvModalOpen, openCsv, openHistoryModal } = s;
+  const { store, categories, products, run, busy, pendingRemitos, pendingRemitoError, branches, onRefreshRemitos, onReviewedRemito, guided, active, onInvoiceRequestClosed, notify, editing, stockBranchId, setStockBranchId, operationBranch, adding, editorTrigger, panelRef, setIsBulkPriceModalOpen, costBulk, isInvoiceModalOpen, setIsInvoiceModalOpen, invoiceFromSuppliers, canEditCatalog, can, canRestock, canCompose, canDelete, newCompositeOpen, setNewCompositeOpen, catalogAddOpen, setCatalogAddOpen, historyTarget, evolutionOpen, setEvolutionOpen, evolutionTrigger, closeEvolution, canSeeHistory, openHistory, closeHistory, sheet, setSheet, productEditing, closeCatalogAdd, closeNewComposite, deletionTarget, deletionHistoryOpen, deletionEditing, catalogSearch, closeDeletion, priceTarget, compositionTarget, newCompositionProduct, compositionEditing, closeCompositionEditor, priceEditing, closePriceEditor, startAdd, replenishTarget, setCompositionTarget, setNewCompositionProduct, isCsvModalOpen, openCsv, openHistoryModal } = s;
   return (
     <div className="retail-panel" ref={panelRef}>
-      {store.branch_inventory_enabled && <label className="inventory-branch-context">Sucursal para ingresos y ajustes
-        <select aria-label="Sucursal donde ingresa o se ajusta el stock" value={stockBranchId} disabled={busy || !active || productEditing || priceEditing || compositionEditing || deletionEditing || !!replenishTarget || isInvoiceModalOpen || isCsvModalOpen} onChange={event => setStockBranchId(event.target.value)}>
-          <option value="" disabled>Elegir sucursal</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-        </select><small>El total del comercio no se duplica. El ajuste se asigna a esta sucursal.</small>
-      </label>}
       <div className="section-heading" hidden={!guided && (productEditing || priceEditing || compositionEditing || deletionEditing)}>
         <div>
           <h2>{guided ? 'Tus productos' : 'Productos e inventario'}</h2>
@@ -41,6 +36,11 @@ export function CatalogEditor(props: CatalogEditorProps) {
           </p>
         </div>
         <div className="catalog-actions-row">
+          {store.branch_inventory_enabled && branches.length > 1 && <label className="inventory-branch-context is-compact" title="Donde entran las reposiciones, facturas y CSV, y donde se asignan los ajustes de stock. El total del comercio no se duplica.">Stock que cargás va a
+        <select aria-label="Sucursal donde ingresa o se ajusta el stock" value={stockBranchId} disabled={busy || !active || productEditing || priceEditing || compositionEditing || deletionEditing || !!replenishTarget || isInvoiceModalOpen || isCsvModalOpen} onChange={event => setStockBranchId(event.target.value)}>
+          <option value="" disabled>Elegir sucursal</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
+        </select>
+      </label>}
           {guided && <button type="button" className="text-button" disabled={busy || !categories.length} onClick={openCsv}>Importar desde CSV / Excel</button>}
           {!guided && (canEditCatalog || canRestock || can('edit_prices')) && <details className="catalog-tools" data-dropdown><summary>Más herramientas</summary><div className="catalog-tools-menu" data-dropdown-menu onClick={e => { if ((e.target as HTMLElement).closest('button')) { const details = e.currentTarget.closest('details'); if (details) details.open = false; } }}>
           {store.depot_enabled && <small>CSV, facturas y remitos ingresan en salón. Para guardarlos en depósito, usá Reponer.</small>}
@@ -124,6 +124,7 @@ export function CatalogEditor(props: CatalogEditorProps) {
       {canSeeHistory && historyTarget && <ProductPriceHistory key={historyTarget.id} storeId={store.id} product={historyTarget} onClose={closeHistory} />}
       {canEditCatalog && sheet && <ProductSheet key={sheet.mode} mode={sheet.mode} store={store} products={products} categories={categories}
         initial={sheet.mode === 'edit' ? sheet.products : undefined} busy={busy} run={run} operationBranch={operationBranch}
+        onEditComposition={product => { setSheet(null); setNewCompositionProduct(false); setCompositionTarget(product); }}
         onClose={() => { setSheet(null); requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); }); }} />}
       {canEditCatalog && catalogAddOpen && <CatalogProductAdder key={store.id} storeId={store.id} store={store} products={products} categories={categories} busy={busy} run={run} active={active} onClose={closeCatalogAdd} />}
       {canEditCatalog && canCompose && newCompositeOpen && <NewCompositeEditor key={store.id} storeId={store.id} priceStep={store.price_rounding ?? 0} defaultMarkup={store.default_markup} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeNewComposite} />}
@@ -170,9 +171,11 @@ export function CatalogEditor(props: CatalogEditorProps) {
         />
       )}
 
-      <CatalogList s={s} />
       <div hidden={guided || productEditing || priceEditing || compositionEditing || deletionEditing}>
       {!guided && can('review_remitos') && <PendingReplenishments store={store.id} branchInventory={!!store.branch_inventory_enabled} records={pendingRemitos} error={pendingRemitoError} branches={branches} products={products} run={run} busy={busy} onRefresh={onRefreshRemitos} onReviewed={onReviewedRemito} />}
+      </div>
+      <CatalogList s={s} />
+      <div hidden={guided || productEditing || priceEditing || compositionEditing || deletionEditing}>
       <CatalogStockAi s={s} />
 
       </div>

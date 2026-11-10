@@ -163,7 +163,7 @@ La migración `supabase/migrations/202610260003_billing_fields.sql` (consolidada
 
 - **Panel de monitoreo en Mi Comercio ([BillingSettings.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/BillingSettings.tsx))**:
   - Al tener la facturación activa, muestra un monitor en vivo con el Punto de Venta fiscal, la denominación y número del último comprobante emitido correlativo con su fecha/hora, y el estado de la cola de emisión (comprobantes pendientes o con error).
-  - Consulta los contadores solo al estar visible Mi comercio → Configuración. Al salir, cancela las solicitudes del monitor; los borradores fiscales siguen montados. El estado de credenciales tampoco se consulta desde esa pantalla oculta.
+  - Consulta los contadores solo al estar visible Mi comercio → Ventas y precios. Al salir, cancela las solicitudes del monitor; los borradores fiscales siguen montados. El estado de credenciales tampoco se consulta desde esa pantalla oculta.
   - Un error o una espera de más de 15 segundos muestra **Reintentar consulta**. Los errores devueltos por Supabase y los contadores ausentes no se convierten en cero ni en “Al día”. Reintentar actualiza únicamente la lectura del monitor; no emite facturas ni cambia estados fiscales.
   - Guía manual pendiente en **http://localhost:3001/**: en Vender, con la pestaña Red abierta, no deben iniciarse las tres consultas de métricas fiscales; al abrir Configuración con facturación activa, debe aparecer una carga y luego datos válidos. Simular falta de conexión en datos de prueba: muestra error y reintento, sin “Al día”; restablecer conexión y reintentar: recupera métricas sin duplicar comprobantes. Navegar con un borrador fiscal: conserva sus campos. No se probaron estos recorridos en navegador/backend.
 - **Métricas fiscales en el Historial de Ventas ([SalesOverview.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/SalesOverview.tsx))**:
@@ -357,7 +357,7 @@ En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 
 Herramientas del proveedor del servicio, solo para quien está en `retail_private.platform_admins` (se otorga desde el SQL Editor, [cómo](../SUPABASE_SETUP.md#administrador-de-plataforma-y-catálogo-global)). Requiere `202611060001_platform_admin_panel.sql`.
 
-- **Dónde:** **Mi comercio → Más opciones → Panel de plataforma**. La tarjeta solo aparece para administradores de plataforma; cada función vuelve a validar el permiso en la base.
+- **Dónde:** **Mi comercio → App y cuenta → Panel de plataforma**. La tarjeta solo aparece para administradores de plataforma; cada función vuelve a validar el permiso en la base.
 - **Resumen:** comercios, usuarios, ventas, IA y catálogo del período elegido (7, 30, 90 días o un año), y la lista de administradores de plataforma (solo lectura).
 - **Comercios:** todos los comercios con dueño, personas, sucursales, productos, ventas del período, última venta y tokens de IA. **Ver detalle** muestra personas con su último ingreso, sucursales, cajas, turnos abiertos, opciones activas y la IA por pantalla.
 - **Seguimiento interno:** estado (En prueba, Activo, Requiere atención, Dado de baja) y una nota por comercio. Es informativo: no bloquea ni habilita nada en el comercio.
@@ -384,7 +384,7 @@ Herramientas del proveedor del servicio, solo para quien está en `retail_privat
 
 ### Guía de Pruebas — panel de plataforma
 
-1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → Más opciones**. Esperado: no aparece «Panel de plataforma».
+1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → App y cuenta**. Esperado: no aparece «Panel de plataforma».
 2. **Resumen:** con tu cuenta agregada, abrir el panel. Esperado: totales de comercios, usuarios y ventas; cambiar el período actualiza los números.
 3. **Comercios:** buscar un comercio por nombre o correo del dueño y tocar **Ver detalle**. Guardar un estado y una nota. Esperado: aviso «Seguimiento guardado» y el estado aparece en la lista.
 4. **IA:** usar el asistente en un comercio y volver a **Uso de IA → Actualizar**. Esperado: suma una consulta con sus tokens, en la pantalla Asistente.
@@ -402,7 +402,7 @@ Herramientas del proveedor del servicio, solo para quien está en `retail_privat
 
 Datos por código de barras (nombre, marca, categoría sugerida, emoji y descripción) que comparten todos los comercios y que se proponen al cargar un producto. Lo administra solo quien está en `retail_private.platform_admins`, un permiso aparte de ser dueño o administrador de un comercio que se otorga desde el SQL Editor ([cómo](../SUPABASE_SETUP.md#administrador-de-plataforma-y-catálogo-global)). Requiere la migración `202611030004_platform_admin_catalog.sql`.
 
-- **Dónde:** **Mi comercio → Más opciones → Panel de plataforma → Catálogo global**. La tarjeta solo aparece para administradores de plataforma. Ocultarla no da el permiso: la base lo vuelve a validar en cada cambio.
+- **Dónde:** **Mi comercio → App y cuenta → Panel de plataforma → Catálogo global**. La tarjeta solo aparece para administradores de plataforma. Ocultarla no da el permiso: la base lo vuelve a validar en cada cambio.
 - **Consultar:** por defecto muestra los productos sin verificar, primero los que más comercios aportaron. Se puede buscar por código exacto o por parte del nombre, y ver los verificados o todos.
 - **Editar o agregar:** reemplaza los datos del código. **Verificado** deja el producto con confianza 100% y los comercios ya no pueden cambiarlo. Si se desmarca, vuelve a ser comunitario.
 - **Eliminar:** borra el código del catálogo global. Los productos que los comercios ya cargaron no cambian, porque solo copiaron los datos.
@@ -433,7 +433,7 @@ Requiere además `202611030005_global_catalog_import.sql`.
 
 En http://localhost:3001/, con la migración aplicada.
 
-1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → Más opciones**. Esperado: no aparece «Panel de plataforma».
+1. **Sin permiso:** con una cuenta que no está en `platform_admins`, abrir **Mi comercio → App y cuenta**. Esperado: no aparece «Panel de plataforma».
 2. **Con permiso:** agregar tu cuenta desde el SQL Editor, recargar la app y abrir **Panel de plataforma → Catálogo global**. Esperado: lista de productos sin verificar.
 3. **Buscar:** buscar un código existente y después parte de un nombre. Esperado: aparece el producto. Con «Verificados» o «Todos» cambia la lista.
 4. **Verificar:** editar un producto sin verificar, corregir el nombre, marcar **Verificado** y guardar. Esperado: aviso de guardado. El producto sale de «Sin verificar» y aparece en «Verificados».

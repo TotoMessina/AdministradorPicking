@@ -1,10 +1,10 @@
 /* Planilla de alta y edición de productos: grilla como la revisión de facturas. */
-.product-sheet { display: grid; gap: 12px; min-width: 0; }
+.product-sheet { display: grid; gap: 12px; min-width: 0; container-type: inline-size; }
 .product-sheet-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .product-sheet-head h3 { margin: 0 0 4px; }
 .product-sheet-head p, .product-sheet-note { margin: 0; font-size: 13px; color: var(--tone-muted); }
 .product-sheet .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.product-sheet-scroll { max-height: 65vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); container-type: inline-size; }
+.product-sheet-scroll { max-height: 65vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); }
 .product-sheet-scroll table { width: 100%; min-width: 1180px; border-collapse: separate; border-spacing: 0; font-size: 13px; }
 .product-sheet-scroll th, .product-sheet-scroll td { height: 36px; padding: 0 6px; border-right: 1px solid var(--tone-border); border-bottom: 1px solid var(--tone-border); text-align: left; vertical-align: middle; white-space: nowrap; }
 .product-sheet-scroll tr > :last-child { border-right: 0; }
@@ -91,3 +91,51 @@
 .presentation-chain li.is-buying .presentation-chain-node { border-color: var(--tone-accent); box-shadow: 0 0 0 3px var(--tone-accent-soft); }
 @keyframes chain-in { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .presentation-chain-node { animation: none; } }
+
+/* Celular: cada fila de una planilla se ve como una tarjeta con sus campos etiquetados, sin desplazarse de costado. */
+@container (max-width: 640px) {
+  .product-sheet-scroll { max-height: none; overflow: visible; border: 0; background: transparent; }
+  .product-sheet-scroll tbody tr > td { min-width: 0 !important; width: auto !important; }
+  .product-sheet-scroll tbody tr > td input, .product-sheet-scroll tbody tr > td select, .product-sheet-scroll td .supplier-sheet-name { width: 100% !important; min-width: 0; max-width: none !important; }
+  .product-sheet-scroll table { min-width: 0 !important; display: block; }
+  .product-sheet-scroll thead { display: none; }
+  .product-sheet-scroll tbody { display: grid; gap: 10px; }
+  .product-sheet-scroll tbody tr:not(.product-sheet-more):not(.product-sheet-error-row) { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; padding: 12px; border: 1px solid var(--tone-border); border-radius: 12px; background: var(--tone-surface); }
+  .product-sheet-scroll tbody tr.is-changed { border-color: var(--tone-accent); }
+  .product-sheet-scroll tbody tr.has-error { border-color: var(--tone-danger); }
+  .product-sheet-scroll tbody tr > td { display: grid; gap: 2px; height: auto; padding: 0; border: 0 !important; background: transparent !important; white-space: normal; text-align: left; }
+  .product-sheet-scroll td[data-col]::before { justify-self: start; text-align: left; color: var(--tone-muted); font-size: 11px; font-weight: 600; }
+  .product-sheet-scroll tbody tr > td { justify-items: stretch; text-align: left !important; }
+  .product-sheet-scroll td input, .product-sheet-scroll td select { height: 40px; border: 1px solid var(--tone-border); border-radius: 8px; background: var(--tone-surface); text-align: left !important; }
+  .product-sheet-scroll td.col-name, .product-sheet-scroll td[data-col="name"] { grid-column: 1 / -1; }
+  .product-sheet-scroll td.col-n { display: none; }
+  .product-sheet-scroll td.col-actions { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 6px; width: auto; }
+  .product-sheet-scroll tr.product-sheet-more, .product-sheet-scroll tr.product-sheet-error-row { display: block; }
+  .product-sheet-scroll tr.product-sheet-more > td:first-child, .product-sheet-scroll tr.product-sheet-error-row > td:first-child { display: none; }
+  .product-sheet-scroll tr.product-sheet-more > td, .product-sheet-scroll tr.product-sheet-error-row > td { display: block; border-radius: 10px; }
+  .product-sheet-more td > div { position: static; max-width: none; }
+  .product-sheet-content input { width: 100% !important; }
+  td[data-col="name"]::before { content: 'Nombre'; }
+  td[data-col="code"]::before { content: 'Código'; }
+  td[data-col="category"]::before { content: 'Categoría'; }
+  td[data-col="presentation"]::before { content: 'Compro por'; }
+  td[data-col="content"]::before { content: 'Trae'; }
+  td[data-col="qty"]::before { content: 'Cantidad'; }
+  td[data-col="cost"]::before { content: 'Costo'; }
+  td[data-col="unitcost"]::before { content: 'Costo x u.'; }
+  td[data-col="stock"]::before { content: 'Stock (u.)'; }
+  td[data-col="markup"]::before { content: 'Ganancia %'; }
+  td[data-col="price"]::before { content: 'Precio'; }
+  td[data-col="min"]::before { content: 'Mínimo'; }
+  td[data-col="cuit"]::before { content: 'CUIT'; }
+  td[data-col="discount"]::before { content: 'Descuento %'; }
+  td[data-col="vat"]::before, td[data-col="iva"]::before { content: 'IVA'; }
+  td[data-col="days"]::before { content: 'Paga a (días)'; }
+  td[data-col="phone"]::before { content: 'Teléfono'; }
+  td[data-col="email"]::before { content: 'Correo'; }
+  td[data-col="notes"]::before { content: 'Notas'; }
+  td[data-col="limit"]::before { content: 'Límite de fiado'; }
+  td[data-col="active"]::before { content: 'Le fiás'; }
+  td[data-col="balance"]::before { content: 'Saldo'; }
+  td[data-col="taxid"]::before { content: 'Documento'; }
+}

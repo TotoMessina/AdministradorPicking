@@ -811,7 +811,8 @@ function Workspace({
     navigator.serviceWorker.addEventListener('message', openNotice);
     return () => navigator.serviceWorker.removeEventListener('message', openNotice);
   }, [store.id, manager, busy, cart.length, guiding, notify, products]);
-  const posStationControls = canOperate ? (
+  const nonPrimaryList = !!priceListId && !saleLists.find(l => l.id === priceListId)?.is_primary;
+  const posStationControls = canOperate && (canChooseList || canChooseLedger || nonPrimaryList) ? (
     <div className="pos-station-buttons" role="toolbar" aria-label="Opciones de venta">
       {canChooseList ? (
         <label
@@ -822,7 +823,7 @@ function Workspace({
             <Tag size={13} />
           </span>
           <span className="pos-station-btn-text">
-            <span className="pos-station-btn-tag">Lista</span>
+            <span className="pos-station-btn-tag">Precios</span>
             <strong className="pos-station-btn-val">{priceListName}</strong>
           </span>
           <span className="pos-station-btn-arrow" aria-hidden="true">
@@ -843,17 +844,13 @@ function Workspace({
             ))}
           </select>
         </label>
-      ) : (
-        <div className="pos-station-btn-pill static" title="Lista de precios">
-          <span className="pos-station-btn-icon" aria-hidden="true">
-            <Tag size={13} />
-          </span>
-          <span className="pos-station-btn-text">
-            <span className="pos-station-btn-tag">Lista</span>
-            <strong className="pos-station-btn-val">{priceListName}</strong>
-          </span>
+      ) : nonPrimaryList ? (
+        // Sin poder elegir, se avisa solo si este local no vende con la Principal.
+        <div className="pos-station-btn-pill static" title="Lista de precios de este local">
+          <span className="pos-station-btn-icon" aria-hidden="true"><Tag size={13} /></span>
+          <span className="pos-station-btn-text"><span className="pos-station-btn-tag">Precios</span><strong className="pos-station-btn-val">{priceListName}</strong></span>
         </div>
-      )}
+      ) : null}
 
       {canChooseLedger ? (
         <label
@@ -864,8 +861,8 @@ function Workspace({
             <BookOpen size={13} />
           </span>
           <span className="pos-station-btn-text">
-            <span className="pos-station-btn-tag">Registro</span>
-            <strong className="pos-station-btn-val">{automaticLedger ? 'Automático' : ledgerName}</strong>
+            <span className="pos-station-btn-tag">Venta va a</span>
+            <strong className="pos-station-btn-val">{automaticLedger ? 'Según el pago' : ledgerName}</strong>
           </span>
           <span className="pos-station-btn-arrow" aria-hidden="true">
             <ChevronDown size={13} />
@@ -880,7 +877,7 @@ function Workspace({
             className="pos-station-btn-select"
             aria-label="Seleccionar registro de ventas"
           >
-            <option value="">Automático por medio de pago</option>
+            <option value="">Según el medio de pago</option>
             {saleLedgers.map(l => (
               <option key={l.id} value={l.id} disabled={!l.active}>
                 {l.name}{!l.active && ' (inactivo)'}
@@ -888,17 +885,7 @@ function Workspace({
             ))}
           </select>
         </label>
-      ) : (
-        <div className="pos-station-btn-pill static" title="Registro de ventas">
-          <span className="pos-station-btn-icon" aria-hidden="true">
-            <BookOpen size={13} />
-          </span>
-          <span className="pos-station-btn-text">
-            <span className="pos-station-btn-tag">Registro</span>
-            <strong className="pos-station-btn-val">{automaticLedger ? 'Automático' : ledgerName}</strong>
-          </span>
-        </div>
-      )}
+      ) : null}
     </div>
   ) : undefined;
   return (
@@ -1231,7 +1218,7 @@ function Workspace({
             <div hidden={tab !== 'home'}>
               <HomeTab place={[branches.find(branch => branch.id === branchId)?.name, register?.name].filter(Boolean).join(' · ') || store.name} cashOpen={!!shift} sold={soldToday} week={soldWeek} lowStock={lowStock}
                 remitos={can('review_remitos') ? pendingRemitos.records.length : 0} actions={homeActions} disabled={busy || guiding}
-                onLowStock={canOpenCatalog ? goToProducts : undefined} onRemitos={canOpenCatalog ? goToProducts : undefined}
+                onLowStock={canOpenCatalog ? goToProducts : undefined} onRemitos={canOpenCatalog ? () => { goToProducts(); setTimeout(() => document.getElementById('pending-remitos')?.scrollIntoView({ block: 'start', behavior: 'smooth' }), 250); } : undefined}
                 debtors={canUseCustomers ? debtors : []} onCustomers={canUseCustomers ? () => setTab('customers') : undefined}
                 sponsored={manager ? <SponsoredCard storeId={store.id} enabled={tab === 'home' && !guiding} /> : undefined} />
             </div>

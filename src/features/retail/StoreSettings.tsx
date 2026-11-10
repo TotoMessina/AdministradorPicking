@@ -75,7 +75,8 @@ export function StoreSettings({
     void supabase.rpc('retail_is_platform_admin').then(({ data, error }) => { if (current) setIsPlatformAdmin(!error && data === true); });
     return () => { current = false; };
   }, [userId]);
-  const view = ['general', 'config', 'locations', 'team', 'activity', 'more', 'app', 'ledgers', ...(isPlatformAdmin ? ['platform'] : [])].includes(requestedView) ? requestedView : 'general';
+  // «Registros de ventas» ahora vive en Ventas y precios: los enlaces viejos llevan ahí.
+  const view = requestedView === 'ledgers' ? 'config' : ['general', 'config', 'locations', 'team', 'activity', 'more', 'app', ...(isPlatformAdmin ? ['platform'] : [])].includes(requestedView) ? requestedView : 'general';
   const setView = onViewChange;
   const staffProfiles = usePermissionProfiles(store.id, view === 'team' && (role === 'owner' || role === 'admin'));
   const [editingMemberId, setEditingMemberId] = useState<string | null>(null);
@@ -109,11 +110,11 @@ export function StoreSettings({
       <SectionNav name="settings" label="Secciones de Mi comercio" value={primaryView} onChange={setView} disabled={busy}
         sections={[
           { id: 'general', label: 'Datos del comercio', icon: <StoreIcon size={16} /> },
-          { id: 'config', label: 'Configuración', icon: <Settings2 size={16} /> },
+          { id: 'config', label: 'Ventas y precios', icon: <Settings2 size={16} /> },
           { id: 'locations', label: 'Locales y cajas', icon: <Building2 size={16} /> },
           { id: 'team', label: 'Equipo y permisos', icon: <Users size={16} /> },
           { id: 'activity', label: 'Actividad', icon: <History size={16} /> },
-          { id: 'more', label: 'Más opciones', icon: <SlidersHorizontal size={16} /> },
+          { id: 'more', label: 'App y cuenta', icon: <SlidersHorizontal size={16} /> },
         ]} />
       <div hidden={view !== 'activity'} role="tabpanel" id="settings-panel-activity" aria-labelledby="settings-tab-activity">
         {view === 'activity' && <ActivityLog storeId={store.id} branches={branches} active={view === 'activity'} />}
@@ -133,10 +134,10 @@ export function StoreSettings({
               disabled={busy}
               onClick={returnToMore}
             >
-              <ArrowLeft size={16} /> Volver a Más opciones
+              <ArrowLeft size={16} /> Volver a App y cuenta
             </button>
             <div className="more-subview-breadcrumb">
-              <span>Más opciones</span>
+              <span>App y cuenta</span>
               <ChevronRight size={14} />
               <strong>{view === 'ledgers' ? 'Registros de ventas' : view === 'platform' ? 'Panel de plataforma' : 'App y avisos'}</strong>
             </div>
@@ -154,53 +155,13 @@ export function StoreSettings({
                     <SlidersHorizontal size={22} />
                   </div>
                   <div className="store-settings-header-text">
-                    <h3>Opciones y herramientas</h3>
-                    <p>Módulos complementarios para listas de precios, registros contables e instalación de la app.</p>
+                    <h3>App y avisos</h3>
+                    <p>Instalar la app en tus dispositivos y elegir qué avisos te llegan.</p>
                   </div>
                 </div>
 
                 <div className="location-card-body">
                   <div className="more-nav-cards-list">
-                    <button
-                      type="button"
-                      className="more-nav-card"
-                      disabled={busy}
-                      onClick={onOpenPrices}
-                    >
-                      <div className="more-nav-card-icon icon-prices">
-                        <Tag size={20} />
-                      </div>
-                      <div className="more-nav-card-info">
-                        <div className="more-nav-card-top">
-                          <strong>Listas de precios</strong>
-                          <span className="location-pill-badge">En Productos</span>
-                        </div>
-                        <small>Configurá precios diferenciales por mayorista, sucursal o cliente.</small>
-                      </div>
-                      <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
-                    </button>
-
-                    <button
-                      type="button"
-                      className="more-nav-card"
-                      disabled={busy}
-                      onClick={(event) => openMoreSection('ledgers', event.currentTarget)}
-                    >
-                      <div className="more-nav-card-icon icon-ledgers">
-                        <Receipt size={20} />
-                      </div>
-                      <div className="more-nav-card-info">
-                        <div className="more-nav-card-top">
-                          <strong>Registros de ventas</strong>
-                          <span className="location-pill-badge active">
-                            {ledgers.filter((l) => l.active).length} {ledgers.filter((l) => l.active).length === 1 ? 'activo' : 'activos'}
-                          </span>
-                        </div>
-                        <small>Agrupaciones de ventas, medios de pago principales y reglas de imputación.</small>
-                      </div>
-                      <ChevronRight size={18} className="more-nav-arrow" aria-hidden="true" />
-                    </button>
-
                     <button
                       type="button"
                       className="more-nav-card"
@@ -430,16 +391,6 @@ export function StoreSettings({
             </>
           )}
         </div>
-        <div
-          hidden={view !== 'ledgers'}
-          data-settings-view="ledgers"
-          tabIndex={-1}
-          role="region"
-          aria-label="Registros de ventas"
-          className="more-subview-panel"
-        >
-          <LedgerSettings storeId={store.id} ledgers={ledgers} run={run} busy={busy} />
-        </div>
         {isPlatformAdmin && (
           <div
             hidden={view !== 'platform'}
@@ -457,7 +408,7 @@ export function StoreSettings({
         <StoreGeneralSettingsForm store={store} busy={busy} run={run} />
       </div>
       <div className="settings-data settings-data-wide" hidden={view !== 'config'} role="tabpanel" id="settings-panel-config" aria-labelledby="settings-tab-config">
-        <StoreConfiguration store={store} busy={busy} run={run} active={active && view === 'config'} />
+        <StoreConfiguration store={store} ledgers={ledgers} busy={busy} run={run} active={active && view === 'config'} onOpenPrices={onOpenPrices} />
       </div>
       <div hidden={view !== 'locations'} role="tabpanel" id="settings-panel-locations" aria-labelledby="settings-tab-locations">
         <div className="locations-settings-container is-map">

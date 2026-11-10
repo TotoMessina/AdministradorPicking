@@ -127,7 +127,7 @@ export function CustomerSheet({ storeId, customers, only, focusNew, busy, run, o
                 onKeyDown={moveInColumn} onValueChange={value => update(row.key, { credit_limit: value })} /></td>
               <td data-col="active"><select value={row.active ? 'yes' : 'no'} aria-label={`¿Le fiás a ${label}?`} disabled={disabled} onKeyDown={moveInColumn}
                 onChange={event => update(row.key, { active: event.target.value === 'yes' })}><option value="yes">Sí</option><option value="no">No, ya no</option></select></td>
-              <td className={`num calc customer-sheet-balance ${balance > 0 ? 'is-debt' : balance < 0 ? 'is-credit' : ''}`}>{!row.original ? '—' : balance > 0 ? `Debe ${money(balance)}` : balance < 0 ? `A favor ${money(-balance)}` : 'Al día'}</td>
+              <td data-col="balance" className={`num calc customer-sheet-balance ${balance > 0 ? 'is-debt' : balance < 0 ? 'is-credit' : ''}`}>{!row.original ? '—' : balance > 0 ? `Debe ${money(balance)}` : balance < 0 ? `A favor ${money(-balance)}` : 'Al día'}</td>
               <td data-col="taxid"><input value={row.tax_id} inputMode="numeric" maxLength={14} placeholder="DNI o CUIT" aria-label={`Documento de ${label}`} disabled={disabled}
                 onKeyDown={moveInColumn} onChange={event => update(row.key, { tax_id: event.target.value.replace(/\D/g, '') })} /></td>
               <td data-col="iva"><select value={row.iva_condition} aria-label={`Condición frente al IVA de ${label}`} disabled={disabled} onKeyDown={moveInColumn}

@@ -1604,3 +1604,5 @@ button.home-alert { cursor: pointer; }
 .movement-receipt-sign { display: flex; justify-content: space-between; gap: 12px; margin-top: 36px; }
 .movement-receipt-sign span { flex: 1; padding-top: 4px; border-top: 1px solid #0f172a; text-align: center; font-size: 11px; }
 .movement-receipt-legal { margin-top: 10px !important; text-align: center; font-size: 11px; }
+.store-config-link { display: inline-flex; align-items: center; gap: 8px; justify-self: start; margin-top: 10px; }
+.store-config-link small { color: var(--tone-muted); font-size: 11px; }

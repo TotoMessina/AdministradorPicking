@@ -61,7 +61,9 @@ export function PendingReplenishments({ store, records, error, branches, product
 }) {
   const [open, setOpen] = useState(true);
   const [visible, setVisible] = useState(10);
-  return <section className="pending-remitos-panel" aria-label="Remitos pendientes">
+  // Sin nada para revisar no ocupa lugar: Inicio avisa cuando llega un remito.
+  if (!records.length && !error) return null;
+  return <section id="pending-remitos" className="pending-remitos-panel" aria-label="Remitos pendientes">
     <div className="section-heading"><button type="button" className="remito-panel-toggle" aria-expanded={open} aria-controls="pending-remitos-list" onClick={() => setOpen(previous => !previous)}><ChevronDown size={16} /><strong>Remitos pendientes</strong><span className="remito-count">{records.length}</span></button>
       <button type="button" className="secondary-button" disabled={busy} onClick={onRefresh}><RefreshCw size={15} /> Actualizar remitos</button></div>
     {error && <p className="remito-error" role="alert">No se pudieron actualizar los remitos. {error}</p>}

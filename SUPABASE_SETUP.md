@@ -186,9 +186,9 @@ La URL `retail_sales?select=id&store_id=...&billing_status=in.(pending,retry)` c
 
 Se corrigió el monitor en el frontend: solo consulta en la sección visible, cancela sus solicitudes al salir y limita la espera de sus tres lecturas a 15 segundos. Revisa los errores de cada respuesta de Supabase antes de mostrar contadores y ofrece reintento explícito; ya no presenta respuestas fallidas como cero pendientes. La consulta de credenciales queda limitada a la sección activa. No cambia la emisión, la cola offline, los datos fiscales ni la autorización del backend; tampoco modifica SQL por este timeout.
 
-Diagnóstico manual pendiente: comparar en la pestaña Red la carga de productos/ventas con la apertura de Mi comercio → Configuración. Si fallan todas las solicitudes al dominio del proyecto, revisar conexión y salud del proyecto antes de tocar schema. Si únicamente fallan los conteos, revisar la solicitud, logs y el plan de consulta con el rol correspondiente; no desactivar RLS ni crear índices duplicados a ciegas. Un `select 1` correcto desde SQL Editor solo comprueba ese canal, no certifica el acceso REST del navegador.
+Diagnóstico manual pendiente: comparar en la pestaña Red la carga de productos/ventas con la apertura de Mi comercio → Ventas y precios. Si fallan todas las solicitudes al dominio del proyecto, revisar conexión y salud del proyecto antes de tocar schema. Si únicamente fallan los conteos, revisar la solicitud, logs y el plan de consulta con el rol correspondiente; no desactivar RLS ni crear índices duplicados a ciegas. Un `select 1` correcto desde SQL Editor solo comprueba ese canal, no certifica el acceso REST del navegador.
 
-Validación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0 después del ajuste. No se ejecutó SQL remoto, build ni otras pruebas automatizadas. Guía manual en **http://localhost:3001/**: permanecer en Vender (el monitor oculto no consulta); abrir Mi comercio → Configuración (consulta una vez); simular falta de red (error sin métricas inventadas); salir/volver (borrador conservado); reconectar y usar Reintentar consulta (datos válidos sin emitir comprobantes). La conectividad real, RLS y navegador siguen pendientes.
+Validación ejecutada: `npx tsc --noEmit -p tsconfig.app.json`, salida 0 después del ajuste. No se ejecutó SQL remoto, build ni otras pruebas automatizadas. Guía manual en **http://localhost:3001/**: permanecer en Vender (el monitor oculto no consulta); abrir Mi comercio → Ventas y precios (consulta una vez); simular falta de red (error sin métricas inventadas); salir/volver (borrador conservado); reconectar y usar Reintentar consulta (datos válidos sin emitir comprobantes). La conectividad real, RLS y navegador siguen pendientes.
 
 ## Principal por porcentaje: efectos de la actualización 202610270002
 
@@ -487,7 +487,7 @@ delete from retail_private.platform_admins
 where user_id = (select id from auth.users where email = 'tu-email@ejemplo.com');
 ```
 
-En la app, el administrador de plataforma lo ve en **Mi comercio → Más opciones → Panel de plataforma → Catálogo global** ([guía](docs/administracion.md#catalogo-global)). El Table Editor y el SQL Editor siguen sirviendo y no pasan por estas reglas. Una carga en bloque por CSV desde el Table Editor entra tal como viene: revisar `source` y `confidence_score` antes de importar.
+En la app, el administrador de plataforma lo ve en **Mi comercio → App y cuenta → Panel de plataforma → Catálogo global** ([guía](docs/administracion.md#catalogo-global)). El Table Editor y el SQL Editor siguen sirviendo y no pasan por estas reglas. Una carga en bloque por CSV desde el Table Editor entra tal como viene: revisar `source` y `confidence_score` antes de importar.
 
 ## Catálogo global desde Excel
 

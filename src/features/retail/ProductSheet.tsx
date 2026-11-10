@@ -1,5 +1,5 @@
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
-import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { AlertTriangle, ChevronDown, ChevronUp, Layers, Loader2, Plus, Trash2, X } from 'lucide-react';
 import { PresentationChain } from './PresentationChain';
 import { NumberInput } from '../../components/NumberInput';
 import { askConfirm } from '../../components/ConfirmHost';
@@ -7,7 +7,7 @@ import { useToast } from '../../context/ToastContext';
 import { draftMarkupPrice, markupFromPrice } from '../../services/productSalePrice';
 import { describe, presentationCodeConflict, presentationCodeWarning, presentationLabels, sizesError, sizesOf, storedSizes, unitCost, unitsIn, type Presentation, type PresentationSizes } from '../../services/productPresentation';
 import { defaultProductCategory, resolveProductCategory } from '../../services/productCategoryService';
-import { hasComposition } from '../../services/productComposition';
+import { compositionCost, hasComposition } from '../../services/productComposition';
 import { ProductRoundingField } from './ProductMarkupField';
 import { errorMessage, retail, type Category, type Product, type Store } from './api';
 import type { Run } from './Management';
@@ -38,9 +38,11 @@ const unitTypes: Record<string, string> = { unit: 'Unidad', kg: 'Kilo', lt: 'Lit
  * La cantidad y el costo se cargan por la presentación elegida (unidad, display o bulto) y se guardan por unidad.
  * Guarda cada fila con el mismo retail.saveProduct de la ficha, así mantiene sucursal, precio por costo y permisos.
  */
-export function ProductSheet({ mode, store, products, categories, initial, busy, run, operationBranch, onClose }: {
+export function ProductSheet({ mode, store, products, categories, initial, busy, run, operationBranch, onClose, onEditComposition }: {
   mode: 'new' | 'edit'; store: Store; products: Product[]; categories: Category[]; initial?: Product[];
   busy: boolean; run: Run; operationBranch?: string;
+  /** Abre los componentes de un combo o paquete (su costo sale de ahí). */
+  onEditComposition?: (product: Product) => void;
   onClose: () => void;
 }) {
   const { notify } = useToast();
@@ -50,10 +52,11 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
     qty: '', cost: '', markup: defaultMarkup, manual: false, price: '', minStock: '4', brand: '', supplier: '', supplierCode: '', expiry: '', sellable: true,
     unitType: 'unit', emoji: '📦', rounding: null, displayCode: '', packCode: '', palletPacks: '', tags: '', open: false, error: '' });
   const fromProduct = (product: Product): Row => {
-    const sizes = sizesOf(product);
+    const combo = hasComposition(product);
+    const sizes = combo ? { presentation: 'unit' as const, packUnits: '', displayUnits: '' } : sizesOf(product);
     const units = unitsIn(sizes) || 1;
     return { key: product.id, original: product, code: product.code, name: product.name, categoryId: product.categoryId, ...sizes,
-      qty: '', cost: product.cost > 0 ? String(Math.round(product.cost * units * 100) / 100) : '',
+      qty: '', cost: combo ? String(compositionCost(product.stock_components || [], products).cost) : product.cost > 0 ? String(Math.round(product.cost * units * 100) / 100) : '',
       markup: product.sale_markup != null ? String(product.sale_markup) : product.price_pending ? defaultMarkup : '',
       manual: product.sale_markup == null && !product.price_pending && product.sellable !== false, price: product.price_pending ? '' : String(product.price),
       minStock: String(product.minStock), brand: product.brand || '', supplier: product.supplier || '', supplierCode: product.supplierCode || '',
@@ -62,8 +65,8 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
       displayCode: product.display_code || '', packCode: product.pack_code || '', palletPacks: product.pallet_packs == null ? '' : String(product.pallet_packs),
       tags: (product.tags || []).join(', '), open: false, error: '' };
   };
-  const editable = (initial || []).filter(product => !hasComposition(product));
-  const skippedCombos = (initial || []).length - editable.length;
+  const editable = initial || [];
+  const isCombo = (row: Row) => !!row.original && hasComposition(row.original);
   const [rows, setRows] = useState<Row[]>(() => mode === 'edit' ? editable.map(fromProduct) : [blank()]);
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
   const table = useRef<HTMLTableElement>(null);
@@ -188,7 +191,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
           await retail.saveProduct(store.id, {
             id: row.original?.id || '', categoryId: row.categoryId, code: row.code.trim(), name: row.name.trim(),
             price: row.sellable ? price || 0 : 0, sale_markup: row.sellable && !row.manual ? Number(row.markup) : null, sellable: row.sellable,
-            cost: perUnit ?? row.original?.cost ?? 0, stock: row.original ? row.original.stock : stock ?? 0, minStock: Number(row.minStock), emoji: row.emoji.trim() || '📦', active: true,
+            cost: isCombo(row) ? compositionCost(row.original!.stock_components || [], products).cost : perUnit ?? row.original?.cost ?? 0, stock: row.original ? row.original.stock : stock ?? 0, minStock: Number(row.minStock), emoji: row.emoji.trim() || '📦', active: true,
             brand: row.brand.trim() || undefined, supplier: row.supplier.trim() || undefined, supplierCode: row.supplierCode.trim() || undefined,
             tags: tagList(row.tags), unitType: row.unitType, pack_size: sizes.pack_size, display_size: sizes.display_size,
             // Solo si cambió: hasta 202611100001 la base no deja editar el vencimiento y rechazaría toda la fila.
@@ -228,7 +231,6 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
       <div>
         <h3 id="product-sheet-title">{mode === 'new' ? 'Agregar productos' : rows.length === 1 ? `Editar ${rows[0].original?.name || 'producto'}` : `Editar ${rows.length} productos en planilla`}</h3>
         <p>Elegí si cargás por unidad, display o bulto: la cantidad y el costo van por esa presentación y se guardan por unidad. El precio sale del costo por unidad y la ganancia.</p>
-        {skippedCombos > 0 && <p className="product-sheet-note">{skippedCombos} {skippedCombos === 1 ? 'combo no aparece' : 'combos no aparecen'}: su costo sale de los componentes. Editalos desde su fila.</p>}
       </div>
       <button type="button" className="icon-button" aria-label="Cerrar planilla" disabled={Boolean(saving)} onClick={onClose}><X size={18} /></button>
     </div>
@@ -264,11 +266,11 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                 onChange={event => update(row.key, { name: event.target.value })} onKeyDown={moveInColumn} /></td>
               <td data-col="category"><select value={row.categoryId} aria-label={`Categoría de ${label}`} disabled={disabled} onKeyDown={moveInColumn}
                 onChange={event => update(row.key, { categoryId: event.target.value })}>{categories.map(category => <option key={category.id} value={category.id}>{category.name}</option>)}</select></td>
-              <td data-col="presentation"><select value={row.presentation} aria-label={`Cómo comprás ${label}`} disabled={disabled} onKeyDown={moveInColumn}
+              <td data-col="presentation"><select value={row.presentation} aria-label={`Cómo comprás ${label}`} disabled={disabled || isCombo(row)} onKeyDown={moveInColumn}
                 onChange={event => update(row.key, { presentation: event.target.value as Presentation })}>
                 {(Object.keys(presentationLabels) as Presentation[]).map(option => <option key={option} value={option}>{option === 'unit' ? 'Unidad suelta' : presentationLabels[option]}</option>)}</select></td>
               <td data-col="content" className="col-content">
-                {row.presentation === 'unit' ? <span className="product-sheet-muted">1 u.</span> : <span className="product-sheet-content">
+                {isCombo(row) ? <span className="product-sheet-muted">Combo</span> : row.presentation === 'unit' ? <span className="product-sheet-muted">1 u.</span> : <span className="product-sheet-content">
                   <NumberInput min={1} step={1} value={row.presentation === 'pack' ? row.packUnits : row.displayUnits} placeholder="u." disabled={disabled}
                     aria-label={`Unidades que trae cada ${presentationName} de ${label}`} onKeyDown={moveInColumn}
                     onValueChange={value => update(row.key, row.presentation === 'pack' ? { packUnits: value } : { displayUnits: value })} />
@@ -279,8 +281,8 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                 onKeyDown={moveInColumn} onValueChange={value => update(row.key, { qty: value })} /></td>}
               <td data-col="cost" className="num"><NumberInput min={0} step={0.01} value={row.cost} placeholder={`por ${presentationName}`} disabled={disabled || (!!row.original && hasComposition(row.original))}
                 aria-label={`Costo por ${presentationName} de ${label}`} onKeyDown={moveInColumn} onValueChange={value => update(row.key, { cost: value })} /></td>
-              <td className="num calc">{perUnit === null ? '—' : money(perUnit)}</td>
-              {mode === 'new' && <td className="num calc">{stock === null ? '—' : stock.toLocaleString('es-AR')}</td>}
+              <td data-col="unitcost" className="num calc">{perUnit === null ? '—' : money(perUnit)}</td>
+              {mode === 'new' && <td data-col="stock" className="num calc">{stock === null ? '—' : stock.toLocaleString('es-AR')}</td>}
               <td data-col="markup" className="num">{!row.sellable ? <span className="product-sheet-muted">Insumo</span> : row.manual
                 ? <button type="button" className="text-button" disabled={disabled} onClick={() => useCost(row)}>Calcular por costo</button>
                 : <NumberInput min={-99.99} max={10000} step={0.01} value={row.markup} disabled={disabled} aria-label={`Ganancia de ${label}`} onKeyDown={moveInColumn} onValueChange={value => update(row.key, { markup: value })} />}</td>
@@ -291,12 +293,14 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
               <td className="col-actions">
                 <button type="button" className="icon-button" aria-expanded={row.open} aria-label={`Más datos de ${label}`} title="Más datos" disabled={disabled}
                   onClick={() => setRows(previous => previous.map(item => item.key === row.key ? { ...item, open: !item.open } : item))}>{row.open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}</button>
+                {isCombo(row) && onEditComposition && <button type="button" className="icon-button" aria-label={`Componentes de ${label}`} title="Componentes del combo (de ahí sale el costo)" disabled={disabled}
+                  onClick={async () => { if (!changed(row) || await askConfirm('Hay cambios sin guardar en la planilla. ¿Abrir los componentes y descartarlos?')) onEditComposition(row.original!); }}><Layers size={15} /></button>}
                 {mode === 'new' && <button type="button" className="icon-button" aria-label={`Quitar ${label}`} title="Quitar fila" disabled={disabled} onClick={() => remove(row.key)}><Trash2 size={15} /></button>}
               </td>
             </tr>
             {row.error && <tr className="product-sheet-error-row"><td /><td colSpan={mode === 'new' ? 13 : 11} role="alert">{row.error}</td></tr>}
             {row.open && <tr className="product-sheet-more"><td /><td colSpan={mode === 'new' ? 13 : 11}>
-              <div className="product-sheet-presentations" role="group" aria-label={`Presentaciones de ${label}`}>
+              {!isCombo(row) && <div className="product-sheet-presentations" role="group" aria-label={`Presentaciones de ${label}`}>
                 <strong>Presentaciones</strong>
                 <PresentationChain displayUnits={row.displayUnits} packUnits={row.packUnits} palletPacks={row.palletPacks} buying={row.presentation} />
                 <label>Unidades por display<NumberInput min={1} step={1} value={row.displayUnits} placeholder="No tiene" disabled={disabled} onValueChange={value => update(row.key, { displayUnits: value })} /></label>
@@ -312,7 +316,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                   onValueChange={value => update(row.key, { palletPacks: value })} />
                   {Number(row.palletPacks) > 0 && Number(row.packUnits) > 0 && <small>Pallet = {(Number(row.palletPacks) * Number(row.packUnits)).toLocaleString('es-AR')} u.</small>}</label>}
                 {sizesError(row) && <small role="alert">{sizesError(row)}</small>}
-              </div>
+              </div>}
               <div className="product-sheet-more-grid">
                 <label>Etiquetas<input value={row.tags} maxLength={400} placeholder="Ej. sin TACC, importado" disabled={disabled} onChange={event => update(row.key, { tags: event.target.value })} /></label>
                 <label>Marca<input value={row.brand} maxLength={120} disabled={disabled} onChange={event => update(row.key, { brand: event.target.value })} /></label>

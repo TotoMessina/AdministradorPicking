@@ -145,7 +145,7 @@ La migración agrega las reglas a `retail_ledgers`, garantiza un único destino 
 
 ### Accesos y comportamiento
 
-- **Configurar:** Mi comercio → Más opciones → Registros de ventas → Configurar selección por medio de pago. Administración o perfil con manage_ledgers, con autorización efectiva en las RPC. Guardar principal y reglas es una transacción; los demás borradores se conservan.
+- **Configurar:** Mi comercio → App y cuenta → Registros de ventas → Configurar selección por medio de pago. Administración o perfil con manage_ledgers, con autorización efectiva en las RPC. Guardar principal y reglas es una transacción; los demás borradores se conservan.
 - **Vender:** el registro inicia en Automático por medio de pago. El destino concreto aparece al cobrar y cambia al elegir el medio. Una elección manual antes de cargar productos se mantiene para las próximas ventas de la sesión hasta volver a Automático. La selección manual no modifica reglas compartidas.
 - **Carrito en curso:** las reglas disponibles se fijan al comenzar la venta. Un cambio de configuración en otro dispositivo no redirige silenciosamente ese carrito. Si el destino se desactiva, hay que resolverlo antes de cobrar o sincronizar; no se traslada automáticamente a otro registro ni se descarta la venta.
 - **Después de cobrar:** junto a Última venta, Pasar a Pruebas o Pasar a General cambia el registro con una acción, incluso si hay otros registros personalizados. Otros registros mantiene accesibles los demás destinos activos. Cambiar una venta terminada no altera el destino del carrito siguiente ni el modo Automático.
@@ -159,7 +159,7 @@ La migración agrega las reglas a `retail_ledgers`, garantiza un único destino 
 
 Abrir **http://localhost:3001/** en una tienda de pruebas con la migración aplicada. No generar ventas ficticias en producción.
 
-1. **Preparación:** como administrador, abrir Mi comercio → Más opciones → Registros de ventas. Pulsar Preparar General y Pruebas si aparece. Esperado: General principal y Pruebas activo; Otras ventas reutilizado si correspondía, sin perder ventas ni reglas. Repetir y comprobar IDs/cantidades en Supabase: no se duplican. Un comercio nuevo debe tener ambos desde su creación.
+1. **Preparación:** como administrador, abrir Mi comercio → App y cuenta → Registros de ventas. Pulsar Preparar General y Pruebas si aparece. Esperado: General principal y Pruebas activo; Otras ventas reutilizado si correspondía, sin perder ventas ni reglas. Repetir y comprobar IDs/cantidades en Supabase: no se duplican. Un comercio nuevo debe tener ambos desde su creación.
 2. **Reglas por tienda:** configurar destinos diferentes para los seis medios, incluido Mixto; dejar uno en Usar el principal. Guardar, recargar y abrir otro dispositivo. Esperado: mismas reglas para esa tienda; otra tienda conserva las suyas. Cambiar principal debe afectar solo medios sin regla explícita.
 3. **Venta:** con Automático, agregar productos y alternar medios de pago. Esperado: Se guardará en muestra el destino correspondiente. Cobrar por teclado, escanear nuevamente y comprobar el foco habitual. Confirmar un pago mixto: un solo ticket, pagos desglosados intactos y un único registro según Mixto.
 4. **Elección manual:** con carrito vacío elegir un registro concreto, cargar y cobrar. Esperado: prevalece la elección manual; las reglas de configuración no cambian. Volver a Automático restaura la clasificación por medio.

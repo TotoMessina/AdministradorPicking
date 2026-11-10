@@ -209,7 +209,7 @@ export function CatalogList({ s }: { s: CatalogEditorState }) {
                       type="button"
                       className="action-icon-btn action-btn-edit"
                       disabled={busy}
-                      onClick={event => { editorTrigger.current = event.currentTarget; if (hasComposition(p) || guided) startEdit(p); else setSheet({ mode: 'edit', products: [p] }); }}
+                      onClick={event => { editorTrigger.current = event.currentTarget; if (guided) startEdit(p); else setSheet({ mode: 'edit', products: [p] }); }}
                       hidden={!canEditCatalog}
                       aria-label={`Editar ${p.name}`}
                       title="Editar producto"
