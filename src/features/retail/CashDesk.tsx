@@ -161,6 +161,12 @@ export function CashDesk({
       0,
     ));
 
+  // Desglose de «Debería haber» para quien no cuenta a ciegas. Lo que el servidor suma aparte (cobros de fiado
+  // en efectivo, devoluciones en efectivo) aparece como «Otros» para que la cuenta cierre.
+  const cashIncome = movements.filter(m => m.type === 'INGRESO').reduce((n, m) => n + Number(m.amount), 0);
+  const cashOut = movements.filter(m => m.type === 'RETIRO').reduce((n, m) => n + Number(m.amount), 0);
+  const cashOther = Math.round((expected - (Number(shift?.opening_cash || 0) + cash + cashIncome - cashOut)) * 100) / 100;
+
   const handleAnalyzeShift = async () => {
     if (cashierMode || !shift || isAiLoading) return;
     const controller = new AbortController();
@@ -313,13 +319,26 @@ SUGERENCIAS: 1. [...] 2. [...] 3. [...]`;
                   <small>QR, transferencias y tarjetas</small>
                   <strong>{money(electronic)}</strong>
                 </div>
-                <div>
+                <div className={expected < 0 ? 'is-negative' : undefined}>
                   <small>Debería haber</small>
                   <strong>{money(expected)}</strong>
                 </div>
               </>
             )}
           </div>
+          {!cashierMode && <details className="cash-expected" open={expected < 0}>
+            <summary>¿De dónde sale «Debería haber»?</summary>
+            <dl>
+              <div><dt>Abriste con</dt><dd>{money(Number(shift.opening_cash || 0))}</dd></div>
+              <div><dt>+ Ventas en efectivo</dt><dd>{money(cash)}</dd></div>
+              {cashIncome > 0 && <div><dt>+ Ingresos de plata</dt><dd>{money(cashIncome)}</dd></div>}
+              {cashOut > 0 && <div><dt>− Retiros y pagos</dt><dd>{money(cashOut)}</dd></div>}
+              {cashOther !== 0 && <div><dt>{cashOther > 0 ? '+' : '−'} Otros (cobros de fiado y devoluciones en efectivo)</dt><dd>{money(Math.abs(cashOther))}</dd></div>}
+              <div className="cash-expected-total"><dt>= Debería haber en la caja</dt><dd>{money(expected)}</dd></div>
+            </dl>
+            {expected < 0 && <p role="status" className="cash-expected-warning">Sacaste más efectivo del que entró en esta caja. Revisá los retiros: si alguno se pagó con plata de otro lado (una cuenta, otra caja), conviene registrarlo desde ahí. Al cerrar vas a ver la diferencia con lo que cuentes.</p>}
+            <p className="cash-expected-note">QR, tarjetas y transferencias no están en la caja: van a tus cuentas.</p>
+          </details>}
           </section>
       )}
       <div className="cash-shift-layout" data-operating={!shift || canOperate} data-single={openingOnly}>

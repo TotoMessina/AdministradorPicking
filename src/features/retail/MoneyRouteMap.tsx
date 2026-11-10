@@ -28,7 +28,7 @@ export function MoneyRouteMap({ totals, accounts }: { totals: MethodTotals[]; ac
   });
 
   return <figure className="money-route">
-    <figcaption>Por dónde entró la plata que no es efectivo <small>El grosor es lo cobrado. Las cuentas se asignan en Productos y stock → Mover entre locales → Dinero.</small></figcaption>
+    <figcaption>Por dónde entró la plata que no es efectivo <small>El grosor es lo cobrado. Las cuentas se asignan en Plata.</small></figcaption>
     <svg viewBox={`0 0 ${WIDTH} ${height}`} role="img" aria-label={routes.map(route => `${methodLabels[route.row.method]} ${money(route.row.total)} a ${route.account?.name ?? 'sin cuenta asignada'}`).join('; ')}>
       {routes.map(route => <path key={route.row.method} className={route.account ? 'money-route-path' : 'money-route-path is-orphan'}
         d={`M ${NODE} ${route.from} C ${WIDTH / 2} ${route.from}, ${WIDTH / 2} ${route.to}, ${WIDTH - NODE} ${route.to}`} strokeWidth={stroke(route.row.total)} />)}

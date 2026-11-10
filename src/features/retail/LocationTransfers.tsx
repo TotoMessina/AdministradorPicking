@@ -25,11 +25,13 @@ const sheetColumns: { key: SheetSort; label: string; numeric?: boolean }[] = [
 ];
 const sheetLimit = 300;
 
-export function LocationTransfers({ store, branches, products, run, busy, active, canStock, canFunds, isAdmin }: {
+export function LocationTransfers({ store, branches, products, run, busy, active, canStock, canFunds, isAdmin, only }: {
   store: Store; branches: Branch[]; products: Product[]; run: Run; busy: boolean; active: boolean;
   canStock: boolean; canFunds: boolean; isAdmin: boolean;
+  /** Mercadería (Productos → Mover mercadería) o plata (sección Plata): sin selector entre las dos. */
+  only?: 'stock' | 'money';
 }) {
-  const [mode, setMode] = useState<'stock' | 'money'>(canStock ? 'stock' : 'money');
+  const [mode, setMode] = useState<'stock' | 'money'>(only ?? (canStock ? 'stock' : 'money'));
   const [composing, setComposing] = useState(false);
   const [selectedNode, setSelectedNode] = useState('');
   const [selectedRoute, setSelectedRoute] = useState('');
@@ -285,13 +287,13 @@ export function LocationTransfers({ store, branches, products, run, busy, active
   </select></label>;
 
   return <section className="retail-panel location-transfers" aria-labelledby="location-transfers-title">
-    <div className="section-heading"><div><h2 id="location-transfers-title">Mover entre locales</h2><p>Pasá mercadería o plata entre tus locales, el depósito y tus cuentas. Queda registrado quién lo hizo y cuándo.</p></div>
-      {!composing && <button type="button" className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)} onClick={newTransfer}><Plus size={16} />{(mode === 'stock' ? items.length || notes : amount || fundNote) ? 'Retomar borrador' : 'Nueva transferencia'}</button>}
+    <div className="section-heading"><div><h2 id="location-transfers-title" className={only === 'money' ? 'sr-only' : undefined}>{only === 'money' ? 'Plata' : only === 'stock' ? 'Mover mercadería' : 'Mover entre locales'}</h2><p>{only === 'money' ? 'Tus cuentas de banco y billeteras, y el efectivo de cada local y del depósito: cuánto hay, los pases entre ellos, lo que entra y lo que sale, con su recibo.' : only === 'stock' ? 'Pasá mercadería entre tus locales y el depósito. Queda registrado quién lo hizo y cuándo.' : 'Pasá mercadería o plata entre tus locales, el depósito y tus cuentas. Queda registrado quién lo hizo y cuándo.'}</p></div>
+      {!composing && <button type="button" className="primary-button" disabled={disabled || (mode === 'stock' && !store.branch_inventory_enabled)} onClick={newTransfer}><Plus size={16} />{(mode === 'stock' ? items.length || notes : amount || fundNote) ? 'Retomar borrador' : mode === 'money' ? 'Nuevo movimiento de plata' : 'Nueva transferencia'}</button>}
     </div>
-    <div className="location-transfer-tabs" role="group" aria-label="Tipo de transferencia">
+    {!only && <div className="location-transfer-tabs" role="group" aria-label="Tipo de transferencia">
       {canStock && <button type="button" aria-pressed={mode === 'stock'} disabled={!!saving} onClick={() => { setMode('stock'); clearSelection(); setFormError(''); }}><Package size={16} /> Productos</button>}
       {canFunds && <button type="button" aria-pressed={mode === 'money'} disabled={!!saving} onClick={() => { setMode('money'); clearSelection(); setFormError(''); }}><Banknote size={16} /> Dinero</button>}
-    </div>
+    </div>}
     {mode === 'stock' && !store.branch_inventory_enabled && <div className="location-transfer-setup">
       <h3>Distribuir el stock actual</h3><p>Lo guardado en depósito se conserva. Elegí dónde está hoy el stock del salón. Después podrás repartirlo con transferencias.</p>
       {isAdmin ? <><label>Sucursal inicial<select value={initialBranch} disabled={disabled} onChange={event => setInitialBranch(event.target.value)}><option value="">Elegir sucursal</option>{branches.map(branch => <option key={branch.id} value={branch.id}>{branch.name}</option>)}</select></label>

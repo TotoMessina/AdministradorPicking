@@ -238,7 +238,7 @@ En una base con historial al día hasta `202610280001_supplier_alias_usage_repai
 
 Si faltan pasos anteriores, completar primero los paquetes de la tabla en orden; no saltar comprobaciones de historial ni usar migrations sueltas. Schema completo es la alternativa con el mismo historial, no otro procedimiento que deba ejecutarse adicionalmente. El historial impide repetir una migración ya registrada.
 
-Actualizar el frontend y todos los dispositivos antes de activar inventario independiente. Sincronizar colas **en todos los equipos**, resolver conflictos y cerrar turnos. La activación en **Productos y stock → Mover entre locales** asigna el salón a una sucursal elegida, mantiene depósito y las demás sucursales empiezan en cero. Se bloquea con turnos abiertos o registros de traslado anteriores pendientes. No se puede detectar desde el servidor una cola que permanezca desconectada en otro equipo: coordinar esta preparación es necesario.
+Actualizar el frontend y todos los dispositivos antes de activar inventario independiente. Sincronizar colas **en todos los equipos**, resolver conflictos y cerrar turnos. La activación en **Productos y stock → Mover mercadería** asigna el salón a una sucursal elegida, mantiene depósito y las demás sucursales empiezan en cero. Se bloquea con turnos abiertos o registros de traslado anteriores pendientes. No se puede detectar desde el servidor una cola que permanezca desconectada en otro equipo: coordinar esta preparación es necesario.
 
 No se habilita un apagado que borre/redistribuya existencias; los clientes antiguos no pueden ajustar stock sin el contexto requerido después de activar. Los nuevos fondos no se vinculan a arqueos. [Guía de Pruebas en localhost:3001, saldos de ejemplo y permisos](docs/operacion-y-mercaderia.md#transferencias).
 
@@ -651,3 +651,9 @@ Pasos, en este orden (no se ejecutaron desde este repositorio):
 **Pendiente de aplicar:** [202611100001_product_expiry_grant.sql](supabase/migrations/202611100001_product_expiry_grant.sql), después de `202611060010_movement_receipts.sql`.
 
 - `grant update(expiry_date)` en `retail_products`: la columna (202610200003) nunca tuvo permiso de edición y cambiar el vencimiento de un producto existente daba «permission denied». La app ya manda el vencimiento solo cuando cambia, así que guardar sin tocarlo funciona antes de aplicarla.
+
+## Cuentas visibles en Plata
+
+**Pendiente de aplicar:** [202611100002_money_accounts_summary_volatile.sql](supabase/migrations/202611100002_money_accounts_summary_volatile.sql), después de `202611100001_product_expiry_grant.sql`.
+
+- `retail_money_accounts_summary` pasa de STABLE a VOLATILE. Siendo STABLE, PostgREST la corría en solo lectura y `require_permission` (que usa FOR SHARE) la hacía fallar siempre: las cuentas de banco y billetera no aparecían en Plata ni en sus selectores. No cambia el cálculo ni los permisos.

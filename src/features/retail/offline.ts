@@ -164,7 +164,8 @@ export async function syncOffline() {
     }
     const state = await transaction(user, s => s);
     if (syncedAny && !state.queue.length && activeUser === user) for (const k of Object.keys(state.cache)) {
-      const [method, args] = JSON.parse(k); if (reads.has(method)) backgroundRead(user, method, args, false);
+      // Movimientos y saldo se releen siempre: el servidor les asigna datos propios (número de recibo) al sincronizar.
+      const [method, args] = JSON.parse(k); if (reads.has(method)) backgroundRead(user, method, args, method === 'movements' || method === 'shiftBalance');
     }
   } catch { /* Durable queue remains intact; online event/timer/manual retry resumes. */ }
   finally { syncing = false; event(); }

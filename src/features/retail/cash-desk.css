@@ -148,3 +148,14 @@
   .retail-app .cash-workspace-adaptive .cash-movement-list { max-height: none; }
   .retail-app .cash-workspace-adaptive .retail-form :is(input, select) { font-size: 16px; }
 }
+.cash-metrics > div.is-negative strong { color: var(--tone-danger); }
+.cash-expected { margin-top: 10px; padding: 10px 14px; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-canvas); font-size: 13px; }
+.cash-expected summary { cursor: pointer; font-weight: 600; }
+.cash-expected dl { display: grid; gap: 4px; max-width: 460px; margin: 10px 0 0; }
+.cash-expected dl > div { display: flex; justify-content: space-between; gap: 12px; }
+.cash-expected dt { color: var(--tone-muted); }
+.cash-expected dd { margin: 0; font-variant-numeric: tabular-nums; }
+.cash-expected-total { padding-top: 6px; border-top: 1px solid var(--tone-border); font-weight: 700; }
+.cash-expected-total dt { color: inherit; }
+.cash-expected-warning { margin: 10px 0 0; padding: 8px 10px; border-left: 4px solid var(--tone-danger); border-radius: 6px; background: var(--tone-danger-soft); }
+.cash-expected-note { margin: 8px 0 0; color: var(--tone-muted); font-size: 12px; }

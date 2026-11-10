@@ -26,7 +26,7 @@ export function DepotSettings({ store, busy, run, active = true }: { store: Stor
         <span className="permission-switch-track" aria-hidden="true" />
       </span>
     </label>
-    <p>{store.branch_inventory_enabled ? 'Depósito central y existencias por sucursal. Mové productos desde Productos → Mover entre locales o Reponer.' : enabled ? 'Salón y depósito son compartidos entre tus locales. Mové o recibí mercadería desde Productos → Reponer.' : 'Separá lo guardado de lo disponible para vender. Al activar, todas las existencias actuales siguen en salón.'}</p>
+    <p>{store.branch_inventory_enabled ? 'Depósito central y existencias por sucursal. Mové productos desde Productos → Mover mercadería o Reponer.' : enabled ? 'Salón y depósito son compartidos entre tus locales. Mové o recibí mercadería desde Productos → Reponer.' : 'Separá lo guardado de lo disponible para vender. Al activar, todas las existencias actuales siguen en salón.'}</p>
     {error && <p role="alert">{error}</p>}
   </section>;
 }
