@@ -5,6 +5,7 @@ import { errorMessage } from './api';
 import type { Run } from './Management';
 import { ReconciliationDetail } from './ReconciliationDetail';
 import { MoneyMovementsReport, isOwnAccountMove } from './MoneyMovementsReport';
+import { MoneyRouteMap } from './MoneyRouteMap';
 import { downloadAccountantReport, methodLabels, methods, type Method, type MethodTotals, type MoneyReport } from './reconciliationExport';
 import './bank-reconciliation.css';
 
@@ -117,6 +118,7 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
         <button type="button" className="secondary-button bank-method-detail" disabled={!ownMoves.length} onClick={() => setOwnFocus(value => value + 1)}>Ver movimientos</button>
       </article>}
     </div>}
+    {totals && moneyReport && <MoneyRouteMap totals={totals} accounts={moneyReport.accounts} />}
     {totals && <p className="bank-note">En una venta mixta (por ejemplo, parte efectivo y parte QR) cada medio suma solo su parte.</p>}
     {totals && detail && <ReconciliationDetail key={detail} storeId={storeId} method={detail} label={methodLabels[detail]} from={from} to={to} onClose={() => setDetail(null)} />}
     <MoneyMovementsReport storeId={storeId} from={from} to={to} active={active} onLoaded={setMoneyReport} focus={ownFocus} />

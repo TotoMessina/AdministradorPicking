@@ -8,6 +8,7 @@ import { errorMessage, type Branch } from './api';
 import { expenseCategories, finance, type Expense, type ExpenseCategory, type ExpenseDraft, type MonthResult } from './financeApi';
 import { countReasons, stockCounts, type StockLosses } from './stockCountApi';
 import { FixedExpensesTrend } from './FixedExpensesTrend';
+import { MoneyFlowBar } from './MoneyFlowBar';
 import type { Run } from './Management';
 
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS', maximumFractionDigits: 0 });
@@ -93,6 +94,13 @@ export function FinanceTab({ storeId, branches, busy, run, active }: { storeId: 
       <div><small>{profit >= 0 ? `Te quedó en ${monthName(month)}` : `Perdiste en ${monthName(month)}`}</small><strong>{money(Math.abs(profit))}</strong></div>
     </section>}
 
+    {result && <MoneyFlowBar sales={result.sales} parts={[
+      { id: 'cost', label: 'Costo de la mercadería', amount: result.cost, tone: 'cost' },
+      { id: 'expenses', label: 'Gastos', amount: result.expenses, tone: 'expense' },
+      { id: 'fees', label: 'Comisiones de cobro', amount: fees?.commission ?? 0, tone: 'fee' },
+      { id: 'loss', label: 'Pérdidas de stock', amount: shrink, tone: 'loss' },
+      { id: 'profit', label: 'Te quedó', amount: Math.max(0, profit), tone: 'profit' },
+    ]} />}
     {result && <dl className="finance-steps">
       <div><dt>Vendiste</dt><dd>{money(result.sales)}</dd><small>{result.tickets} {result.tickets === 1 ? 'venta' : 'ventas'}{result.returns ? ` · ya descontados ${money(result.returns)} devueltos` : ''}</small></div>
       <div><dt>− Costo de lo vendido</dt><dd>{money(result.cost)}</dd><small>Ganancia bruta {money(gross)}</small></div>

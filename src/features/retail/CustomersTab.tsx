@@ -131,7 +131,12 @@ export function CustomersTab({ storeId, customers, shiftId, canManage, run, busy
     {!customers.length ? <p className="customers-empty">{canManage ? 'Todavía no cargaste clientes. Con «Nuevo cliente» podés empezar a fiar.' : 'Todavía no hay clientes. Pedile a administración que los cargue.'}</p>
       : <ul className="customers-list">{shown.map(customer => <li key={customer.id}>
         <button type="button" disabled={disabled} onClick={() => open(customer)}>
-          <span><strong>{customer.name}</strong><small>{customer.phone || 'Sin teléfono'}{!customer.active ? ' · No se le fía' : ''}</small></span>
+          <span><strong>{customer.name}</strong><small>{customer.phone || 'Sin teléfono'}{!customer.active ? ' · No se le fía' : ''}</small>
+            {customer.credit_limit !== null && customer.credit_limit > 0 && customer.balance > 0 && (() => {
+              const used = Math.min(100, Math.round((customer.balance / customer.credit_limit) * 100));
+              return <span className={`customers-limit ${used >= 100 ? 'is-full' : used >= 75 ? 'is-high' : ''}`} role="img" aria-label={`Usa el ${used}% de su límite`}>
+                <span style={{ width: `${used}%` }} /><small>{used >= 100 ? 'Llegó al límite' : `Usa el ${used}% de su límite`}</small></span>;
+            })()}</span>
           <span className={`customers-amount-cell ${customer.balance > 0 ? 'is-debt' : customer.balance < 0 ? 'is-credit' : ''}`}>{balanceText(customer.balance)}
             {customer.credit_limit !== null && <small>Límite {money(customer.credit_limit)}</small>}</span>
         </button>

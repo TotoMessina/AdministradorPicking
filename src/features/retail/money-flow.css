@@ -1,0 +1,38 @@
+/* Barra «a dónde fue cada peso» (Ganancias) y recorrido de la plata (Para el contador). */
+.money-flow { display: grid; gap: 12px; margin: 0; padding: 18px; border: 1px solid var(--tone-border); border-radius: 14px; background: var(--tone-surface); }
+.money-flow figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px; color: var(--tone-muted); font-size: 13px; }
+.money-flow figcaption strong { color: var(--tone-ink); font-variant-numeric: tabular-nums; }
+.money-flow-track { position: relative; height: 30px; margin-bottom: 14px; border-radius: 999px; background: var(--tone-soft); }
+.money-flow-bar { display: flex; height: 100%; overflow: hidden; border-radius: 999px; }
+.money-flow-part { height: 100%; min-width: 3px; transition: width .6s cubic-bezier(.2, .8, .2, 1); }
+.money-flow-part + .money-flow-part { box-shadow: inset 2px 0 0 var(--tone-surface); }
+.money-flow .is-cost { background: #7c8db5; }
+.money-flow .is-expense { background: #d9902f; }
+.money-flow .is-fee { background: #a78bfa; }
+.money-flow .is-loss { background: #c2410c; }
+.money-flow .is-profit { background: #1f7a4d; }
+.money-flow .is-deficit { background: repeating-linear-gradient(135deg, var(--tone-danger) 0 6px, color-mix(in srgb, var(--tone-danger) 60%, transparent) 6px 12px); }
+.money-flow-mark { position: absolute; top: -6px; bottom: -6px; width: 2px; background: var(--tone-ink); }
+.money-flow-mark small { position: absolute; top: 100%; left: 50%; transform: translateX(-50%); margin-top: 4px; white-space: nowrap; color: var(--tone-muted); font-size: 11px; }
+.money-flow-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 10px 28px; margin: 6px 0 0; padding: 0; list-style: none; }
+.money-flow-legend li { display: grid; grid-template-columns: 12px 1fr auto; align-items: center; gap: 2px 8px; font-size: 13px; }
+.money-flow-legend i { width: 12px; height: 12px; border-radius: 4px; }
+.money-flow-legend strong { font-size: 18px; font-variant-numeric: tabular-nums; }
+.money-flow-legend small { grid-column: 2 / -1; color: var(--tone-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) { .money-flow-part { transition: none; } }
+.money-flow-over { position: absolute; top: 0; bottom: 0; right: 0; border-radius: 0 999px 999px 0; background: repeating-linear-gradient(135deg, transparent 0 6px, color-mix(in srgb, var(--tone-danger) 45%, transparent) 6px 12px); pointer-events: none; }
+/* Recorrido medio de cobro → cuenta. */
+.money-route { container-type: inline-size; display: grid; gap: 10px; margin: 0; padding: 16px; border: 1px solid var(--tone-border); border-radius: 14px; background: linear-gradient(180deg, var(--tone-surface), var(--tone-canvas)); }
+.money-route figcaption { font-weight: 650; font-size: 14px; }
+.money-route figcaption small { display: block; margin-top: 2px; color: var(--tone-muted); font-size: 12px; font-weight: 400; }
+.money-route svg { width: 100%; height: auto; overflow: visible; }
+.money-route-path { fill: none; stroke: var(--tone-accent); stroke-opacity: .35; stroke-linecap: round; transition: stroke-opacity .2s; }
+.money-route-path:hover { stroke-opacity: .7; }
+.money-route-path.is-orphan { stroke: var(--tone-danger); stroke-dasharray: 6 6; }
+.money-route-node { fill: var(--tone-surface); stroke: var(--tone-border); }
+.money-route-node.is-account { stroke: var(--tone-accent); }
+.money-route-node.is-orphan { fill: var(--tone-danger-soft); stroke: var(--tone-danger); stroke-dasharray: 4 4; }
+.money-route-name { fill: var(--tone-ink); font-size: 14px; font-weight: 650; }
+.money-route-amount { fill: var(--tone-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.money-route-list { display: none; margin: 0; padding-left: 18px; font-size: 13px; }
+@container (max-width: 520px) { .money-route svg { display: none; } .money-route-list { display: grid; gap: 4px; } }

@@ -281,6 +281,8 @@ Para que el backend procese las firmas CMS y solicitudes SOAP con AFIP:
 
 ## Comparar sucursales
 
+En **Ganancias → Este mes**, debajo de lo que te quedó, una barra muestra de cada $100 vendidos cuánto fue al costo de la mercadería, gastos, comisiones de cobro y pérdidas de stock, y cuánto quedó. Si se gastó más de lo vendido, la parte que faltó se ve rayada en rojo con la marca de hasta dónde llegaron las ventas. Las tarjetas con los importes siguen debajo.
+
 En **Ganancias → Comparar sucursales**, solo dueños y administradores, se elige el período: hoy, últimos 7 días, este mes, mes anterior o fechas a elección, de hasta un año. Cada sucursal tiene una tarjeta con:
 
 - **Ventas:** netas de devoluciones, con la parte del total y lo devuelto.

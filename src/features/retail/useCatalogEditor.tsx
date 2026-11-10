@@ -1366,7 +1366,8 @@ Respondé EXCLUSIVAMENTE con un JSON estricto con:
       // Solo con la actualización 202611040005, que carga display_size en los productos.
       ...(displayReady ? { display_size: formData.displaySize.trim() ? Number(formData.displaySize) : null } : {}),
       ...(codesReady ? { display_code: formData.displayCode.trim() || null, pack_code: formData.packCode.trim() || null, pallet_packs: formData.palletPacks.trim() ? Number(formData.palletPacks) : null } : {}),
-      expiry_date: formData.expiryDate ? formData.expiryDate : null,
+      // Solo si cambió: hasta 202611100001 la base no deja editar el vencimiento y rechazaría el guardado.
+      ...((formData.expiryDate || null) !== (editing?.expiry_date ?? null) ? { expiry_date: formData.expiryDate || null } : {}),
     };
 
     if (!review) {

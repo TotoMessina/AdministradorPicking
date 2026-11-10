@@ -645,3 +645,9 @@ Pasos, en este orden (no se ejecutaron desde este repositorio):
 
 - Tabla privada `retail_receipt_counters` (por comercio y serie `income`/`payment`/`transfer`) y columna `receipt_number` en `retail_movements` y `retail_fund_transfers`, asignada por triggers al insertar. Los cierres automáticos de caja (`shift_id`) y las filas anteriores quedan sin número.
 - Reemplaza `retail_movement_details` (DROP + CREATE) para devolver además `receipt_number` y `actor_email`.
+
+## Permiso para editar el vencimiento
+
+**Pendiente de aplicar:** [202611100001_product_expiry_grant.sql](supabase/migrations/202611100001_product_expiry_grant.sql), después de `202611060010_movement_receipts.sql`.
+
+- `grant update(expiry_date)` en `retail_products`: la columna (202610200003) nunca tuvo permiso de edición y cambiar el vencimiento de un producto existente daba «permission denied». La app ya manda el vencimiento solo cuando cambia, así que guardar sin tocarlo funciona antes de aplicarla.

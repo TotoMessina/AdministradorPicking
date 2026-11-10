@@ -1,5 +1,6 @@
 import { Fragment, useMemo, useRef, useState, type KeyboardEvent } from 'react';
 import { AlertTriangle, ChevronDown, ChevronUp, Loader2, Plus, Trash2, X } from 'lucide-react';
+import { PresentationChain } from './PresentationChain';
 import { NumberInput } from '../../components/NumberInput';
 import { askConfirm } from '../../components/ConfirmHost';
 import { useToast } from '../../context/ToastContext';
@@ -190,7 +191,9 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
             cost: perUnit ?? row.original?.cost ?? 0, stock: row.original ? row.original.stock : stock ?? 0, minStock: Number(row.minStock), emoji: row.emoji.trim() || '📦', active: true,
             brand: row.brand.trim() || undefined, supplier: row.supplier.trim() || undefined, supplierCode: row.supplierCode.trim() || undefined,
             tags: tagList(row.tags), unitType: row.unitType, pack_size: sizes.pack_size, display_size: sizes.display_size,
-            expiry_date: row.expiry || null, stock_components: row.original?.stock_components,
+            // Solo si cambió: hasta 202611100001 la base no deja editar el vencimiento y rechazaría toda la fila.
+            ...((row.expiry || null) !== (row.original?.expiry_date ?? null) ? { expiry_date: row.expiry || null } : {}),
+            stock_components: row.original?.stock_components,
             ...(store.price_rounding !== undefined ? { price_rounding: row.rounding } : {}),
             ...(row.original?.price_pending ? { price_pending: false } : {}),
             ...(codesReady ? { display_code: row.displayCode.trim() || null, pack_code: row.packCode.trim() || null, pallet_packs: row.palletPacks.trim() ? Number(row.palletPacks) : null } : {}),
@@ -295,6 +298,7 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
             {row.open && <tr className="product-sheet-more"><td /><td colSpan={mode === 'new' ? 13 : 11}>
               <div className="product-sheet-presentations" role="group" aria-label={`Presentaciones de ${label}`}>
                 <strong>Presentaciones</strong>
+                <PresentationChain displayUnits={row.displayUnits} packUnits={row.packUnits} palletPacks={row.palletPacks} buying={row.presentation} />
                 <label>Unidades por display<NumberInput min={1} step={1} value={row.displayUnits} placeholder="No tiene" disabled={disabled} onValueChange={value => update(row.key, { displayUnits: value })} /></label>
                 {codesReady && <label>Código del display (EAN-13)<input value={row.displayCode} maxLength={40} inputMode="numeric" autoComplete="off" placeholder="Opcional" disabled={disabled}
                   onChange={event => update(row.key, { displayCode: event.target.value.replace(/\s/g, '') })} />

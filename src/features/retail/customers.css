@@ -52,3 +52,10 @@
 .customers-summary small { font-weight: 600; }
 .customers-summary strong { font-size: 20px; font-variant-numeric: tabular-nums; }
 .customers-steps li, .customers-steps span { text-align: left; justify-items: start; }
+.customers-limit { display: grid; gap: 3px; width: min(220px, 100%); margin-top: 6px; }
+.customers-limit > span { display: block; height: 6px; border-radius: 999px; background: #1f7a4d; box-shadow: 0 0 0 1px var(--tone-border); transition: width .5s ease; }
+.customers-limit { background: linear-gradient(var(--tone-soft), var(--tone-soft)) no-repeat 0 0 / 100% 6px; border-radius: 999px; }
+.customers-limit.is-high > span { background: #d9902f; }
+.customers-limit.is-full > span { background: var(--tone-danger); }
+.customers-limit small { font-size: 11px; }
+@media (prefers-reduced-motion: reduce) { .customers-limit > span { transition: none; } }
