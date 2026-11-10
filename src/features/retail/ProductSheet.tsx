@@ -87,16 +87,18 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
       const found = extractJson<ProductSuggestion>(response);
       if (!found) throw new Error('sin datos');
       const category = found.category ? resolveProductCategory(categories, found.category, name) : '';
+      // Se decide con la fila del momento del pedido (no dentro del setState, que React puede repetir).
+      const current = rows.find(item => item.key === row.key) ?? row;
+      const patch: Partial<Row> = {};
       const filled: string[] = [];
-      setRows(previous => previous.map(item => {
-        if (item.key !== row.key) return item;
-        const next = { ...item };
-        if (!item.brand.trim() && found.brand) { next.brand = found.brand; filled.push('marca'); }
-        if (!item.supplier.trim() && found.supplier) { next.supplier = found.supplier; filled.push('proveedor'); }
-        if (!item.tags.trim() && found.tags?.length) { next.tags = found.tags.join(', '); filled.push('etiquetas'); }
-        if ((!item.emoji.trim() || item.emoji === '📦') && found.emoji) { next.emoji = found.emoji; filled.push('ícono'); }
-        if (category && item.categoryId === defaultProductCategory(categories) && category !== item.categoryId) { next.categoryId = category; filled.push('categoría'); }
-        return next;
+      if (!current.brand.trim() && found.brand) { patch.brand = found.brand; filled.push('marca'); }
+      if (!current.supplier.trim() && found.supplier) { patch.supplier = found.supplier; filled.push('proveedor'); }
+      if (!current.tags.trim() && found.tags?.length) { patch.tags = found.tags.join(', '); filled.push('etiquetas'); }
+      if ((!current.emoji.trim() || current.emoji === '📦') && found.emoji) { patch.emoji = found.emoji; filled.push('ícono'); }
+      if (category && current.categoryId === defaultProductCategory(categories) && category !== current.categoryId) { patch.categoryId = category; filled.push('categoría'); }
+      // Solo se completa lo que sigue vacío cuando llega la respuesta.
+      setRows(previous => previous.map(item => item.key !== row.key ? item : {
+        ...item, ...Object.fromEntries(Object.entries(patch).filter(([field]) => !String(item[field as keyof Row] ?? '').trim() || (field === 'emoji' && item.emoji === '📦') || (field === 'categoryId' && item.categoryId === defaultProductCategory(categories)))),
       }));
       setAiNotes(previous => ({ ...previous, [row.key]: filled.length ? `La IA completó: ${filled.join(', ')}. Revisalo antes de guardar.` : 'La IA no tenía nada nuevo para completar: los datos ya estaban cargados.' }));
     } catch {
