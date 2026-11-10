@@ -305,13 +305,13 @@ function Workspace({
     const intent = initialPushIntent();
     return intent?.storeId === store.id ? intent : null;
   });
-  const [tab, setTab] = useState<Tab>(pushEntry?.view || 'home');
+  const [tab, setTab] = useState<Tab>(pushEntry?.view === 'transfers' ? 'catalog' : pushEntry?.view || 'home');
   const mainRef = useRef<HTMLElement>(null);
   useMobileScreenMotion(mainRef, tab);
   const [cashView, setCashView] = useState(pushEntry?.view === 'cash' ? 'overview' : 'shift');
   const [openFromSale, setOpenFromSale] = useState(false);
   const [closeRequest, setCloseRequest] = useState(0);
-  const [catalogView, setCatalogView] = useState('products');
+  const [catalogView, setCatalogView] = useState(pushEntry?.view === 'transfers' ? 'transfers' : 'products');
   const [invoiceRequest, setInvoiceRequest] = useState(0);
   const invoiceReturn = useRef<Tab>('suppliers');
   const uploadInvoice = () => { invoiceReturn.current = tab; setCatalogView('products'); setTab('catalog'); setInvoiceRequest(value => value + 1); };
@@ -791,6 +791,12 @@ function Workspace({
       }
       if (intent.view === 'cash') setCashView('overview');
       if (intent.view === 'settings') setSettingsView('app');
+      if (intent.view === 'transfers') {
+        setCatalogView('transfers');
+        setIsAiOpen(false);
+        setTab('catalog');
+        return;
+      }
       if (intent.view === 'catalog') {
         setCatalogView('products');
         const low = products.filter((p) => p.active && !hasComposition(p) && p.stock <= p.minStock);

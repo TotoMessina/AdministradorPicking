@@ -22,18 +22,34 @@ export async function pushRegistration() {
   return registration;
 }
 
-export async function savePush(storeId: string, subscription: PushSubscription, lowStock: boolean, shiftClosed: boolean) {
+export async function savePush(
+  storeId: string,
+  subscription: PushSubscription,
+  lowStock = true,
+  shiftClosed = true,
+  shiftOpened = true,
+  cashDifference = true,
+  transfers = true,
+) {
   const keys = subscription.toJSON().keys;
   if (!keys?.p256dh || !keys.auth) throw new Error('No se pudo registrar este dispositivo.');
   const { error } = await supabase.rpc('retail_save_push', {
     p_store: storeId, p_endpoint: subscription.endpoint, p_p256dh: keys.p256dh, p_auth: keys.auth,
     p_low_stock: lowStock, p_shift_closed: shiftClosed,
+    p_shift_opened: shiftOpened, p_cash_difference: cashDifference, p_transfers: transfers,
   });
   if (error) throw error;
 }
 
 // Call from a click handler: permission is requested before the first await.
-export async function activatePush(storeId: string, lowStock = true, shiftClosed = true) {
+export async function activatePush(
+  storeId: string,
+  lowStock = true,
+  shiftClosed = true,
+  shiftOpened = true,
+  cashDifference = true,
+  transfers = true,
+) {
   const permission = Notification.permission === 'granted'
     ? 'granted' : await Notification.requestPermission();
   if (permission !== 'granted') return null;
@@ -46,7 +62,7 @@ export async function activatePush(storeId: string, lowStock = true, shiftClosed
   }
   const created = !current;
   current ||= await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key });
-  try { await savePush(storeId, current, lowStock, shiftClosed); }
+  try { await savePush(storeId, current, lowStock, shiftClosed, shiftOpened, cashDifference, transfers); }
   catch (error) { if (created) await current.unsubscribe(); throw error; }
   return current;
 }
@@ -67,12 +83,12 @@ export async function disconnectPushOnLogout() {
   finally { await subscription.unsubscribe(); }
 }
 
-export type PushIntent = { storeId: string; view: 'home' | 'catalog' | 'cash' | 'settings' };
+export type PushIntent = { storeId: string; view: 'home' | 'catalog' | 'cash' | 'settings' | 'transfers' };
 export function readPushIntent(value: unknown): PushIntent | null {
   if (!value || typeof value !== 'object') return null;
   const intent = value as Record<string, unknown>;
   if (typeof intent.storeId !== 'string' || !/^[0-9a-f-]{36}$/i.test(intent.storeId) ||
-    !['home', 'catalog', 'cash', 'settings'].includes(String(intent.view))) return null;
+    !['home', 'catalog', 'cash', 'settings', 'transfers'].includes(String(intent.view))) return null;
   return { storeId: intent.storeId, view: intent.view as PushIntent['view'] };
 }
 export function initialPushIntent() {

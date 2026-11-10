@@ -499,6 +499,11 @@ declare
   "ordinal": 97,
   "filename": "202611100003_payment_link_method.sql",
   "sha256": "90ac4ef0869c7ec6f4a2a8878fbe9149e9c74d0c6f64248989ce68a91e5d7901"
+ },
+ {
+  "ordinal": 98,
+  "filename": "202611100004_operational_push_notifications.sql",
+  "sha256": "c7b807f7a2c473693de5db7627a348572a19c997b5458e1019e1d755f95fef17"
  }
 ]
 $retail_schema_manifest_json$::jsonb;
@@ -554,7 +559,7 @@ begin
    and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
   raise exception 'El historial tiene huecos. Revisalo antes de aplicar migraciones posteriores';
  end if;
--- 1/97: 202610010001_retail_multistore.sql
+-- 1/98: 202610010001_retail_multistore.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610010001_retail_multistore.sql') then
   raise notice 'Aplicando 202610010001_retail_multistore.sql';
@@ -791,7 +796,7 @@ $retail_source_f24b734005cc1623$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 2/97: 202610020001_catalog_global_and_segmentation.sql
+-- 2/98: 202610020001_catalog_global_and_segmentation.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610020001_catalog_global_and_segmentation.sql') then
   raise notice 'Aplicando 202610020001_catalog_global_and_segmentation.sql';
@@ -1081,7 +1086,7 @@ $retail_source_bca9c54fa75c2a89$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 3/97: 202610070001_harden_global_catalog_immutability.sql
+-- 3/98: 202610070001_harden_global_catalog_immutability.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610070001_harden_global_catalog_immutability.sql') then
   raise notice 'Aplicando 202610070001_harden_global_catalog_immutability.sql';
@@ -1178,7 +1183,7 @@ $retail_source_f3ff59ec39b6e574$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 4/97: 202610130001_branches_prices_ledgers.sql
+-- 4/98: 202610130001_branches_prices_ledgers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610130001_branches_prices_ledgers.sql') then
   raise notice 'Aplicando 202610130001_branches_prices_ledgers.sql';
@@ -1373,7 +1378,7 @@ $retail_source_e86fe143f886cd85$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 5/97: 202610140001_web_push.sql
+-- 5/98: 202610140001_web_push.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610140001_web_push.sql') then
   raise notice 'Aplicando 202610140001_web_push.sql';
@@ -1519,7 +1524,7 @@ $retail_source_918efe9a5d3313e3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 6/97: 202610150001_cashier_access.sql
+-- 6/98: 202610150001_cashier_access.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610150001_cashier_access.sql') then
   raise notice 'Aplicando 202610150001_cashier_access.sql';
@@ -1685,7 +1690,7 @@ $retail_source_a30006ceabfa2ca5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 7/97: 202610160001_offline_pos.sql
+-- 7/98: 202610160001_offline_pos.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160001_offline_pos.sql') then
   raise notice 'Aplicando 202610160001_offline_pos.sql';
@@ -1799,7 +1804,7 @@ $retail_source_770c916876fcdabf$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 8/97: 202610160002_offline_queue.sql
+-- 8/98: 202610160002_offline_queue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160002_offline_queue.sql') then
   raise notice 'Aplicando 202610160002_offline_queue.sql';
@@ -1925,7 +1930,7 @@ $retail_source_ffb2f924480094f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 9/97: 202610160003_pack_size.sql
+-- 9/98: 202610160003_pack_size.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160003_pack_size.sql') then
   raise notice 'Aplicando 202610160003_pack_size.sql';
@@ -1941,7 +1946,7 @@ $retail_source_e8f486a53e369954$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 10/97: 202610160004_margin_groups.sql
+-- 10/98: 202610160004_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160004_margin_groups.sql') then
   raise notice 'Aplicando 202610160004_margin_groups.sql';
@@ -1996,7 +2001,7 @@ $retail_source_8a5790ed3a1371e6$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 11/97: 202610160005_branch_price_rules.sql
+-- 11/98: 202610160005_branch_price_rules.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610160005_branch_price_rules.sql') then
   raise notice 'Aplicando 202610160005_branch_price_rules.sql';
@@ -2050,7 +2055,7 @@ $retail_source_7899d29739b25999$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 12/97: 202610190001_justified_withdrawal.sql
+-- 12/98: 202610190001_justified_withdrawal.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_justified_withdrawal.sql') then
   raise notice 'Aplicando 202610190001_justified_withdrawal.sql';
@@ -2230,7 +2235,7 @@ $retail_source_029b5843eacab94f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 13/97: 202610190001_store_onboarding.sql
+-- 13/98: 202610190001_store_onboarding.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190001_store_onboarding.sql') then
   raise notice 'Aplicando 202610190001_store_onboarding.sql';
@@ -2347,7 +2352,7 @@ $retail_source_e5b8362448949bce$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 14/97: 202610190002_pending_replenishments.sql
+-- 14/98: 202610190002_pending_replenishments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190002_pending_replenishments.sql') then
   raise notice 'Aplicando 202610190002_pending_replenishments.sql';
@@ -2516,7 +2521,7 @@ $retail_source_3ddd179e5609126a$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 15/97: 202610190003_stock_transfers.sql
+-- 15/98: 202610190003_stock_transfers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610190003_stock_transfers.sql') then
   raise notice 'Aplicando 202610190003_stock_transfers.sql';
@@ -2623,7 +2628,7 @@ $retail_source_cab05c3785465fba$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 16/97: 202610200001_supplier_mappings.sql
+-- 16/98: 202610200001_supplier_mappings.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200001_supplier_mappings.sql') then
   raise notice 'Aplicando 202610200001_supplier_mappings.sql';
@@ -2714,7 +2719,7 @@ $retail_source_d4841853f82adbd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 17/97: 202610200002_supplier_alias_usage.sql
+-- 17/98: 202610200002_supplier_alias_usage.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200002_supplier_alias_usage.sql') then
   raise notice 'Aplicando 202610200002_supplier_alias_usage.sql';
@@ -2781,7 +2786,7 @@ $retail_source_1adc3ce4519abbb2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 18/97: 202610200003_product_expiry.sql
+-- 18/98: 202610200003_product_expiry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610200003_product_expiry.sql') then
   raise notice 'Aplicando 202610200003_product_expiry.sql';
@@ -2796,7 +2801,7 @@ $retail_source_77d1f8c0f62da284$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 19/97: 202610210001_ledger_routing.sql
+-- 19/98: 202610210001_ledger_routing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210001_ledger_routing.sql') then
   raise notice 'Aplicando 202610210001_ledger_routing.sql';
@@ -2927,7 +2932,7 @@ $retail_source_f19dc026535013c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 20/97: 202610210002_staff_profiles.sql
+-- 20/98: 202610210002_staff_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210002_staff_profiles.sql') then
   raise notice 'Aplicando 202610210002_staff_profiles.sql';
@@ -3093,7 +3098,7 @@ $retail_source_ca6e73c2c8993bc2$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 21/97: 202610210003_ledger_lock_order.sql
+-- 21/98: 202610210003_ledger_lock_order.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210003_ledger_lock_order.sql') then
   raise notice 'Aplicando 202610210003_ledger_lock_order.sql';
@@ -3141,7 +3146,7 @@ $retail_source_b9f318a08145ad1e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 22/97: 202610210004_delegated_catalog_actions.sql
+-- 22/98: 202610210004_delegated_catalog_actions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610210004_delegated_catalog_actions.sql') then
   raise notice 'Aplicando 202610210004_delegated_catalog_actions.sql';
@@ -3259,7 +3264,7 @@ $retail_source_bcfa6664c406dd00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 23/97: 202610220001_product_compositions.sql
+-- 23/98: 202610220001_product_compositions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220001_product_compositions.sql') then
   raise notice 'Aplicando 202610220001_product_compositions.sql';
@@ -3417,7 +3422,7 @@ $retail_source_ef088735e7a84900$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 24/97: 202610220002_loose_cigarettes.sql
+-- 24/98: 202610220002_loose_cigarettes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220002_loose_cigarettes.sql') then
   raise notice 'Aplicando 202610220002_loose_cigarettes.sql';
@@ -3525,7 +3530,7 @@ $retail_source_e943d579b3d7ed4e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 25/97: 202610220003_product_deletion_history.sql
+-- 25/98: 202610220003_product_deletion_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220003_product_deletion_history.sql') then
   raise notice 'Aplicando 202610220003_product_deletion_history.sql';
@@ -3630,7 +3635,7 @@ $retail_source_458a93d670539dd4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 26/97: 202610220004_standard_categories.sql
+-- 26/98: 202610220004_standard_categories.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220004_standard_categories.sql') then
   raise notice 'Aplicando 202610220004_standard_categories.sql';
@@ -3732,7 +3737,7 @@ $retail_source_85e889e22c9dcc55$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 27/97: 202610220005_category_labels.sql
+-- 27/98: 202610220005_category_labels.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220005_category_labels.sql') then
   raise notice 'Aplicando 202610220005_category_labels.sql';
@@ -3763,7 +3768,7 @@ $retail_source_e975aa6c462d6ee5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 28/97: 202610220006_complete_permission_profiles.sql
+-- 28/98: 202610220006_complete_permission_profiles.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610220006_complete_permission_profiles.sql') then
   raise notice 'Aplicando 202610220006_complete_permission_profiles.sql';
@@ -4401,7 +4406,7 @@ $retail_source_913347ffd59472a5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 29/97: 202610230001_automatic_margin_groups.sql
+-- 29/98: 202610230001_automatic_margin_groups.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230001_automatic_margin_groups.sql') then
   raise notice 'Aplicando 202610230001_automatic_margin_groups.sql';
@@ -4467,7 +4472,7 @@ $retail_source_6cd429e7679685c4$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 30/97: 202610230002_ingredients_and_composition_costs.sql
+-- 30/98: 202610230002_ingredients_and_composition_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610230002_ingredients_and_composition_costs.sql') then
   raise notice 'Aplicando 202610230002_ingredients_and_composition_costs.sql';
@@ -4570,7 +4575,7 @@ $retail_source_86fd19952b8e6534$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 31/97: 202610240001_shift_closing_details.sql
+-- 31/98: 202610240001_shift_closing_details.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610240001_shift_closing_details.sql') then
   raise notice 'Aplicando 202610240001_shift_closing_details.sql';
@@ -4734,7 +4739,7 @@ $retail_source_d3204ba0e41d2977$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 32/97: 202610260001_optional_depot.sql
+-- 32/98: 202610260001_optional_depot.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260001_optional_depot.sql') then
   raise notice 'Aplicando 202610260001_optional_depot.sql';
@@ -4874,7 +4879,7 @@ $retail_source_f221d19fcff7ac88$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 33/97: 202610260002_create_composite_product.sql
+-- 33/98: 202610260002_create_composite_product.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260002_create_composite_product.sql') then
   raise notice 'Aplicando 202610260002_create_composite_product.sql';
@@ -4920,7 +4925,7 @@ $retail_source_2e23fbafc73e0b69$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 34/97: 202610260003_billing_fields.sql
+-- 34/98: 202610260003_billing_fields.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260003_billing_fields.sql') then
   raise notice 'Aplicando 202610260003_billing_fields.sql';
@@ -5104,7 +5109,7 @@ $retail_source_2a42b0a16de67076$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 35/97: 202610260004_price_list_tree.sql
+-- 35/98: 202610260004_price_list_tree.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260004_price_list_tree.sql') then
   raise notice 'Aplicando 202610260004_price_list_tree.sql';
@@ -5264,7 +5269,7 @@ exception when raise_exception then
   hint='El SQL de instalación ya normaliza CRLF. Si persiste, ejecutar supabase/maintenance/check_manual_schema_history.sql y compartir el resultado y esta huella. No quitar la validación ni reemplazar checkout a ciegas.';
 end;
 
--- 36/97: 202610260005_delete_price_lists.sql
+-- 36/98: 202610260005_delete_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260005_delete_price_lists.sql') then
   raise notice 'Aplicando 202610260005_delete_price_lists.sql';
@@ -5394,7 +5399,7 @@ $retail_source_540fb2b7146a1f68$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 37/97: 202610260006_billing_update_robustness.sql
+-- 37/98: 202610260006_billing_update_robustness.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610260006_billing_update_robustness.sql') then
   raise notice 'Aplicando 202610260006_billing_update_robustness.sql';
@@ -5480,7 +5485,7 @@ $retail_source_97469041ab94b975$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 38/97: 202610270001_store_billing_credentials.sql
+-- 38/98: 202610270001_store_billing_credentials.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270001_store_billing_credentials.sql') then
   raise notice 'Aplicando 202610270001_store_billing_credentials.sql';
@@ -5576,7 +5581,7 @@ $retail_source_5c5d202e9b944644$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 39/97: 202610270002_primary_product_markup.sql
+-- 39/98: 202610270002_primary_product_markup.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270002_primary_product_markup.sql') then
   raise notice 'Aplicando 202610270002_primary_product_markup.sql';
@@ -5759,7 +5764,7 @@ $retail_source_d9e8f398d415af14$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 40/97: 202610270003_suppliers.sql
+-- 40/98: 202610270003_suppliers.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270003_suppliers.sql') then
   raise notice 'Aplicando 202610270003_suppliers.sql';
@@ -5841,7 +5846,7 @@ $retail_source_9f007483d72681a7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 41/97: 202610270004_cost_price_lists.sql
+-- 41/98: 202610270004_cost_price_lists.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270004_cost_price_lists.sql') then
   raise notice 'Aplicando 202610270004_cost_price_lists.sql';
@@ -5878,7 +5883,7 @@ $retail_source_abe5683734a54251$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 42/97: 202610270005_supplier_invoice_formats.sql
+-- 42/98: 202610270005_supplier_invoice_formats.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610270005_supplier_invoice_formats.sql') then
   raise notice 'Aplicando 202610270005_supplier_invoice_formats.sql';
@@ -5959,7 +5964,7 @@ $retail_source_62535c0e844930c8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 43/97: 202610280001_supplier_alias_usage_repair.sql
+-- 43/98: 202610280001_supplier_alias_usage_repair.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280001_supplier_alias_usage_repair.sql') then
   raise notice 'Aplicando 202610280001_supplier_alias_usage_repair.sql';
@@ -6037,7 +6042,7 @@ $retail_source_e6eee2d43a1a62cc$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 44/97: 202610280002_location_funds.sql
+-- 44/98: 202610280002_location_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280002_location_funds.sql') then
   raise notice 'Aplicando 202610280002_location_funds.sql';
@@ -6129,7 +6134,7 @@ $retail_source_f22cae1d60cb383c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 45/97: 202610280003_location_inventory.sql
+-- 45/98: 202610280003_location_inventory.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280003_location_inventory.sql') then
   raise notice 'Aplicando 202610280003_location_inventory.sql';
@@ -6521,7 +6526,7 @@ $retail_source_baa181aa8cc76f1b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 46/97: 202610280004_permanent_product_deletion.sql
+-- 46/98: 202610280004_permanent_product_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610280004_permanent_product_deletion.sql') then
   raise notice 'Aplicando 202610280004_permanent_product_deletion.sql';
@@ -6653,7 +6658,7 @@ $retail_source_c066941e7a7c08d3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 47/97: 202610290001_branch_location_and_deletion.sql
+-- 47/98: 202610290001_branch_location_and_deletion.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290001_branch_location_and_deletion.sql') then
   raise notice 'Aplicando 202610290001_branch_location_and_deletion.sql';
@@ -6728,7 +6733,7 @@ $retail_source_bd6a4e4c41f96463$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 48/97: 202610290002_supplier_fiscal_profile.sql
+-- 48/98: 202610290002_supplier_fiscal_profile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290002_supplier_fiscal_profile.sql') then
   raise notice 'Aplicando 202610290002_supplier_fiscal_profile.sql';
@@ -6827,7 +6832,7 @@ $retail_source_51d60abcf980e182$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 49/97: 202610290003_purchase_invoices.sql
+-- 49/98: 202610290003_purchase_invoices.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290003_purchase_invoices.sql') then
   raise notice 'Aplicando 202610290003_purchase_invoices.sql';
@@ -6952,7 +6957,7 @@ $retail_source_8a5afba23235cad7$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 50/97: 202610290004_landed_costs.sql
+-- 50/98: 202610290004_landed_costs.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290004_landed_costs.sql') then
   raise notice 'Aplicando 202610290004_landed_costs.sql';
@@ -7023,7 +7028,7 @@ $retail_source_12d7490f65c8eac5$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 51/97: 202610290005_conflict_errors_without_retry.sql
+-- 51/98: 202610290005_conflict_errors_without_retry.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290005_conflict_errors_without_retry.sql') then
   raise notice 'Aplicando 202610290005_conflict_errors_without_retry.sql';
@@ -7134,7 +7139,7 @@ $retail_source_ed34b128cffadb21$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 52/97: 202610290006_supplier_contact_profile.sql
+-- 52/98: 202610290006_supplier_contact_profile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290006_supplier_contact_profile.sql') then
   raise notice 'Aplicando 202610290006_supplier_contact_profile.sql';
@@ -7281,7 +7286,7 @@ $retail_source_7c244212c97c982d$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 53/97: 202610290007_purchase_invoice_tracking.sql
+-- 53/98: 202610290007_purchase_invoice_tracking.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610290007_purchase_invoice_tracking.sql') then
   raise notice 'Aplicando 202610290007_purchase_invoice_tracking.sql';
@@ -7390,7 +7395,7 @@ $retail_source_551f2d827fa2913e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 54/97: 202610300001_supplier_payments.sql
+-- 54/98: 202610300001_supplier_payments.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300001_supplier_payments.sql') then
   raise notice 'Aplicando 202610300001_supplier_payments.sql';
@@ -7649,7 +7654,7 @@ $retail_source_1d44ea08176b5b5b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 55/97: 202610300002_payment_apply_same_invoice.sql
+-- 55/98: 202610300002_payment_apply_same_invoice.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300002_payment_apply_same_invoice.sql') then
   raise notice 'Aplicando 202610300002_payment_apply_same_invoice.sql';
@@ -7702,7 +7707,7 @@ $retail_source_e0eb93640914e083$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 56/97: 202610300003_branch_inventory_by_default.sql
+-- 56/98: 202610300003_branch_inventory_by_default.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300003_branch_inventory_by_default.sql') then
   raise notice 'Aplicando 202610300003_branch_inventory_by_default.sql';
@@ -7764,7 +7769,7 @@ $retail_source_85ae0991e1effe24$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 57/97: 202610300004_branch_inventory_always.sql
+-- 57/98: 202610300004_branch_inventory_always.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300004_branch_inventory_always.sql') then
   raise notice 'Aplicando 202610300004_branch_inventory_always.sql';
@@ -7804,7 +7809,7 @@ $retail_source_6aa129a6af964b60$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 58/97: 202610300005_shift_cash_into_branch_funds.sql
+-- 58/98: 202610300005_shift_cash_into_branch_funds.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300005_shift_cash_into_branch_funds.sql') then
   raise notice 'Aplicando 202610300005_shift_cash_into_branch_funds.sql';
@@ -7860,7 +7865,7 @@ $retail_source_8b55ed736684a540$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 59/97: 202610300006_editable_role_permissions.sql
+-- 59/98: 202610300006_editable_role_permissions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300006_editable_role_permissions.sql') then
   raise notice 'Aplicando 202610300006_editable_role_permissions.sql';
@@ -7919,7 +7924,7 @@ $retail_source_f9353e99737cb1fa$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 60/97: 202610300007_expenses_and_month_result.sql
+-- 60/98: 202610300007_expenses_and_month_result.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202610300007_expenses_and_month_result.sql') then
   raise notice 'Aplicando 202610300007_expenses_and_month_result.sql';
@@ -8015,7 +8020,7 @@ $retail_source_1cc8488904046c20$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 61/97: 202611020001_sale_returns.sql
+-- 61/98: 202611020001_sale_returns.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020001_sale_returns.sql') then
   raise notice 'Aplicando 202611020001_sale_returns.sql';
@@ -8297,7 +8302,7 @@ $retail_source_160c3ea5ca68498f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 62/97: 202611020002_stock_counts.sql
+-- 62/98: 202611020002_stock_counts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020002_stock_counts.sql') then
   raise notice 'Aplicando 202611020002_stock_counts.sql';
@@ -8517,7 +8522,7 @@ $retail_source_9daed2281b904f3b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 63/97: 202611020003_stock_count_sections.sql
+-- 63/98: 202611020003_stock_count_sections.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020003_stock_count_sections.sql') then
   raise notice 'Aplicando 202611020003_stock_count_sections.sql';
@@ -8612,7 +8617,7 @@ $retail_source_9f3258490d566b00$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 64/97: 202611020004_customer_accounts.sql
+-- 64/98: 202611020004_customer_accounts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020004_customer_accounts.sql') then
   raise notice 'Aplicando 202611020004_customer_accounts.sql';
@@ -8840,7 +8845,7 @@ $retail_source_d1eade0c0e42edbd$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 65/97: 202611020005_customer_billing_and_credit.sql
+-- 65/98: 202611020005_customer_billing_and_credit.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020005_customer_billing_and_credit.sql') then
   raise notice 'Aplicando 202611020005_customer_billing_and_credit.sql';
@@ -8946,7 +8951,7 @@ $retail_source_d88f8756a740b886$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 66/97: 202611020006_partial_credit.sql
+-- 66/98: 202611020006_partial_credit.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020006_partial_credit.sql') then
   raise notice 'Aplicando 202611020006_partial_credit.sql';
@@ -9046,7 +9051,7 @@ $retail_source_c4cbb30b0390a791$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 67/97: 202611020007_purchase_orders.sql
+-- 67/98: 202611020007_purchase_orders.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020007_purchase_orders.sql') then
   raise notice 'Aplicando 202611020007_purchase_orders.sql';
@@ -9197,7 +9202,7 @@ $retail_source_9ee57671d2b9262c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 68/97: 202611020008_branch_comparison.sql
+-- 68/98: 202611020008_branch_comparison.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020008_branch_comparison.sql') then
   raise notice 'Aplicando 202611020008_branch_comparison.sql';
@@ -9334,7 +9339,7 @@ $retail_source_9cbc6cfea5ad26ab$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 69/97: 202611020009_activity_log.sql
+-- 69/98: 202611020009_activity_log.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611020009_activity_log.sql') then
   raise notice 'Aplicando 202611020009_activity_log.sql';
@@ -9552,7 +9557,7 @@ $retail_source_fef5de758a29f033$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 70/97: 202611030001_funds_in_transit_and_bank.sql
+-- 70/98: 202611030001_funds_in_transit_and_bank.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030001_funds_in_transit_and_bank.sql') then
   raise notice 'Aplicando 202611030001_funds_in_transit_and_bank.sql';
@@ -9778,7 +9783,7 @@ $retail_source_fb72479c1dfb3f5f$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 71/97: 202611030002_billing_safe_issue.sql
+-- 71/98: 202611030002_billing_safe_issue.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030002_billing_safe_issue.sql') then
   raise notice 'Aplicando 202611030002_billing_safe_issue.sql';
@@ -10038,7 +10043,7 @@ $retail_source_be0145bb9fed6674$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 72/97: 202611030003_billing_receptor_credit_notes.sql
+-- 72/98: 202611030003_billing_receptor_credit_notes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030003_billing_receptor_credit_notes.sql') then
   raise notice 'Aplicando 202611030003_billing_receptor_credit_notes.sql';
@@ -10310,7 +10315,7 @@ $retail_source_11f4d758d7e2d014$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 73/97: 202611030004_platform_admin_catalog.sql
+-- 73/98: 202611030004_platform_admin_catalog.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030004_platform_admin_catalog.sql') then
   raise notice 'Aplicando 202611030004_platform_admin_catalog.sql';
@@ -10488,7 +10493,7 @@ $retail_source_df0715207f6ad9f3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 74/97: 202611030005_global_catalog_import.sql
+-- 74/98: 202611030005_global_catalog_import.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030005_global_catalog_import.sql') then
   raise notice 'Aplicando 202611030005_global_catalog_import.sql';
@@ -10558,7 +10563,7 @@ $retail_source_0cdd60b36af298de$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 75/97: 202611030006_add_products_from_global_catalog.sql
+-- 75/98: 202611030006_add_products_from_global_catalog.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030006_add_products_from_global_catalog.sql') then
   raise notice 'Aplicando 202611030006_add_products_from_global_catalog.sql';
@@ -10671,7 +10676,7 @@ $retail_source_9ec08a8532c21cfb$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 76/97: 202611030007_cost_based_pricing.sql
+-- 76/98: 202611030007_cost_based_pricing.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030007_cost_based_pricing.sql') then
   raise notice 'Aplicando 202611030007_cost_based_pricing.sql';
@@ -10866,7 +10871,7 @@ $retail_source_104ebd8f16a2fcde$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 77/97: 202611030008_bulk_markup_adjust.sql
+-- 77/98: 202611030008_bulk_markup_adjust.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611030008_bulk_markup_adjust.sql') then
   raise notice 'Aplicando 202611030008_bulk_markup_adjust.sql';
@@ -10911,7 +10916,7 @@ $retail_source_68a2967522d593e1$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 78/97: 202611040001_product_price_history.sql
+-- 78/98: 202611040001_product_price_history.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040001_product_price_history.sql') then
   raise notice 'Aplicando 202611040001_product_price_history.sql';
@@ -10960,7 +10965,7 @@ $retail_source_6e782e7b1aa273f8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 79/97: 202611040002_price_index_by_group.sql
+-- 79/98: 202611040002_price_index_by_group.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040002_price_index_by_group.sql') then
   raise notice 'Aplicando 202611040002_price_index_by_group.sql';
@@ -11076,7 +11081,7 @@ $retail_source_b22129d025e8d2a9$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 80/97: 202611040003_reconciliation_sales_detail.sql
+-- 80/98: 202611040003_reconciliation_sales_detail.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040003_reconciliation_sales_detail.sql') then
   raise notice 'Aplicando 202611040003_reconciliation_sales_detail.sql';
@@ -11120,7 +11125,7 @@ $retail_source_dbc90b884f7104bc$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 81/97: 202611040004_reconciliation_totals.sql
+-- 81/98: 202611040004_reconciliation_totals.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040004_reconciliation_totals.sql') then
   raise notice 'Aplicando 202611040004_reconciliation_totals.sql';
@@ -11169,7 +11174,7 @@ $retail_source_6a335da16cd91637$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 82/97: 202611040005_product_presentations.sql
+-- 82/98: 202611040005_product_presentations.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040005_product_presentations.sql') then
   raise notice 'Aplicando 202611040005_product_presentations.sql';
@@ -11186,7 +11191,7 @@ $retail_source_93ba9b0485f9a37b$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 83/97: 202611040006_money_accounts.sql
+-- 83/98: 202611040006_money_accounts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040006_money_accounts.sql') then
   raise notice 'Aplicando 202611040006_money_accounts.sql';
@@ -11350,7 +11355,7 @@ $retail_source_f45ef0bac37eccb8$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 84/97: 202611040007_money_movements_report.sql
+-- 84/98: 202611040007_money_movements_report.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611040007_money_movements_report.sql') then
   raise notice 'Aplicando 202611040007_money_movements_report.sql';
@@ -11428,7 +11433,7 @@ $retail_source_df024af737bef5fb$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 85/97: 202611060001_platform_admin_panel.sql
+-- 85/98: 202611060001_platform_admin_panel.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060001_platform_admin_panel.sql') then
   raise notice 'Aplicando 202611060001_platform_admin_panel.sql';
@@ -11695,7 +11700,7 @@ $retail_source_659abf945a67cc83$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 86/97: 202611060002_store_suspension.sql
+-- 86/98: 202611060002_store_suspension.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060002_store_suspension.sql') then
   raise notice 'Aplicando 202611060002_store_suspension.sql';
@@ -11955,7 +11960,7 @@ $retail_source_c32216a04601682c$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 87/97: 202611060003_ai_server_limits.sql
+-- 87/98: 202611060003_ai_server_limits.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060003_ai_server_limits.sql') then
   raise notice 'Aplicando 202611060003_ai_server_limits.sql';
@@ -12113,7 +12118,7 @@ $retail_source_83b162f1eb544e8d$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 88/97: 202611060004_plans_and_subscriptions.sql
+-- 88/98: 202611060004_plans_and_subscriptions.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060004_plans_and_subscriptions.sql') then
   raise notice 'Aplicando 202611060004_plans_and_subscriptions.sql';
@@ -12566,7 +12571,7 @@ $retail_source_222d45b7d13c2e2e$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 89/97: 202611060005_platform_announcements.sql
+-- 89/98: 202611060005_platform_announcements.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060005_platform_announcements.sql') then
   raise notice 'Aplicando 202611060005_platform_announcements.sql';
@@ -12779,7 +12784,7 @@ $retail_source_d5435338ad558c1a$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 90/97: 202611060006_push_for_all_members.sql
+-- 90/98: 202611060006_push_for_all_members.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060006_push_for_all_members.sql') then
   raise notice 'Aplicando 202611060006_push_for_all_members.sql';
@@ -12872,7 +12877,7 @@ $retail_source_cbb1e3a8f7aeb3bd$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 91/97: 202611060007_advertising.sql
+-- 91/98: 202611060007_advertising.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060007_advertising.sql') then
   raise notice 'Aplicando 202611060007_advertising.sql';
@@ -13226,7 +13231,7 @@ $retail_source_46353e26393c7e75$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 92/97: 202611060008_delete_campaigns_and_notices.sql
+-- 92/98: 202611060008_delete_campaigns_and_notices.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060008_delete_campaigns_and_notices.sql') then
   raise notice 'Aplicando 202611060008_delete_campaigns_and_notices.sql';
@@ -13301,7 +13306,7 @@ $retail_source_4f1a2e35d7accaa3$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 93/97: 202611060009_product_presentation_codes.sql
+-- 93/98: 202611060009_product_presentation_codes.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060009_product_presentation_codes.sql') then
   raise notice 'Aplicando 202611060009_product_presentation_codes.sql';
@@ -13374,7 +13379,7 @@ $retail_source_c0ee5421317c7664$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 94/97: 202611060010_movement_receipts.sql
+-- 94/98: 202611060010_movement_receipts.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611060010_movement_receipts.sql') then
   raise notice 'Aplicando 202611060010_movement_receipts.sql';
@@ -13450,7 +13455,7 @@ $retail_source_a65a158ee915c492$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 95/97: 202611100001_product_expiry_grant.sql
+-- 95/98: 202611100001_product_expiry_grant.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611100001_product_expiry_grant.sql') then
   raise notice 'Aplicando 202611100001_product_expiry_grant.sql';
@@ -13463,7 +13468,7 @@ $retail_source_660526cd46210f67$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 96/97: 202611100002_money_accounts_summary_volatile.sql
+-- 96/98: 202611100002_money_accounts_summary_volatile.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611100002_money_accounts_summary_volatile.sql') then
   raise notice 'Aplicando 202611100002_money_accounts_summary_volatile.sql';
@@ -13476,7 +13481,7 @@ $retail_source_31d0bd1d2a7c0f29$,chr(13)||chr(10),chr(10));
  end if;
 end;
 
--- 97/97: 202611100003_payment_link_method.sql
+-- 97/98: 202611100003_payment_link_method.sql
 begin
  if not exists(select 1 from retail_private.schema_migrations where filename='202611100003_payment_link_method.sql') then
   raise notice 'Aplicando 202611100003_payment_link_method.sql';
@@ -13519,6 +13524,281 @@ notify pgrst,'reload schema';
 $retail_source_90ac4ef0869c7ec6$,chr(13)||chr(10),chr(10));
   insert into retail_private.schema_migrations(filename,sha256,origin)
    values('202611100003_payment_link_method.sql','90ac4ef0869c7ec6f4a2a8878fbe9149e9c74d0c6f64248989ce68a91e5d7901','schema');
+ end if;
+end;
+
+-- 98/98: 202611100004_operational_push_notifications.sql
+begin
+ if not exists(select 1 from retail_private.schema_migrations where filename='202611100004_operational_push_notifications.sql') then
+  raise notice 'Aplicando 202611100004_operational_push_notifications.sql';
+  execute replace($retail_source_c7b807f7a2c47369$
+-- Columnas de preferencias en retail_push_subscriptions
+alter table public.retail_push_subscriptions
+ add column if not exists shift_opened boolean not null default true,
+ add column if not exists cash_difference boolean not null default true,
+ add column if not exists transfers boolean not null default true;
+
+-- Tipos permitidos y columnas de contenido en retail_push_deliveries
+alter table public.retail_push_deliveries drop constraint if exists retail_push_deliveries_kind_check;
+alter table public.retail_push_deliveries add constraint retail_push_deliveries_kind_check
+ check (kind in ('low_stock', 'shift_closed', 'test', 'platform', 'shift_opened', 'cash_difference', 'transfer_pending', 'transfer_reviewed'));
+
+alter table public.retail_push_deliveries
+ add column if not exists title text,
+ add column if not exists body text;
+
+-- Guardado de suscripción con nuevas preferencias
+create or replace function public.retail_save_push(
+ p_store uuid, p_endpoint text, p_p256dh text, p_auth text,
+ p_low_stock boolean, p_shift_closed boolean,
+ p_shift_opened boolean, p_cash_difference boolean, p_transfers boolean
+) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare
+ v_id uuid;
+ v_old public.retail_push_subscriptions;
+ v_manager boolean;
+ v_can_transfers boolean;
+begin
+ if auth.uid() is null or retail_private.role_for(p_store) is null then
+  raise exception 'No tenés acceso a este comercio';
+ end if;
+ v_manager := retail_private.role_for(p_store) in ('owner','admin');
+ v_can_transfers := v_manager or retail_private.has_permission(p_store, 'manage_transfers');
+
+ if p_endpoint !~ '^https://(fcm\.googleapis\.com|([a-z0-9-]+\.)?push\.services\.mozilla\.com|([a-z0-9-]+\.)?push\.apple\.com|[a-z0-9-]+\.notify\.windows\.com)/[^[:space:]]+$'
+  or length(p_endpoint)>2048 or p_p256dh !~ '^[A-Za-z0-9_-]{87}$' or p_auth !~ '^[A-Za-z0-9_-]{22}$'
+  or p_endpoint is null or p_p256dh is null or p_auth is null then
+   raise exception 'Suscripción push inválida';
+ end if;
+
+ perform pg_advisory_xact_lock(hashtextextended(auth.uid()::text,0));
+ perform pg_advisory_xact_lock(hashtextextended(p_endpoint,1));
+
+ select * into v_old from public.retail_push_subscriptions where endpoint=p_endpoint for update;
+ if (v_old.id is null or v_old.user_id<>auth.uid()) and (select count(*) from public.retail_push_subscriptions where user_id=auth.uid())>=20 then
+  raise exception 'Alcanzaste el máximo de 20 dispositivos';
+ end if;
+ if v_old.id is not null and (v_old.user_id<>auth.uid() or v_old.store_id<>p_store) then
+  delete from public.retail_push_subscriptions where id=v_old.id;
+ end if;
+
+ insert into public.retail_push_subscriptions(
+  user_id, store_id, endpoint, p256dh, auth,
+  low_stock, shift_closed, shift_opened, cash_difference, transfers
+ )
+ values (
+  auth.uid(), p_store, p_endpoint, p_p256dh, p_auth,
+  v_manager and coalesce(p_low_stock, false),
+  v_manager and coalesce(p_shift_closed, false),
+  v_manager and coalesce(p_shift_opened, false),
+  v_manager and coalesce(p_cash_difference, false),
+  v_can_transfers and coalesce(p_transfers, false)
+ )
+ on conflict(endpoint) do update set
+  p256dh = excluded.p256dh,
+  auth = excluded.auth,
+  low_stock = excluded.low_stock,
+  shift_closed = excluded.shift_closed,
+  shift_opened = excluded.shift_opened,
+  cash_difference = excluded.cash_difference,
+  transfers = excluded.transfers,
+  updated_at = now()
+ returning id into v_id;
+
+ return v_id;
+end $$;
+
+-- Sobrecarga de compatibilidad para clientes o pruebas con 6 parámetros
+create or replace function public.retail_save_push(
+ p_store uuid, p_endpoint text, p_p256dh text, p_auth text,
+ p_low_stock boolean, p_shift_closed boolean
+) returns uuid language sql security definer set search_path='' as $$
+ select public.retail_save_push(p_store, p_endpoint, p_p256dh, p_auth, p_low_stock, p_shift_closed, true, true, true);
+$$;
+
+revoke all on function public.retail_save_push(uuid,text,text,text,boolean,boolean,boolean,boolean,boolean) from public,anon;
+grant execute on function public.retail_save_push(uuid,text,text,text,boolean,boolean,boolean,boolean,boolean) to authenticated;
+
+revoke all on function public.retail_save_push(uuid,text,text,text,boolean,boolean) from public,anon;
+grant execute on function public.retail_save_push(uuid,text,text,text,boolean,boolean) to authenticated;
+
+-- Encolado de eventos de stock y turnos (aperturas, cierres y diferencias de caja)
+create or replace function retail_private.enqueue_push() returns trigger
+ language plpgsql security definer set search_path='' as $$
+declare
+ v_name text;
+ v_diff numeric(14,2);
+begin
+ if tg_table_name = 'retail_products' then
+  if not new.active or new.stock > new.min_stock or (old.active and old.stock <= old.min_stock) then return new; end if;
+  insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key)
+  select s.id, s.user_id, s.store_id, 'low_stock', 'stock:' || new.store_id::text || ':' || date_trunc('minute', now())::text
+  from public.retail_push_subscriptions s
+  join public.retail_members m on m.store_id = s.store_id and m.user_id = s.user_id
+  where s.store_id = new.store_id and m.role in ('owner', 'admin') and s.low_stock
+  on conflict(subscription_id, event_key) do nothing;
+  return new;
+ end if;
+
+ if tg_table_name = 'retail_shifts' then
+  select coalesce(b.name || ' · ' || r.name, r.name) into v_name
+  from public.retail_registers r
+  left join public.retail_branches b on b.id = r.branch_id
+  where r.id = new.register_id;
+
+  if tg_op = 'INSERT' then
+   if new.closed_at is null then
+    insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key, title, body)
+    select s.id, s.user_id, s.store_id, 'shift_opened', 'shift_opened:' || new.id::text,
+     'Apertura de caja',
+     'Se abrió un turno en ' || coalesce(v_name, 'la caja') || '.'
+    from public.retail_push_subscriptions s
+    join public.retail_members m on m.store_id = s.store_id and m.user_id = s.user_id
+    where s.store_id = new.store_id and m.role in ('owner', 'admin') and s.shift_opened
+    on conflict(subscription_id, event_key) do nothing;
+   end if;
+   return new;
+  end if;
+
+  if tg_op = 'UPDATE' then
+   if new.closed_at is null or old.closed_at is not null then return new; end if;
+
+   -- Cierre general de turno
+   insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key, title, body)
+   select s.id, s.user_id, s.store_id, 'shift_closed', 'shift:' || new.id::text,
+    'Cierre de caja',
+    'Se cerró el turno en ' || coalesce(v_name, 'la caja') || '.'
+   from public.retail_push_subscriptions s
+   join public.retail_members m on m.store_id = s.store_id and m.user_id = s.user_id
+   where s.store_id = new.store_id and m.role in ('owner', 'admin') and s.shift_closed
+   on conflict(subscription_id, event_key) do nothing;
+
+   -- Diferencia en arqueo (faltante o sobrante)
+   if new.counted_cash is not null and new.expected_cash is not null and abs(new.counted_cash - new.expected_cash) >= 0.01 then
+    v_diff := new.counted_cash - new.expected_cash;
+    insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key, title, body)
+    select s.id, s.user_id, s.store_id, 'cash_difference', 'diff:' || new.id::text,
+     case when v_diff < 0 then 'Faltante en arqueo' else 'Sobrante en arqueo' end,
+     case when v_diff < 0
+      then 'Se detectó un faltante en ' || coalesce(v_name, 'la caja') || ' al cerrar turno.'
+      else 'Se detectó un sobrante en ' || coalesce(v_name, 'la caja') || ' al cerrar turno.' end
+    from public.retail_push_subscriptions s
+    join public.retail_members m on m.store_id = s.store_id and m.user_id = s.user_id
+    where s.store_id = new.store_id and m.role in ('owner', 'admin') and s.cash_difference
+    on conflict(subscription_id, event_key) do nothing;
+   end if;
+
+   return new;
+  end if;
+ end if;
+
+ return new;
+end $$;
+
+-- Actualizar trigger de retail_shifts para activarse también al abrir turno (INSERT)
+drop trigger if exists retail_shift_push on public.retail_shifts;
+create trigger retail_shift_push after insert or update of closed_at on public.retail_shifts
+ for each row execute function retail_private.enqueue_push();
+
+-- Encolado de eventos de traslados de mercadería
+create or replace function retail_private.enqueue_transfer_push() returns trigger
+ language plpgsql security definer set search_path='' as $$
+declare
+ from_name text;
+ to_name text;
+ count_items integer;
+begin
+ from_name := case when new.from_location = 'depot' then 'Depósito'
+  else coalesce((select name from public.retail_branches where id::text = new.from_location and store_id = new.store_id), 'Sucursal') end;
+ to_name := case when new.to_location = 'depot' then 'Depósito'
+  else coalesce((select name from public.retail_branches where id::text = new.to_location and store_id = new.store_id), 'Sucursal') end;
+ count_items := jsonb_array_length(new.items);
+
+ if tg_op = 'INSERT' then
+  if new.status = 'pending' then
+   insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key, title, body)
+   select s.id, s.user_id, s.store_id, 'transfer_pending', 'transfer_pending:' || new.id::text,
+    'Solicitud de traslado',
+    'Pedido de mercadería de ' || from_name || ' hacia ' || to_name || ' (' || count_items || (case when count_items = 1 then ' producto).' else ' productos).' end)
+   from public.retail_push_subscriptions s
+   where s.store_id = new.store_id and s.transfers and s.user_id <> new.created_by
+   and (
+    exists(select 1 from public.retail_members m where m.store_id = s.store_id and m.user_id = s.user_id and m.role in ('owner', 'admin'))
+    or retail_private.has_permission(s.store_id, 'manage_transfers')
+   )
+   on conflict(subscription_id, event_key) do nothing;
+  end if;
+  return new;
+ end if;
+
+ if tg_op = 'UPDATE' then
+  if old.status = 'pending' and new.status in ('confirmed', 'cancelled') then
+   insert into public.retail_push_deliveries(subscription_id, user_id, store_id, kind, event_key, title, body)
+   select s.id, s.user_id, s.store_id, 'transfer_reviewed', 'transfer_reviewed:' || new.id::text || ':' || new.status,
+    case when new.status = 'confirmed' then 'Traslado confirmado' else 'Traslado cancelado' end,
+    case when new.status = 'confirmed'
+     then 'Se confirmó el envío de mercadería de ' || from_name || ' a ' || to_name || '.'
+     else 'Se canceló el traslado de mercadería de ' || from_name || ' a ' || to_name || '.' end
+   from public.retail_push_subscriptions s
+   where s.store_id = new.store_id and s.transfers and s.user_id <> coalesce(new.reviewed_by, auth.uid())
+   and (
+    exists(select 1 from public.retail_members m where m.store_id = s.store_id and m.user_id = s.user_id and m.role in ('owner', 'admin'))
+    or retail_private.has_permission(s.store_id, 'manage_transfers')
+   )
+   on conflict(subscription_id, event_key) do nothing;
+  end if;
+  return new;
+ end if;
+
+ return new;
+end $$;
+
+drop trigger if exists retail_transfer_push on public.retail_location_transfers;
+create trigger retail_transfer_push after insert or update of status on public.retail_location_transfers
+ for each row execute function retail_private.enqueue_transfer_push();
+
+-- Despacho de avisos en cola con soporte de los nuevos tipos y contenido
+create or replace function public.retail_claim_push(p_only uuid default null) returns jsonb
+ language plpgsql security definer set search_path='' as $$
+declare result jsonb;
+begin
+ delete from public.retail_push_deliveries where created_at < now() - interval '7 days';
+ with candidates as (
+  select d.id from public.retail_push_deliveries d where d.sent_at is null and d.attempts < 5
+  and d.available_at <= now() and d.created_at > now() - interval '24 hours'
+  and (d.locked_at is null or d.locked_at < now() - interval '2 minutes')
+  and (p_only is null or d.id = p_only) order by d.created_at for update skip locked limit 100
+ ), claimed as (
+  update public.retail_push_deliveries d set attempts = d.attempts + 1, locked_at = now(), lease = gen_random_uuid()
+  from candidates c where d.id = c.id returning d.*
+ ) select coalesce(jsonb_agg(to_jsonb(c) || jsonb_build_object(
+  'endpoint', s.endpoint, 'p256dh', s.p256dh, 'auth', s.auth,
+  'title', coalesce(c.title, a.title),
+  'body', coalesce(c.body, a.body),
+  'authorized', s.user_id = c.user_id and s.store_id = c.store_id and (
+   (c.kind = 'platform' and a.id is not null and a.canceled_at is null and a.ends_at > now())
+   or (c.kind = 'test' and exists(select 1 from public.retail_members m where m.store_id = c.store_id and m.user_id = c.user_id))
+   or (c.kind in ('low_stock', 'shift_closed', 'shift_opened', 'cash_difference')
+       and exists(select 1 from public.retail_members m where m.store_id = c.store_id and m.user_id = c.user_id and m.role in ('owner', 'admin'))
+       and ((c.kind = 'low_stock' and s.low_stock)
+         or (c.kind = 'shift_closed' and s.shift_closed)
+         or (c.kind = 'shift_opened' and s.shift_opened)
+         or (c.kind = 'cash_difference' and s.cash_difference)))
+   or (c.kind in ('transfer_pending', 'transfer_reviewed')
+       and s.transfers
+       and (exists(select 1 from public.retail_members m where m.store_id = c.store_id and m.user_id = c.user_id and m.role in ('owner', 'admin'))
+         or retail_private.has_permission(c.store_id, 'manage_transfers')))
+  )
+ )), '[]'::jsonb) into result from claimed c join public.retail_push_subscriptions s on s.id = c.subscription_id
+ left join retail_private.platform_announcements a on a.id = c.announcement_id;
+ return result;
+end $$;
+
+notify pgrst, 'reload schema';
+$retail_source_c7b807f7a2c47369$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611100004_operational_push_notifications.sql','c7b807f7a2c473693de5db7627a348572a19c997b5458e1019e1d755f95fef17','schema');
  end if;
 end;
 

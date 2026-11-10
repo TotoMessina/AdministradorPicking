@@ -1,0 +1,761 @@
+-- AdministradorKiosco: actualización individual 70/98.
+-- Generado: node scripts/generate-schema.mjs --individual-updates. NO editar.
+-- Fuente: migrations/202611030001_funds_in_transit_and_bank.sql; SHA-256 fb72479c1dfb3f5f1350f7366a920227d47b9b32abbc47a9abfbd46b575eb197.
+-- Requiere historial conciliado y TODAS las migraciones anteriores registradas.
+-- Ejecutar este archivo COMPLETO en el proyecto correcto, de a uno y en orden.
+-- Un DO atómico: sin tablas temporales; registra solo si termina correctamente.
+-- Si ya está registrado con el mismo checksum, no repite el cuerpo SQL.
+-- No fue ejecutado remotamente durante su preparación.
+do $retail_install$
+declare
+ manifest jsonb := $retail_schema_manifest_json$
+[
+ {
+  "ordinal": 1,
+  "filename": "202610010001_retail_multistore.sql",
+  "sha256": "f24b734005cc1623cbeb235dd0436522445fce6501ec73999528a8f745ed1cb9"
+ },
+ {
+  "ordinal": 2,
+  "filename": "202610020001_catalog_global_and_segmentation.sql",
+  "sha256": "bca9c54fa75c2a8940b4f28c76aaab415b1740330c2a4a334dad2fef5beca292"
+ },
+ {
+  "ordinal": 3,
+  "filename": "202610070001_harden_global_catalog_immutability.sql",
+  "sha256": "f3ff59ec39b6e5744cb059f242cfdaf0c234f1ab34c4bae2ec93ca10f13594f5"
+ },
+ {
+  "ordinal": 4,
+  "filename": "202610130001_branches_prices_ledgers.sql",
+  "sha256": "e86fe143f886cd858443bde5917d43095126a4beca788c866f2589bcee94509b"
+ },
+ {
+  "ordinal": 5,
+  "filename": "202610140001_web_push.sql",
+  "sha256": "918efe9a5d3313e3dc695430c93c0c035acdf97f9b20fcc4c387b444a8737964"
+ },
+ {
+  "ordinal": 6,
+  "filename": "202610150001_cashier_access.sql",
+  "sha256": "a30006ceabfa2ca5abd0116ddf06f3f79d042bae913fd59c25efb5a918a83017"
+ },
+ {
+  "ordinal": 7,
+  "filename": "202610160001_offline_pos.sql",
+  "sha256": "770c916876fcdabf64104718e442e7b424f343e6787bfc742c4164cccf435313"
+ },
+ {
+  "ordinal": 8,
+  "filename": "202610160002_offline_queue.sql",
+  "sha256": "ffb2f924480094f8255c3bd1105ac834381678058bb65ff6e63ec433b4710ab0"
+ },
+ {
+  "ordinal": 9,
+  "filename": "202610160003_pack_size.sql",
+  "sha256": "e8f486a53e3699543bb33b819986d3e96c57bbfb112cb039428e534507228c6b"
+ },
+ {
+  "ordinal": 10,
+  "filename": "202610160004_margin_groups.sql",
+  "sha256": "8a5790ed3a1371e6c0aa57f46b68b2fe0af74efd79a3650cfa7ced54b876cc86"
+ },
+ {
+  "ordinal": 11,
+  "filename": "202610160005_branch_price_rules.sql",
+  "sha256": "7899d29739b25999d24e879b18ed53f8794628fe852743c7916b46d4db5b16e1"
+ },
+ {
+  "ordinal": 12,
+  "filename": "202610190001_justified_withdrawal.sql",
+  "sha256": "029b5843eacab94f78439fd8f13da846c46e7729f376e1f314286e1f20a14fa9"
+ },
+ {
+  "ordinal": 13,
+  "filename": "202610190001_store_onboarding.sql",
+  "sha256": "e5b8362448949bceec6db8607ab80a30285230317f319875eb6d9a2f1d47f09c"
+ },
+ {
+  "ordinal": 14,
+  "filename": "202610190002_pending_replenishments.sql",
+  "sha256": "3ddd179e5609126a264e696cd293909008bf4dd1acc06a8bb409c248ba5ab707"
+ },
+ {
+  "ordinal": 15,
+  "filename": "202610190003_stock_transfers.sql",
+  "sha256": "cab05c3785465fba81273dddaad52130c14a8c6c42fb63ed53f476416d53a4be"
+ },
+ {
+  "ordinal": 16,
+  "filename": "202610200001_supplier_mappings.sql",
+  "sha256": "d4841853f82adbd4e881feb1bdf3f525d76a12121e152b54257f8eaf9a81611c"
+ },
+ {
+  "ordinal": 17,
+  "filename": "202610200002_supplier_alias_usage.sql",
+  "sha256": "1adc3ce4519abbb20c3436578bff8de5d9111f08abda7e198639468bd77e15c4"
+ },
+ {
+  "ordinal": 18,
+  "filename": "202610200003_product_expiry.sql",
+  "sha256": "77d1f8c0f62da28481839205c638d09ab8586267acd2b86fb97f44c812072a87"
+ },
+ {
+  "ordinal": 19,
+  "filename": "202610210001_ledger_routing.sql",
+  "sha256": "f19dc026535013c80519da077ca4de832b6706cf7e885ffbc1b0e31185591d7e"
+ },
+ {
+  "ordinal": 20,
+  "filename": "202610210002_staff_profiles.sql",
+  "sha256": "ca6e73c2c8993bc2390e2f91d48e9a0d82e60e3ae1be9613297f6ba667809a0e"
+ },
+ {
+  "ordinal": 21,
+  "filename": "202610210003_ledger_lock_order.sql",
+  "sha256": "b9f318a08145ad1e1734c2afe5fc1ff04402666a69869aa0f27c4dee2abb5124"
+ },
+ {
+  "ordinal": 22,
+  "filename": "202610210004_delegated_catalog_actions.sql",
+  "sha256": "bcfa6664c406dd0074ba93d0bbb367c1c212c5e9285e703583616519f163628e"
+ },
+ {
+  "ordinal": 23,
+  "filename": "202610220001_product_compositions.sql",
+  "sha256": "ef088735e7a849006d0960d0e16decd98e257bb432da68ebd2e0d02618f93c84"
+ },
+ {
+  "ordinal": 24,
+  "filename": "202610220002_loose_cigarettes.sql",
+  "sha256": "e943d579b3d7ed4e77e96ffc6c26125f7ccb84ca09dcb9a09a7dde87ed147bad"
+ },
+ {
+  "ordinal": 25,
+  "filename": "202610220003_product_deletion_history.sql",
+  "sha256": "458a93d670539dd4bfd36c3f8b4aff69042989aafdea80511ced58e6d5a3f9b7"
+ },
+ {
+  "ordinal": 26,
+  "filename": "202610220004_standard_categories.sql",
+  "sha256": "85e889e22c9dcc559736c4af21b9cf7bc0205cbd1ff940ed00ff9d38f481fd13"
+ },
+ {
+  "ordinal": 27,
+  "filename": "202610220005_category_labels.sql",
+  "sha256": "e975aa6c462d6ee5492edbb36b1ed523a410c634658f8ad36fd24fe18a218f99"
+ },
+ {
+  "ordinal": 28,
+  "filename": "202610220006_complete_permission_profiles.sql",
+  "sha256": "913347ffd59472a588b214ee3da8ec426cb47fe143db19889896279a221636d5"
+ },
+ {
+  "ordinal": 29,
+  "filename": "202610230001_automatic_margin_groups.sql",
+  "sha256": "6cd429e7679685c41c4adb245d3ec97ec07eeb202ca421e9640e9a80f49050c2"
+ },
+ {
+  "ordinal": 30,
+  "filename": "202610230002_ingredients_and_composition_costs.sql",
+  "sha256": "86fd19952b8e65341957126f53ec64e327dd8f4ed3de54b2d9a3b9a9e3baaffb"
+ },
+ {
+  "ordinal": 31,
+  "filename": "202610240001_shift_closing_details.sql",
+  "sha256": "d3204ba0e41d297710ff1e4a05ea5048c703dbe07b9b266b66a6c7aa7a859759"
+ },
+ {
+  "ordinal": 32,
+  "filename": "202610260001_optional_depot.sql",
+  "sha256": "f221d19fcff7ac881cdbeefc3d3546e625c464872038afb8b69d5491e90b1f5a"
+ },
+ {
+  "ordinal": 33,
+  "filename": "202610260002_create_composite_product.sql",
+  "sha256": "2e23fbafc73e0b697b607cae3b0587c9a709f13e4882b3a8ce244530eabb60a4"
+ },
+ {
+  "ordinal": 34,
+  "filename": "202610260003_billing_fields.sql",
+  "sha256": "2a42b0a16de6707616bf9ca85fc249a83f55ee6b5976299b51197573391e6cd3"
+ },
+ {
+  "ordinal": 35,
+  "filename": "202610260004_price_list_tree.sql",
+  "sha256": "bb77060967eec30f15a7befb20989890ac312c90f76e002656fa6dfada36bf36"
+ },
+ {
+  "ordinal": 36,
+  "filename": "202610260005_delete_price_lists.sql",
+  "sha256": "540fb2b7146a1f68e89f462f43305d58798953d156be4e62e6944f0edccd2a69"
+ },
+ {
+  "ordinal": 37,
+  "filename": "202610260006_billing_update_robustness.sql",
+  "sha256": "97469041ab94b975ce569c26fb60b2aba78d9f8a94c4c13a5567c47f14c576f2"
+ },
+ {
+  "ordinal": 38,
+  "filename": "202610270001_store_billing_credentials.sql",
+  "sha256": "5c5d202e9b94464428e5417696fbc782491a023ad726f772b5693436ba16b9cb"
+ },
+ {
+  "ordinal": 39,
+  "filename": "202610270002_primary_product_markup.sql",
+  "sha256": "d9e8f398d415af14d4bc1235f3d2023f755cc62ad7879aa3b257794f756e6a02"
+ },
+ {
+  "ordinal": 40,
+  "filename": "202610270003_suppliers.sql",
+  "sha256": "9f007483d72681a7d849f29714756c7fbfb83e6146d35d4ba80d9fbd78518f05"
+ },
+ {
+  "ordinal": 41,
+  "filename": "202610270004_cost_price_lists.sql",
+  "sha256": "abe5683734a54251ad3e49ee9235ee1b9a9607081b9a6b04927e902cdfe56d0b"
+ },
+ {
+  "ordinal": 42,
+  "filename": "202610270005_supplier_invoice_formats.sql",
+  "sha256": "62535c0e844930c8af0840aa80c582f265c0a8919b8cdabb4f83cb7cf0a41509"
+ },
+ {
+  "ordinal": 43,
+  "filename": "202610280001_supplier_alias_usage_repair.sql",
+  "sha256": "e6eee2d43a1a62cc232ada97415baa8b591f83572848c8877f26444b82db583a"
+ },
+ {
+  "ordinal": 44,
+  "filename": "202610280002_location_funds.sql",
+  "sha256": "f22cae1d60cb383ca0f76216dc20e303370a2018266199f8650aa7beb77f8ada"
+ },
+ {
+  "ordinal": 45,
+  "filename": "202610280003_location_inventory.sql",
+  "sha256": "baa181aa8cc76f1bc973e914a77fe568f3f30228979d682a67ac3571ce3cc14d"
+ },
+ {
+  "ordinal": 46,
+  "filename": "202610280004_permanent_product_deletion.sql",
+  "sha256": "c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368"
+ },
+ {
+  "ordinal": 47,
+  "filename": "202610290001_branch_location_and_deletion.sql",
+  "sha256": "bd6a4e4c41f9646352bbb167137c5c9519d6cfbcf51d9143fff9ccb4136f5b75"
+ },
+ {
+  "ordinal": 48,
+  "filename": "202610290002_supplier_fiscal_profile.sql",
+  "sha256": "51d60abcf980e182bc3975f9a90aadc68b180e1bde3e3db7b27c08f423162151"
+ },
+ {
+  "ordinal": 49,
+  "filename": "202610290003_purchase_invoices.sql",
+  "sha256": "8a5afba23235cad78e07da7f4f364fccd51925225b721d3ad11456581bd926d8"
+ },
+ {
+  "ordinal": 50,
+  "filename": "202610290004_landed_costs.sql",
+  "sha256": "12d7490f65c8eac5fa8e63ebfcbb081c62e1f1204a92fe6d7ed4771ad35efa16"
+ },
+ {
+  "ordinal": 51,
+  "filename": "202610290005_conflict_errors_without_retry.sql",
+  "sha256": "ed34b128cffadb2189e4053ebaa3b983d2728c24f925eeebbfe6e59477453313"
+ },
+ {
+  "ordinal": 52,
+  "filename": "202610290006_supplier_contact_profile.sql",
+  "sha256": "7c244212c97c982da6e0d2eb64ca2c64c50c1dd512c0f946338584a5a6fc497b"
+ },
+ {
+  "ordinal": 53,
+  "filename": "202610290007_purchase_invoice_tracking.sql",
+  "sha256": "551f2d827fa2913e32d6fc01d3cbe19fe706f656d91eec0bbd074e8328a5261b"
+ },
+ {
+  "ordinal": 54,
+  "filename": "202610300001_supplier_payments.sql",
+  "sha256": "1d44ea08176b5b5b2181d65d6019edd40be772aa25c14ae45b89866bde76cd8d"
+ },
+ {
+  "ordinal": 55,
+  "filename": "202610300002_payment_apply_same_invoice.sql",
+  "sha256": "e0eb93640914e083ee8007a53a7f179287307aa44ecbc399e31eadad02305c5e"
+ },
+ {
+  "ordinal": 56,
+  "filename": "202610300003_branch_inventory_by_default.sql",
+  "sha256": "85ae0991e1effe24807a0e8ac019e411696d7a8734c844218b4f5d67e09b31e8"
+ },
+ {
+  "ordinal": 57,
+  "filename": "202610300004_branch_inventory_always.sql",
+  "sha256": "6aa129a6af964b60ffd90bafa3e6c9fa84e829600f8aaf5f398474ee1a50cc25"
+ },
+ {
+  "ordinal": 58,
+  "filename": "202610300005_shift_cash_into_branch_funds.sql",
+  "sha256": "8b55ed736684a540c2625f954ea8800b79de3cd0669baadfecab91adfe138a7f"
+ },
+ {
+  "ordinal": 59,
+  "filename": "202610300006_editable_role_permissions.sql",
+  "sha256": "f9353e99737cb1fa425d48bd5f2bde52f68be8dd243a828bdd278bf30f37846e"
+ },
+ {
+  "ordinal": 60,
+  "filename": "202610300007_expenses_and_month_result.sql",
+  "sha256": "1cc8488904046c20951344260a91f485dc36962c059ed972063a91a0ce0e8a5d"
+ },
+ {
+  "ordinal": 61,
+  "filename": "202611020001_sale_returns.sql",
+  "sha256": "160c3ea5ca68498ff127b1cd7d93a88090b36af3809b1a59c507ad9233e6f321"
+ },
+ {
+  "ordinal": 62,
+  "filename": "202611020002_stock_counts.sql",
+  "sha256": "9daed2281b904f3b615feaa1219e2aefa68e12f2789ed8b359569634b9780932"
+ },
+ {
+  "ordinal": 63,
+  "filename": "202611020003_stock_count_sections.sql",
+  "sha256": "9f3258490d566b004171326307b86f84a0b9a75ed73640157dbdb86ef5d2a513"
+ },
+ {
+  "ordinal": 64,
+  "filename": "202611020004_customer_accounts.sql",
+  "sha256": "d1eade0c0e42edbd036e264de72c50ea6c9141c90d8a4841a9e1a56c90c0c21d"
+ },
+ {
+  "ordinal": 65,
+  "filename": "202611020005_customer_billing_and_credit.sql",
+  "sha256": "d88f8756a740b886117b430cc3360986acce8c8a31f567eb20124b2ed36922df"
+ },
+ {
+  "ordinal": 66,
+  "filename": "202611020006_partial_credit.sql",
+  "sha256": "c4cbb30b0390a79134633987f21ccdb9dd006a2f5e025d0ba55ce7a73d3a75b2"
+ },
+ {
+  "ordinal": 67,
+  "filename": "202611020007_purchase_orders.sql",
+  "sha256": "9ee57671d2b9262c609e179b1b35faf8b25deef0d6695a0d0db22d293b06df2d"
+ },
+ {
+  "ordinal": 68,
+  "filename": "202611020008_branch_comparison.sql",
+  "sha256": "9cbc6cfea5ad26ab8933c506327dcc66ab3232360d3125e91b64b095b76eaec8"
+ },
+ {
+  "ordinal": 69,
+  "filename": "202611020009_activity_log.sql",
+  "sha256": "fef5de758a29f033e77ce8e27d8b9656b828dab410707836c2d569fc1fe45c3d"
+ },
+ {
+  "ordinal": 70,
+  "filename": "202611030001_funds_in_transit_and_bank.sql",
+  "sha256": "fb72479c1dfb3f5f1350f7366a920227d47b9b32abbc47a9abfbd46b575eb197"
+ },
+ {
+  "ordinal": 71,
+  "filename": "202611030002_billing_safe_issue.sql",
+  "sha256": "be0145bb9fed66746e073600d2af96db0354aae1e99196c397701e715cbe594f"
+ },
+ {
+  "ordinal": 72,
+  "filename": "202611030003_billing_receptor_credit_notes.sql",
+  "sha256": "11f4d758d7e2d014c69e8f101ee0bd938f3fe4c6784e9b3cb936e37cf34a4395"
+ },
+ {
+  "ordinal": 73,
+  "filename": "202611030004_platform_admin_catalog.sql",
+  "sha256": "df0715207f6ad9f380bd672af268ac3fa6f756293bda91c0b02effb41eb8ca7a"
+ },
+ {
+  "ordinal": 74,
+  "filename": "202611030005_global_catalog_import.sql",
+  "sha256": "0cdd60b36af298deb64a950a27d4d63aab268c27eef093e6add5fb3cb303a9de"
+ },
+ {
+  "ordinal": 75,
+  "filename": "202611030006_add_products_from_global_catalog.sql",
+  "sha256": "9ec08a8532c21cfbb3b06589646916248d74d15840a8d1fef44d4a579436a0ad"
+ },
+ {
+  "ordinal": 76,
+  "filename": "202611030007_cost_based_pricing.sql",
+  "sha256": "104ebd8f16a2fcde040330f72d208b53386c07ff2f6c0a3cf387ed04272fe4bd"
+ },
+ {
+  "ordinal": 77,
+  "filename": "202611030008_bulk_markup_adjust.sql",
+  "sha256": "68a2967522d593e16d155d2d1202fa7ce55aa0d4c33dd2f4724a5c1f06c67044"
+ },
+ {
+  "ordinal": 78,
+  "filename": "202611040001_product_price_history.sql",
+  "sha256": "6e782e7b1aa273f8dbe3e245113a00722ce21c988b5a58d1a040f9100f287006"
+ },
+ {
+  "ordinal": 79,
+  "filename": "202611040002_price_index_by_group.sql",
+  "sha256": "b22129d025e8d2a95256934157e503dcaa65157223b1359485363655ef8d69d3"
+ },
+ {
+  "ordinal": 80,
+  "filename": "202611040003_reconciliation_sales_detail.sql",
+  "sha256": "dbc90b884f7104bc36b8f210b271330f43cfb3d5a45da0bca4cb552f1ddc780d"
+ },
+ {
+  "ordinal": 81,
+  "filename": "202611040004_reconciliation_totals.sql",
+  "sha256": "6a335da16cd916379beb40b7d85504857c32933fc96638d1d0b03dedcde91825"
+ },
+ {
+  "ordinal": 82,
+  "filename": "202611040005_product_presentations.sql",
+  "sha256": "93ba9b0485f9a37bedcf4c42244ae411649c725e77154762707ab14ba600e6cb"
+ },
+ {
+  "ordinal": 83,
+  "filename": "202611040006_money_accounts.sql",
+  "sha256": "f45ef0bac37eccb8822a89e20fb0294c0e53ed7258c5e28f9da1602ec941959d"
+ },
+ {
+  "ordinal": 84,
+  "filename": "202611040007_money_movements_report.sql",
+  "sha256": "df024af737bef5fb33bed1a53b63b816a644b8e96e0305f10845e4bd2cf0e57b"
+ },
+ {
+  "ordinal": 85,
+  "filename": "202611060001_platform_admin_panel.sql",
+  "sha256": "659abf945a67cc83a4775247e87f9c4c22a614b9331c59823c6bcff9b2f09dd4"
+ },
+ {
+  "ordinal": 86,
+  "filename": "202611060002_store_suspension.sql",
+  "sha256": "c32216a04601682cf998ae591d7a771ee58d45a148c3fa980f6b9783c9f98ef9"
+ },
+ {
+  "ordinal": 87,
+  "filename": "202611060003_ai_server_limits.sql",
+  "sha256": "83b162f1eb544e8de1acc0df7ca4414be9316e74370ac3887cbeae9c7c79e30e"
+ },
+ {
+  "ordinal": 88,
+  "filename": "202611060004_plans_and_subscriptions.sql",
+  "sha256": "222d45b7d13c2e2e00185911908e716995048bfcd5533cc03f1d9456efc1dab6"
+ },
+ {
+  "ordinal": 89,
+  "filename": "202611060005_platform_announcements.sql",
+  "sha256": "d5435338ad558c1a17f89b8154695b05d556b31231329b8e2f1725c0b3c89533"
+ },
+ {
+  "ordinal": 90,
+  "filename": "202611060006_push_for_all_members.sql",
+  "sha256": "cbb1e3a8f7aeb3bd470418ab87ab02a4ba856ccfdc13d8d4f9294ccb6f0b463d"
+ },
+ {
+  "ordinal": 91,
+  "filename": "202611060007_advertising.sql",
+  "sha256": "46353e26393c7e759b85930d27fd7d00ddbd14b76c7b8d7d31b19f1eca47f0ec"
+ },
+ {
+  "ordinal": 92,
+  "filename": "202611060008_delete_campaigns_and_notices.sql",
+  "sha256": "4f1a2e35d7accaa392c4e227b04f27bbae8d6c0bd05e2061244faae486dddb72"
+ },
+ {
+  "ordinal": 93,
+  "filename": "202611060009_product_presentation_codes.sql",
+  "sha256": "c0ee5421317c76645713f2d36b801f8a2e86058819903e88a6a1ba0a0ad099c0"
+ },
+ {
+  "ordinal": 94,
+  "filename": "202611060010_movement_receipts.sql",
+  "sha256": "a65a158ee915c4929f5f36efcb260ec1433dab1ce10a82f2c92724c2e69db2bb"
+ },
+ {
+  "ordinal": 95,
+  "filename": "202611100001_product_expiry_grant.sql",
+  "sha256": "660526cd46210f67ef9e910e08c259eea09218215c46edae88eb2f48e20efc86"
+ },
+ {
+  "ordinal": 96,
+  "filename": "202611100002_money_accounts_summary_volatile.sql",
+  "sha256": "31d0bd1d2a7c0f29c45326db8a382184bde1249239d32b4b826b3406ea31f659"
+ },
+ {
+  "ordinal": 97,
+  "filename": "202611100003_payment_link_method.sql",
+  "sha256": "90ac4ef0869c7ec6f4a2a8878fbe9149e9c74d0c6f64248989ce68a91e5d7901"
+ },
+ {
+  "ordinal": 98,
+  "filename": "202611100004_operational_push_notifications.sql",
+  "sha256": "c7b807f7a2c473693de5db7627a348572a19c997b5458e1019e1d755f95fef17"
+ }
+]
+$retail_schema_manifest_json$::jsonb;
+ conflict text; missing text;
+begin
+ perform set_config('lock_timeout','10s',true);
+ perform pg_advisory_xact_lock(hashtextextended('administrador-kiosco:schema',0));
+ if to_regclass('retail_private.schema_migrations') is null then
+  raise exception 'Falta el historial de instalación. No se aplicó 202611030001_funds_in_transit_and_bank.sql'
+   using errcode='55000',hint='Revisar SUPABASE_SETUP.md y el diagnóstico de solo lectura. Este archivo no adopta migraciones ni reemplaza una conciliación pendiente.';
+ end if;
+ select h.filename into conflict from retail_private.schema_migrations h
+  left join jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text) using(filename)
+  where m.filename is null or m.sha256<>h.sha256 limit 1;
+ if conflict is not null then
+  raise exception 'Historial distinto al paquete: %. No se modificó. Revisar versión del repositorio y diagnóstico',conflict;
+ end if;
+ if exists(select 1 from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text)
+  join retail_private.schema_migrations h using(filename)
+  where exists(select 1 from jsonb_to_recordset(manifest) previous(ordinal integer,filename text,sha256 text)
+   where previous.ordinal<m.ordinal and not exists(select 1 from retail_private.schema_migrations applied where applied.filename=previous.filename))) then
+  raise exception 'El historial tiene huecos. No se modificó: revisar diagnóstico antes de continuar';
+ end if;
+ if exists(select 1 from retail_private.schema_migrations where filename='202611030001_funds_in_transit_and_bank.sql') then
+  raise notice '202611030001_funds_in_transit_and_bank.sql ya está registrada con el mismo checksum. No se repitió';
+  return;
+ end if;
+ select m.filename into missing from jsonb_to_recordset(manifest) m(ordinal integer,filename text,sha256 text)
+  where m.ordinal<70 and not exists(select 1 from retail_private.schema_migrations h where h.filename=m.filename)
+  order by m.ordinal limit 1;
+ if missing is not null then
+  raise exception 'Falta registrar la migración anterior %. No se aplicó 202611030001_funds_in_transit_and_bank.sql',missing
+   using errcode='55000',hint='Ejecutar las actualizaciones en orden. Si falta un paso manual anterior, conciliar primero; no insertar historial a mano.';
+ end if;
+ begin
+  raise notice 'Aplicando 202611030001_funds_in_transit_and_bank.sql';
+  execute replace($retail_source_fb72479c1dfb3f5f$
+-- 1. Plata en camino: un envío entre ubicaciones sale del origen al enviarlo y entra al destino cuando
+--    alguien confirma cuánto llegó. Si no llega, queda «en camino» para revisarlo o devolverlo al origen.
+-- 2. Conciliación: lo que entró al banco por QR, tarjetas y transferencias contra lo vendido por esos medios,
+--    con comisiones y retenciones. Ganancias resta las comisiones una sola vez, desde estas liquidaciones.
+-- El arqueo del cajero no cambia: nada de esto se muestra a quien cobra.
+
+alter table public.retail_fund_transfers
+ add column status text not null default 'done' check(status in ('done','in_transit','received','returned')),
+ add column received_amount numeric(16,2) check(received_amount is null or (received_amount>=0 and received_amount::text<>'NaN')),
+ add column received_by uuid references auth.users(id), add column received_email text, add column received_at timestamptz,
+ add column review_note text check(review_note is null or length(btrim(review_note)) between 1 and 1000),
+ add constraint retail_fund_transfers_transit_route check(status='done' or (from_location is not null and to_location is not null)),
+ add constraint retail_fund_transfers_review check((status in ('received','returned'))=(received_at is not null));
+create index retail_fund_transfers_in_transit on public.retail_fund_transfers(store_id,created_at) where status='in_transit';
+
+-- Entre dos ubicaciones queda en camino; ingresos y salidas externas siguen siendo inmediatos.
+create or replace function public.retail_move_location_funds(p_store uuid,p_from text,p_to text,p_amount numeric,p_note text,p_request uuid)
+returns uuid language plpgsql security definer set search_path='' as $$
+declare prior public.retail_fund_transfers; loc text; source_balance numeric; target_balance numeric;
+ note text:=btrim(p_note); v_transit boolean:=p_from is not null and p_to is not null;
+begin
+ perform retail_private.require_permission(p_store,'manage_funds');
+ if p_request is null or p_amount is null or p_amount::text in ('NaN','Infinity','-Infinity')
+  or p_amount<=0 or p_amount>999999999999.99 or round(p_amount,2)<>p_amount then raise exception 'Ingresá un importe positivo con hasta dos decimales'; end if;
+ if note is null or length(note) not between 1 and 1000 then raise exception 'Escribí un motivo de hasta 1.000 caracteres'; end if;
+ if (p_from is null and p_to is null) or p_from=p_to then raise exception 'Elegí un origen y un destino diferentes'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('fund-request:'||p_request::text,0));
+ select * into prior from public.retail_fund_transfers where id=p_request;
+ if found then
+  if prior.store_id<>p_store or prior.created_by<>auth.uid() or prior.from_location is distinct from p_from
+   or prior.to_location is distinct from p_to or prior.amount<>p_amount or prior.note<>note then raise exception 'La solicitud corresponde a otro movimiento'; end if;
+  return prior.id;
+ end if;
+ perform pg_advisory_xact_lock(hashtextextended('fund-store:'||p_store::text,0));
+ foreach loc in array array[p_from,p_to] loop
+  if loc is null then continue; end if;
+  if loc<>'depot' and not exists(select 1 from public.retail_branches where store_id=p_store and id::text=loc) then raise exception 'La ubicación no pertenece a este comercio'; end if;
+  insert into public.retail_location_funds(store_id,location) values(p_store,loc) on conflict do nothing;
+ end loop;
+ if p_from is not null then
+  select balance into source_balance from public.retail_location_funds where store_id=p_store and location=p_from for update;
+  if source_balance<p_amount then raise exception 'El fondo de origen no tiene saldo suficiente. Actualizá los saldos'; end if;
+  update public.retail_location_funds set balance=balance-p_amount where store_id=p_store and location=p_from;
+ end if;
+ if p_to is not null and not v_transit then
+  select balance into target_balance from public.retail_location_funds where store_id=p_store and location=p_to for update;
+  if target_balance+p_amount>999999999999.99 then raise exception 'El saldo resultante supera el límite permitido'; end if;
+  update public.retail_location_funds set balance=balance+p_amount where store_id=p_store and location=p_to;
+ end if;
+ insert into public.retail_fund_transfers(id,store_id,from_location,to_location,amount,note,created_by,actor_email,status)
+ values(p_request,p_store,p_from,p_to,p_amount,note,auth.uid(),auth.jwt()->>'email',case when v_transit then 'in_transit' else 'done' end);
+ return p_request;
+end $$;
+
+-- Confirmar lo que llegó. Si llegó menos, la diferencia queda registrada como faltante y exige una nota.
+create function public.retail_receive_location_funds(p_store uuid,p_id uuid,p_amount numeric,p_note text default null) returns jsonb
+language plpgsql security definer set search_path='' as $$
+declare v_transfer public.retail_fund_transfers; v_note text:=nullif(btrim(coalesce(p_note,'')),'');
+begin
+ perform retail_private.require_permission(p_store,'manage_funds');
+ perform pg_advisory_xact_lock(hashtextextended('fund-store:'||p_store::text,0));
+ select * into v_transfer from public.retail_fund_transfers where id=p_id and store_id=p_store for update;
+ if not found then raise exception 'Envío no disponible'; end if;
+ if v_transfer.status='received' then return jsonb_build_object('id',p_id,'status','received','missing',v_transfer.amount-v_transfer.received_amount); end if;
+ if v_transfer.status<>'in_transit' then raise exception 'Este envío ya no está en camino'; end if;
+ if p_amount is null or p_amount<0 or p_amount>v_transfer.amount or round(p_amount,2)<>p_amount then raise exception 'Lo recibido debe estar entre 0 y lo enviado'; end if;
+ if p_amount<v_transfer.amount and v_note is null then raise exception 'Llegó menos de lo enviado: escribí qué pasó'; end if;
+ insert into public.retail_location_funds(store_id,location) values(p_store,v_transfer.to_location) on conflict do nothing;
+ update public.retail_location_funds set balance=balance+p_amount where store_id=p_store and location=v_transfer.to_location;
+ update public.retail_fund_transfers set status='received',received_amount=p_amount,received_by=auth.uid(),received_email=auth.jwt()->>'email',received_at=now(),review_note=v_note where id=p_id;
+ return jsonb_build_object('id',p_id,'status','received','missing',v_transfer.amount-p_amount);
+end $$;
+
+-- Si no llegó: vuelve entera al origen, con su motivo.
+create function public.retail_return_location_funds(p_store uuid,p_id uuid,p_note text) returns void
+language plpgsql security definer set search_path='' as $$
+declare v_transfer public.retail_fund_transfers; v_note text:=nullif(btrim(coalesce(p_note,'')),'');
+begin
+ perform retail_private.require_permission(p_store,'manage_funds');
+ if v_note is null then raise exception 'Escribí por qué vuelve al origen'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('fund-store:'||p_store::text,0));
+ select * into v_transfer from public.retail_fund_transfers where id=p_id and store_id=p_store for update;
+ if not found then raise exception 'Envío no disponible'; end if;
+ if v_transfer.status='returned' then return; end if;
+ if v_transfer.status<>'in_transit' then raise exception 'Este envío ya no está en camino'; end if;
+ update public.retail_location_funds set balance=balance+v_transfer.amount where store_id=p_store and location=v_transfer.from_location;
+ update public.retail_fund_transfers set status='returned',received_amount=0,received_by=auth.uid(),received_email=auth.jwt()->>'email',received_at=now(),review_note=v_note where id=p_id;
+end $$;
+revoke all on function public.retail_receive_location_funds(uuid,uuid,numeric,text),public.retail_return_location_funds(uuid,uuid,text) from public,anon;
+grant execute on function public.retail_receive_location_funds(uuid,uuid,numeric,text),public.retail_return_location_funds(uuid,uuid,text) to authenticated;
+
+-- Liquidaciones: lo que acreditó el banco o la billetera por un medio de pago, para un rango de días de venta.
+create function retail_private.can_reconcile(p_store uuid) returns boolean language sql stable security definer set search_path='' as $$
+ select coalesce(retail_private.role_for(p_store) in ('owner','admin'),false) or retail_private.has_permission(p_store,'manage_funds');
+$$;
+revoke all on function retail_private.can_reconcile(uuid) from public,anon;
+grant execute on function retail_private.can_reconcile(uuid) to authenticated;
+
+create table public.retail_bank_deposits (
+ id uuid primary key, store_id uuid not null references public.retail_stores(id),
+ method text not null check(method in ('QR','Debito','Credito','Transferencia')),
+ provider text check(provider is null or length(btrim(provider)) between 1 and 80),
+ deposited_on date not null, sales_from date not null, sales_to date not null,
+ -- Lo que acreditaron, lo que cobraron de comisión y lo que retuvieron por impuestos.
+ net numeric(16,2) not null check(net>=0 and net::text<>'NaN'),
+ commission numeric(16,2) not null default 0 check(commission>=0 and commission::text<>'NaN'),
+ taxes numeric(16,2) not null default 0 check(taxes>=0 and taxes::text<>'NaN'),
+ reference text check(reference is null or length(reference)<=120), note text check(note is null or length(note)<=500),
+ created_by uuid not null references auth.users(id), actor_email text, created_at timestamptz not null default now(),
+ voided_at timestamptz, voided_by uuid references auth.users(id), void_reason text check(void_reason is null or length(btrim(void_reason)) between 1 and 300),
+ check(sales_to>=sales_from and sales_to-sales_from<=93), check((voided_at is null)=(void_reason is null)), check(net+commission+taxes>0)
+);
+create index retail_bank_deposits_store on public.retail_bank_deposits(store_id,sales_to desc);
+alter table public.retail_bank_deposits enable row level security;
+create policy reconcilers_read on public.retail_bank_deposits for select to authenticated using(retail_private.can_reconcile(store_id));
+revoke all on public.retail_bank_deposits from public,anon,authenticated;
+grant select on public.retail_bank_deposits to authenticated;
+
+create function public.retail_save_bank_deposit(p_store uuid,p_id uuid,p_deposit jsonb) returns uuid
+language plpgsql security definer set search_path='' as $$
+declare v_existing public.retail_bank_deposits; v_method text:=p_deposit->>'method';
+ v_net numeric; v_commission numeric; v_taxes numeric; v_from date; v_to date; v_on date;
+begin
+ if not retail_private.can_reconcile(p_store) then raise exception 'Tu perfil no permite conciliar' using errcode='42501'; end if;
+ if p_id is null then raise exception 'Datos de la liquidación incompletos'; end if;
+ if v_method is null or v_method not in ('QR','Debito','Credito','Transferencia') then raise exception 'Elegí el medio de pago'; end if;
+ if exists(select 1 from jsonb_each_text(p_deposit) e where e.key in ('net','commission','taxes') and e.value is not null and e.value<>'' and e.value!~'^[0-9]{1,13}(\.[0-9]{1,2})?$') then
+  raise exception 'Revisá los importes';
+ end if;
+ v_net:=coalesce(nullif(p_deposit->>'net','')::numeric,0); v_commission:=coalesce(nullif(p_deposit->>'commission','')::numeric,0); v_taxes:=coalesce(nullif(p_deposit->>'taxes','')::numeric,0);
+ if v_net+v_commission+v_taxes<=0 then raise exception 'Cargá lo acreditado'; end if;
+ v_on:=nullif(p_deposit->>'deposited_on','')::date; v_from:=nullif(p_deposit->>'sales_from','')::date; v_to:=nullif(p_deposit->>'sales_to','')::date;
+ if v_on is null or v_from is null or v_to is null or v_to<v_from or v_to-v_from>93 then raise exception 'Revisá las fechas: los días de venta pueden abarcar hasta tres meses'; end if;
+ perform pg_advisory_xact_lock(hashtextextended('bank-deposit:'||p_id::text,0));
+ select * into v_existing from public.retail_bank_deposits where id=p_id for update;
+ if found then
+  if v_existing.store_id<>p_store then raise exception 'El identificador ya corresponde a otro comercio'; end if;
+  if v_existing.voided_at is not null then raise exception 'Esta liquidación está anulada'; end if;
+  update public.retail_bank_deposits set method=v_method,provider=nullif(btrim(coalesce(p_deposit->>'provider','')),''),deposited_on=v_on,sales_from=v_from,sales_to=v_to,
+   net=v_net,commission=v_commission,taxes=v_taxes,reference=nullif(btrim(coalesce(p_deposit->>'reference','')),''),note=nullif(btrim(coalesce(p_deposit->>'note','')),'') where id=p_id;
+ else
+  insert into public.retail_bank_deposits(id,store_id,method,provider,deposited_on,sales_from,sales_to,net,commission,taxes,reference,note,created_by,actor_email)
+  values(p_id,p_store,v_method,nullif(btrim(coalesce(p_deposit->>'provider','')),''),v_on,v_from,v_to,v_net,v_commission,v_taxes,
+   nullif(btrim(coalesce(p_deposit->>'reference','')),''),nullif(btrim(coalesce(p_deposit->>'note','')),''),auth.uid(),auth.jwt()->>'email');
+ end if;
+ return p_id;
+end $$;
+
+create function public.retail_void_bank_deposit(p_store uuid,p_id uuid,p_reason text) returns void
+language plpgsql security definer set search_path='' as $$
+begin
+ if not retail_private.can_reconcile(p_store) then raise exception 'Tu perfil no permite conciliar' using errcode='42501'; end if;
+ if p_reason is null or length(btrim(p_reason)) not between 1 and 300 then raise exception 'Escribí por qué se anula'; end if;
+ update public.retail_bank_deposits set voided_at=now(),voided_by=auth.uid(),void_reason=btrim(p_reason) where id=p_id and store_id=p_store and voided_at is null;
+ if not found and not exists(select 1 from public.retail_bank_deposits where id=p_id and store_id=p_store) then raise exception 'Liquidación no disponible'; end if;
+end $$;
+
+-- Lo vendido por medio (pagos de ventas y cobros a clientes, menos devoluciones por ese medio) contra lo liquidado.
+-- Se comparan las liquidaciones cuyos días de venta están dentro del período elegido.
+create function public.retail_bank_reconciliation(p_store uuid,p_from date,p_to date) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare zone text:='America/Argentina/Buenos_Aires'; v_from timestamptz; v_to timestamptz;
+begin
+ if not retail_private.can_reconcile(p_store) then raise exception 'Tu perfil no permite conciliar' using errcode='42501'; end if;
+ if p_from is null or p_to is null or p_to<p_from or p_to-p_from>366 then raise exception 'Elegí un período de hasta un año'; end if;
+ v_from:=p_from::timestamp at time zone zone; v_to:=(p_to+1)::timestamp at time zone zone;
+ return (with methods(method) as (values ('QR'),('Debito'),('Credito'),('Transferencia')),
+  sold as (
+   select x->>'method' as method,sum((x->>'amount')::numeric) as amount from public.retail_sales s cross join lateral jsonb_array_elements(s.payments) x
+   where s.store_id=p_store and s.created_at>=v_from and s.created_at<v_to group by 1
+  ), refunded as (
+   select x->>'method' as method,sum((x->>'amount')::numeric) as amount from public.retail_sale_returns r cross join lateral jsonb_array_elements(r.payments) x
+   where r.store_id=p_store and r.created_at>=v_from and r.created_at<v_to group by 1
+  ), collected as (
+   select c.method,sum(-c.amount) as amount from public.retail_customer_movements c
+   where c.store_id=p_store and c.kind='payment' and c.created_at>=v_from and c.created_at<v_to group by 1
+  ), deposited as (
+   select method,sum(net) as net,sum(commission) as commission,sum(taxes) as taxes,count(*) as deposits from public.retail_bank_deposits
+   where store_id=p_store and voided_at is null and sales_from>=p_from and sales_to<=p_to group by 1
+  )
+  select jsonb_build_object('from',p_from,'to',p_to,
+   'methods',(select jsonb_agg(jsonb_build_object('method',m.method,
+     'sold',coalesce(s.amount,0)-coalesce(r.amount,0)+coalesce(c.amount,0),
+     'net',coalesce(d.net,0),'commission',coalesce(d.commission,0),'taxes',coalesce(d.taxes,0),'deposits',coalesce(d.deposits,0),
+     -- Diferencia: lo liquidado (acreditado + comisión + retenciones) menos lo vendido. Negativo: falta cobrar.
+     'difference',coalesce(d.net,0)+coalesce(d.commission,0)+coalesce(d.taxes,0)-(coalesce(s.amount,0)-coalesce(r.amount,0)+coalesce(c.amount,0)))
+    order by m.method) from methods m left join sold s on s.method=m.method left join refunded r on r.method=m.method
+    left join collected c on c.method=m.method left join deposited d on d.method=m.method),
+   'deposits',coalesce((select jsonb_agg(to_jsonb(b)-'store_id'-'created_by'-'voided_by' order by b.deposited_on desc,b.created_at desc) from public.retail_bank_deposits b
+    where b.store_id=p_store and b.sales_to>=p_from and b.sales_from<=p_to),'[]'::jsonb)
+  ));
+end $$;
+
+-- Ganancias: comisiones y retenciones de las liquidaciones acreditadas en el mes. Se toman solo de acá,
+-- así que no hay que cargarlas también como gasto.
+create function public.retail_month_commissions(p_store uuid,p_month date) returns jsonb
+language plpgsql stable security definer set search_path='' as $$
+declare first_day date:=date_trunc('month',p_month)::date;
+begin
+ if coalesce(retail_private.role_for(p_store),'') not in ('owner','admin') then raise exception 'Solo la administración puede ver el resultado' using errcode='42501'; end if;
+ return (with month as (
+  select method,commission,taxes from public.retail_bank_deposits
+  where store_id=p_store and voided_at is null and deposited_on>=first_day and deposited_on<(first_day+interval '1 month')::date
+ ) select jsonb_build_object('commission',coalesce((select sum(commission) from month),0),'taxes',coalesce((select sum(taxes) from month),0),
+   'deposits',(select count(*) from month),
+   'by_method',coalesce((select jsonb_agg(jsonb_build_object('method',method,'commission',total) order by total desc)
+    from (select method,sum(commission) as total from month group by method having sum(commission)>0) t),'[]'::jsonb)));
+end $$;
+
+revoke all on function public.retail_save_bank_deposit(uuid,uuid,jsonb),public.retail_void_bank_deposit(uuid,uuid,text),
+ public.retail_bank_reconciliation(uuid,date,date),public.retail_month_commissions(uuid,date) from public,anon;
+grant execute on function public.retail_save_bank_deposit(uuid,uuid,jsonb),public.retail_void_bank_deposit(uuid,uuid,text),
+ public.retail_bank_reconciliation(uuid,date,date),public.retail_month_commissions(uuid,date) to authenticated;
+
+notify pgrst,'reload schema';
+$retail_source_fb72479c1dfb3f5f$,chr(13)||chr(10),chr(10));
+  insert into retail_private.schema_migrations(filename,sha256,origin)
+   values('202611030001_funds_in_transit_and_bank.sql','fb72479c1dfb3f5f1350f7366a920227d47b9b32abbc47a9abfbd46b575eb197','schema');
+ end;
+ perform pg_notify('pgrst','reload schema');
+end;
+$retail_install$;
+select count(*) as migraciones,max(filename) as ultima_migracion from retail_private.schema_migrations;

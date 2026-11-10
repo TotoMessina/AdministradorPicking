@@ -49,7 +49,7 @@ self.addEventListener('push', (event) => {
   let payload = {};
   try { payload = event.data?.json() || {}; } catch { /* Display a safe fallback. */ }
   if (!payload || typeof payload !== 'object') payload = {};
-  const view = ['home', 'catalog', 'cash', 'settings'].includes(payload.view) ? payload.view : 'settings';
+  const view = ['home', 'catalog', 'cash', 'settings', 'transfers'].includes(payload.view) ? payload.view : 'settings';
   const storeId = typeof payload.storeId === 'string' && /^[0-9a-f-]{36}$/i.test(payload.storeId) ? payload.storeId : '';
   event.waitUntil(self.registration.showNotification(
     typeof payload.title === 'string' ? payload.title.slice(0, 100) : 'Kiosco Express', {
@@ -65,7 +65,7 @@ self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil((async () => {
     const data = event.notification.data || {};
-    const view = ['home', 'catalog', 'cash', 'settings'].includes(data.view) ? data.view : 'settings';
+    const view = ['home', 'catalog', 'cash', 'settings', 'transfers'].includes(data.view) ? data.view : 'settings';
     const storeId = typeof data.storeId === 'string' && /^[0-9a-f-]{36}$/i.test(data.storeId) ? data.storeId : '';
     const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     const existing = windows.find(client => client.url.startsWith(scope));

@@ -1,4 +1,4 @@
--- AdministradorKiosco: actualización individual 37/46.
+-- AdministradorKiosco: actualización individual 37/98.
 -- Generado: node scripts/generate-schema.mjs --individual-updates. NO editar.
 -- Fuente: migrations/202610260006_billing_update_robustness.sql; SHA-256 97469041ab94b975ce569c26fb60b2aba78d9f8a94c4c13a5567c47f14c576f2.
 -- Requiere historial conciliado y TODAS las migraciones anteriores registradas.
@@ -239,6 +239,266 @@ declare
   "ordinal": 46,
   "filename": "202610280004_permanent_product_deletion.sql",
   "sha256": "c066941e7a7c08d3b00196d0eecce2b777cdddf4b805bab1197644a71e269368"
+ },
+ {
+  "ordinal": 47,
+  "filename": "202610290001_branch_location_and_deletion.sql",
+  "sha256": "bd6a4e4c41f9646352bbb167137c5c9519d6cfbcf51d9143fff9ccb4136f5b75"
+ },
+ {
+  "ordinal": 48,
+  "filename": "202610290002_supplier_fiscal_profile.sql",
+  "sha256": "51d60abcf980e182bc3975f9a90aadc68b180e1bde3e3db7b27c08f423162151"
+ },
+ {
+  "ordinal": 49,
+  "filename": "202610290003_purchase_invoices.sql",
+  "sha256": "8a5afba23235cad78e07da7f4f364fccd51925225b721d3ad11456581bd926d8"
+ },
+ {
+  "ordinal": 50,
+  "filename": "202610290004_landed_costs.sql",
+  "sha256": "12d7490f65c8eac5fa8e63ebfcbb081c62e1f1204a92fe6d7ed4771ad35efa16"
+ },
+ {
+  "ordinal": 51,
+  "filename": "202610290005_conflict_errors_without_retry.sql",
+  "sha256": "ed34b128cffadb2189e4053ebaa3b983d2728c24f925eeebbfe6e59477453313"
+ },
+ {
+  "ordinal": 52,
+  "filename": "202610290006_supplier_contact_profile.sql",
+  "sha256": "7c244212c97c982da6e0d2eb64ca2c64c50c1dd512c0f946338584a5a6fc497b"
+ },
+ {
+  "ordinal": 53,
+  "filename": "202610290007_purchase_invoice_tracking.sql",
+  "sha256": "551f2d827fa2913e32d6fc01d3cbe19fe706f656d91eec0bbd074e8328a5261b"
+ },
+ {
+  "ordinal": 54,
+  "filename": "202610300001_supplier_payments.sql",
+  "sha256": "1d44ea08176b5b5b2181d65d6019edd40be772aa25c14ae45b89866bde76cd8d"
+ },
+ {
+  "ordinal": 55,
+  "filename": "202610300002_payment_apply_same_invoice.sql",
+  "sha256": "e0eb93640914e083ee8007a53a7f179287307aa44ecbc399e31eadad02305c5e"
+ },
+ {
+  "ordinal": 56,
+  "filename": "202610300003_branch_inventory_by_default.sql",
+  "sha256": "85ae0991e1effe24807a0e8ac019e411696d7a8734c844218b4f5d67e09b31e8"
+ },
+ {
+  "ordinal": 57,
+  "filename": "202610300004_branch_inventory_always.sql",
+  "sha256": "6aa129a6af964b60ffd90bafa3e6c9fa84e829600f8aaf5f398474ee1a50cc25"
+ },
+ {
+  "ordinal": 58,
+  "filename": "202610300005_shift_cash_into_branch_funds.sql",
+  "sha256": "8b55ed736684a540c2625f954ea8800b79de3cd0669baadfecab91adfe138a7f"
+ },
+ {
+  "ordinal": 59,
+  "filename": "202610300006_editable_role_permissions.sql",
+  "sha256": "f9353e99737cb1fa425d48bd5f2bde52f68be8dd243a828bdd278bf30f37846e"
+ },
+ {
+  "ordinal": 60,
+  "filename": "202610300007_expenses_and_month_result.sql",
+  "sha256": "1cc8488904046c20951344260a91f485dc36962c059ed972063a91a0ce0e8a5d"
+ },
+ {
+  "ordinal": 61,
+  "filename": "202611020001_sale_returns.sql",
+  "sha256": "160c3ea5ca68498ff127b1cd7d93a88090b36af3809b1a59c507ad9233e6f321"
+ },
+ {
+  "ordinal": 62,
+  "filename": "202611020002_stock_counts.sql",
+  "sha256": "9daed2281b904f3b615feaa1219e2aefa68e12f2789ed8b359569634b9780932"
+ },
+ {
+  "ordinal": 63,
+  "filename": "202611020003_stock_count_sections.sql",
+  "sha256": "9f3258490d566b004171326307b86f84a0b9a75ed73640157dbdb86ef5d2a513"
+ },
+ {
+  "ordinal": 64,
+  "filename": "202611020004_customer_accounts.sql",
+  "sha256": "d1eade0c0e42edbd036e264de72c50ea6c9141c90d8a4841a9e1a56c90c0c21d"
+ },
+ {
+  "ordinal": 65,
+  "filename": "202611020005_customer_billing_and_credit.sql",
+  "sha256": "d88f8756a740b886117b430cc3360986acce8c8a31f567eb20124b2ed36922df"
+ },
+ {
+  "ordinal": 66,
+  "filename": "202611020006_partial_credit.sql",
+  "sha256": "c4cbb30b0390a79134633987f21ccdb9dd006a2f5e025d0ba55ce7a73d3a75b2"
+ },
+ {
+  "ordinal": 67,
+  "filename": "202611020007_purchase_orders.sql",
+  "sha256": "9ee57671d2b9262c609e179b1b35faf8b25deef0d6695a0d0db22d293b06df2d"
+ },
+ {
+  "ordinal": 68,
+  "filename": "202611020008_branch_comparison.sql",
+  "sha256": "9cbc6cfea5ad26ab8933c506327dcc66ab3232360d3125e91b64b095b76eaec8"
+ },
+ {
+  "ordinal": 69,
+  "filename": "202611020009_activity_log.sql",
+  "sha256": "fef5de758a29f033e77ce8e27d8b9656b828dab410707836c2d569fc1fe45c3d"
+ },
+ {
+  "ordinal": 70,
+  "filename": "202611030001_funds_in_transit_and_bank.sql",
+  "sha256": "fb72479c1dfb3f5f1350f7366a920227d47b9b32abbc47a9abfbd46b575eb197"
+ },
+ {
+  "ordinal": 71,
+  "filename": "202611030002_billing_safe_issue.sql",
+  "sha256": "be0145bb9fed66746e073600d2af96db0354aae1e99196c397701e715cbe594f"
+ },
+ {
+  "ordinal": 72,
+  "filename": "202611030003_billing_receptor_credit_notes.sql",
+  "sha256": "11f4d758d7e2d014c69e8f101ee0bd938f3fe4c6784e9b3cb936e37cf34a4395"
+ },
+ {
+  "ordinal": 73,
+  "filename": "202611030004_platform_admin_catalog.sql",
+  "sha256": "df0715207f6ad9f380bd672af268ac3fa6f756293bda91c0b02effb41eb8ca7a"
+ },
+ {
+  "ordinal": 74,
+  "filename": "202611030005_global_catalog_import.sql",
+  "sha256": "0cdd60b36af298deb64a950a27d4d63aab268c27eef093e6add5fb3cb303a9de"
+ },
+ {
+  "ordinal": 75,
+  "filename": "202611030006_add_products_from_global_catalog.sql",
+  "sha256": "9ec08a8532c21cfbb3b06589646916248d74d15840a8d1fef44d4a579436a0ad"
+ },
+ {
+  "ordinal": 76,
+  "filename": "202611030007_cost_based_pricing.sql",
+  "sha256": "104ebd8f16a2fcde040330f72d208b53386c07ff2f6c0a3cf387ed04272fe4bd"
+ },
+ {
+  "ordinal": 77,
+  "filename": "202611030008_bulk_markup_adjust.sql",
+  "sha256": "68a2967522d593e16d155d2d1202fa7ce55aa0d4c33dd2f4724a5c1f06c67044"
+ },
+ {
+  "ordinal": 78,
+  "filename": "202611040001_product_price_history.sql",
+  "sha256": "6e782e7b1aa273f8dbe3e245113a00722ce21c988b5a58d1a040f9100f287006"
+ },
+ {
+  "ordinal": 79,
+  "filename": "202611040002_price_index_by_group.sql",
+  "sha256": "b22129d025e8d2a95256934157e503dcaa65157223b1359485363655ef8d69d3"
+ },
+ {
+  "ordinal": 80,
+  "filename": "202611040003_reconciliation_sales_detail.sql",
+  "sha256": "dbc90b884f7104bc36b8f210b271330f43cfb3d5a45da0bca4cb552f1ddc780d"
+ },
+ {
+  "ordinal": 81,
+  "filename": "202611040004_reconciliation_totals.sql",
+  "sha256": "6a335da16cd916379beb40b7d85504857c32933fc96638d1d0b03dedcde91825"
+ },
+ {
+  "ordinal": 82,
+  "filename": "202611040005_product_presentations.sql",
+  "sha256": "93ba9b0485f9a37bedcf4c42244ae411649c725e77154762707ab14ba600e6cb"
+ },
+ {
+  "ordinal": 83,
+  "filename": "202611040006_money_accounts.sql",
+  "sha256": "f45ef0bac37eccb8822a89e20fb0294c0e53ed7258c5e28f9da1602ec941959d"
+ },
+ {
+  "ordinal": 84,
+  "filename": "202611040007_money_movements_report.sql",
+  "sha256": "df024af737bef5fb33bed1a53b63b816a644b8e96e0305f10845e4bd2cf0e57b"
+ },
+ {
+  "ordinal": 85,
+  "filename": "202611060001_platform_admin_panel.sql",
+  "sha256": "659abf945a67cc83a4775247e87f9c4c22a614b9331c59823c6bcff9b2f09dd4"
+ },
+ {
+  "ordinal": 86,
+  "filename": "202611060002_store_suspension.sql",
+  "sha256": "c32216a04601682cf998ae591d7a771ee58d45a148c3fa980f6b9783c9f98ef9"
+ },
+ {
+  "ordinal": 87,
+  "filename": "202611060003_ai_server_limits.sql",
+  "sha256": "83b162f1eb544e8de1acc0df7ca4414be9316e74370ac3887cbeae9c7c79e30e"
+ },
+ {
+  "ordinal": 88,
+  "filename": "202611060004_plans_and_subscriptions.sql",
+  "sha256": "222d45b7d13c2e2e00185911908e716995048bfcd5533cc03f1d9456efc1dab6"
+ },
+ {
+  "ordinal": 89,
+  "filename": "202611060005_platform_announcements.sql",
+  "sha256": "d5435338ad558c1a17f89b8154695b05d556b31231329b8e2f1725c0b3c89533"
+ },
+ {
+  "ordinal": 90,
+  "filename": "202611060006_push_for_all_members.sql",
+  "sha256": "cbb1e3a8f7aeb3bd470418ab87ab02a4ba856ccfdc13d8d4f9294ccb6f0b463d"
+ },
+ {
+  "ordinal": 91,
+  "filename": "202611060007_advertising.sql",
+  "sha256": "46353e26393c7e759b85930d27fd7d00ddbd14b76c7b8d7d31b19f1eca47f0ec"
+ },
+ {
+  "ordinal": 92,
+  "filename": "202611060008_delete_campaigns_and_notices.sql",
+  "sha256": "4f1a2e35d7accaa392c4e227b04f27bbae8d6c0bd05e2061244faae486dddb72"
+ },
+ {
+  "ordinal": 93,
+  "filename": "202611060009_product_presentation_codes.sql",
+  "sha256": "c0ee5421317c76645713f2d36b801f8a2e86058819903e88a6a1ba0a0ad099c0"
+ },
+ {
+  "ordinal": 94,
+  "filename": "202611060010_movement_receipts.sql",
+  "sha256": "a65a158ee915c4929f5f36efcb260ec1433dab1ce10a82f2c92724c2e69db2bb"
+ },
+ {
+  "ordinal": 95,
+  "filename": "202611100001_product_expiry_grant.sql",
+  "sha256": "660526cd46210f67ef9e910e08c259eea09218215c46edae88eb2f48e20efc86"
+ },
+ {
+  "ordinal": 96,
+  "filename": "202611100002_money_accounts_summary_volatile.sql",
+  "sha256": "31d0bd1d2a7c0f29c45326db8a382184bde1249239d32b4b826b3406ea31f659"
+ },
+ {
+  "ordinal": 97,
+  "filename": "202611100003_payment_link_method.sql",
+  "sha256": "90ac4ef0869c7ec6f4a2a8878fbe9149e9c74d0c6f64248989ce68a91e5d7901"
+ },
+ {
+  "ordinal": 98,
+  "filename": "202611100004_operational_push_notifications.sql",
+  "sha256": "c7b807f7a2c473693de5db7627a348572a19c997b5458e1019e1d755f95fef17"
  }
 ]
 $retail_schema_manifest_json$::jsonb;

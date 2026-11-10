@@ -62,14 +62,27 @@ Deno.serve(async (request) => {
         await finish({ attempts: 5, locked_at: null, last_error: 'recipient_unavailable' });
         return 'skipped';
       }
-      const titles: Record<string, string> = { low_stock: 'Revisá el stock', shift_closed: 'Cierre de caja', test: 'Avisos activados',
-        platform: typeof job.title === 'string' ? job.title : 'Aviso del servicio' };
+      const titles: Record<string, string> = {
+        low_stock: 'Revisá el stock',
+        shift_closed: 'Cierre de caja',
+        shift_opened: 'Apertura de caja',
+        cash_difference: 'Diferencia en arqueo',
+        transfer_pending: 'Solicitud de traslado',
+        transfer_reviewed: 'Traslado de mercadería',
+        test: 'Avisos activados',
+        platform: typeof job.title === 'string' ? job.title : 'Aviso del servicio',
+      };
       const bodies: Record<string, string> = {
         low_stock: 'Hay productos que llegaron al stock mínimo. Abrí el catálogo para revisarlos.',
         shift_closed: 'Se cerró un turno. Abrí Cajas y turnos para consultar el resumen.',
+        shift_opened: 'Se abrió un nuevo turno de caja. Abrí Cajas y turnos para ver los detalles.',
+        cash_difference: 'Se detectó una diferencia entre el efectivo contado y el esperado en el cierre de caja.',
+        transfer_pending: 'Hay una nueva solicitud de traslado de mercadería pendiente de revisión.',
+        transfer_reviewed: 'Se actualizó el estado de un traslado de mercadería entre ubicaciones.',
         test: 'Este dispositivo ya puede recibir avisos de tu comercio.',
       };
-      let notificationBody = job.kind === 'platform' && typeof job.body === 'string' ? job.body : bodies[job.kind] || 'Tenés novedades en tu comercio.';
+      const notificationTitle = typeof job.title === 'string' && job.title.trim() ? job.title.trim() : (titles[job.kind] || 'Aviso de tu comercio');
+      let notificationBody = typeof job.body === 'string' && job.body.trim() ? job.body.trim() : (bodies[job.kind] || 'Tenés novedades en tu comercio.');
       if (job.kind === 'low_stock') {
         try {
           if (typeof db.from === 'function') {
@@ -96,12 +109,27 @@ Deno.serve(async (request) => {
           // safe fallback
         }
       }
+      const notificationView =
+        job.kind === 'low_stock' ? 'catalog' :
+        ['shift_closed', 'shift_opened', 'cash_difference'].includes(job.kind) ? 'cash' :
+        ['transfer_pending', 'transfer_reviewed'].includes(job.kind) ? 'transfers' :
+        job.kind === 'platform' ? 'home' : 'settings';
+
+      const notificationTag =
+        job.kind === 'platform' ? `platform:${job.announcement_id}` :
+        ['transfer_pending', 'transfer_reviewed'].includes(job.kind) ? `${job.store_id}:transfer` :
+        `${job.store_id}:${job.kind}`;
+
       try {
-        // Enviar aviso web push con detalle de productos críticos
+        // Enviar aviso web push
         await webpush.sendNotification({ endpoint: job.endpoint, keys: { p256dh: job.p256dh, auth: job.auth } },
-          JSON.stringify({ title: titles[job.kind], body: notificationBody,
-            tag: job.kind === 'platform' ? `platform:${job.announcement_id}` : `${job.store_id}:${job.kind}`, storeId: job.store_id,
-            view: job.kind === 'low_stock' ? 'catalog' : job.kind === 'shift_closed' ? 'cash' : job.kind === 'platform' ? 'home' : 'settings' }),
+          JSON.stringify({
+            title: notificationTitle,
+            body: notificationBody,
+            tag: notificationTag,
+            storeId: job.store_id,
+            view: notificationView,
+          }),
           { vapidDetails, TTL: 3600, urgency: 'normal', timeout: 8000 });
         await finish({ sent_at: new Date().toISOString(), locked_at: null, last_error: null });
         return 'accepted';
