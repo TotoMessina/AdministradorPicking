@@ -1,0 +1,41 @@
+/* Tablas de consulta (DataTable): proveedores, pagos, facturas e historial de Plata. */
+.data-table-scroll { container-type: inline-size; max-height: 70vh; overflow: auto; border: 1px solid var(--tone-border); border-radius: 10px; background: var(--tone-surface); }
+.data-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 13px; }
+.data-table th, .data-table td { padding: 8px 10px; border-bottom: 1px solid var(--tone-border); text-align: left; vertical-align: middle; }
+.data-table th { position: sticky; top: 0; z-index: 1; background: var(--tone-soft); color: var(--tone-muted); font-size: 12px; font-weight: 700; white-space: nowrap; }
+.data-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.data-table tbody tr:nth-child(even of :not(.data-table-detail)) > td { background: color-mix(in srgb, var(--tone-soft) 45%, var(--tone-surface)); }
+.data-table tbody tr:hover > td { background: var(--tone-accent-soft); }
+.data-table tbody tr.is-open > td { background: var(--tone-accent-soft); border-bottom-color: transparent; }
+.data-table tbody tr.is-muted > td { color: var(--tone-muted); text-decoration: line-through; text-decoration-color: color-mix(in srgb, var(--tone-muted) 50%, transparent); }
+.data-table td small { display: block; color: var(--tone-muted); font-size: 11px; }
+.data-table .is-debt { color: var(--tone-danger); font-weight: 600; }
+.data-table .is-credit { color: #1f7a4d; font-weight: 600; }
+.data-table-actions { width: 1%; white-space: nowrap; text-align: right !important; }
+.data-table-actions > * + * { margin-left: 6px; }
+.data-table-actions .text-button { display: inline-flex; align-items: center; gap: 4px; }
+.data-table-actions .primary-button, .data-table-actions .secondary-button { min-height: 30px; padding: 4px 10px; font-size: 12px; }
+.data-table-detail > td { padding: 12px 14px 16px; background: var(--tone-canvas) !important; }
+.data-table-empty { color: var(--tone-muted); text-align: center !important; padding: 18px !important; }
+.data-table .pill { display: inline-block; padding: 1px 8px; border-radius: 999px; background: var(--tone-soft); font-size: 11px; font-weight: 600; white-space: nowrap; }
+.data-table .pill.is-warning { background: var(--tone-danger-soft); color: var(--tone-danger); }
+.data-table .pill.is-ok { background: color-mix(in srgb, #1f7a4d 12%, transparent); color: #1f7a4d; }
+.data-table .pill.is-pending { background: color-mix(in srgb, #d9902f 15%, transparent); color: #9a5b10; }
+
+@container (max-width: 640px) {
+  .data-table thead { display: none; }
+  .data-table, .data-table tbody { display: block; }
+  .data-table tbody tr:not(.data-table-detail) { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px; border-bottom: 1px solid var(--tone-border); }
+  .data-table tbody tr > td { display: grid; gap: 1px; padding: 0; border: 0; background: transparent !important; text-align: left !important; white-space: normal; }
+  .data-table td[data-label]::before { content: attr(data-label); color: var(--tone-muted); font-size: 11px; font-weight: 600; }
+  .data-table td:first-child { grid-column: 1 / -1; font-weight: 600; }
+  .data-table-actions { grid-column: 1 / -1; display: flex !important; justify-content: flex-end; flex-wrap: wrap; gap: 6px; width: auto; }
+  .data-table-detail { display: block; }
+  .data-table-detail > td { display: block; }
+}
+.data-table time { white-space: nowrap; }
+.data-table td:has(> time) { white-space: nowrap; }
+/* Acciones siempre a mano aunque la tabla se desplace de costado. */
+.data-table th:last-child:has(.sr-only), .data-table td.data-table-actions { position: sticky; right: 0; z-index: 1; background: var(--tone-surface); box-shadow: -6px 0 8px -6px rgba(15, 23, 42, .18); }
+.data-table th:last-child:has(.sr-only) { z-index: 2; background: var(--tone-soft); }
+@container (max-width: 640px) { .data-table td.data-table-actions { position: static; box-shadow: none; } }

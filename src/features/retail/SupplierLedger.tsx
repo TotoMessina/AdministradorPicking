@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookOpen, Download } from 'lucide-react';
 import { retail, errorMessage, type PurchaseInvoice, type Supplier, type SupplierPayment } from './api';
-import { SettingsEditor } from './SettingsEditor';
+import { DataTable } from './DataTable';
 import { formatMoney, voucherLabel, voucherNumber } from '../../services/purchaseInvoiceService';
 import { formatCuit } from '../../services/supplierInvoiceRules';
 import { documentAccount, isDueThisWeek, paymentRetentions, supplierLedger, supplierSummaries } from '../../services/supplierAccount';
@@ -95,41 +95,35 @@ export function SupplierLedger({ storeId, active = true, version, onPay, onShowD
         </div>
         </details>
       </>}
-      {summaries.map(summary => {
-        const name = nameOf(summary.cuit);
-        return <SettingsEditor key={summary.cuit} label="Ver movimientos" busy={loading}
-          summary={<div className="category-summary-row supplier-summary-row">
-            <strong>{name}</strong>
-            <span className="location-pill-badge active">Saldo {formatMoney(summary.balance)}</span>
-            {summary.overdue > 0 && <span className="location-pill-badge is-warning">Vencido {formatMoney(summary.overdue)}</span>}
-            {summary.next7 > 0 && <span className="location-pill-badge">A 7 días {formatMoney(summary.next7)}</span>}
-            {summary.inReview > 0 && <span className="location-pill-badge">En revisión {formatMoney(summary.inReview)}</span>}
-            {summary.favor > 0 && <span className="location-pill-badge">A tu favor {formatMoney(summary.favor)}</span>}
-            {summary.overdue + summary.next7 + summary.next30 + summary.later > 0.005 && <button type="button" className="primary-button supplier-pay-button" onClick={() => onPay(summary.cuit)}>Pagar</button>}
-          </div>}>
-          {() => {
-            const entries = supplierLedger(summary.cuit, invoices, payments, describe);
-            return <div className="purchase-list-detail">
-              <div className="ledger-scroll" role="region" aria-label={`Movimientos de ${name}`} tabIndex={0}>
-                <table className="supplier-ledger">
-                  <caption className="sr-only">Movimientos de {name} con saldo acumulado</caption>
-                  <thead><tr><th scope="col">Fecha</th><th scope="col">Concepto</th><th scope="col">Importe</th><th scope="col">Saldo adeudado</th></tr></thead>
-                  <tbody>{entries.map(entry => <tr key={entry.id}>
-                    <td>{displayDate(entry.date)}</td>
-                    <td>{entry.concept}{entry.note && <small>{entry.note}</small>}</td>
-                    <td>{formatMoney(entry.amount)}</td>
-                    <td>{formatMoney(entry.balance)}</td>
-                  </tr>)}</tbody>
-                </table>
-              </div>
-              <p className="purchase-tracking-note">Saldo final: {formatMoney(entries.at(-1)?.balance ?? 0)} {summary.balance >= 0 ? 'a pagar al proveedor' : 'a favor del comercio'}.</p>
-              <button type="button" className="secondary-button" onClick={() => downloadCsv(supplierLedgerCsv(entries), `cuenta-corriente-${summary.cuit}.csv`)}>
-                <Download size={15} /> Descargar movimientos
-              </button>
-            </div>;
-          }}
-        </SettingsEditor>;
-      })}
+      {summaries.length > 0 && <DataTable label="Saldo por proveedor" rows={summaries} rowKey={summary => summary.cuit} detailLabel="Movimientos"
+        empty="No hay saldos con proveedores."
+        columns={[
+          { id: 'name', label: 'Proveedor', cell: summary => <><strong>{nameOf(summary.cuit)}</strong><small>{formatCuit(summary.cuit)}</small></> },
+          { id: 'balance', label: 'Saldo', num: true, cell: summary => <span className={summary.balance > 0.005 ? 'is-debt' : summary.balance < -0.005 ? 'is-credit' : undefined}>{formatMoney(summary.balance)}</span> },
+          { id: 'overdue', label: 'Vencido', num: true, cell: summary => summary.overdue > 0 ? <span className="pill is-warning">{formatMoney(summary.overdue)}</span> : '—' },
+          { id: 'week', label: 'A 7 días', num: true, cell: summary => summary.next7 > 0 ? formatMoney(summary.next7) : '—' },
+          { id: 'review', label: 'En revisión', num: true, cell: summary => summary.inReview > 0 ? formatMoney(summary.inReview) : '—' },
+          { id: 'favor', label: 'A tu favor', num: true, cell: summary => summary.favor > 0 ? <span className="is-credit">{formatMoney(summary.favor)}</span> : '—' },
+        ]}
+        actions={summary => summary.overdue + summary.next7 + summary.next30 + summary.later > 0.005
+          ? <button type="button" className="primary-button" onClick={() => onPay(summary.cuit)}>Pagar</button> : null}
+        detail={summary => {
+          const name = nameOf(summary.cuit);
+          const entries = supplierLedger(summary.cuit, invoices, payments, describe);
+          return <div className="purchase-list-detail">
+            <DataTable label={`Movimientos de ${name}`} rows={entries} rowKey={entry => entry.id}
+              columns={[
+                { id: 'date', label: 'Fecha', cell: entry => displayDate(entry.date) },
+                { id: 'concept', label: 'Concepto', cell: entry => <>{entry.concept}{entry.note && <small>{entry.note}</small>}</> },
+                { id: 'amount', label: 'Importe', num: true, cell: entry => formatMoney(entry.amount) },
+                { id: 'balance', label: 'Saldo adeudado', num: true, cell: entry => formatMoney(entry.balance) },
+              ]} />
+            <p className="purchase-tracking-note">Saldo final: {formatMoney(entries.at(-1)?.balance ?? 0)} {summary.balance >= 0 ? 'a pagar al proveedor' : 'a favor del comercio'}.</p>
+            <button type="button" className="secondary-button" onClick={() => downloadCsv(supplierLedgerCsv(entries), `cuenta-corriente-${summary.cuit}.csv`)}>
+              <Download size={15} /> Descargar movimientos
+            </button>
+          </div>;
+        }} />}
     </div>
   </div>;
 }

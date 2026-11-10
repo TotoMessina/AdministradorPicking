@@ -5,6 +5,7 @@ import { NumberInput } from '../../components/NumberInput';
 import { retail, errorMessage, type PurchaseInvoice, type Supplier, type SupplierPayment, type SupplierPaymentMethod } from './api';
 import type { Run } from './Management';
 import { SettingsEditor } from './SettingsEditor';
+import { DataTable } from './DataTable';
 import { formatMoney, voucherLabel, voucherNumber } from '../../services/purchaseInvoiceService';
 import { formatCuit } from '../../services/supplierInvoiceRules';
 import {
@@ -285,18 +286,18 @@ export function SupplierPayments({ storeId, busy, run, active = true, version, o
         {close => <PaymentForm storeId={storeId} suppliers={suppliers} invoices={invoices} payments={payments} busy={busy} run={run} close={close} onSaved={onChanged} />}
       </SettingsEditor>}
       {advances > 0.005 && <div className="team-summary-badges"><span className="location-pill-badge active">A tu favor {formatMoney(advances)}</span></div>}
-      {payments.slice(0, 50).map(payment => <SettingsEditor key={`${payment.id}:${payment.voided_at}:${paymentApplied(payment)}`} label="Ver detalle" busy={busy || loading}
-        summary={<div className="category-summary-row supplier-summary-row">
-          <strong>{payment.supplier_name}</strong>
-          <span className="location-pill-badge">{displayDate(payment.paid_on)}</span>
-          <span className="location-pill-badge">{METHOD_LABELS[payment.method]}</span>
-          <span className="location-pill-badge active">{formatMoney(paymentTotal(payment))}</span>
-          {paymentRetentions(payment) > 0 && <span className="location-pill-badge">Retenciones {formatMoney(paymentRetentions(payment))}</span>}
-          {payment.voided_at ? <span className="location-pill-badge is-warning">Anulado</span>
-            : paymentUnapplied(payment) > 0.005 && <span className="location-pill-badge">A tu favor {formatMoney(paymentUnapplied(payment))}</span>}
-        </div>}>
-        {() => <PaymentDetail payment={payment} invoices={invoices} payments={payments} storeId={storeId} busy={busy} run={run} onSaved={onChanged} />}
-      </SettingsEditor>)}
+      <DataTable label="Pagos a proveedores" rows={payments.slice(0, 50)} rowKey={payment => `${payment.id}:${payment.voided_at}:${paymentApplied(payment)}`}
+        empty="Todavía no registraste pagos." rowClass={payment => payment.voided_at ? 'is-muted' : undefined}
+        columns={[
+          { id: 'date', label: 'Fecha', cell: payment => displayDate(payment.paid_on) },
+          { id: 'supplier', label: 'Proveedor', cell: payment => <strong>{payment.supplier_name}</strong> },
+          { id: 'method', label: 'Medio', cell: payment => METHOD_LABELS[payment.method] },
+          { id: 'total', label: 'Importe', num: true, cell: payment => formatMoney(paymentTotal(payment)) },
+          { id: 'retentions', label: 'Retenciones', num: true, cell: payment => paymentRetentions(payment) > 0 ? formatMoney(paymentRetentions(payment)) : '—' },
+          { id: 'status', label: 'Estado', cell: payment => payment.voided_at ? <span className="pill is-warning">Anulado</span>
+            : paymentUnapplied(payment) > 0.005 ? <span className="pill is-pending">A tu favor {formatMoney(paymentUnapplied(payment))}</span> : <span className="pill is-ok">Aplicado</span> },
+        ]}
+        detail={payment => <PaymentDetail payment={payment} invoices={invoices} payments={payments} storeId={storeId} busy={busy} run={run} onSaved={onChanged} />} />
     </div>
   </div>;
 }

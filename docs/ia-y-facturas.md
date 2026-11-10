@@ -219,7 +219,7 @@ SQL: `202610300001_supplier_payments.sql` aplicado por el usuario el 30/10/2026;
 
 ### Vistas de Proveedores
 
-Proveedores se divide en cuatro vistas, una por tarea: **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (los proveedores en planilla, una fila cada uno: nombre, CUIT, descuento, IVA, días de pago, teléfono, correo y notas; la flecha de la fila abre datos fiscales, contacto y pago, y cómo factura. Se escribe en la última fila para agregar uno y se guardan juntas las filas cambiadas. «Ajustar costos existentes» sigue plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
+Proveedores se divide en vistas, una por tarea, todas en tablas (una fila por proveedor, pago o comprobante, con **Pagar** a la derecha y el detalle desplegable): **Cuentas** (la primera: saldos, vencimientos y movimientos), **Pagos**, **Facturas** y **Fichas** (los proveedores en planilla, una fila cada uno: nombre, CUIT, descuento, IVA, días de pago, teléfono, correo y notas; la flecha de la fila abre datos fiscales, contacto y pago, y cómo factura. Se escribe en la última fila para agregar uno y se guardan juntas las filas cambiadas. «Ajustar costos existentes» sigue plegado por ser de uso ocasional). Cambiar de vista conserva los borradores. Cada persona ve las vistas de sus permisos.
 
 Cuentas abre con lo urgente: vencido y por vencer en 7 días, con importe y cantidad; al tocarlo, Facturas muestra esas mismas filas.
 

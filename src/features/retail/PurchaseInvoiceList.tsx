@@ -4,6 +4,7 @@ import { AlertTriangle, Camera, CheckCircle2, Download, FileText, QrCode } from 
 import { retail, errorMessage, type PurchaseInvoice, type SupplierPayment } from './api';
 import type { Run } from './Management';
 import { SettingsEditor } from './SettingsEditor';
+import { DataTable } from './DataTable';
 import { ManualPurchaseInvoiceForm } from './ManualPurchaseInvoiceForm';
 import { PURCHASE_AMOUNT_FIELDS, formatMoney, voucherLabel, voucherNumber } from '../../services/purchaseInvoiceService';
 import { formatCuit } from '../../services/supplierInvoiceRules';
@@ -221,23 +222,24 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
       {view === 'open' && openRows.length > 0 && <dl className="purchase-list-totals">
         {openTotals.map(total => <div key={total.label}><dt>{total.label}</dt><dd>{formatMoney(total.value)}</dd></div>)}
       </dl>}
-      {rows.map(row => {
-        const account = accounts.get(row.id)!;
-        return <SettingsEditor key={`${row.id}:${row.due_date}:${row.review_reason}:${row.accepted_at}:${row.applies_to}`} label="Ver detalle" busy={busy || loading}
-          summary={<div className="category-summary-row supplier-summary-row">
-            <strong>{row.supplier_name}</strong>
-            <span className="location-pill-badge">{voucherName(row)}</span>
-            <span className="location-pill-badge">{displayDate(row.issue_date)}</span>
-            <span className="location-pill-badge active">{formatMoney(sign(row) * row.total)}</span>
-            {canAccount && row.due_date && <StatusBadge account={account} />}
-            {canAccount && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.status !== 'cancelled' && <span className="location-pill-badge">
-              Saldo {formatMoney(account.balance)} · {dueLabel(account)}
-            </span>}
-            {!row.balanced && <span className="location-pill-badge"><AlertTriangle size={11} /> Importes no coinciden</span>}
-            {row.qr_verified && <span className="location-pill-badge active"><QrCode size={11} /> QR</span>}
-            {canAccount && onPay && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.balance > 0.005 && <button type="button" className="primary-button supplier-pay-button" disabled={busy} onClick={() => onPay(row.issuer_cuit, row.id)}>Pagar</button>}
-          </div>}>
-          {close => <div className="purchase-list-detail">
+      {rows.length > 0 && <DataTable label="Facturas y notas de proveedores" rows={rows} rowKey={row => `${row.id}:${row.due_date}:${row.review_reason}:${row.accepted_at}:${row.applies_to}`}
+        empty="No hay comprobantes para estos filtros."
+        columns={[
+          { id: 'date', label: 'Fecha', cell: row => displayDate(row.issue_date) },
+          { id: 'supplier', label: 'Proveedor', cell: row => <strong>{row.supplier_name}</strong> },
+          { id: 'voucher', label: 'Comprobante', cell: row => <>{voucherName(row)}{(!row.balanced || row.qr_verified) && <small>
+            {!row.balanced && <><AlertTriangle size={11} /> Importes no coinciden </>}{row.qr_verified && <><QrCode size={11} /> QR</>}</small>}</> },
+          { id: 'total', label: 'Total', num: true, cell: row => formatMoney(sign(row) * row.total) },
+          ...(canAccount ? [
+            { id: 'balance', label: 'Saldo', num: true, cell: (row: PurchaseInvoice) => { const account = accounts.get(row.id)!;
+              return row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.status !== 'cancelled' ? <>{formatMoney(account.balance)}<small>{dueLabel(account)}</small></> : '—'; } },
+            { id: 'status', label: 'Estado', cell: (row: PurchaseInvoice) => row.due_date ? <StatusBadge account={accounts.get(row.id)!} /> : '—' },
+          ] : []),
+        ]}
+        actions={row => { const account = accounts.get(row.id)!;
+          return canAccount && onPay && row.due_date && !CREDIT_NOTE_TYPES.has(row.voucher_type) && account.balance > 0.005
+            ? <button type="button" className="primary-button" disabled={busy} onClick={() => onPay(row.issuer_cuit, row.id)}>Pagar</button> : null; }}
+        detail={(row, close) => <div className="purchase-list-detail">
             <dl>
               <div><dt>CUIT proveedor</dt><dd>{formatCuit(row.issuer_cuit)}</dd></div>
               {row.receiver_cuit && <div><dt>CUIT receptor</dt><dd>{formatCuit(row.receiver_cuit)}</dd></div>}
@@ -252,9 +254,7 @@ export function PurchaseInvoiceList({ storeId, busy, run, active = true, version
               if (!await askConfirm(`¿Eliminar el comprobante ${voucherName(row)} de ${row.supplier_name}? El stock no cambia; las notas vinculadas quedan sin vincular.`)) return;
               if (await run(() => retail.deletePurchaseInvoice(storeId, row.id), 'Comprobante eliminado')) { close(); changed(); }
             }}>Eliminar comprobante</button>}
-          </div>}
-        </SettingsEditor>;
-      })}
+          </div>} />}
     </div>
   </div>;
 }
