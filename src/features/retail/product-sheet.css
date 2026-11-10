@@ -93,7 +93,7 @@
 @media (prefers-reduced-motion: reduce) { .presentation-chain-node { animation: none; } }
 
 /* Celular: cada fila de una planilla se ve como una tarjeta con sus campos etiquetados, sin desplazarse de costado. */
-@container (max-width: 640px) {
+@media (max-width: 640px) {
   .product-sheet-scroll { max-height: none; overflow: visible; border: 0; background: transparent; }
   .product-sheet-scroll tbody tr > td { min-width: 0 !important; width: auto !important; }
   .product-sheet-scroll tbody tr > td input, .product-sheet-scroll tbody tr > td select, .product-sheet-scroll td .supplier-sheet-name { width: 100% !important; min-width: 0; max-width: none !important; }

@@ -22,7 +22,7 @@
 .data-table .pill.is-ok { background: color-mix(in srgb, #1f7a4d 12%, transparent); color: #1f7a4d; }
 .data-table .pill.is-pending { background: color-mix(in srgb, #d9902f 15%, transparent); color: #9a5b10; }
 
-@container (max-width: 640px) {
+@media (max-width: 640px) {
   .data-table thead { display: none; }
   .data-table, .data-table tbody { display: block; }
   .data-table tbody tr:not(.data-table-detail) { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; padding: 12px; border-bottom: 1px solid var(--tone-border); }
@@ -38,4 +38,4 @@
 /* Acciones siempre a mano aunque la tabla se desplace de costado. */
 .data-table th:last-child:has(.sr-only), .data-table td.data-table-actions { position: sticky; right: 0; z-index: 1; background: var(--tone-surface); box-shadow: -6px 0 8px -6px rgba(15, 23, 42, .18); }
 .data-table th:last-child:has(.sr-only) { z-index: 2; background: var(--tone-soft); }
-@container (max-width: 640px) { .data-table td.data-table-actions { position: static; box-shadow: none; } }
+@media (max-width: 640px) { .data-table td.data-table-actions { position: static; box-shadow: none; } }
