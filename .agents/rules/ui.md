@@ -11,6 +11,7 @@ Complementa [directrices_trabajo.md](directrices_trabajo.md). Decisiones de acce
 - Español claro, pocas decisiones simultáneas y acciones descriptivas. Mantener paleta y separación de secciones, con estilo sobrio.
 - Jerarquía por agrupación, espacio y prioridad. Evitar botones duplicados, botones que llevan a otro menú de botones y encabezados/contextos redundantes.
 - Distinguir consultar, crear y editar. Formularios por intención, títulos claros y Guardar/Cancelar alcanzables en móvil. Opciones avanzadas descubribles, sin competir con tareas habituales.
+- Un dato inválido no se esconde: no deshabilitar Guardar por validación; dejar que el envío marque el campo (`src/lib/formFeedback.ts` lo pinta, lo muestra y lo enfoca). Validaciones propias: usar `required`/`min`/`max`/`setCustomValidity` o `aria-invalid` en el campo.
 - Etiquetas, teclado y foco visible. Controles ocultos sin foco ni validaciones invisibles; pantallas ocultas sin listeners que interfieran. Un error plegado debe revelar y enfocar su campo.
 - Respetar movimiento reducido, teclado virtual y áreas seguras. IA, instalación y avisos no deben cubrir Cobrar ni otras acciones principales.
 - No exigir selecciones ya resueltas por asignaciones o por una única opción válida. Contexto compacto y selecciones protegidas en ventas en curso.

@@ -75,7 +75,7 @@ export function LooseCigaretteEditor({ storeId, packet, products, busy, active, 
     <small>Con conexión y sin operaciones pendientes. Sincronizá los otros dispositivos antes de convertir el stock.</small>
     {!!packet.depotStock && <p role="alert">Primero pasá las unidades del depósito al salón desde Reponer. Después podés convertir el stock.</p>}
     {error && <p role="alert">{error}</p>}
-    <div className="button-row product-editor-actions"><button className="primary-button" disabled={busy || !active || !validUnits || !!packet.depotStock}>Convertir stock y habilitar sueltos</button>
+    <div className="button-row product-editor-actions"><button className="primary-button" disabled={busy || !active || !!packet.depotStock}>Convertir stock y habilitar sueltos</button>
       <button type="button" className="secondary-button" disabled={busy || !active} onClick={onBack}>Cancelar</button></div>
     </fieldset>
   </form>;

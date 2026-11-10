@@ -49,7 +49,7 @@ export function PriceRoundingSettings({ store, busy, run }: { store: Store; busy
       <p>Solo se redondean los precios calculados por costo. Un producto puede elegir otro redondeo en su ficha. Requiere conexión.</p>
       {error && <p role="alert">{error}</p>}
       <div className="button-row">
-        <button className="primary-button" disabled={busy || !dirty || !valid || (step === currentStep && markupValue === currentMarkup)}>Guardar</button>
+        <button className="primary-button" disabled={busy || !dirty || (step === currentStep && markupValue === currentMarkup)}>Guardar</button>
         <button type="button" className="text-button" disabled={busy} onClick={() => { setDirty(false); setStep(currentStep); setMarkup(String(currentMarkup)); setError(''); }}>Cancelar</button>
       </div>
     </form>

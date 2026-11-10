@@ -118,3 +118,15 @@ kbd { font: 10px var(--font-mono); border: 1px solid var(--tone-border); border-
 .password-input { position: relative; display: flex; }
 .password-input input { width: 100%; padding-right: 48px; }
 .password-input button { position: absolute; right: 4px; top: 3px; height: 36px; }
+
+/* Campo con un dato que no permite avanzar (lo marca lib/formFeedback.ts o el propio formulario). */
+input[aria-invalid="true"], select[aria-invalid="true"], textarea[aria-invalid="true"],
+input:user-invalid, select:user-invalid, textarea:user-invalid {
+  border-color: var(--tone-danger) !important;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--tone-danger) 18%, transparent);
+  background-color: var(--tone-danger-soft);
+}
+label:has(> input[aria-invalid="true"], > select[aria-invalid="true"], > textarea[aria-invalid="true"]) { color: var(--tone-danger); }
+[data-field-error] { flex-wrap: wrap; }
+[data-field-error]::after { content: attr(data-field-error); display: block; flex-basis: 100%; margin-top: 4px; color: var(--tone-danger); font-size: 12px; font-weight: 600; }
+td[data-field-error]::after { font-size: 11px; white-space: normal; }

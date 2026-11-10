@@ -4,8 +4,10 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client'
 import App from './App'
 import { initErrorReporting, uncaughtRenderError } from './lib/errorReporting';
+import { installFormFeedback } from './lib/formFeedback';
 
 initErrorReporting();
+installFormFeedback();
 
 // Opt-in development worker supports push without caching Vite or hot reload.
 if ((import.meta.env.PROD || import.meta.env.VITE_ENABLE_DEV_PWA === 'true') && 'serviceWorker' in navigator) {
