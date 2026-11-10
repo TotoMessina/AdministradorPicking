@@ -100,3 +100,4 @@
 .bank-summary strong { font-size: 22px; font-variant-numeric: tabular-nums; }
 .bank-summary span { color: var(--tone-muted); font-size: 12px; }
 .bank-step { margin: 8px 0 0; font-size: 15px; display: flex; align-items: center; gap: 6px; }
+.bank-method-buttons { display: flex; flex-wrap: wrap; gap: 6px; }

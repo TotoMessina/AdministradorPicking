@@ -657,3 +657,10 @@ Pasos, en este orden (no se ejecutaron desde este repositorio):
 **Pendiente de aplicar:** [202611100002_money_accounts_summary_volatile.sql](supabase/migrations/202611100002_money_accounts_summary_volatile.sql), después de `202611100001_product_expiry_grant.sql`.
 
 - `retail_money_accounts_summary` pasa de STABLE a VOLATILE. Siendo STABLE, PostgREST la corría en solo lectura y `require_permission` (que usa FOR SHARE) la hacía fallar siempre: las cuentas de banco y billetera no aparecían en Plata ni en sus selectores. No cambia el cálculo ni los permisos.
+
+## Medio de cobro «Link de pago»
+
+**Pendiente de aplicar:** [202611100003_payment_link_method.sql](supabase/migrations/202611100003_payment_link_method.sql), después de `202611100002_money_accounts_summary_volatile.sql`. **Aplicarla antes de cobrar con «Link de pago»**: sin ella el servidor rechaza esas ventas («Medio de pago inválido») y quedan como conflicto en la cola.
+
+- Agrega `'Link'` a las restricciones CHECK que listan medios de pago (ventas, registros de ventas, movimientos de clientes, liquidaciones y cuentas) y a las listas escritas en las funciones vigentes (cobro, sincronización, devoluciones, fiado, registros, conciliación y cuentas). Lo hace sobre la definición actual de cada una, reemplazando solo esas listas exactas; el resto de cada función no cambia. Al aplicarla informa cuántas funciones actualizó.
+- Link se comporta como QR o transferencia: no es efectivo, no toca la caja, se concilia aparte y puede asignarse a una cuenta.

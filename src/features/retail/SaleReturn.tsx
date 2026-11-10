@@ -10,8 +10,8 @@ import type { Run } from './Management';
 import './sale-return.css';
 
 const money = (n: number) => '$' + n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const methods: PaymentPart['method'][] = ['Efectivo', 'QR', 'Transferencia', 'Debito', 'Credito'];
-const methodLabel: Record<PaymentPart['method'], string> = { Efectivo: 'Efectivo', QR: 'QR', Transferencia: 'Transferencia', Debito: 'Débito', Credito: 'Crédito', Fiado: 'A cuenta del cliente' };
+const methods: PaymentPart['method'][] = ['Efectivo', 'QR', 'Transferencia', 'Link', 'Debito', 'Credito'];
+const methodLabel: Record<PaymentPart['method'], string> = { Efectivo: 'Efectivo', QR: 'QR', Transferencia: 'Transferencia', Link: 'Link de pago', Debito: 'Débito', Credito: 'Crédito', Fiado: 'A cuenta del cliente' };
 
 export const saleNet = (sale: KioscoSale) => sale.total - (sale.returnedTotal || 0);
 

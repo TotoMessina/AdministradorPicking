@@ -13,8 +13,6 @@ import { ProductPriceHistory } from "./ProductPriceHistory";
 import { PriceEvolution } from "./PriceEvolution";
 import { PendingReplenishments } from './PendingReplenishments';
 import { useCatalogEditor, type CatalogEditorProps } from './useCatalogEditor';
-import { CatalogProductForm } from './CatalogProductForm';
-import { CatalogAnomalyDialog } from './CatalogAnomalyDialog';
 import { CatalogReplenishDialog } from './CatalogReplenishDialog';
 import { CatalogCsvImport } from './CatalogCsvImport';
 import { CatalogReplenishHistory } from './CatalogReplenishHistory';
@@ -108,8 +106,8 @@ export function CatalogEditor(props: CatalogEditorProps) {
             type="button"
             className="primary-button"
             disabled={busy || !categories.length}
-            hidden={!canEditCatalog || adding || !!editing}
-            onClick={event => { editorTrigger.current = event.currentTarget; startAdd(); }}
+            hidden={!canEditCatalog || !!sheet}
+            onClick={event => { editorTrigger.current = event.currentTarget; setSheet({ mode: 'new' }); }}
           >
             + Agregar producto
           </button>}
@@ -128,9 +126,7 @@ export function CatalogEditor(props: CatalogEditorProps) {
         onClose={() => { setSheet(null); requestAnimationFrame(() => { if (editorTrigger.current?.getClientRects().length) editorTrigger.current.focus(); else catalogSearch.current?.focus(); }); }} />}
       {canEditCatalog && catalogAddOpen && <CatalogProductAdder key={store.id} storeId={store.id} store={store} products={products} categories={categories} busy={busy} run={run} active={active} onClose={closeCatalogAdd} />}
       {canEditCatalog && canCompose && newCompositeOpen && <NewCompositeEditor key={store.id} storeId={store.id} priceStep={store.price_rounding ?? 0} defaultMarkup={store.default_markup} products={products} categories={categories} active={active} busy={busy} run={run} onClose={closeNewComposite} />}
-      <CatalogProductForm s={s} />
 
-      <CatalogAnomalyDialog s={s} />
 
       <CatalogReplenishDialog s={s} />
 

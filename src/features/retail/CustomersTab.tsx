@@ -8,7 +8,7 @@ import type { Run } from './Management';
 import './customers.css';
 
 const money = (value: number) => value.toLocaleString('es-AR', { style: 'currency', currency: 'ARS' });
-const methods = [['Efectivo', 'Efectivo'], ['QR', 'QR'], ['Transferencia', 'Transferencia'], ['Debito', 'Débito'], ['Credito', 'Crédito']] as const;
+const methods = [['Efectivo', 'Efectivo'], ['QR', 'QR'], ['Transferencia', 'Transferencia'], ['Link', 'Link de pago'], ['Debito', 'Débito'], ['Credito', 'Crédito']] as const;
 const kinds = { sale: 'Fiado', payment: 'Cobro', return: 'Devolución' };
 const ivaConditions: Record<CustomerIva, string> = { CF: 'Consumidor final', RI: 'Responsable inscripto', MO: 'Monotributo', EX: 'Exento' };
 const balanceText = (balance: number) => balance > 0 ? `Debe ${money(balance)}` : balance < 0 ? `A favor ${money(-balance)}` : 'Al día';

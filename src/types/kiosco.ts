@@ -38,7 +38,8 @@ export interface KioscoCartItem {
   subtotal: number;
 }
 
-export type PaymentMethod = "Efectivo" | "QR" | "Transferencia" | "Mixto" | "Debito" | "Credito" | "Fiado";
+/** «Link»: link de pago (Mercado Pago, Ualá…). Como QR o transferencia: no es efectivo ni toca la caja (202611100003). */
+export type PaymentMethod = "Efectivo" | "QR" | "Transferencia" | "Link" | "Mixto" | "Debito" | "Credito" | "Fiado";
 export interface PaymentPart { method: Exclude<PaymentMethod, 'Mixto'>; amount: number }
 
 export interface CashMovement {

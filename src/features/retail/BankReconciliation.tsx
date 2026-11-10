@@ -38,6 +38,8 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
       // Solo los totales: el detalle de cada medio se pide al abrirlo.
       const results = await Promise.all(methods.map(async method => {
         const { data, error: rpcError } = await supabase.rpc('retail_reconciliation_detail', { p_store: storeId, p_from: from, p_to: to, p_method: method, p_limit: 1 });
+        // Antes de 202611100003 la base no conoce «Link»: se muestra en cero en lugar de cortar la pantalla.
+        if (rpcError && method === 'Link') return { method, total: 0, sales: 0, salesCount: 0, refunds: 0, refundsCount: 0, collections: 0, collectionsCount: 0 };
         if (rpcError) throw rpcError;
         const value = data as Record<string, number>;
         return { method, total: Number(value.total), sales: Number(value.sales), salesCount: Number(value.sales_count), refunds: Number(value.refunds),
@@ -96,17 +98,26 @@ export function BankReconciliation({ storeId, active }: { storeId: string; run?:
       {moneyReport && <div><small>Pasaste entre tus cuentas</small><strong>{money(ownTotal)}</strong><span>{ownMoves.length} {ownMoves.length === 1 ? 'movimiento' : 'movimientos'} · no es cobro</span></div>}
     </div>}
     {totals && <h3 className="bank-step">1. Cuánto cobraste por cada medio</h3>}
-    {totals && <div className="bank-methods">{totals.map(row => <article key={row.method} className={`bank-method ${detail === row.method ? 'is-selected' : ''}`}>
-      <h3>{methodLabels[row.method]}</h3>
-      <dl>
-        <div><dt>Ventas ({row.salesCount})</dt><dd>{money(row.sales)}</dd></div>
-        {row.refundsCount > 0 && <div><dt>Devoluciones ({row.refundsCount})</dt><dd>{money(row.refunds)}</dd></div>}
-        {row.collectionsCount > 0 && <div><dt>Cobros de fiado ({row.collectionsCount})</dt><dd>{money(row.collections)}</dd></div>}
-        <div className="bank-method-total"><dt>Total cobrado</dt><dd>{money(row.total)}</dd></div>
-      </dl>
-      <button type="button" className="secondary-button bank-method-detail" aria-expanded={detail === row.method} disabled={!row.salesCount && !row.refundsCount && !row.collectionsCount}
-        onClick={() => setDetail(detail === row.method ? null : row.method)}>{detail === row.method ? 'Ocultar movimientos' : 'Ver movimientos'}</button>
-    </article>)}
+    {/* Débito y Crédito van juntos como «Tarjeta» (el posnet es uno); cada uno conserva su total y su detalle. */}
+    {totals && <div className="bank-methods">{[['QR'], ['Debito', 'Credito'], ['Transferencia'], ['Link']].map(group => {
+      const rows = totals.filter(row => group.includes(row.method));
+      if (!rows.length) return null;
+      const card = rows.length > 1;
+      const sum = (pick: (row: MethodTotals) => number) => rows.reduce((total, row) => total + pick(row), 0);
+      return <article key={group.join('-')} className={`bank-method ${rows.some(row => row.method === detail) ? 'is-selected' : ''}`}>
+        <h3>{card ? 'Tarjeta' : methodLabels[rows[0].method]}</h3>
+        <dl>
+          {card ? rows.map(row => <div key={row.method}><dt>{methodLabels[row.method]} ({row.salesCount})</dt><dd>{money(row.sales)}</dd></div>)
+            : <div><dt>Ventas ({rows[0].salesCount})</dt><dd>{money(rows[0].sales)}</dd></div>}
+          {sum(row => row.refundsCount) > 0 && <div><dt>Devoluciones ({sum(row => row.refundsCount)})</dt><dd>{money(sum(row => row.refunds))}</dd></div>}
+          {sum(row => row.collectionsCount) > 0 && <div><dt>Cobros de fiado ({sum(row => row.collectionsCount)})</dt><dd>{money(sum(row => row.collections))}</dd></div>}
+          <div className="bank-method-total"><dt>Total cobrado</dt><dd>{money(sum(row => row.total))}</dd></div>
+        </dl>
+        <div className="bank-method-buttons">{rows.map(row => <button key={row.method} type="button" className="secondary-button bank-method-detail" aria-expanded={detail === row.method}
+          disabled={!row.salesCount && !row.refundsCount && !row.collectionsCount}
+          onClick={() => setDetail(detail === row.method ? null : row.method)}>{detail === row.method ? 'Ocultar' : 'Ver'} {card ? methodLabels[row.method].toLowerCase() : 'movimientos'}</button>)}</div>
+      </article>;
+    })}
       {moneyReport && <article className="bank-method bank-method-own">
         <h3>Entre cuentas propias</h3>
         <dl>

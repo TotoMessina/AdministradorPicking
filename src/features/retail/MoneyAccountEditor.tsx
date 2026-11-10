@@ -4,7 +4,7 @@ import { randomUUID } from '../../utils/uuid';
 import { locationTransfers, type AccountMethod, type MoneyAccount } from './locationTransferApi';
 
 export const accountKinds: Record<MoneyAccount['kind'], string> = { bank: 'Banco', wallet: 'Billetera virtual', other: 'Otra' };
-export const accountMethodLabels: Record<AccountMethod, string> = { QR: 'QR', Debito: 'Débito', Credito: 'Crédito', Transferencia: 'Transferencias' };
+export const accountMethodLabels: Record<AccountMethod, string> = { QR: 'QR', Debito: 'Débito', Credito: 'Crédito', Transferencia: 'Transferencias', Link: 'Links de pago' };
 
 /**
  * Alta y edición de una cuenta de banco o billetera, y qué medios de pago caen en ella.

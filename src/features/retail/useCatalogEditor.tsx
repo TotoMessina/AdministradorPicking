@@ -76,7 +76,8 @@ export function useCatalogEditor(props: CatalogEditorProps) {
   const operationBranch = store.branch_inventory_enabled ? stockBranchId : undefined;
   const branchUnits = useMemo(() => operationBranch ? new Map(productsAtBranch(products, operationBranch).map(product => [product.id, stockForSale(product)])) : null, [products, operationBranch]);
   const unitsHere = useCallback((product: Product) => branchUnits?.get(product.id) ?? stockForSale(product), [branchUnits]);
-  const [adding, setAdding] = useState(guided);
+  // El inicio guiado abre la planilla de alta, igual que «Agregar → Productos».
+  const [adding, setAdding] = useState(false);
   const [query, setQuery] = useState("");
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
@@ -295,7 +296,7 @@ export function useCatalogEditor(props: CatalogEditorProps) {
     requestAnimationFrame(() => { if (historyTrigger.current?.isConnected) historyTrigger.current.focus(); });
   };
   // Planilla de productos: alta de uno o varios, o edición de los que se ven en la lista.
-  const [sheet, setSheet] = useState<{ mode: 'new' } | { mode: 'edit'; products: Product[] } | null>(null);
+  const [sheet, setSheet] = useState<{ mode: 'new' } | { mode: 'edit'; products: Product[] } | null>(guided ? { mode: 'new' } : null);
   const productEditing = canEditCatalog && (adding || !!editing || (newCompositeOpen && canCompose) || catalogAddOpen || !!sheet);
   const closeCatalogAdd = () => {
     setCatalogAddOpen(false);

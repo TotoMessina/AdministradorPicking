@@ -1,8 +1,8 @@
 import { supabase } from '../../lib/supabase';
 
-export type Method = 'QR' | 'Debito' | 'Credito' | 'Transferencia';
-export const methods: Method[] = ['QR', 'Debito', 'Credito', 'Transferencia'];
-export const methodLabels: Record<Method, string> = { QR: 'QR / billeteras', Debito: 'Débito', Credito: 'Crédito', Transferencia: 'Transferencias' };
+export type Method = 'QR' | 'Debito' | 'Credito' | 'Transferencia' | 'Link';
+export const methods: Method[] = ['QR', 'Debito', 'Credito', 'Transferencia', 'Link'];
+export const methodLabels: Record<Method, string> = { QR: 'QR / billeteras', Debito: 'Débito', Credito: 'Crédito', Transferencia: 'Transferencias', Link: 'Links de pago' };
 export interface MethodTotals { method: Method; total: number; sales: number; salesCount: number; refunds: number; refundsCount: number; collections: number; collectionsCount: number }
 export interface DetailRow { kind: 'sale' | 'refund' | 'collection'; id: string; at: string; amount: number; total: number | null; ticket_number: number | null; mixed: boolean; return_status: string | null; register: string | null; actor: string | null; detail: string | null }
 
@@ -55,6 +55,8 @@ export async function downloadAccountantReport(storeId: string, from: string, to
   const moneyReport = fetchMoneyReport(storeId, from, to).catch(() => null);
   const [ExcelJS, ...details] = await Promise.all([excel(), ...methods.map(async method => {
     const { data, error } = await supabase.rpc('retail_reconciliation_detail', { p_store: storeId, p_from: from, p_to: to, p_method: method, p_limit: EXPORT_LIMIT });
+    // Antes de 202611100003 la base no conoce «Link»: se informa vacío en lugar de cortar todo el Excel.
+    if (error && method === 'Link') return { method, count: 0, total: 0, sales: 0, salesCount: 0, refunds: 0, refundsCount: 0, collections: 0, collectionsCount: 0, rows: [] as DetailRow[] };
     if (error) throw error;
     const value = data as Record<string, unknown> & { rows: DetailRow[] };
     return { method, count: Number(value.count), total: Number(value.total), sales: Number(value.sales), salesCount: Number(value.sales_count), refunds: Number(value.refunds),
@@ -85,7 +87,7 @@ export async function downloadAccountantReport(storeId: string, from: string, to
   const days = new Map<string, Record<Method, number>>();
   for (const detail of details) for (const row of detail.rows) {
     const key = dayKey(row.at);
-    const entry = days.get(key) || { QR: 0, Debito: 0, Credito: 0, Transferencia: 0 };
+    const entry = days.get(key) || { QR: 0, Debito: 0, Credito: 0, Transferencia: 0, Link: 0 };
     entry[detail.method] += row.amount; days.set(key, entry);
   }
   for (const [key, entry] of [...days].sort((a, b) => a[0].localeCompare(b[0]))) {

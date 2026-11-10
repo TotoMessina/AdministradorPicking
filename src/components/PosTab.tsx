@@ -9,7 +9,7 @@ import {
   Minus,
   Trash2,
   Banknote,
-  QrCode,
+  QrCode, Link2,
   CreditCard,
   ShoppingBag,
   ArrowRight,
@@ -75,6 +75,7 @@ const methods: { id: PaymentMethod; label: string; icon: typeof Banknote }[] = [
   { id: "Efectivo", label: "Efectivo", icon: Banknote },
   { id: "QR", label: "QR", icon: QrCode },
   { id: "Transferencia", label: "Transferencia", icon: Banknote },
+  { id: "Link", label: "Link de pago", icon: Link2 },
   { id: "Mixto", label: "Mixto", icon: CreditCard },
   { id: "Debito", label: "Débito", icon: CreditCard },
   { id: "Credito", label: "Crédito", icon: CreditCard },
@@ -904,7 +905,7 @@ export function PosTab({
                   Confirmé el pago de {money(creditInMixed ? splitValue : total)} en{" "}
                   {method === "QR"
                     ? "la billetera virtual"
-                    : method === 'Transferencia' ? 'la cuenta bancaria' : method === 'Mixto' ? (creditInMixed ? 'el primer medio' : 'ambos medios') : "la terminal de tarjetas"}
+                    : method === 'Transferencia' ? 'la cuenta bancaria' : method === 'Link' ? 'el link de pago' : method === 'Mixto' ? (creditInMixed ? 'el primer medio' : 'ambos medios') : "la terminal de tarjetas"}
                   .<small>Esta web registra el pago; no lo procesa.</small>
                 </span>
               </label>

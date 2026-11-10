@@ -11,6 +11,9 @@ import { compositionCost, hasComposition } from '../../services/productCompositi
 import { ProductRoundingField } from './ProductMarkupField';
 import { errorMessage, retail, type Category, type Product, type Store } from './api';
 import type { Run } from './Management';
+import { groqChat } from '../../services/groqService';
+import { AiIcon } from '../../components/AiIcon';
+import { extractJson, type ProductSuggestion } from './catalogEditorShared';
 import './product-sheet.css';
 
 interface Row extends PresentationSizes {
@@ -69,6 +72,37 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
   const isCombo = (row: Row) => !!row.original && hasComposition(row.original);
   const [rows, setRows] = useState<Row[]>(() => mode === 'edit' ? editable.map(fromProduct) : [blank()]);
   const [saving, setSaving] = useState<{ done: number; total: number } | null>(null);
+  // Ayuda con IA por fila: voluntaria, completa solo lo vacío y nunca precio ni costo.
+  const [aiRow, setAiRow] = useState<string | null>(null);
+  const [aiNotes, setAiNotes] = useState<Record<string, string>>({});
+  const suggest = async (row: Row) => {
+    const name = row.name.trim();
+    if (name.length < 2) { setAiNotes(previous => ({ ...previous, [row.key]: 'Escribí el nombre del producto para que la IA sugiera sus datos.' })); return; }
+    setAiRow(row.key);
+    try {
+      const response = await groqChat([
+        { role: 'system', content: `Sos experto en kioscos y almacenes de Argentina. Respondé SOLO un JSON con "brand" (marca), "supplier" (distribuidor típico en Argentina), "category" (elegida EXCLUSIVAMENTE de: ${categories.map(category => category.name).join(', ')}), "emoji" (uno) y "tags" (2 a 4, minúsculas, sin '#').` },
+        { role: 'user', content: `Producto: "${name}". Código: ${row.code.trim() || 'sin código'}` },
+      ], { temperature: 0.2 });
+      const found = extractJson<ProductSuggestion>(response);
+      if (!found) throw new Error('sin datos');
+      const category = found.category ? resolveProductCategory(categories, found.category, name) : '';
+      const filled: string[] = [];
+      setRows(previous => previous.map(item => {
+        if (item.key !== row.key) return item;
+        const next = { ...item };
+        if (!item.brand.trim() && found.brand) { next.brand = found.brand; filled.push('marca'); }
+        if (!item.supplier.trim() && found.supplier) { next.supplier = found.supplier; filled.push('proveedor'); }
+        if (!item.tags.trim() && found.tags?.length) { next.tags = found.tags.join(', '); filled.push('etiquetas'); }
+        if ((!item.emoji.trim() || item.emoji === '📦') && found.emoji) { next.emoji = found.emoji; filled.push('ícono'); }
+        if (category && item.categoryId === defaultProductCategory(categories) && category !== item.categoryId) { next.categoryId = category; filled.push('categoría'); }
+        return next;
+      }));
+      setAiNotes(previous => ({ ...previous, [row.key]: filled.length ? `La IA completó: ${filled.join(', ')}. Revisalo antes de guardar.` : 'La IA no tenía nada nuevo para completar: los datos ya estaban cargados.' }));
+    } catch {
+      setAiNotes(previous => ({ ...previous, [row.key]: 'No se pudieron obtener sugerencias. Podés completar los datos a mano o reintentar.' }));
+    } finally { setAiRow(null); }
+  };
   const table = useRef<HTMLTableElement>(null);
   const lookups = useRef(new Set<string>());
 
@@ -317,6 +351,11 @@ export function ProductSheet({ mode, store, products, categories, initial, busy,
                   {Number(row.palletPacks) > 0 && Number(row.packUnits) > 0 && <small>Pallet = {(Number(row.palletPacks) * Number(row.packUnits)).toLocaleString('es-AR')} u.</small>}</label>}
                 {sizesError(row) && <small role="alert">{sizesError(row)}</small>}
               </div>}
+              <div className="product-sheet-ai">
+                <button type="button" className="secondary-button ai-action" disabled={disabled || aiRow === row.key} onClick={() => void suggest(row)}>
+                  {aiRow === row.key ? <Loader2 size={15} className="spin" /> : <AiIcon />} Completar con IA</button>
+                <small>{aiNotes[row.key] ?? 'Sugiere marca, proveedor, categoría, ícono y etiquetas que falten. No cambia precios ni costos.'}</small>
+              </div>
               <div className="product-sheet-more-grid">
                 <label>Etiquetas<input value={row.tags} maxLength={400} placeholder="Ej. sin TACC, importado" disabled={disabled} onChange={event => update(row.key, { tags: event.target.value })} /></label>
                 <label>Marca<input value={row.brand} maxLength={120} disabled={disabled} onChange={event => update(row.key, { brand: event.target.value })} /></label>

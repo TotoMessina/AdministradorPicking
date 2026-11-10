@@ -686,6 +686,7 @@ export function LedgerSettings({
                   Efectivo: <Banknote size={16} />,
                   QR: <QrCode size={16} />,
                   Transferencia: <ArrowRightLeft size={16} />,
+                  Link: <ArrowRightLeft size={16} />,
                   Debito: <CreditCard size={16} />,
                   Credito: <CreditCard size={16} />,
                   Fiado: <CreditCard size={16} />,

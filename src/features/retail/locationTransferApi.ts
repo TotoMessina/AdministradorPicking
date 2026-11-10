@@ -16,7 +16,7 @@ export interface FundTransfer {
   status?: 'done' | 'in_transit' | 'received' | 'returned'; received_amount?: number | null; received_email?: string | null; received_at?: string | null; review_note?: string | null;
 }
 export interface LocationFund { location: string; balance: number }
-export type AccountMethod = 'QR' | 'Debito' | 'Credito' | 'Transferencia';
+export type AccountMethod = 'QR' | 'Debito' | 'Credito' | 'Transferencia' | 'Link';
 /** Cuenta de banco o billetera: saldo = movimientos manuales + lo cobrado por sus medios (202611040006). */
 export interface MoneyAccount { id: string; name: string; kind: 'bank' | 'wallet' | 'other'; methods: AccountMethod[]; manual: number; inflow: number; balance: number }
 export interface OpenShiftCash { location: string; cash: number; shifts: number }

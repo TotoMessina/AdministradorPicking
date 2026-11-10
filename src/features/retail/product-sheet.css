@@ -139,3 +139,5 @@
   td[data-col="balance"]::before { content: 'Saldo'; }
   td[data-col="taxid"]::before { content: 'Documento'; }
 }
+.product-sheet-ai { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; margin-bottom: 10px; }
+.product-sheet-ai small { color: var(--tone-muted); font-size: 12px; }
