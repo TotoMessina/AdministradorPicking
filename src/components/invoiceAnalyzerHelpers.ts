@@ -1,4 +1,3 @@
-import { X } from "lucide-react";
 import type { Product, Category } from "../features/retail/api";
 import type { CondicionIva } from '../features/retail/billing';
 import { type SupplierMapping } from '../services/supplierMappingService';
