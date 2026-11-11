@@ -320,7 +320,7 @@ Es de solo lectura: nadie puede editar ni borrar lo registrado.
 | --- | --- |
 | Cambios de precios y costos, precios fijos y listas | Registro nuevo de actividad, desde la migración 202611020009. |
 | Ediciones de productos (nombre, código, aviso, categoría, bulto, proveedor) | Registro nuevo. |
-| Stock editado desde la ficha del producto | Registro nuevo, con la sucursal. |
+| Stock ajustado al guardar un producto (altas con stock inicial) | Registro nuevo, con la sucursal. El stock de un producto existente se cambia con Reponer o Contar stock. |
 | Reposiciones, depósito, traslados y conteos | Su propio historial. |
 | Aperturas y cierres de caja (esperado, contado y diferencia) | Historial de turnos. |
 | Ingresos y retiros, movimientos de plata, gastos, pagos a proveedores y cobros a clientes | Su propio historial. |
@@ -342,7 +342,7 @@ Es de solo lectura: nadie puede editar ni borrar lo registrado.
 En http://localhost:3001/, con un comercio de pruebas y la migración aplicada.
 
 1. **Cambio de precio:** cambiar el precio de un producto. En **Mi comercio → Actividad**, esperado: «Cambió producto «X»» con tu email y el precio anterior tachado y el nuevo.
-2. **Stock desde la ficha:** editar el stock en la ficha. Esperado: aparece en Stock con la sucursal y antes/después. Una venta no aparece como cambio de stock.
+2. **Stock al dar de alta:** agregar un producto con cantidad inicial en la planilla. Esperado: aparece en Stock con la sucursal y antes/después. Una venta no aparece como cambio de stock.
 3. **Caja:** abrir caja, hacer un retiro y cerrar. Esperado: apertura, retiro con su motivo y cierre con esperado, contado y diferencia.
 4. **Anulación:** anular una venta. Esperado: «Anuló la venta T-…» con el motivo.
 5. **Permisos:** dar acceso a una persona y cambiar un perfil. Esperado: aparecen en Permisos.
