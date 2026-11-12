@@ -28,7 +28,7 @@ const server = await createServer({
 let client;
 try {
   ({ supabase: client } = await server.ssrLoadModule('/src/lib/supabase.ts'));
-  const { retail } = await server.ssrLoadModule('/src/features/retail/api.ts');
+  const { retail } = await server.ssrLoadModule('/src/features/retail/api/index.ts');
   const { RetailApp } = await server.ssrLoadModule('/src/features/retail/RetailApp.tsx');
   const { ToastProvider } = await server.ssrLoadModule('/src/context/ToastContext.tsx');
   const store = { id: 'store', name: 'Mi almacén', address: '', phone: '', receipt_message: 'Gracias', accent_color: '#5a50df', currency: 'ARS', owner_id: 'user' };

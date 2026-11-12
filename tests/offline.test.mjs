@@ -14,7 +14,7 @@ globalThis.__offlineAuth = { auth: { getSession: async () => ({ data: { session:
 const server = await createServer({ server: { middlewareMode: true, hmr: false, watch: null }, optimizeDeps: { noDiscovery: true, include: [] }, appType: 'custom',
   plugins: [{ name: 'offline-test-client', enforce: 'pre', resolveId(id) { if (id.endsWith('/lib/supabase')) return '\0offline-client'; }, load(id) { if (id === '\0offline-client') return 'export const supabase=globalThis.__offlineAuth; export const SUPABASE_URL="https://example.test"; export const SUPABASE_ANON_KEY="test";'; } }] });
 try {
-  const offline = await server.ssrLoadModule('/src/features/retail/offline.ts');
+  const offline = await server.ssrLoadModule('/src/features/retail/offline/index.ts');
   let serverStock = 5;
   const remote = {
     stores: async () => [{ id: 'store' }], role: async () => 'cashier', branches: async () => [{ id: 'branch', name: 'Centro' }],

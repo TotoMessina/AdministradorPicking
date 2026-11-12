@@ -10,7 +10,7 @@ const server = await createServer({ server: { middlewareMode: true, watch: null,
 let testSupabase;
 try {
   ({ supabase: testSupabase } = await server.ssrLoadModule('/src/lib/supabase.ts'));
-  const { retail } = await server.ssrLoadModule('/src/features/retail/api.ts');
+  const { retail } = await server.ssrLoadModule('/src/features/retail/api/index.ts');
   const { productsForList, salesCsv } = await server.ssrLoadModule('/src/features/retail/pricing.ts');
   const { BranchSettings, PriceListSettings, LedgerSettings } = await server.ssrLoadModule('/src/features/retail/BusinessSettings.tsx');
   const { SalesOverview } = await server.ssrLoadModule('/src/features/retail/SalesOverview.tsx');
