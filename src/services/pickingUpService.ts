@@ -1,140 +1,14 @@
 import type { Category, Product } from '../features/retail/api';
+import type { PickingUpCategory, PickingUpProduct, PickingUpPricelist, PickingUpPriceEntry, PickingUpOrder, PickingUpSyncResult } from './pickingUp/pickingUpTypes';
+import { mapLocalProductToPickingUp, chunkArray } from './pickingUp/pickingUpMapping';
+
+// Partes de este servicio, reexportadas para no cambiar los imports.
+export * from './pickingUp/pickingUpTypes';
+export * from './pickingUp/pickingUpMapping';
 
 // ============================================================================
 // Tipos e Interfaces de PickingUp Distributors API
 // ============================================================================
-
-export interface PickingUpCategory {
-  code: string;
-  name: string;
-  enabled: boolean;
-}
-
-export interface PickingUpProduct {
-  code: string; // SKU del ERP — mapea al `code` (EAN) de KioscoProduct
-  name: string; // mapea a KioscoProduct.name
-  enabled: boolean; // mapea a Product.active
-  ean_code?: string; // código EAN-13 alternativo
-  category_code: string; // referencia a Category.code
-  stock_control: boolean; // true si manejamos stock
-  stock_available?: number; // mapea a KioscoProduct.stock
-  stock_min?: number; // mapea a KioscoProduct.minStock
-  min_units?: number;
-  selling_factor?: number;
-  ref_externa?: string; // ID interno Supabase del producto para trazabilidad
-}
-
-export interface PickingUpPricelist {
-  code: string;
-  name: string;
-  description?: string;
-  enabled: boolean;
-}
-
-export interface PickingUpPriceEntry {
-  item_code: string;
-  price: number; // Costo mayorista / neto
-  final_price: number; // Precio de venta final al público
-}
-
-export interface PickingUpOrderItem {
-  id?: number;
-  sku: string;
-  name: string;
-  quantity: number;
-  net_amount?: number;
-  final_amount?: number;
-}
-
-export interface PickingUpOrder {
-  id: number;
-  status: string; // 'pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled'
-  notes?: string | null;
-  net_amount?: number;
-  final_amount?: number;
-  created_at?: string;
-  updated_at?: string;
-  exported_at?: string | null;
-  customer?: {
-    code: string;
-    document?: string;
-  };
-  pricelist?: {
-    code: string;
-  };
-  items: PickingUpOrderItem[];
-}
-
-export interface PickingUpSyncResult {
-  synced: number;
-  errors: string[];
-  skipped?: number;
-}
-
-export interface PickingUpPagination {
-  current_page: number;
-  per_page: number;
-  total: number;
-}
-
-export interface PickingUpPaginatedResponse<T> {
-  data?: T[];
-  items?: T[];
-  pagination?: PickingUpPagination;
-}
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-/**
- * Convierte un Product del sistema local en un PickingUpProduct para la API.
- * Aplica reglas de negocio críticas:
- * - stock_control = true siempre que manejamos inventario en kiosco
- * - stock_available es obligatorio si stock_control = true
- * - ref_externa guarda el ID interno de Supabase
- */
-export function mapLocalProductToPickingUp(
-  product: Product,
-  categoryCode: string
-): PickingUpProduct {
-  const code = (product.code || '').trim();
-  const name = (product.name || '').trim();
-  const stockAvailable =
-    typeof product.stock === 'number' && !Number.isNaN(product.stock)
-      ? Math.max(0, product.stock)
-      : 0;
-  const stockMin =
-    typeof product.minStock === 'number' && !Number.isNaN(product.minStock)
-      ? Math.max(0, product.minStock)
-      : 0;
-
-  return {
-    code,
-    name,
-    enabled: product.active !== false,
-    ean_code: code || undefined,
-    category_code: categoryCode.trim(),
-    stock_control: true,
-    stock_available: stockAvailable,
-    stock_min: stockMin,
-    min_units: 1,
-    selling_factor: 1,
-    ref_externa: product.id ? String(product.id) : undefined,
-  };
-}
-
-/**
- * Divide un array en lotes más pequeños para evitar payloads masivos y timeouts
- */
-function chunkArray<T>(items: T[], size: number): T[][] {
-  if (size <= 0) return [items];
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
 
 // ============================================================================
 // Servicio Principal PickingUp
