@@ -1,15 +1,154 @@
 import { GroqError, type GroqMessage, type GroqOptions } from '../types/ai';
-import { ENDPOINT, DEFAULT_MODEL, BASE_SYSTEM_PROMPT } from './groq/groqConfig';
-import { isRecord, checkAbort, normalizeError, apiError } from './groq/groqErrors';
-import { readUsage, reportUsage } from './groq/groqUsage';
-import { FALLBACK_FAST_MODEL } from './groq/groqLimits';
-
-// Partes de este servicio, reexportadas para no cambiar los imports.
-export * from './groq/groqConfig';
-export * from './groq/groqUsage';
-export * from './groq/groqLimits';
 
 export { GroqError } from '../types/ai';
+
+const ENDPOINT = 'https://api.groq.com/openai/v1/chat/completions';
+export const DEFAULT_MODEL = import.meta.env?.VITE_GROQ_MODEL?.trim() || 'llama-3.1-8b-instant';
+const BASE_SYSTEM_PROMPT =
+  'Sos un asistente para la administración de comercios. Respondé por defecto ' +
+  'en español rioplatense informal, usando vos y expresiones como che o dale ' +
+  'de forma natural, sin forzarlas. Sé claro, amable y concreto. No inventes ' +
+  'datos del negocio; si falta información, indicá qué necesitás.';
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function checkAbort(signal?: AbortSignal): void {
+  if (signal?.aborted) throw new GroqError('La solicitud fue cancelada.', 0, 'ABORTED');
+}
+
+function normalizeError(error: unknown, signal?: AbortSignal): GroqError {
+  if (error instanceof GroqError) return error;
+  if (signal?.aborted || (isRecord(error) && error.name === 'AbortError')) {
+    return new GroqError('La solicitud fue cancelada.', 0, 'ABORTED');
+  }
+  return new GroqError('No se pudo completar la conexión con Groq.', 0, 'NETWORK_ERROR');
+}
+
+function apiError(payload: unknown, status: number, headers?: Headers): GroqError {
+  const error = isRecord(payload) && isRecord(payload.error) ? payload.error : {};
+  const code = typeof error.code === 'string' ? error.code
+    : typeof error.type === 'string' ? error.type : `HTTP_${status}`;
+  const providerMessage = typeof error.message === 'string' ? error.message : `Groq respondió con un error (${status}).`;
+  const message = code === 'model_not_found'
+    ? `${providerMessage} Revisá VITE_GROQ_MODEL y elegí un modelo disponible en tu cuenta. Sin esa variable se usa llama-3.1-8b-instant. Reiniciá el servidor local o volvé a desplegar después de cambiarla.`
+    : providerMessage;
+
+  let retryAfter: number | undefined;
+  const headerVal = headers?.get('retry-after');
+  if (headerVal) {
+    const parsed = parseFloat(headerVal);
+    if (!isNaN(parsed) && parsed > 0) retryAfter = parsed;
+  }
+  if (!retryAfter) {
+    const resetTokens = headers?.get('x-ratelimit-reset-tokens');
+    if (resetTokens) {
+      const match = resetTokens.match(/([\d\.]+)(m?s)/i);
+      if (match) {
+        const val = parseFloat(match[1]);
+        retryAfter = match[2].toLowerCase() === 'ms' ? val / 1000 : val;
+      }
+    }
+  }
+  if (!retryAfter) {
+    const match = message.match(/try again in ([\d\.]+)s/i);
+    if (match?.[1]) {
+      const parsed = parseFloat(match[1]);
+      if (!isNaN(parsed) && parsed > 0) retryAfter = parsed;
+    }
+  }
+
+  return new GroqError(
+    message,
+    status,
+    code,
+    retryAfter,
+  );
+}
+
+/** Uso informado por cada llamada. Lo registra src/lib/aiUsage.ts; este módulo no depende de la base. */
+export interface GroqUsageEvent {
+  model: string;
+  promptTokens: number;
+  completionTokens: number;
+  ok: boolean;
+  errorCode?: string;
+}
+let usageListener: ((event: GroqUsageEvent) => void) | null = null;
+export function setGroqUsageListener(listener: ((event: GroqUsageEvent) => void) | null): void {
+  usageListener = listener;
+}
+function readUsage(payload: unknown): { promptTokens: number; completionTokens: number } | null {
+  const usage = isRecord(payload) ? (isRecord(payload.usage) ? payload.usage : isRecord(payload.x_groq) && isRecord(payload.x_groq.usage) ? payload.x_groq.usage : null) : null;
+  if (!usage) return null;
+  const count = (value: unknown) => typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.round(value) : 0;
+  return { promptTokens: count(usage.prompt_tokens), completionTokens: count(usage.completion_tokens) };
+}
+// Registrar uso nunca debe cambiar la respuesta ni el error de la IA.
+function reportUsage(model: string, usage: { promptTokens: number; completionTokens: number } | null, error?: unknown): void {
+  if (!usageListener) return;
+  if (error instanceof GroqError && error.code === 'ABORTED') return;
+  try {
+    usageListener({
+      model, promptTokens: usage?.promptTokens ?? 0, completionTokens: usage?.completionTokens ?? 0, ok: !error,
+      ...(error ? { errorCode: error instanceof GroqError ? error.code : 'UNKNOWN' } : {}),
+    });
+  } catch { /* El registro de uso es secundario. */ }
+}
+
+export const FALLBACK_FAST_MODEL = DEFAULT_MODEL === 'qwen/qwen3.8-27b' ? 'llama-3.1-8b-instant' : 'qwen/qwen3.8-27b';
+
+export function isRateLimitError(err: unknown): boolean {
+  if (err instanceof GroqError) {
+    if (err.status === 429 || err.code === 'rate_limit_exceeded') return true;
+  }
+  if (err instanceof Error) {
+    const msg = err.message.toLowerCase();
+    return (
+      msg.includes('rate_limit') ||
+      msg.includes('tokens per minute') ||
+      msg.includes('tpm') ||
+      msg.includes('otpm') ||
+      msg.includes('itpm') ||
+      msg.includes('request too large') ||
+      msg.includes('rate limit') ||
+      msg.includes('try again in') ||
+      msg.includes('429')
+    );
+  }
+  return false;
+}
+
+/**
+ * Groq checks input plus requested output against the per-minute token limit (8.000 on qwen/qwen3.8-27b).
+ * A request above it is rejected every time, so waiting never fixes it.
+ */
+export const REQUEST_TOKEN_BUDGET = 7200;
+
+/** Conservative estimate (Spanish text, JSON and amounts), including the base system prompt. */
+export function estimateTokens(text: string): number {
+  return Math.ceil((text.length + BASE_SYSTEM_PROMPT.length) / 3);
+}
+
+export function isRequestTooLarge(err: unknown): boolean {
+  return err instanceof GroqError && (err.status === 413 || err.code === 'request_too_large'
+    || /request too large|reduce your message size/i.test(err.message));
+}
+
+export function getRetryDelay(err: unknown, defaultSecs = 3): number {
+  if (err instanceof GroqError && err.retryAfter && err.retryAfter > 0) {
+    return Math.max(1, Math.ceil(err.retryAfter));
+  }
+  if (err instanceof Error) {
+    const match = err.message.match(/try again in ([\d\.]+)s/i);
+    if (match?.[1]) {
+      const val = parseFloat(match[1]);
+      if (!isNaN(val) && val > 0) return Math.max(1, Math.ceil(val));
+    }
+  }
+  return defaultSecs;
+}
 
 function parseJSON(text: string, status: number): unknown {
   try {
@@ -34,7 +173,7 @@ export function setGroqProxy(next: GroqProxy | null): void {
   proxy = next;
 }
 
-export async function request(
+async function request(
   messages: readonly GroqMessage[],
   options: GroqOptions,
   stream: boolean,
