@@ -1,52 +1,11 @@
-import type { Product } from "../features/retail/api";
+import type { Product } from '../features/retail/api';
 import { unitsPerPack } from './inventoryUnits';
 import { hasComposition } from './productComposition';
 import { presentationForCode } from './productPresentation';
+import type { StockReplenishment, CsvParsedRow, CsvParseResult } from './replenishment/replenishmentTypes';
 
-export interface StockReplenishmentItem {
-  productId: string;
-  code: string;
-  name: string;
-  quantityAdded: number;
-  previousStock: number;
-  newStock: number;
-  cost?: number;
-}
-
-export interface StockReplenishment {
-  id: string;
-  storeId: string;
-  createdAt: string; // ISO date string
-  type: "unitario" | "csv";
-  supplier?: string;
-  notes?: string;
-  totalUnits: number;
-  itemsCount: number;
-  items: StockReplenishmentItem[];
-}
-
-export interface CsvParsedRow {
-  rawCode: string;
-  rawName: string;
-  quantityAdded: number;
-  newCost?: number;
-  product?: Product;
-  status: "matched" | "not_found" | "invalid_qty";
-  errorMessage?: string;
-  rawQuantity?: number;
-  interpretedAsPacks?: boolean;
-  /** La cantidad del archivo se tomó como displays (display_size unidades cada uno). */
-  interpretedAsDisplays?: boolean;
-  warning?: string;
-}
-
-export interface CsvParseResult {
-  validRows: CsvParsedRow[];
-  invalidRows: CsvParsedRow[];
-  totalUnitsToAdd: number;
-  matchedCount: number;
-  notFoundCount: number;
-}
+// Partes de este servicio, reexportadas para no cambiar los imports.
+export * from './replenishment/replenishmentTypes';
 
 const STORAGE_PREFIX = "kiosco_replenishments_";
 
