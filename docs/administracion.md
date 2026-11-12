@@ -174,7 +174,7 @@ La migración `supabase/migrations/202610260003_billing_fields.sql` (consolidada
 - **Reintento masivo e individual**:
   - Cada venta en la tabla dispone de un botón de reintento directo en su badge de estado (`BillingStatusBadge`).
   - La administración dispone de un botón masivo (*"Reintentar facturación de N ventas con error"*) para reprocesar en serie todas las ventas fallidas con una sola acción.
-- **Procesamiento de ventas offline reconectadas ([RetailApp.tsx](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/RetailApp.tsx) y [billingService.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/services/billingService.ts))**:
+- **Procesamiento de ventas offline reconectadas ([useWorkspaceSale.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/workspace/useWorkspaceSale.ts) y [billingService.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/services/billingService.ts))**:
   - Cuando se restablece la conexión y la cola offline sincroniza ventas al backend (`retail_sync_operation`), el trigger de la base inicializa su estado fiscal en `pending`.
   - El sistema ejecuta un barrido automático en segundo plano (`processPendingSales`) para autorizar y obtener el CAE de cada venta sincronizada sin interrumpir las operaciones del cajero ni bloquear el punto de venta.
 - **Exportación contable completa en CSV ([pricing.ts](file:///c:/Users/Usr/OneDrive/Pruebas/AdministradorKiosco/src/features/retail/pricing.ts))**:
