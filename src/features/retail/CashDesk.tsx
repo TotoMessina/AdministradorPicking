@@ -5,6 +5,7 @@ import { CashOpening } from './cashDesk/CashOpening';
 import { CashMovementTask } from './cashDesk/CashMovementTask';
 import { CashCloseTask } from './cashDesk/CashCloseTask';
 import { CashActivity } from './cashDesk/CashActivity';
+import './cash-desk.css';
 
 /** Caja: abrir, registrar ingresos y retiros, cerrar y consultar la actividad. */
 export function CashDesk(props: CashDeskProps) {

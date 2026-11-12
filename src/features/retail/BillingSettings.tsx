@@ -8,6 +8,8 @@ import { BillingFiscalStats } from './billingSettings/BillingFiscalStats';
 import { BillingCredentials } from './billingSettings/BillingCredentials';
 import { BillingFormFields } from './billingSettings/BillingFormFields';
 import { BillingFormFooter } from './billingSettings/BillingFormFooter';
+import './billing.css';
+import './permission-profiles.css';
 
 /** Facturación electrónica: datos fiscales, certificados de ARCA y guía de habilitación. */
 export function BillingSettings(props: BillingSettingsProps) {
