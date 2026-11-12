@@ -1,20 +1,31 @@
 import { askConfirm } from './ConfirmHost';
-import { NumberInput } from './NumberInput';
-import { AiIcon } from './AiIcon';
 import { InvoiceReviewTable } from './InvoiceReviewTable';
-import { Edit2, Filter, PackageCheck, RefreshCw, Search, X } from "lucide-react";
-import type { Supplier } from "../features/retail/api";
+import { PackageCheck } from 'lucide-react';
 import { PurchaseInvoicePanel } from './PurchaseInvoicePanel';
-import { type LandedCostSettings } from '../services/landedCostService';
+import type { LandedCostSettings } from '../services/landedCostService';
 import { rankCatalogMatches } from '../services/invoiceMatchingService';
 import { normalizeSupplierText } from '../services/supplierMappingService';
 import { SupplierAliasPanel } from './SupplierAliasPanel';
 import { isRealBarcode, isInvoiceProductCode, generateProductCode } from './invoiceAnalyzerHelpers';
-import { type InvoiceAnalyzerState } from './useInvoiceAnalyzer';
+import type { InvoiceAnalyzerState } from './useInvoiceAnalyzer';
+import { ReviewSupplierBar } from './invoiceReview/ReviewSupplierBar';
+import { ReviewToolbar } from './invoiceReview/ReviewToolbar';
+import { ReviewBulkActions } from './invoiceReview/ReviewBulkActions';
 
 /** Paso de revisión: proveedor, comprobante y grilla de productos. El estado vive en el hook del analizador. */
 export function InvoiceReviewStep({ s }: { s: InvoiceAnalyzerState }) {
-  const { storeId, stockBranchId, stockBranchName, products, categories, storeCuit, step, setStep, items, setItems, initialStockBranch, setInitialStockBranch, catalogSuggestions, providerName, invoiceDate, error, setError, expandedItems, setExpandedItems, searchQuery, setSearchQuery, filterStatus, setFilterStatus, reviewAttention, revealReviewItem, isEditingProvider, setIsEditingProvider, productSearch, setProductSearch, mappingBusy, mappingContext, readWithFormat, cuitNotice, purchaseDraft, setPurchaseDraft, qrStatus, registerPurchase, setRegisterPurchase, purchaseAiBusy, purchaseAiError, duplicatePurchase, purchaseChecks, fillPurchaseWithAi, formatsUnavailable, discountOverride, setDiscountOverride, registeredSupplier, discountText, discountPercent, discountValid, effectiveDiscount, canRememberDiscount, supplierSaving, supplierNotice, rememberDiscount, landedOverride, setLandedOverride, internalTaxes, landedDefault, landed, finalCostAt, finalCostNote, sortedProducts, localCategories, handleParse, handleImport, toggleExpand, updateItem, addManualItem, searchInvoiceCatalog, useCatalogCandidate, selectProduct, confirmMapping, changeProvider, handleUpdatePackUnits, handleSetAllUnmatchedAction, handleApplyMarginToNew, handleSetDefaultCategoryForNew, matchedCount, newCount, skippedCount, unmatchedTotal, totalToImport, pendingCount, sureCount, confirmSureButton, filteredItems } = s;
+  const {
+    storeId, stockBranchId, stockBranchName, products, storeCuit, step, setStep, items, setItems,
+    initialStockBranch, setInitialStockBranch, catalogSuggestions, providerName, setError, expandedItems,
+    setExpandedItems, searchQuery, filterStatus, reviewAttention, revealReviewItem, productSearch,
+    setProductSearch, mappingBusy, mappingContext, readWithFormat, cuitNotice, purchaseDraft,
+    setPurchaseDraft, qrStatus, registerPurchase, setRegisterPurchase, purchaseAiBusy, purchaseAiError,
+    duplicatePurchase, purchaseChecks, fillPurchaseWithAi, formatsUnavailable, effectiveDiscount,
+    landedOverride, setLandedOverride, internalTaxes, landedDefault, landed, finalCostAt, finalCostNote,
+    sortedProducts, localCategories, handleParse, handleImport, toggleExpand, updateItem, addManualItem,
+    searchInvoiceCatalog, useCatalogCandidate, selectProduct, confirmMapping, handleUpdatePackUnits,
+    matchedCount, newCount, totalToImport, pendingCount, sureCount, confirmSureButton, filteredItems,
+  } = s;
   return (
     <>
         {/* REVIEW */}
@@ -25,85 +36,7 @@ export function InvoiceReviewStep({ s }: { s: InvoiceAnalyzerState }) {
               <button type="button" className="secondary-button" onClick={() => { setInitialStockBranch(stockBranchId); setError(null); }}>Confirmar ubicación</button>
             </div>}
             {initialStockBranch === stockBranchId && stockBranchName && <p className="invoice-format-note" role="status">La mercadería ingresa en {stockBranchName}. Se cambia desde Productos, antes de abrir la factura.</p>}
-            {/* Supplier and Date Header Bar */}
-            <div className="inv-supplier-bar inv-supplier-bar-discount">
-              <div className="inv-supplier-icon">🏭</div>
-              <div className="inv-supplier-content">
-                <span className="inv-supplier-label">Proveedor</span>
-                {isEditingProvider ? (
-                  <div className="inv-supplier-input-wrap">
-                    <input
-                      type="text"
-                      className="inv-supplier-input"
-                      value={providerName}
-                      onChange={(e) => changeProvider(e.target.value)}
-                      placeholder="Nombre del proveedor o distribuidora"
-                      list="invoice-supplier-options"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") setIsEditingProvider(false);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="inv-small-btn primary"
-                      onClick={() => setIsEditingProvider(false)}
-                    >
-                      Listo
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="inv-supplier-display"
-                    onClick={() => setIsEditingProvider(true)}
-                    aria-label={providerName ? `Proveedor ${providerName}. Cambiar` : 'Indicar proveedor'}
-                  >
-                    <strong>{providerName || "Indicar proveedor"}</strong>
-                    <Edit2 size={13} className="inv-supplier-edit-icon" />
-                  </button>
-                )}
-              </div>
-
-              <div className="inv-supplier-discount">
-                <label className="inv-supplier-label" htmlFor="invoice-supplier-discount">Descuento</label>
-                <div className="inv-supplier-discount-field">
-                  <NumberInput id="invoice-supplier-discount" min={0} max={99.99} step={0.01} value={discountText}
-                    aria-invalid={!discountValid || undefined} aria-describedby="invoice-supplier-discount-help"
-                    onValueChange={value => setDiscountOverride(value)} />
-                  <span aria-hidden="true">%</span>
-                  {discountOverride !== null && registeredSupplier && <button type="button" className="text-button" onClick={() => setDiscountOverride(null)}>
-                    Usar {registeredSupplier.discount_percent.toLocaleString('es-AR')}%
-                  </button>}
-                </div>
-                <small id="invoice-supplier-discount-help" className={!discountValid ? 'inv-supplier-discount-error' : undefined}>
-                  {!discountValid ? 'Desde 0 y menor a 100.'
-                    : registeredSupplier && discountOverride === null ? `Descuento guardado de ${registeredSupplier.name}`
-                    : 'Solo para esta factura'}
-                  {discountValid && effectiveDiscount > 0 && <> · Se descuenta del costo. Si los precios de la factura ya lo incluyen, dejalo en 0.</>}
-                </small>
-                {canRememberDiscount && <button type="button" className="text-button" disabled={supplierSaving} onClick={() => void rememberDiscount()}>
-                  {registeredSupplier ? `Guardar ${effectiveDiscount.toLocaleString('es-AR')}% para próximas facturas` : `Guardar ${providerName.trim()} con ${effectiveDiscount.toLocaleString('es-AR')}%`}
-                </button>}
-                {supplierNotice && <small role="status">{supplierNotice}</small>}
-              </div>
-
-              {invoiceDate && (
-                <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--tone-muted)" }}>
-                  <span>📅</span>
-                  <span>{invoiceDate}</span>
-                </div>
-              )}
-
-              <button
-                type="button"
-                className="secondary-button"
-                style={{ marginLeft: "auto", padding: "6px 12px", fontSize: 12, height: "auto" }}
-                onClick={() => setStep("input")}
-              >
-                <RefreshCw size={13} /> Volver a cargar
-              </button>
-            </div>
+            <ReviewSupplierBar s={s} />
 
             <SupplierAliasPanel key={`${storeId}:${normalizeSupplierText(providerName)}`} storeId={storeId} supplier={providerName}
               disabled={mappingBusy} onDeleted={mapping => {
@@ -153,128 +86,9 @@ export function InvoiceReviewStep({ s }: { s: InvoiceAnalyzerState }) {
             </p>
             {confirmSureButton}
 
-            {/* Toolbar: Search + Filter Tabs */}
-            <div className="inv-toolbar">
-              <div className="inv-search-box">
-                <Search size={15} />
-                <input
-                  type="text"
-                  placeholder="Buscar producto por nombre o código..."
-                  aria-label="Buscar filas de la factura por nombre o código"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
-                {searchQuery && (
-                  <button
-                    type="button"
-                    onClick={() => setSearchQuery("")}
-                    title="Limpiar búsqueda"
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+            <ReviewToolbar s={s} />
 
-              <div className="inv-filter-tabs">
-                <button
-                  type="button"
-                  className={`inv-tab ${filterStatus === "all" ? "active" : ""}`}
-                  onClick={() => setFilterStatus("all")}
-                >
-                  Todos ({items.length})
-                </button>
-                <button
-                  type="button"
-                  className={`inv-tab ${filterStatus === "matched" ? "active" : ""}`}
-                  onClick={() => setFilterStatus("matched")}
-                >
-                  En Catálogo ({items.filter((it) => it.matchedProduct).length})
-                </button>
-                <button
-                  type="button"
-                  className={`inv-tab ${filterStatus === "new" ? "active" : ""}`}
-                  onClick={() => setFilterStatus("new")}
-                >
-                  ✨ Nuevos ({newCount})
-                </button>
-                <button
-                  type="button"
-                  className={`inv-tab ${filterStatus === "skip" ? "active" : ""}`}
-                  onClick={() => setFilterStatus("skip")}
-                >
-                  Omitidos ({skippedCount})
-                </button>
-              </div>
-            </div>
-
-            {/* Bulk actions banner for unmatched items */}
-            {unmatchedTotal > 0 && (
-              <div className="inv-unmatched-banner">
-                <div className="inv-unmatched-header" style={{ justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <AiIcon />
-                    <span>
-                      Factura con <strong>{unmatchedTotal}</strong> producto{unmatchedTotal !== 1 ? "s" : ""} sin vincular con tu catálogo
-                    </span>
-                  </div>
-                  {items.some((it) => it.isPack) && (
-                    <span className="inv-pack-summary-pill">
-                      📦 {items.filter((it) => it.isPack).length} en Display / Caja cerrada (costos calculados por unidad)
-                    </span>
-                  )}
-                </div>
-                <div className="inv-unmatched-actions">
-                  <button
-                    type="button"
-                    className="inv-small-btn primary"
-                    onClick={() => handleSetAllUnmatchedAction("create_new")}
-                  >
-                    ✨ Cargar todos como productos nuevos
-                  </button>
-                  <button
-                    type="button"
-                    className="inv-small-btn"
-                    onClick={() => handleSetAllUnmatchedAction("skip")}
-                  >
-                    Omitir todos los no encontrados
-                  </button>
-                  {localCategories.length > 0 && (
-                    <div style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12 }}>
-                      <span style={{ color: "var(--tone-muted)" }}>Categoría común:</span>
-                      <select
-                        className="inv-small-select"
-                        aria-label="Asignar categoría a todos los productos nuevos"
-                        onChange={(e) => handleSetDefaultCategoryForNew(e.target.value)}
-                        defaultValue=""
-                      >
-                        <option value="" disabled>
-                          Asignar a todos los nuevos
-                        </option>
-                        {localCategories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 12 }}>
-                      <span style={{ color: "var(--tone-muted)" }}>Aumento sobre costo:</span>
-                    {[30, 40, 50, 100].map((m) => (
-                      <button
-                        key={m}
-                        type="button"
-                        className="inv-small-btn"
-                        onClick={() => handleApplyMarginToNew(m)}
-                        title={`Calcular precio de venta con +${m}% sobre costo`}
-                      >
-                        +{m}%
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
+            <ReviewBulkActions s={s} />
 
             <InvoiceReviewTable
               rows={filteredItems}

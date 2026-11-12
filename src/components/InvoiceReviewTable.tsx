@@ -1,55 +1,14 @@
 import { Fragment, useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react';
-import { ChevronDown, ChevronUp, CheckCircle2, Plus } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus } from 'lucide-react';
 import { NumberInput } from './NumberInput';
 import { AiIcon } from './AiIcon';
 import type { InvoiceItem } from './InvoiceAnalyzer';
-import type { Category, Product } from '../features/retail/api';
-import { rankCatalogMatches } from '../services/invoiceMatchingService';
 import { normalizeSupplierText } from '../services/supplierMappingService';
 import { invoiceCostIncrease } from '../services/invoicePricingService';
-import type { InvoiceCatalogCandidate } from '../services/invoiceCatalogService';
+import { type InvoiceReviewAttention, type Props, PAGE_SIZE, money } from './invoiceReview/invoiceReviewTableProps';
+import { InvoiceLinkFields } from './invoiceReview/InvoiceLinkFields';
 
-export interface InvoiceReviewAttention {
-  index: number;
-  column: 'qty' | 'pack' | 'cost' | 'action' | 'name' | 'code' | 'minimum';
-  sequence: number;
-}
-
-interface Props {
-  rows: { it: InvoiceItem; originalIndex: number }[];
-  filterKey: string;
-  products: Product[];
-  categories: Category[];
-  supplier: string;
-  /** Descuento global del proveedor para esta factura; el costo ingresado es el facturado. */
-  discountPercent: number;
-  /** Costo final por unidad (descuento, IVA e internos) para la fila y el costo facturado dados. */
-  finalCost: (index: number, unitCost: number) => number;
-  /** Qué se aplicó para llegar al costo final, por ejemplo "+IVA 21% · +internos". */
-  finalCostNote: string;
-  mappingBusy: boolean;
-  expandedItems: Set<number>;
-  productSearch: Record<number, string>;
-  attention: InvoiceReviewAttention | null;
-  catalogSuggestions: { index: number; loading: boolean; candidates: InvoiceCatalogCandidate[]; notice: string } | null;
-  onSearchCatalog: (index: number) => void;
-  onUseCatalogCandidate: (index: number, candidateId: string) => void;
-  onAddRow: () => void;
-  isValidCode: (code: string) => boolean;
-  onToggleDetails: (index: number) => void;
-  onUpdate: (index: number, patch: Partial<InvoiceItem>) => void;
-  onPackChange: (index: number, size: number) => void;
-  onSelectProduct: (index: number, productId: string) => void;
-  onConfirmMapping: (index: number) => void;
-  onSearchProduct: (index: number, query: string) => void;
-  onCodeChange: (index: number, code: string) => void;
-  onGenerateCode: (index: number) => void;
-  onFindCode: (index: number) => void;
-  onFindCategory: (index: number) => void;
-}
-
-const PAGE_SIZE = 50;
-const money = (value: number) => `$${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export type { InvoiceReviewAttention } from './invoiceReview/invoiceReviewTableProps';
 
 export function InvoiceReviewTable(props: Props) {
   const { rows, filterKey, categories, expandedItems, attention, onUpdate } = props;
@@ -282,34 +241,4 @@ export function InvoiceReviewTable(props: Props) {
       <button type="button" disabled={page === pageCount - 1} onClick={() => setNavigation({ key: filterKey, page: page + 1, attention })}>Siguiente</button>
     </nav>}
   </section>;
-}
-
-function InvoiceLinkFields(props: Props & { index: number; item: InvoiceItem }) {
-  const { index, item, products, productSearch, onUpdate } = props;
-  const pending = item.linkStatus === 'pending' || !item.matchedProduct;
-  const query = normalizeSupplierText(productSearch[index] || '');
-  const matches = pending ? (query ? products.filter(product => normalizeSupplierText(`${product.name} ${product.code}`).includes(query)).slice(0, 60) : products.slice(0, 60)) : [];
-  const options = [...new Map([...(item.matchedProduct ? [item.matchedProduct] : []), ...matches,
-    ...(pending && query ? rankCatalogMatches(query, query, products, 6).map(match => match.product) : []),
-  ].map(product => [product.id, product])).values()];
-  return <div className="invoice-sheet-link">
-    {pending ? <>
-      <div className="invoice-link-fields">
-        <label>Buscar en catálogo<input value={productSearch[index] || ''} placeholder="Nombre o código"
-          onChange={event => props.onSearchProduct(index, event.target.value)} /></label>
-        <label>Producto del catálogo<select value={item.matchedProduct?.id || ''} onChange={event => props.onSelectProduct(index, event.target.value)}>
-          <option value="">Elegir producto</option>
-          {options.map(product => <option value={product.id} key={product.id}>{product.name}{product.code ? ` · ${product.code}` : ''}</option>)}
-        </select></label>
-      </div>
-      <div className="invoice-sheet-detail-actions">
-        <button type="button" className="primary-button" disabled={props.mappingBusy || !item.matchedProduct}
-          onClick={() => props.onConfirmMapping(index)}><CheckCircle2 size={14} />{normalizeSupplierText(props.supplier) ? 'Confirmar y recordar' : 'Confirmar vínculo'}</button>
-        <button type="button" onClick={() => onUpdate(index, { matchedProduct: null, action: 'create_new' })}>Crear como nuevo</button>
-      </div>
-    </> : <div className="invoice-sheet-detail-actions">
-      <button type="button" onClick={() => onUpdate(index, { linkStatus: 'pending' })}>Cambiar vínculo</button>
-      <button type="button" onClick={() => onUpdate(index, { matchedProduct: null, action: 'create_new' })}>Desvincular y crear como nuevo</button>
-    </div>}
-  </div>;
 }
