@@ -1,4 +1,5 @@
 import Tesseract from 'tesseract.js';
+import { layoutRows, type LayoutRow } from './columnLayout';
 
 // Lectura de imágenes con OCR: preparación de la imagen y reconocimiento.
 async function preprocessImageForOcr(dataUrl: string, rotation: number): Promise<string> {
@@ -161,7 +162,8 @@ export async function recognizeTextWithOcr(
       preserve_interword_spaces: "1",
     });
 
-    const res = await worker.recognize(optimizedUrl, { rotateAuto: true });
+    // blocks: words with their position, to mark columns in each line.
+    const res = await worker.recognize(optimizedUrl, { rotateAuto: true }, { blocks: true });
     let best = res.data;
 
     // Si por el formato de la imagen el bloque único capturó muy poco texto (< 60 caracteres),
@@ -171,15 +173,29 @@ export async function recognizeTextWithOcr(
       await worker.setParameters({
         tessedit_pageseg_mode: Tesseract.PSM.AUTO,
       });
-      const retryRes = await worker.recognize(optimizedUrl, { rotateAuto: true });
+      const retryRes = await worker.recognize(optimizedUrl, { rotateAuto: true }, { blocks: true });
       const score = (page: typeof best) => Math.sqrt((page.text.match(/[\p{L}\d]/gu) || []).length) * (page.confidence + 20);
       if (score(retryRes.data) > score(best)) best = retryRes.data;
     }
 
-    return { text: best.text || '', confidence: best.confidence };
+    return { text: textWithColumns(best) || best.text || '', confidence: best.confidence };
   } finally {
     await worker.terminate();
   }
+}
+
+/** Text rebuilt line by line from the word positions, with " | " between columns. Empty if Tesseract gave no positions. */
+function textWithColumns(page: Tesseract.Page): string {
+  const rows: LayoutRow[] = [];
+  for (const block of page.blocks ?? []) {
+    for (const paragraph of block.paragraphs ?? []) {
+      for (const line of paragraph.lines ?? []) {
+        const pieces = (line.words ?? []).map(word => ({ text: word.text, x0: word.bbox.x0, x1: word.bbox.x1 }));
+        rows.push({ pieces, height: line.bbox.y1 - line.bbox.y0 });
+      }
+    }
+  }
+  return layoutRows(rows).join('\n');
 }
 
 export function readFileAsDataUrl(file: File): Promise<string> {

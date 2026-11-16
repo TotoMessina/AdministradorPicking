@@ -36,6 +36,7 @@ Respondé ÚNICAMENTE un objeto JSON válido con esta estructura, sin texto expl
 }
 
 Reglas:
+- En el texto, " | " separa las columnas de cada renglón (por ejemplo Código | Descripción | Cantidad | P. Unit. | Importe). Usalo para no confundir cantidad, precio unitario e importe. Debajo del renglón de títulos, cada valor está en la columna de su título y una celda vacía es un dato que no figura. Si un renglón no tiene "|", las columnas no se pudieron separar.
 - Extraé cada producto o artículo facturado.
 - qty: cantidad comprada (número).
 - proveedor: es quien vende y emite la factura (logo o razón social del encabezado, junto a su CUIT). Nunca uses el cliente o comprador (Cliente, Razón Social del receptor, Sr./Señores, Domicilio de entrega). Si no se lee, dejalo vacío.

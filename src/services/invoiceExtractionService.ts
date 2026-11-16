@@ -33,9 +33,10 @@ export function prepareInvoiceExtractionText(raw: string) {
     if (/^(?:https?:\/\/|www\.)\S+$/i.test(line) || /^[\w.+-]+@[\w.-]+\.[a-z]{2,}$/i.test(line)) return false;
     if (/^\[?p[aá]gina\s+\d+(?:\s*(?:de|\/)\s*\d+)?\]?$/i.test(line)) return false;
     if (/^\d{1,2}[/-]\d{1,2}[/-]\d{2,4}(?:\s+\d{1,2}:\d{2})?$/.test(line)) return false;
-    if (/^(?:sub\s*total|total(?:\s+general)?|importe\s+total|iva(?:\s+\d+(?:[.,]\d+)?\s*%)?)\s*[:$=\s]+[\d$.,\s%+-]+$/i.test(line)) return false;
+    // "|" separates columns (see columnLayout.ts).
+    if (/^(?:sub\s*total|total(?:\s+general)?|importe\s+total|iva(?:\s+\d+(?:[.,]\d+)?\s*%)?)\s*[:$=\s|]+[\d$.,\s%+|-]+$/i.test(line)) return false;
     if (/^\d{22,}$/.test(line)) return false;
-    if (/^[\d\s.,$%()+-]+$/.test(line) && /\d/.test(line)) {
+    if (/^[\d\s.,$%()+|-]+$/.test(line) && /\d/.test(line)) {
       if (/^\d{1,2}$/.test(line.trim())) return false;
       return true;
     }

@@ -65,7 +65,7 @@ const VOUCHER_BY_WORD: Record<string, Record<string, number>> = {
 export function draftFromText(text: string, options: { supplierCuit?: string | null; storeCuit?: string | null } = {}): PurchaseInvoiceDraft {
   const draft = emptyPurchaseDraft();
   const plain = text.normalize('NFD').replace(/[̀-ͯ]/g, '');
-  const number = plain.match(/\b[A-Z]?(\d{4,5})\s*-\s*(\d{8})\b/) || plain.match(/factura[^\n]{0,40}?\b(\d{4,5})\s+(\d{8})\b/i);
+  const number = plain.match(/\b[A-Z]?(\d{4,5})\s*-\s*(\d{8})\b/) || plain.match(/factura[^\n]{0,40}?\b(\d{4,5})[\s|]+(\d{8})\b/i);
   if (number) { draft.point_of_sale = String(Number(number[1])); draft.number = String(Number(number[2])); }
   const kind = /nota\s+de\s+credito/i.test(plain) ? 'credito' : /nota\s+de\s+debito/i.test(plain) ? 'debito' : 'factura';
   const letter = plain.match(/\b(?:factura|nota\s+de\s+(?:credito|debito))\b[^\n]{0,25}?\b([ABCM])\b/i)?.[1]

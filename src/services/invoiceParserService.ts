@@ -4,6 +4,7 @@ import type { Product } from '../features/retail/api';
 import { unitsPerPack } from './inventoryUnits';
 import { cleanInvoiceOcrText } from './invoiceParser/ocrTextCleanup';
 import { recognizeTextWithOcr, readFileAsDataUrl } from './invoiceParser/ocrImage';
+import { layoutRows, type LayoutPiece, type LayoutRow } from './invoiceParser/columnLayout';
 
 // Partes de este servicio, reexportadas para no cambiar los imports.
 export * from './invoiceParser/ocrTextCleanup';
@@ -75,30 +76,32 @@ export async function extractTextFromFile(
       onProgress?.(`Procesando página ${pageNum} de ${pdf.numPages}…`);
       const page = await pdf.getPage(pageNum);
 
-      // Extract native digital text
+      // Extract native digital text, keeping horizontal positions to mark columns.
       const textContent = await page.getTextContent();
-      const pageLines: string[] = [];
-      let currentLine = "";
+      const pageRows: LayoutRow[] = [];
+      let currentPieces: LayoutPiece[] = [];
+      let currentHeight = 0;
       let lastY: number | null = null;
+      const closeLine = () => {
+        if (currentPieces.length) pageRows.push({ pieces: currentPieces, height: currentHeight });
+        currentPieces = []; currentHeight = 0;
+      };
 
       for (const item of textContent.items) {
         if ("str" in item) {
-          const str = item.str;
           const transform = item.transform;
           const y = transform ? transform[5] : null;
 
-          if (lastY !== null && y !== null && Math.abs(y - lastY) > 5) {
-            if (currentLine.trim()) pageLines.push(currentLine.trim());
-            currentLine = str;
-          } else {
-            currentLine += (currentLine.length > 0 ? " " : "") + str;
-          }
+          if (lastY !== null && y !== null && Math.abs(y - lastY) > 5) closeLine();
+          const x0 = transform ? transform[4] : NaN;
+          currentPieces.push({ text: item.str, x0, x1: x0 + (item.width || 0) });
+          currentHeight = Math.max(currentHeight, Math.abs(item.height || (transform ? transform[3] : 0) || 0));
           lastY = y;
         }
       }
-      if (currentLine.trim()) pageLines.push(currentLine.trim());
+      closeLine();
 
-      let pageText = pageLines.join("\n");
+      let pageText = layoutRows(pageRows).join("\n");
       // Scans may appear on any page, even inside an otherwise digital PDF.
       if (pageText.trim().length < 50) {
         onProgress?.(`Leyendo imagen de página ${pageNum} de ${pdf.numPages}…`);
