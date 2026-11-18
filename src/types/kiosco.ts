@@ -84,6 +84,20 @@ export interface KioscoSale {
   receptorDocTipo?: number | null;
   receptorDocNro?: number | null;
   receptorName?: string | null;
+  /** Condición de IVA del receptor informada a ARCA: 1 RI, 4 exento, 5 consumidor final, 6 monotributo. */
+  receptorIva?: number | null;
+  receptorAddress?: string | null;
+  /** Datos de la factura autorizada: punto de venta y fecha informados, entorno de ARCA, neto e IVA. */
+  invoicePtoVta?: number | null;
+  invoiceDate?: string | null;
+  invoiceEnvironment?: 'homo' | 'prod' | null;
+  invoiceNet?: number | null;
+  invoiceVat?: number | null;
+  invoiceExempt?: number | null;
+  /** IVA por alícuota informado: Id de ARCA (3 0%, 4 10,5%, 5 21%, 6 27%, 8 5%, 9 2,5%), base e importe. */
+  invoiceVatDetail?: { id: number; rate?: string; base: number; importe: number }[] | null;
+  /** E: CAE (en línea). A: CAEA (contingencia, ARCA no respondía). */
+  authorizationType?: 'E' | 'A' | null;
   id: string;
   ticketNumber: string; // Ej: "T-0042"
   storeName?: string;

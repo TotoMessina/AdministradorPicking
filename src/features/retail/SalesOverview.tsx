@@ -7,6 +7,7 @@ import { summarizeMargins } from './marginAnalytics';
 import { MarginSummary } from './MarginSummary';
 import { SaleLedgerControl } from './SaleLedgerControl';
 import { BillingStatusBadge } from './BillingStatus';
+import { SaleReceptorPicker } from './SaleReceptorPicker';
 import { retrySaleBilling } from '../../services/billingService';
 import { SaleReturn, SaleReturnBadge, saleNet } from './SaleReturn';
 
@@ -220,6 +221,8 @@ export function SalesOverview({ storeId, store, branches, registers, shifts, led
                 }, 'Comprobante fiscal autorizado en ARCA.');
               } : undefined}
             />
+            {canManage && store && <SaleReceptorPicker store={store} sale={s} run={run} busy={busy}
+              onBilled={res => setRows(prev => prev.map(r => r.id === s.id ? { ...r, ...res } : r))} />}
           </td>
           <td>{s.branchName}<small>{s.registerName}</small></td>
           <td>{s.priceListName}<SaleLedgerControl storeId={storeId} sale={s} ledgers={ledgers} disabled={busy} showHistory={canManage || !!canMoveSale?.(s)} canMove={canMoveSale ? canMoveSale(s) : canManage}

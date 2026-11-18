@@ -5,6 +5,9 @@ import { cents } from '../../features/retail/payments';
 import { money, methods } from './posHelpers';
 import type { PosTabState } from './usePosTab';
 
+/** Importe desde el que ARCA exige identificar al consumidor final (RG 5700/2025). */
+const FINAL_CONSUMER_ID_THRESHOLD = 10_000_000;
+
 /** Total, medios de pago y cobro. */
 export function PosCheckout({ state }: { state: PosTabState }) {
   const {
@@ -54,6 +57,10 @@ export function PosCheckout({ state }: { state: PosTabState }) {
             </> : <button type="button" className="text-button sale-customer-add" onClick={() => setCustomerModal(true)}><UserRound size={15} aria-hidden="true" /> {method === 'Fiado' || creditInMixed ? 'Elegir cliente' : 'Elegir cliente (opcional)'}</button>}
             {creditCustomer && method !== 'Fiado' && !creditInMixed && <small>{billingEnabled ? (creditCustomer.tax_id ? 'La factura sale a su nombre. ' : 'No tiene CUIT ni DNI cargado: la factura sale a consumidor final. ') : ''}Para usar su cuenta, elegí Fiado o Mixto con el resto fiado.</small>}
           </div>}
+          {/* RG 5700/2025: el servidor no pide el CAE de un consumidor final sin identificar desde este importe. */}
+          {billingEnabled && total >= FINAL_CONSUMER_ID_THRESHOLD && !creditCustomer?.tax_id && (
+            <p role="alert" className="checkout-hint">Desde {money(FINAL_CONSUMER_ID_THRESHOLD)} ARCA exige identificar al cliente: elegí uno con DNI, CUIL o CUIT. Si no, la factura queda en espera hasta asignarle un cliente en Ver ventas.</p>
+          )}
           <div className="payment-methods">
             {paymentMethods.map(({ id, label, icon: Icon }) => (
               <button

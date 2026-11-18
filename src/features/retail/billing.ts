@@ -2,7 +2,19 @@
 
 export type CondicionIva = 'RI' | 'MO' | 'EX';
 
-export type BillingStatus = 'none' | 'pending' | 'authorized' | 'error' | 'retry';
+/** IVA de un producto: alícuota o exento. */
+export type IvaRate = '21' | '10.5' | '27' | '5' | '2.5' | '0' | 'exento';
+export const IVA_RATE_OPTIONS: readonly { id: IvaRate; label: string }[] = [
+  { id: '21', label: '21%' },
+  { id: '10.5', label: '10,5%' },
+  { id: '27', label: '27%' },
+  { id: '5', label: '5%' },
+  { id: '2.5', label: '2,5%' },
+  { id: '0', label: '0% (gravado a tasa cero)' },
+  { id: 'exento', label: 'Exento' },
+];
+
+export type BillingStatus ='none' | 'pending' | 'authorized' | 'error' | 'retry';
 
 export interface StoreBillingSettings {
   cuit?: string | null;
@@ -156,6 +168,23 @@ export function formatComprobanteNro(ptoVta?: number | null, nro?: number | null
   const ptoStr = String(ptoVta || 1).padStart(4, '0');
   const nroStr = String(nro || 0).padStart(8, '0');
   return `${ptoStr}-${nroStr}`;
+}
+
+/** Fecha en Argentina (YYYY-MM-DD) de un instante. Evita que una venta de la noche quede con el día siguiente (UTC). */
+export function argentinaDate(value: string | Date = new Date()): string {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit' }).format(date);
+}
+
+/** Condición frente al IVA del receptor según el código de ARCA (CondicionIVAReceptorId). */
+export function getReceptorIvaLabel(id?: number | null): string {
+  switch (id) {
+    case 1: return 'IVA Responsable Inscripto';
+    case 4: return 'IVA Sujeto Exento';
+    case 6: return 'Responsable Monotributo';
+    default: return 'Consumidor Final';
+  }
 }
 
 /**

@@ -25,6 +25,7 @@
     "leaflet": "^1.9.4",
     "lucide-react": "^1.49.0",
     "pdfjs-dist": "^6.3.289",
+    "qrcode-generator": "^1.4.4",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "tesseract.js": "^7.0.0"

@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import type { KioscoSale } from '../../../types/kiosco';
 import { retail, errorMessage } from '../api';
 import type { Run } from '../Management';
-import { authorizeSaleInvoice, holdSaleBilling, processPendingSales } from '../../../services/billingService';
+import { authorizeSaleInvoice, holdSaleBilling, maintainCaeaContingency, processPendingSales } from '../../../services/billingService';
 import { hasComposition } from '../../../services/productComposition';
 import { readPushIntent } from '../push';
 import { reportTechnicalFailure } from '../../../lib/errorReporting';
@@ -128,6 +128,7 @@ export function useWorkspaceSale(ctx: WorkspaceProps & ReturnType<typeof useWork
   const pendingBillingProcessing = useRef(false);
   useEffect(() => {
     if (!store?.billing_enabled || pendingBillingProcessing.current) return;
+    maintainCaeaContingency(store);
     const candidates = sales.length > 0 ? sales : allStoreSales;
     const pendingSales = candidates.filter(
       (s) => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending',

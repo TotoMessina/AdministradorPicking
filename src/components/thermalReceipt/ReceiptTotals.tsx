@@ -1,8 +1,8 @@
-import type { ReceiptView } from './receiptDetails';
+import { fiscalMoney, type ReceiptView } from './receiptDetails';
 
 /** Totales y medios de pago. */
 export function ReceiptTotals({ view }: { view: ReceiptView }) {
-  const { sale } = view;
+  const { sale, showVatDetail, netAmount, vatLines, exemptAmount } = view;
   return (
     <>
       {/* Totals */}
@@ -14,6 +14,14 @@ export function ReceiptTotals({ view }: { view: ReceiptView }) {
           fontSize: "0.8125rem",
         }}
       >
+        {/* Factura A: neto e IVA discriminados, como se informaron a ARCA. */}
+        {showVatDetail && <>
+          <div style={{ display: "flex", justifyContent: "space-between" }}><span>Neto gravado:</span><span>{fiscalMoney(netAmount)}</span></div>
+          {vatLines.map(line => (
+            <div key={line.id} style={{ display: "flex", justifyContent: "space-between" }}><span>{line.label}:</span><span>{fiscalMoney(line.importe)}</span></div>
+          ))}
+          {exemptAmount > 0 && <div style={{ display: "flex", justifyContent: "space-between" }}><span>Exento:</span><span>{fiscalMoney(exemptAmount)}</span></div>}
+        </>}
         <div
           style={{
             display: "flex",

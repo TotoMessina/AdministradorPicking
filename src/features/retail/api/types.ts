@@ -26,6 +26,8 @@ export interface Store {
   razon_social?: string | null;
   condicion_iva?: CondicionIva | null;
   punto_venta_afip?: number | null;
+  /** Punto de venta de contingencia (CAEA), distinto del de facturación. */
+  punto_venta_caea?: number | null;
   iibb?: string | null;
   inicio_actividades?: string | null;
   billing_enabled?: boolean;
@@ -262,6 +264,16 @@ export interface SaleRow {
   receptor_doc_tipo?: number | null;
   receptor_doc_nro?: number | string | null;
   receptor_name?: string | null;
+  receptor_iva?: number | null;
+  receptor_address?: string | null;
+  invoice_pto_vta?: number | null;
+  invoice_date?: string | null;
+  invoice_environment?: 'homo' | 'prod' | null;
+  invoice_net?: number | string | null;
+  invoice_vat?: number | string | null;
+  invoice_exempt?: number | string | null;
+  invoice_vat_detail?: { id: number; rate?: string; base: number | string; importe: number | string }[] | null;
+  authorization_type?: 'E' | 'A' | null;
   id: string;
   ticket_number: number;
   items: KioscoSale["items"];

@@ -1,7 +1,11 @@
 import type { KioscoSale } from '../../../types/kiosco';
 import type { SaleRow } from './types';
 
-export const saleFromRow = (row: SaleRow): KioscoSale => ({
+/** IVA por alícuota de la factura, con importes numéricos. */
+export const vatDetail = (rows: { id: number; rate?: string; base: number | string; importe: number | string }[] | null | undefined) =>
+  Array.isArray(rows) ? rows.map(r => ({ id: Number(r.id), rate: r.rate, base: Number(r.base), importe: Number(r.importe) })) : null;
+
+export const saleFromRow =(row: SaleRow): KioscoSale => ({
   shift_id: row.shift_id,
   store_id: row.store_id,
   created_by: row.created_by,
@@ -23,6 +27,16 @@ export const saleFromRow = (row: SaleRow): KioscoSale => ({
   receptorDocTipo: row.receptor_doc_tipo ?? null,
   receptorDocNro: row.receptor_doc_nro == null ? null : Number(row.receptor_doc_nro),
   receptorName: row.receptor_name ?? null,
+  receptorIva: row.receptor_iva ?? null,
+  receptorAddress: row.receptor_address ?? null,
+  invoicePtoVta: row.invoice_pto_vta ?? null,
+  invoiceDate: row.invoice_date ?? null,
+  invoiceEnvironment: row.invoice_environment ?? null,
+  invoiceNet: row.invoice_net == null ? null : Number(row.invoice_net),
+  invoiceVat: row.invoice_vat == null ? null : Number(row.invoice_vat),
+  invoiceExempt: row.invoice_exempt == null ? null : Number(row.invoice_exempt),
+  invoiceVatDetail: vatDetail(row.invoice_vat_detail),
+  authorizationType: row.authorization_type ?? null,
   returnedTotal: Number(row.returned_total ?? 0),
   returnStatus: row.return_status ?? 'none',
   customerId: row.customer_id ?? null,

@@ -68,7 +68,9 @@ export function useBillingSettingsActions(ctx: ReturnType<typeof billingSettings
       return;
     }
     if (environment === 'prod' && credentialsStatus?.environment !== 'prod'
-      && !await askConfirm('¿Pasar a producción? Desde ahora cada venta genera una factura real ante ARCA. Hacelo después de probar en homologación y con el visto bueno de tu contador.')) return;
+      && !await askConfirm(credentialsStatus?.environment === 'homo'
+        ? '¿Pasar a producción? Desde ahora cada venta genera una factura real ante ARCA. Las ventas anteriores quedan sin factura de la app: las facturadas en homologación (pruebas) y las que esperaban factura. Hacelo el día de corte, con el visto bueno de tu contador.'
+        : '¿Pasar a producción? Desde ahora cada venta genera una factura real ante ARCA. Hacelo después de probar en homologación y con el visto bueno de tu contador.')) return;
 
     setSavingCreds(true);
     setError('');

@@ -6,6 +6,8 @@ import { BillingChecklist } from './billingSettings/BillingChecklist';
 import { BillingGuide } from './billingSettings/BillingGuide';
 import { BillingFiscalStats } from './billingSettings/BillingFiscalStats';
 import { BillingCredentials } from './billingSettings/BillingCredentials';
+import { BillingContingency } from './billingSettings/BillingContingency';
+import { BillingProductVat } from './billingSettings/BillingProductVat';
 import { BillingFormFields } from './billingSettings/BillingFormFields';
 import { BillingFormFooter } from './billingSettings/BillingFormFooter';
 import './billing.css';
@@ -30,6 +32,10 @@ export function BillingSettings(props: BillingSettingsProps) {
         <BillingFiscalStats state={state} />
 
         <BillingCredentials state={state} />
+
+        <BillingContingency state={state} />
+
+        <BillingProductVat state={state} />
 
         {/* Formulario Principal de Datos Fiscales */}
         <form

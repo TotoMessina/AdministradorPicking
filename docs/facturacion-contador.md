@@ -20,14 +20,15 @@ Para revisar con tu contador antes de emitir facturas reales. Cada punto dice qu
 | Monotributo | Cualquiera | Factura C |
 
 - [ ] **Factura A a Monotributistas**: confirmar que corresponde en tu caso. La app la emite así hoy.
-- [ ] **Monto para identificar a consumidor final**: ARCA exige identificar al comprador por encima de un monto que cambia cada tanto. La app no lo controla. Preguntar el valor vigente y, cuando se supere, elegir el cliente al cobrar.
+- [ ] **Monto para identificar a consumidor final**: desde **$10.000.000** (RG 5700/2025) la app no pide el CAE sin un cliente con DNI, CUIL o CUIT, y lo avisa al cobrar. Si se cobró sin cliente, en Ver ventas se elige «Factura a nombre de un cliente» y se factura. Si el monto cambia, hay que actualizarlo en la app.
 - [ ] **Concepto**: la app informa siempre «Productos». Si vendés servicios, avisar: hace falta otro concepto y fechas de servicio.
 - [ ] **Moneda**: siempre pesos.
 
 ## 3. IVA
 
-- [ ] **Alícuota**: la app calcula todo al **21%**, con el precio de venta como precio final con IVA. Si vendés productos al 10,5%, al 27%, exentos o no gravados, **no pasar a producción como Responsable Inscripto** hasta sumar el IVA por producto. Avisame y lo agrego.
-- [ ] **Redondeo**: neto = total ÷ 1,21 redondeado a centavos, e IVA = total − neto. Confirmar que lo acepta.
+- [ ] **Alícuota por producto**: en Mi comercio → Facturación, «IVA de los productos». Todos van al 21% salvo los que se marquen (10,5%, 27%, 5%, 2,5%, 0% o exento), uno por uno o por categoría. Revisar la lista con el contador antes de pasar a producción.
+- [ ] **Desglose**: el total de la venta se reparte entre alícuotas en proporción a cada renglón (descuentos y recargos incluidos); la alícuota con más importe se queda con los centavos de redondeo. Por alícuota: neto = parte ÷ (1 + tasa) redondeado a centavos, e IVA = parte − neto. Los exentos van como operaciones exentas. Confirmar que lo acepta.
+- [ ] **Ticket**: Factura B a consumidor final con la leyenda de Transparencia Fiscal (Ley 27.743) e «IVA Contenido»; «Otros Impuestos Nacionales Indirectos» sale en $0,00 hasta definir cómo completarlo. Factura A con neto, IVA por alícuota y exento.
 - [ ] **Percepciones e impuestos internos**: la app no los informa. Confirmar que no correspondan.
 
 ## 4. Fecha y numeración
@@ -35,10 +36,11 @@ Para revisar con tu contador antes de emitir facturas reales. Cada punto dice qu
 - [ ] **Fecha**: el comprobante lleva la fecha del día en que se pide el CAE, en hora argentina. Una venta sin conexión que se factura al día siguiente sale con esa fecha. Confirmar que está bien o si prefiere otra regla.
 - [ ] **Numeración**: la app toma el último número autorizado en ARCA y usa el siguiente, con un solo pedido por punto de venta a la vez. Antes de empezar, anotar el último número de cada tipo, con **Probar conexión** o en ARCA.
 - [ ] **Respuesta que no llegó**: antes de pedir otro número, la app consulta en ARCA si ese número quedó emitido. Un número usado con otro importe queda marcado para revisar con vos.
+- [ ] **Contingencia CAEA** (RG 5782/2025): con un punto de venta de contingencia CAEA cargado en Mi comercio (dado de alta en ARCA para contingencia, mismo domicilio, distinto del de facturación), la app pide el CAEA de cada quincena. Si ARCA no responde, la venta sale con ese CAEA y su propia numeración, y la app la rinde (FECAEARegInformativo) cuando ARCA vuelve. Las quincenas sin uso se informan «sin movimiento». Confirmar con el contador el punto de venta y que el ticket con CAEA es correcto.
 
 ## 5. Notas de crédito
 
-- [ ] **Devoluciones**: anular o devolver una parte de una venta facturada emite la nota de crédito del mismo tipo (A, B o C). Va por el importe devuelto, al mismo cliente y asociada a la factura original.
+- [ ] **Devoluciones**: anular o devolver una parte de una venta facturada emite la nota de crédito del mismo tipo (A, B o C). Va por el importe devuelto, con el IVA de los productos devueltos, al mismo cliente y asociada a la factura original. Sale del punto de venta de facturación actual aunque la factura sea de otro (por ejemplo, el de contingencia).
 - [ ] **Descuentos y bonificaciones**: hoy solo se emiten notas de crédito por devoluciones. Confirmar si también hacen falta por descuentos posteriores o notas de débito.
 - [ ] **Devoluciones anteriores a esta versión**: las que quedaron «Falta nota de crédito» se cargan a mano con el número emitido en ARCA.
 
@@ -53,7 +55,7 @@ Para revisar con tu contador antes de emitir facturas reales. Cada punto dice qu
 
 - [ ] Recorrer la [prueba en homologación](administracion.md#prueba-en-homologación-sin-duplicados) en un proyecto de prueba, con Factura A, B o C, nota de crédito, reintentos y sin conexión.
 - [ ] Revisar con tu contador un ticket de cada tipo: datos del comercio, cliente, IVA, CAE, vencimiento y QR. El QR tiene que abrir la consulta de ARCA.
-- [ ] Pasar a **Producción** en Mi comercio con el certificado de producción. La app pide confirmación.
+- [ ] Pasar a **Producción** en Mi comercio con el certificado de producción, el día de corte. La app pide confirmación. Al pasar de homologación a producción, las ventas anteriores quedan sin factura de la app (las facturadas en pruebas y las que esperaban factura): lo anterior al corte es del sistema que facturaba antes.
 - [ ] Primer día: emitir una venta real de monto chico, verla en «Mis Comprobantes» de ARCA y anularla con una devolución para ver la nota de crédito.
 - [ ] Revisar a diario, la primera semana, **Ver ventas → Con error en ARCA** y las devoluciones con nota pendiente.
 

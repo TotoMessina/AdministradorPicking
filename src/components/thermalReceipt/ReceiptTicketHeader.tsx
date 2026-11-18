@@ -2,7 +2,8 @@ import type { ReceiptView } from './receiptDetails';
 
 /** Encabezado del ticket: comercio y datos fiscales. */
 export function ReceiptTicketHeader({ view }: { view: ReceiptView }) {
-  const { isFiscal, tipoLabel, cbteNroStr, cuitFormatted, ivaLabel, receptorLine, sale, store } = view;
+  const { isFiscal, tipoLabel, cbteNroStr, cuitFormatted, ivaLabel, receptorLine, sale, store, invoiceDateLabel, billedLater, saleDateLabel,
+    isTestInvoice, toFinalConsumer, receptorIvaLabel, receptorAddress } = view;
   return (
     <>
       {/* Header */}
@@ -62,9 +63,16 @@ export function ReceiptTicketHeader({ view }: { view: ReceiptView }) {
               N° {cbteNroStr}
             </div>
             <div style={{ fontSize: "0.5625rem", color: "#64748b", marginTop: "1px" }}>
-              DOCUMENTO FISCAL ELECTRÓNICO
+              {isTestInvoice ? "COMPROBANTE DE PRUEBA · SIN VALIDEZ FISCAL" : "DOCUMENTO FISCAL ELECTRÓNICO"}
             </div>
-            {receptorLine && <div style={{ fontSize: "0.6875rem", marginTop: "4px", textAlign: "left" }}>{receptorLine}</div>}
+            <div style={{ fontSize: "0.6875rem", fontWeight: 700, marginTop: "2px" }}>
+              Fecha: {invoiceDateLabel}
+            </div>
+            <div style={{ fontSize: "0.6875rem", marginTop: "4px", textAlign: "left", fontWeight: toFinalConsumer ? 800 : 600 }}>
+              {toFinalConsumer ? "A CONSUMIDOR FINAL" : `Condición IVA: ${receptorIvaLabel}`}
+            </div>
+            {receptorLine && <div style={{ fontSize: "0.6875rem", textAlign: "left" }}>{receptorLine}</div>}
+            {receptorAddress && <div style={{ fontSize: "0.6875rem", textAlign: "left" }}>Domicilio: {receptorAddress}</div>}
           </div>
         )}
         <div
@@ -91,7 +99,7 @@ export function ReceiptTicketHeader({ view }: { view: ReceiptView }) {
             textAlign: "left",
           }}
         >
-          Fecha: {sale.date || new Date().toLocaleDateString("es-AR")}
+          {isFiscal && !billedLater ? null : <>Fecha{billedLater ? " de la venta" : ""}: {saleDateLabel || sale.date || new Date().toLocaleDateString("es-AR")}</>}
           {sale.branchName && <div>Sucursal: {sale.branchName} · {sale.registerName}</div>}
           {sale.priceListName && <div>Lista: {sale.priceListName}</div>}
           {sale.invoiceReference && <div>Comprobante externo: {sale.invoiceReference}</div>}

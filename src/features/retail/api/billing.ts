@@ -1,6 +1,11 @@
 import { supabase } from '../../../lib/supabase';
-import type { BillingStatus, CondicionIva } from '../billing';
-import { result } from './request';
+import type { BillingStatus, CondicionIva, IvaRate } from '../billing';
+import { allRows, result } from './request';
+
+export interface ProductVatRow { id: string; name: string; code: string | null; category_id: string | null; iva_rate: IvaRate }
+export interface CaeaStatus {
+  caea: string | null; valid_to: string | null; unreported: number; report_error: string | null; numbering_ready: boolean;
+}
 
 /** Facturación electrónica: configuración, credenciales y estado de cada venta. */
 export const billingApi = {
@@ -91,6 +96,21 @@ export const billingApi = {
       throw new Error(error.message || 'Error al conectar con el servicio de comprobación de ARCA');
     }
     return data;
+  },
+  /** Punto de venta de contingencia (CAEA). null lo quita. */
+  async setBillingContingency(store: string, ptoVta: number | null) {
+    return result(supabase.rpc('retail_set_billing_contingency', { p_store: store, p_pto: ptoVta }));
+  },
+  async getCaeaStatus(store: string): Promise<CaeaStatus | null> {
+    return result(supabase.rpc('retail_billing_caea_status', { p_store: store }));
+  },
+  /** Productos con su IVA, para la configuración de alícuotas. */
+  async productVatRows(store: string): Promise<ProductVatRow[]> {
+    return allRows<ProductVatRow>((from, to) => supabase.from('retail_products')
+      .select('id,name,code,category_id,iva_rate').eq('store_id', store).eq('active', true).order('name').range(from, to));
+  },
+  async setProductsIva(store: string, products: string[], rate: IvaRate): Promise<number> {
+    return result(supabase.rpc('retail_set_products_iva', { p_store: store, p_products: products, p_rate: rate }));
   },
   /** El par de claves y el pedido se generan en el navegador: el servidor nunca ve ni devuelve la clave. */
   async generateBillingCsr(

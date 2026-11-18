@@ -30,10 +30,21 @@ interface Secrets { cert: string; key: string; environment: Environment; token?:
 interface Attempt {
   id: string; sale_id: string; pto_vta: number; cbte_tipo: number; cbte_nro: number | null; cbte_fch: string; imp_total: number; imp_neto: number; imp_iva: number;
   doc_tipo: number; doc_nro: number; cond_iva_receptor: number;
+  /** IVA por alícuota (Id de ARCA, base e importe) y exentos. Sin desglose guardado: todo al 21%. */
+  iva?: { id: number; base: number; importe: number }[] | null;
+  imp_op_ex?: number | null;
   /** Nota de crédito: factura asociada. */
   asoc?: { tipo: number; pto_vta: number; nro: number; cuit?: string; fecha?: string } | null;
 }
+/** Comprobante emitido con CAEA, pendiente de rendir. */
+interface CaeaReport extends Attempt { cae: string; created_at: string }
 interface Auth { token: string; sign: string }
+/** Datos del comprobante autorizado que devuelve la base (retail_private.billing_result). */
+interface InvoiceData {
+  environment?: Environment; pto_vta?: number; cbte_fch?: string; imp_neto?: number; imp_iva?: number; imp_op_ex?: number;
+  iva?: { id: number; rate?: string; base: number; importe: number }[]; receptor_iva?: number; receptor_address?: string | null;
+  authorization_type?: 'E' | 'A';
+}
 
 // Tiempos máximos: el turno de la base dura 3 minutos y todo el pedido entra con margen.
 const WSAA_TIMEOUT = 20_000;
@@ -188,42 +199,55 @@ async function consultarComprobante(cuit: string, auth: Auth, attempt: Attempt, 
   throw new ArcaUnavailable('ARCA no confirmó si el comprobante existe');
 }
 
+/** Montos con dos decimales, como los pide ARCA. */
+const money = (value: number | string | null | undefined) => Number(value || 0).toFixed(2);
+
 /**
- * Solicita el CAE a ARCA (WSFE FECAESolicitar) con los importes guardados en el turno.
+ * Detalle del comprobante (FECAEDetRequest / FECAEADetRequest) con los importes guardados en el pedido.
+ * Facturas y notas A y B informan el IVA por alícuota; los exentos van en ImpOpEx. Las C no discriminan IVA.
  */
-async function solicitarCae(cuit: string, auth: Auth, attempt: Attempt, wsfeUrl: string): Promise<{ cae: string; caeVto: string }> {
-  // Facturas y notas de crédito A y B informan el IVA al 21%. Las C no lo discriminan.
-  const ivaXml = [1, 3, 6, 8].includes(attempt.cbte_tipo) && attempt.imp_iva > 0
-    ? `<ar:Iva><ar:AlicIva><ar:Id>5</ar:Id><ar:BaseImp>${Number(attempt.imp_neto).toFixed(2)}</ar:BaseImp><ar:Importe>${Number(attempt.imp_iva).toFixed(2)}</ar:Importe></ar:AlicIva></ar:Iva>`
+function detailXml(attempt: Attempt) {
+  const discriminates = [1, 3, 6, 8].includes(attempt.cbte_tipo);
+  const alicuotas = discriminates
+    ? (attempt.iva?.length ? attempt.iva : Number(attempt.imp_iva) > 0 ? [{ id: 5, base: attempt.imp_neto, importe: attempt.imp_iva }] : [])
+    : [];
+  const ivaXml = alicuotas.length
+    ? `<ar:Iva>${alicuotas.map(a => `<ar:AlicIva><ar:Id>${a.id}</ar:Id><ar:BaseImp>${money(a.base)}</ar:BaseImp><ar:Importe>${money(a.importe)}</ar:Importe></ar:AlicIva>`).join('')}</ar:Iva>`
     : '';
   const asoc = attempt.asoc;
   const asocXml = asoc
     ? `<ar:CbtesAsoc><ar:CbteAsoc><ar:Tipo>${asoc.tipo}</ar:Tipo><ar:PtoVta>${asoc.pto_vta}</ar:PtoVta><ar:Nro>${asoc.nro}</ar:Nro>${asoc.cuit ? `<ar:Cuit>${asoc.cuit}</ar:Cuit>` : ''}${asoc.fecha ? `<ar:CbteFch>${ymd(asoc.fecha)}</ar:CbteFch>` : ''}</ar:CbteAsoc></ar:CbtesAsoc>`
     : '';
+  return `<ar:Concepto>1</ar:Concepto>
+            <ar:DocTipo>${attempt.doc_tipo}</ar:DocTipo>
+            <ar:DocNro>${attempt.doc_nro}</ar:DocNro>
+            <ar:CbteDesde>${attempt.cbte_nro}</ar:CbteDesde>
+            <ar:CbteHasta>${attempt.cbte_nro}</ar:CbteHasta>
+            <ar:CbteFch>${ymd(attempt.cbte_fch)}</ar:CbteFch>
+            <ar:ImpTotal>${money(attempt.imp_total)}</ar:ImpTotal>
+            <ar:ImpTotConc>0.00</ar:ImpTotConc>
+            <ar:ImpNeto>${money(attempt.imp_neto)}</ar:ImpNeto>
+            <ar:ImpOpEx>${discriminates ? money(attempt.imp_op_ex) : '0.00'}</ar:ImpOpEx>
+            <ar:ImpTrib>0.00</ar:ImpTrib>
+            <ar:ImpIVA>${money(attempt.imp_iva)}</ar:ImpIVA>
+            <ar:MonId>PES</ar:MonId>
+            <ar:MonCotiz>1</ar:MonCotiz>
+            <ar:CondicionIVAReceptorId>${attempt.cond_iva_receptor}</ar:CondicionIVAReceptorId>
+            ${asocXml}
+            ${ivaXml}`;
+}
 
+/**
+ * Solicita el CAE a ARCA (WSFE FECAESolicitar) con los importes guardados en el turno.
+ */
+async function solicitarCae(cuit: string, auth: Auth, attempt: Attempt, wsfeUrl: string): Promise<{ cae: string; caeVto: string }> {
   const { text } = await soap(wsfeUrl, 'http://ar.gov.afip.dif.FEV1/FECAESolicitar', envelope(`<ar:FECAESolicitar>
       ${authXml(cuit, auth)}
       <ar:FeCAEReq>
         <ar:FeCabReq><ar:CantReg>1</ar:CantReg><ar:PtoVta>${attempt.pto_vta}</ar:PtoVta><ar:CbteTipo>${attempt.cbte_tipo}</ar:CbteTipo></ar:FeCabReq>
         <ar:FeDetReq>
           <ar:FECAEDetRequest>
-            <ar:Concepto>1</ar:Concepto>
-            <ar:DocTipo>${attempt.doc_tipo}</ar:DocTipo>
-            <ar:DocNro>${attempt.doc_nro}</ar:DocNro>
-            <ar:CbteDesde>${attempt.cbte_nro}</ar:CbteDesde>
-            <ar:CbteHasta>${attempt.cbte_nro}</ar:CbteHasta>
-            <ar:CbteFch>${ymd(attempt.cbte_fch)}</ar:CbteFch>
-            <ar:ImpTotal>${Number(attempt.imp_total).toFixed(2)}</ar:ImpTotal>
-            <ar:ImpTotConc>0.00</ar:ImpTotConc>
-            <ar:ImpNeto>${Number(attempt.imp_neto).toFixed(2)}</ar:ImpNeto>
-            <ar:ImpOpEx>0.00</ar:ImpOpEx>
-            <ar:ImpTrib>0.00</ar:ImpTrib>
-            <ar:ImpIVA>${Number(attempt.imp_iva).toFixed(2)}</ar:ImpIVA>
-            <ar:MonId>PES</ar:MonId>
-            <ar:MonCotiz>1</ar:MonCotiz>
-            <ar:CondicionIVAReceptorId>${attempt.cond_iva_receptor}</ar:CondicionIVAReceptorId>
-            ${asocXml}
-            ${ivaXml}
+            ${detailXml(attempt)}
           </ar:FECAEDetRequest>
         </ar:FeDetReq>
       </ar:FeCAEReq>
@@ -241,6 +265,69 @@ async function solicitarCae(cuit: string, auth: Auth, attempt: Attempt, wsfeUrl:
     throw new ArcaRejected(problems.length ? problems.map(p => p.msg).join(' · ') : 'ARCA rechazó el comprobante sin detalle', retryable);
   }
   throw new ArcaUnavailable('ARCA respondió sin resultado');
+}
+
+// ── Contingencia CAEA (RG 5782/2025) ───────────────────────────────────────────
+
+const isoDate = (value?: string) => value && /^\d{8}$/.test(value) ? `${value.slice(0, 4)}-${value.slice(4, 6)}-${value.slice(6, 8)}` : null;
+
+/** Pide el CAEA de una quincena; si ya estaba otorgado, lo consulta. */
+async function obtenerCaea(cuit: string, auth: Auth, periodo: number, orden: number, wsfeUrl: string) {
+  const read = (text: string) => {
+    const caea = tag(text, 'CAEA');
+    const from = isoDate(tag(text, 'FchVigDesde'));
+    const to = isoDate(tag(text, 'FchVigHasta'));
+    const deadline = isoDate(tag(text, 'FchTopeInf'));
+    return caea && from && to && deadline ? { caea, from, to, deadline } : null;
+  };
+  const body = (method: string) => envelope(`<ar:${method}>${authXml(cuit, auth)}<ar:Periodo>${periodo}</ar:Periodo><ar:Orden>${orden}</ar:Orden></ar:${method}>`);
+  const requested = await soap(wsfeUrl, 'http://ar.gov.afip.dif.FEV1/FECAEASolicitar', body('FECAEASolicitar'), WSFE_TIMEOUT);
+  const granted = read(requested.text);
+  if (granted) return { granted, error: null };
+  const consulted = await soap(wsfeUrl, 'http://ar.gov.afip.dif.FEV1/FECAEAConsultar', body('FECAEAConsultar'), WSFE_TIMEOUT);
+  const existing = read(consulted.text);
+  if (existing) return { granted: existing, error: null };
+  const problem = errors(requested.text)[0] || errors(consulted.text)[0];
+  return { granted: null, error: problem ? `${problem.code}: ${problem.msg}` : 'ARCA no entregó el CAEA' };
+}
+
+/** Fecha y hora de emisión en Argentina, yyyymmddhhmiss. */
+const generatedAt = (iso: string) => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Argentina/Buenos_Aires', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+  }).formatToParts(new Date(iso));
+  const get = (type: string) => parts.find(p => p.type === type)?.value || '00';
+  return `${get('year')}${get('month')}${get('day')}${get('hour')}${get('minute')}${get('second')}`;
+};
+
+/** Rinde a ARCA un comprobante emitido con CAEA (FECAEARegInformativo). Devuelve el error, o null si quedó informado. */
+async function informarCaea(cuit: string, auth: Auth, report: CaeaReport, wsfeUrl: string): Promise<string | null> {
+  const { text } = await soap(wsfeUrl, 'http://ar.gov.afip.dif.FEV1/FECAEARegInformativo', envelope(`<ar:FECAEARegInformativo>
+      ${authXml(cuit, auth)}
+      <ar:FeCAEARegInfReq>
+        <ar:FeCabReq><ar:CantReg>1</ar:CantReg><ar:PtoVta>${report.pto_vta}</ar:PtoVta><ar:CbteTipo>${report.cbte_tipo}</ar:CbteTipo></ar:FeCabReq>
+        <ar:FeDetReq>
+          <ar:FECAEADetRequest>
+            ${detailXml(report)}
+            <ar:CAEA>${report.cae}</ar:CAEA>
+            <ar:CbteFchHsGen>${generatedAt(report.created_at)}</ar:CbteFchHsGen>
+          </ar:FECAEADetRequest>
+        </ar:FeDetReq>
+      </ar:FeCAEARegInfReq>
+    </ar:FECAEARegInformativo>`), WSFE_TIMEOUT);
+  const results = [...text.matchAll(/<Resultado>\s*([A-Z])\s*<\/Resultado>/gi)].map(m => m[1].toUpperCase());
+  if (results.length && results.every(r => r === 'A')) return null;
+  const problems = errors(text);
+  return problems.length ? problems.map(p => `${p.code}: ${p.msg}`).join(' · ') : 'ARCA no confirmó la rendición';
+}
+
+/** Informa que el punto de venta de contingencia no usó el CAEA de una quincena. */
+async function informarSinMovimiento(cuit: string, auth: Auth, ptoVta: number, caea: string, wsfeUrl: string): Promise<string | null> {
+  const { text } = await soap(wsfeUrl, 'http://ar.gov.afip.dif.FEV1/FECAEASinMovimientoInformar', envelope(
+    `<ar:FECAEASinMovimientoInformar>${authXml(cuit, auth)}<ar:PtoVta>${ptoVta}</ar:PtoVta><ar:CAEA>${caea}</ar:CAEA></ar:FECAEASinMovimientoInformar>`), WSFE_TIMEOUT);
+  if (tag(text, 'Resultado') === 'A') return null;
+  const problems = errors(text);
+  return problems.length ? problems.map(p => `${p.code}: ${p.msg}`).join(' · ') : 'ARCA no confirmó el aviso sin movimiento';
 }
 
 const message = (err: unknown) => err instanceof Error ? err.message : 'Error al facturar';
@@ -331,8 +418,55 @@ Deno.serve(async (request) => {
       });
     }
 
+    // ACCIÓN: mantenimiento de la contingencia CAEA. Lo dispara la app de vez en cuando; si ARCA no responde, queda para la próxima.
+    if (action === 'caea_maintenance') {
+      const { data: allowed } = await userDb.rpc('retail_billing_can_maintain', { p_store: storeId });
+      if (allowed !== true) return json({ success: false, error: 'Sin permiso para facturar en este comercio' }, 403);
+      const { data: ctx, error: ctxError } = await db.rpc('retail_billing_caea_context', { p_store: storeId });
+      if (ctxError) throw new Error('No se pudo leer el estado de la contingencia CAEA');
+      if (!ctx?.enabled) return json({ success: true, skipped: true });
+      const s = await loadSecrets();
+      const auth = await getWsaaAuth(db, storeId, s);
+      const wsfe = urls(s.environment).wsfe;
+      const done = { caeas: 0, synced: 0, reported: 0, noMovement: 0, problems: [] as string[] };
+
+      // 1. CAEA de la quincena actual y, en los 5 días previos, de la próxima.
+      for (const p of ctx.periods as { periodo: number; orden: number }[]) {
+        const { granted, error } = await obtenerCaea(ctx.cuit, auth, p.periodo, p.orden, wsfe);
+        if (!granted) { done.problems.push(`CAEA ${p.periodo}-${p.orden}: ${error}`); continue; }
+        const { error: saveError } = await db.rpc('retail_billing_save_caea', {
+          p_store: storeId, p_environment: ctx.environment, p_periodo: p.periodo, p_orden: p.orden,
+          p_caea: granted.caea, p_from: granted.from, p_to: granted.to, p_deadline: granted.deadline,
+        });
+        if (saveError) done.problems.push('No se guardó el CAEA'); else done.caeas++;
+      }
+      // 2. Numeración del punto de venta de contingencia: nunca por debajo de lo que ARCA ya tiene informado.
+      for (const tipo of ctx.tipos as number[]) {
+        const last = await getUltimoComprobante(ctx.cuit, auth, ctx.pto_vta, tipo, wsfe);
+        const { error } = await db.rpc('retail_billing_sync_caea_number', { p_store: storeId, p_environment: ctx.environment, p_pto: ctx.pto_vta, p_tipo: tipo, p_last: last });
+        if (error) done.problems.push('No se guardó la numeración de contingencia'); else done.synced++;
+      }
+      // 3. Rendición de lo emitido con CAEA, en orden. Si ya figura en ARCA (respuesta perdida), se da por rendido.
+      for (const report of ctx.reports as CaeaReport[]) {
+        const found = await consultarComprobante(ctx.cuit, auth, report, wsfe);
+        const problem = found ? null : await informarCaea(ctx.cuit, auth, report, wsfe);
+        await db.rpc('retail_billing_caea_reported', { p_attempt: report.id, p_ok: !problem, p_error: problem });
+        if (problem) { done.problems.push(`Comprobante ${report.pto_vta}-${report.cbte_nro}: ${problem}`); break; }
+        done.reported++;
+      }
+      // 4. Quincenas terminadas sin uso del CAEA.
+      for (const c of ctx.no_movement as { id: string; caea: string }[]) {
+        const problem = await informarSinMovimiento(ctx.cuit, auth, ctx.pto_vta, c.caea, wsfe);
+        await db.rpc('retail_billing_caea_no_movement', { p_caea: c.id, p_ok: !problem, p_error: problem });
+        if (problem) done.problems.push(`Sin movimiento ${c.caea}: ${problem}`); else done.noMovement++;
+      }
+      if (done.problems.length) await reportFailure(new Error(`Contingencia CAEA: ${done.problems.join(' | ').slice(0, 400)}`), { funcion: 'billing-authorize', ...place });
+      return json({ success: done.problems.length === 0, ...done });
+    }
+
     // ACCIÓN: factura de una venta o nota de crédito de una devolución
     const creditNote = action === 'credit_note';
+    let arcaDown = false;
     if (creditNote ? !validId(returnId) : !validId(saleId)) {
       return json({ error: creditNote ? 'Parámetro returnId obligatorio para la nota de crédito' : 'Parámetro saleId obligatorio para emitir comprobante' }, 400);
     }
@@ -349,7 +483,7 @@ Deno.serve(async (request) => {
         await reportFailure(new Error(`No se guardó el resultado de ARCA (${result})`), { funcion: 'billing-authorize', ...place });
         return { state: 'retry', error: 'ARCA respondió pero no se pudo guardar. Se recupera en el próximo intento' };
       }
-      return data as { state: string; error?: string; cae?: string; cae_vto?: string; cbte_nro?: number; cbte_tipo?: number };
+      return data as { state: string; error?: string; cae?: string; cae_vto?: string; cbte_nro?: number; cbte_tipo?: number } & InvoiceData;
     };
 
     // Respuesta perdida de un pedido anterior: se consulta ese número en ARCA antes de pedir uno nuevo.
@@ -374,7 +508,8 @@ Deno.serve(async (request) => {
         auth = await getWsaaAuth(db, storeId, s);
         last = await getUltimoComprobante(cuit, auth, attempt.pto_vta, attempt.cbte_tipo, urls(s.environment).wsfe);
       } catch (err) {
-        // Todavía no salió nada a ARCA: se puede reintentar sin riesgo.
+        // Todavía no salió nada a ARCA: se puede reintentar sin riesgo (o emitir con CAEA si ARCA no responde).
+        if (err instanceof ArcaUnavailable) arcaDown = true;
         return finish(attempt, err instanceof ArcaUnavailable ? 'cancelled' : 'rejected', { error: message(err) });
       }
       const number = last + 1;
@@ -391,6 +526,22 @@ Deno.serve(async (request) => {
       }
     };
 
+    // Datos del comprobante para el ticket y el QR (fecha y punto de venta informados, IVA por alícuota, CAE o CAEA).
+    const authorizedJson = (result: { cae?: string; cae_vto?: string; cbte_nro?: number; cbte_tipo?: number } & InvoiceData) => json({
+      success: true, state: 'authorized', cae: result.cae, cae_vto: result.cae_vto, cbte_nro: result.cbte_nro, cbte_tipo: result.cbte_tipo,
+      environment: result.environment ?? secrets?.environment, pto_vta: result.pto_vta, cbte_fch: result.cbte_fch,
+      imp_neto: result.imp_neto, imp_iva: result.imp_iva, imp_op_ex: result.imp_op_ex, iva: result.iva,
+      receptor_iva: result.receptor_iva, receptor_address: result.receptor_address, authorization_type: result.authorization_type ?? 'E',
+    });
+
+    // Contingencia: ARCA no responde y la venta no tiene un pedido de CAE sin confirmar. Solo facturas, nunca notas de crédito.
+    const tryCaea = async () => {
+      if (creditNote) return null;
+      const { data, error } = await userDb.rpc('retail_billing_issue_caea', { p_store: storeId, p_sale: saleId });
+      if (error || data?.state !== 'authorized') return null;
+      return authorizedJson(data);
+    };
+
     for (let round = 0; round < 3; round++) {
       const { data: plan, error: planError } = await begin();
       if (planError) return json({ success: false, state: 'error', error: planError.message });
@@ -398,13 +549,19 @@ Deno.serve(async (request) => {
         try {
           await recover(plan.attempt as Attempt, plan.cuit);
         } catch (err) {
+          if (err instanceof ArcaUnavailable) {
+            const contingency = await tryCaea();
+            if (contingency) return contingency;
+          }
           return json({ success: false, state: 'retry', error: `${message(err)}. Se reintenta más tarde` });
         }
         continue;
       }
       const result = plan.state === 'issue' ? await issue(plan.attempt as Attempt, plan.cuit) : plan;
-      if (result.state === 'authorized') {
-        return json({ success: true, state: 'authorized', cae: result.cae, cae_vto: result.cae_vto, cbte_nro: result.cbte_nro, cbte_tipo: result.cbte_tipo, environment: secrets?.environment });
+      if (result.state === 'authorized') return authorizedJson(result);
+      if (arcaDown) {
+        const contingency = await tryCaea();
+        if (contingency) return contingency;
       }
       if (result.state === 'busy') return json({ success: false, state: 'retry', error: 'Otra caja está facturando en este punto de venta. Se reintenta en un momento' });
       return json({ success: false, state: result.state === 'conflict' ? 'error' : result.state, error: result.error || null });

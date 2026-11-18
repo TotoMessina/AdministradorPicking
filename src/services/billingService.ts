@@ -1,8 +1,9 @@
 // Servicio de facturación electrónica ARCA (ex AFIP)
 import { supabase } from '../lib/supabase';
 import { errorContextBranch } from '../lib/errorReporting';
-import { cleanCuit, type BillingStatus, type CondicionIva } from '../features/retail/billing';
+import { argentinaDate, cleanCuit, type BillingStatus, type CondicionIva } from '../features/retail/billing';
 import type { Store } from '../features/retail/api';
+import { vatDetail } from '../features/retail/api/saleFromRow';
 import type { KioscoSale } from '../types/kiosco';
 
 export interface ArcaQrParams {
@@ -15,6 +16,8 @@ export interface ArcaQrParams {
   cae: string;
   tipoDocRec?: number; // 99 = Consumidor final
   nroDocRec?: number;
+  /** E: CAE. A: CAEA (contingencia). */
+  tipoCodAut?: 'E' | 'A';
 }
 
 export interface ArcaAuthResult {
@@ -25,6 +28,16 @@ export interface ArcaAuthResult {
   cae_vto?: string;
   cbte_nro?: number;
   cbte_tipo?: number;
+  environment?: 'homo' | 'prod';
+  pto_vta?: number;
+  cbte_fch?: string;
+  imp_neto?: number;
+  imp_iva?: number;
+  receptor_iva?: number;
+  receptor_address?: string | null;
+  imp_op_ex?: number;
+  iva?: { id: number; rate?: string; base: number; importe: number }[];
+  authorization_type?: 'E' | 'A';
   error?: string;
 }
 
@@ -48,7 +61,8 @@ export function determineComprobanteTipo(condicionIva: CondicionIva | string | n
 export function buildArcaQrUrl(params: ArcaQrParams): string {
   const cuitNum = Number(cleanCuit(params.cuit));
   const caeNum = Number(cleanCuit(params.cae));
-  let fechaYmd = params.fecha ? params.fecha.split('T')[0] : new Date().toISOString().split('T')[0];
+  // Con hora se toma el día en Argentina; una fecha sola (YYYY-MM-DD o DD/MM/AAAA) queda como está.
+  let fechaYmd = !params.fecha ? argentinaDate() : params.fecha.includes('T') ? argentinaDate(params.fecha) : params.fecha;
   if (fechaYmd.includes('/')) {
     const parts = fechaYmd.split('/');
     if (parts.length === 3) {
@@ -68,7 +82,7 @@ export function buildArcaQrUrl(params: ArcaQrParams): string {
     ctz: 1,
     tipoDocRec: params.tipoDocRec ?? 99,
     nroDocRec: params.nroDocRec ?? 0,
-    tipoCodAut: 'E',
+    tipoCodAut: params.tipoCodAut || 'E',
     codAut: caeNum,
   };
 
@@ -157,6 +171,17 @@ export async function authorizeSaleInvoice(
       cbteTipo: data.cbte_tipo,
       billingStatus: 'authorized',
       billingError: null,
+      // Sin estos datos (servidor anterior o venta ya facturada) el ticket los toma de la venta recargada.
+      ...(data.pto_vta != null ? { invoicePtoVta: data.pto_vta } : {}),
+      ...(data.cbte_fch ? { invoiceDate: data.cbte_fch } : {}),
+      ...(data.environment ? { invoiceEnvironment: data.environment } : {}),
+      ...(data.imp_neto != null ? { invoiceNet: Number(data.imp_neto) } : {}),
+      ...(data.imp_iva != null ? { invoiceVat: Number(data.imp_iva) } : {}),
+      ...(data.receptor_iva != null ? { receptorIva: data.receptor_iva } : {}),
+      ...(data.receptor_address !== undefined ? { receptorAddress: data.receptor_address } : {}),
+      ...(data.imp_op_ex != null ? { invoiceExempt: Number(data.imp_op_ex) } : {}),
+      ...(data.iva ? { invoiceVatDetail: vatDetail(data.iva) } : {}),
+      ...(data.authorization_type ? { authorizationType: data.authorization_type } : {}),
     };
   }
   if (data?.state === 'skip' || data?.state === 'voided') return null;
@@ -202,12 +227,29 @@ export async function retrySaleBilling(
  * Procesa ventas pendientes de facturación para un comercio (por ejemplo tras sincronización offline).
  * Se ejecuta en segundo plano sin interrumpir al usuario ni bloquear la caja.
  */
+// Mantenimiento de la contingencia CAEA: pedir el CAEA de cada quincena, sincronizar la numeración,
+// rendir lo emitido con CAEA e informar quincenas sin movimiento. Una vez por media hora y por comercio.
+const CAEA_MAINTENANCE_EVERY = 30 * 60_000;
+const caeaMaintainedAt = new Map<string, number>();
+
+export function maintainCaeaContingency(store: Store) {
+  if (!store.billing_enabled || !store.punto_venta_caea) return;
+  const now = Date.now();
+  if (now - (caeaMaintainedAt.get(store.id) || 0) < CAEA_MAINTENANCE_EVERY) return;
+  caeaMaintainedAt.set(store.id, now);
+  // En segundo plano: si ARCA no responde, se vuelve a intentar en la próxima vuelta.
+  void supabase.functions.invoke('billing-authorize', {
+    body: { storeId: store.id, branchId: errorContextBranch(), action: 'caea_maintenance' },
+  }).catch(() => undefined);
+}
+
 export async function processPendingSales(
   store: Store,
   sales: KioscoSale[],
   onSaleUpdated?: (saleId: string, result: Partial<KioscoSale>) => void,
 ): Promise<void> {
   if (!store.billing_enabled) return;
+  maintainCaeaContingency(store);
   const now = Date.now();
   const pending = sales.filter(s => (s.billingStatus === 'pending' || s.billingStatus === 'retry') && s.syncStatus !== 'pending'
     && s.returnStatus !== 'voided' && (retryAfter.get(s.id) || 0) <= now);
