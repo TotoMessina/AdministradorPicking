@@ -9,6 +9,7 @@ import { CustomersTab } from '../CustomersTab';
 import { PurchaseOrders } from '../PurchaseOrders';
 import { BranchComparison } from '../BranchComparison';
 import { BankReconciliation } from '../BankReconciliation';
+import { TaxSummary } from '../TaxSummary';
 import type { WorkspaceState } from './useWorkspace';
 
 /** Proveedores, Plata, Clientes, Finanzas, configuración delegada e IA. */
@@ -33,7 +34,7 @@ export function WorkspaceOtherTabs({ state }: { state: WorkspaceState }) {
         <SectionNav name="finance" label="Vistas de Ganancias" value={financeView} onChange={value => setFinanceView(value as 'month' | 'branches' | 'bank')} disabled={busy} sections={[{ id: 'month', label: 'Este mes' }, { id: 'branches', label: 'Comparar sucursales' }, { id: 'bank', label: 'Para el contador' }]} />
         <div hidden={financeView !== 'month'} role="tabpanel" id="finance-panel-month" aria-labelledby="finance-tab-month"><FinanceTab storeId={store.id} branches={branches} busy={busy} run={run} active={!guiding && tab === 'finance' && financeView === 'month'} /></div>
         <div hidden={financeView !== 'branches'} role="tabpanel" id="finance-panel-branches" aria-labelledby="finance-tab-branches"><BranchComparison storeId={store.id} active={!guiding && tab === 'finance' && financeView === 'branches'} /></div>
-        <div hidden={financeView !== 'bank'} role="tabpanel" id="finance-panel-bank" aria-labelledby="finance-tab-bank"><BankReconciliation storeId={store.id} run={run} busy={busy} active={!guiding && tab === 'finance' && financeView === 'bank'} /></div>
+        <div hidden={financeView !== 'bank'} role="tabpanel" id="finance-panel-bank" aria-labelledby="finance-tab-bank"><TaxSummary storeId={store.id} active={!guiding && tab === 'finance' && financeView === 'bank'} /><BankReconciliation storeId={store.id} run={run} busy={busy} active={!guiding && tab === 'finance' && financeView === 'bank'} /></div>
       </div>}
       {!manager && canOpenSettings && <div hidden={tab !== 'settings'}><DelegatedSettings store={store} branches={configurationBranches} categories={categories} registers={configurationRegisters} ledgers={ledgers} members={members} invitations={invitations} permissions={permissions} userId={session.user.id} view={settingsView} onViewChange={setSettingsView} busy={busy} run={run} active={!guiding && tab === 'settings'} locationError={managementLocationError} /></div>}
       {tab === "ai" && can('use_ai') && (

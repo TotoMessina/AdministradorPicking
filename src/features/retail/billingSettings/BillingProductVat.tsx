@@ -50,8 +50,19 @@ export function BillingProductVat({ state }: { state: BillingSettingsState }) {
     return (rows || []).filter(r => r.name.toLowerCase().includes(text) || (r.code || '').includes(text)).slice(0, 12);
   }, [rows, search]);
 
-  // Monotributo emite Factura C: no discrimina IVA.
-  if (store.condicion_iva !== 'RI') return null;
+  // Monotributo emite Factura C: no discrimina IVA. Se explica en lugar de esconder la sección.
+  if (store.condicion_iva !== 'RI') {
+    return (
+      <div className="billing-credentials-box">
+        <h4>IVA de los productos</h4>
+        <p style={{ margin: 0, fontSize: 13, color: 'var(--tone-muted)' }}>
+          {store.condicion_iva === 'MO'
+            ? 'Como Monotributo emitís Factura C, que no discrimina IVA: no hace falta cargar alícuotas. Si el comercio es Responsable Inscripto, cambialo en «Condición frente al IVA» más abajo y guardá: acá vas a poder marcar el IVA de cada producto.'
+            : 'Elegí la condición frente al IVA más abajo y guardá. Si es Responsable Inscripto, acá vas a poder marcar el IVA de cada producto.'}
+        </p>
+      </div>
+    );
+  }
 
   const apply = async (ids: string[], newRate: IvaRate, label: string) => {
     if (!ids.length) return;
